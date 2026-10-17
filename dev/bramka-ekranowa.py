@@ -21,7 +21,9 @@ from __future__ import annotations
 import json
 import os
 import re
+import struct
 import sys
+import zlib
 from pathlib import Path
 
 KORZEN = Path(__file__).resolve().parent.parent
@@ -265,6 +267,13 @@ _usterka("znacznik_dzis", """
     }
 """)
 
+# Pasy tła w szczelinach: zerowy zasięg boczny i zerowa wysokość pasa górnego — dokładnie
+# stan sprzed poprawki Z25, w którym w szczelinie widać krawędź przejeżdżającego bloku.
+_usterka("pasy_szczelin", """
+    const k = document.querySelector('.card--kal-naglowek');
+    if (k) { k.style.setProperty('--przyklej-luka', '0px'); }
+""")
+
 SEL_POPRZEDNI = ".kal-nav a.kal-btn[aria-label^='Poprzedni']"
 SEL_NASTEPNY = ".kal-nav a.kal-btn[aria-label^='Następny']"
 # Dowolny odnośnik okresu w nagłówku kalendarza (strzałka albo przycisk skali).
@@ -272,6 +281,15 @@ SEL_OKRES = ".kal-nav a.kal-btn[href*='miesiac=']"
 # Kratka dnia dzisiejszego w siatce miesiąca i roku oraz w nagłówku osi czasu.
 SEL_DZIS_KRATKA = ".msiatka__kratka--dzis"
 SEL_DZIS_NAGLOWEK = ".team-grid__head--dzis"
+# ⚠ **Przełącznik „czyj kalendarz" — selektor przepięty na dzisiejszy kształt** (tura Z22).
+# Do 11.10.2026 stał w `.page__actions` jako `.segmented__item`; paska akcji na tym ekranie
+# **nie ma wcale** od tamtej pory, a przełącznik jest grupą kwadratów w bloku nagłówka.
+# ⚠ Skutek starego selektora był gorszy niż czerwień: lista wychodziła PUSTA, więc twierdzenie
+# „«Firma» NIE jest w przełączniku" (poziom 0) przechodziło pusto i nie mierzyło niczego,
+# a bliźniacze „«Firma» JEST" (poziom 1) świeciło czerwono. Połowa kryterium udawała zieloną.
+# Selektor bierze `aria-label` grupy, a nie kolejność grup: skale i widoki to dwa `.kal-grupa`
+# obok siebie i rozróżnia je wyłącznie etykieta.
+SEL_WIDOK = '.kal-grupa[aria-label="Czyj kalendarz"] .kal-btn__etykieta'
 
 MOBILNE = ["", "/kalendarz", "/wnioski", "/wniosek/nowy", "/konto", "/zespol", "/ustawienia",
            "/ustawienia/2fa", "/ustawienia/2fa/kody", "/ustawienia/urzadzenia", "/kontekst",
@@ -1207,9 +1225,16 @@ POMIAR_PASKOW = """() => {
   // kontra „szukanie działa"). Kolumnę rozstrzygamy GEOMETRIĄ: szukamy nagłówka dnia, w którego
   // poziomy zakres wpada środek paska. Liczenie po kolejności w DOM nie zadziała, bo komórki
   // z rozpiętością zajmują kilka kolumn.
+  // ⚠ Numer czytamy z `.team-grid__numer` (albo z plakietki `.dzien-dzis` w dniu dzisiejszym),
+  // a NIE z `textContent` całego nagłówka: od 13.10.2026 w nagłówku stoi też skrót dnia tygodnia,
+  // więc całość daje „sob17" i porównanie z napisem paska („17") nie mogło się udać. Kryterium
+  // świeciło czerwono na poprawnym ekranie — to był błąd pomiaru, nie produktu.
   const naglowki = Array.from(document.querySelectorAll('.team-grid__head'))
     .filter(h => !h.classList.contains('team-grid__head--person'))
-    .map(h => ({numer: h.textContent.trim(), r: h.getBoundingClientRect()}));
+    .map(h => {
+      const n = h.querySelector('.team-grid__numer, .dzien-dzis');
+      return {numer: (n || h).textContent.trim(), r: h.getBoundingClientRect()};
+    });
   const numery = Array.from(document.querySelectorAll('.team-grid__bar--jeden')).map(b => {
     const r = b.getBoundingClientRect();
     const srodek = r.left + r.width / 2;
@@ -1489,8 +1514,8 @@ def sprawdz_poziomy_kalendarza(b) -> dict:
             pg.goto(BAZA + "/kalendarz?widok=firma&miesiac=2026-09" + param, wait_until="networkidle")
             if "/kalendarz" not in pg.url:
                 raise RuntimeError("kalendarz oddał przekierowanie na " + pg.url)
-            return pg.evaluate("""() => ({
-              przelacznik: Array.from(document.querySelectorAll('.page__actions .segmented__item'))
+            return pg.evaluate("""(selWidok) => ({
+              przelacznik: Array.from(document.querySelectorAll(selWidok))
                 .map(e => e.textContent.trim()),
               wierszy: document.querySelectorAll('.team-grid__person').length,
               // ⚠ Od 07.10.2026 **musi tu stać ZERO**: siatka miesiąca (`.calendar-grid`)
@@ -1524,7 +1549,7 @@ def sprawdz_poziomy_kalendarza(b) -> dict:
           const r = await fetch('/kalendarz?widok=firma&miesiac=2026-09', {credentials: 'same-origin',
             headers: {'HX-Request': 'true'}});
           return {kod: r.status, tekst: await r.text()};
-        }""")
+        }""", SEL_WIDOK)
         przeciek = [n for n in slownik if n in tresc["tekst"]]
 
         # 3. Granica spółki: podmieniony `?spolka=` nie przenosi do drugiej spółki.
@@ -1540,14 +1565,22 @@ def sprawdz_poziomy_kalendarza(b) -> dict:
 
         return {
             "ok": (
-                # ⚠ Poziom 0 widzi **wyłącznie siebie** — jeden wiersz osi czasu, nie zero.
-                # Do 07.10.2026 było tu `wierszy == 0 and siatka > 0`, bo „Tylko ja" rysowało
-                # własną siatkę miesiąca. Kryterium znaczy to samo co wtedy (bez dostępu
-                # do spółki), ale liczy to na JEDNEJ wizualizacji — i dodatkowo pilnuje,
-                # że stara siatka nie wróciła.
-                "Firma" not in zero["przelacznik"] and zero["wierszy"] == 1
+                # ⚠ **Poziom 0: odmowa POWIEDZIANA, zero wierszy firmy** — przepięte 17.10.2026
+                # (tura Z22). Stało tu `zero["wierszy"] == 1` („widzi wyłącznie siebie"), bo
+                # widok własny rysował oś czasu z jednym wierszem. Od Z11/Z14 „Tylko ja" to
+                # **siatka miesiąca**, więc wierszy osi jest zero — i kryterium świeciło czerwono
+                # na poprawnym ekranie. Twierdzenie zostaje to samo, mierzone tym, co dziś
+                # odróżnia brak dostępu od dostępu: **zdanie** o braku nadanego podglądu
+                # i zero wierszy firmy, a po nadaniu poziomu — wiersze i brak tego zdania.
+                any("Nie masz nadanego podglądu" in z for z in zero["zdania"])
+                and zero["wierszy"] == 0
+                # ⚠ Przełącznika widoku NIE pytamy tutaj wcale: przy jednej dostępnej pozycji
+                # nie renderuje się go z decyzji produktowej (06.10), więc „«Firma» jest
+                # w przełączniku" było twierdzeniem o czymś, czego nie ma. Obecność i liczbę
+                # pozycji przełącznika pilnuje `prawda_kalendarza` — jedna rzecz, jeden właściciel.
                 and zero["siatka_stara"] == 0 and jeden["siatka_stara"] == 0
-                and "Firma" in jeden["przelacznik"] and jeden["wierszy"] > zero["wierszy"]
+                and not any("Nie masz nadanego podglądu" in z for z in jeden["zdania"])
+                and jeden["wierszy"] > zero["wierszy"]
                 and przeciek == [] and tresc["kod"] == 200
                 and set(jeden["paski"]) <= {"urlop", "zwolnienie", "inna nieobecność"}
                 and obca["wierszy"] == jeden["wierszy"]
@@ -1784,8 +1817,18 @@ def sprawdz_zasieg_podgladu(b) -> dict:
             # bo to on decyduje, czy funkcja dla użytkownika istnieje.
             filtr_przed = filtr_kalendarza(ids['spolka'], None)
 
+            # ⚠ **Każdy adres niesie `&spolka=`, czyli firmę mierzonej gałęzi.** Konto pomiarowe
+            # ma dwa etaty, a kontekst firmy jest **stanem sesji**, który zostawia poprzednie
+            # sprawdzenie: `sprawdz_jedna_wizualizacje` przełącza firmę świadomie (to jego
+            # przedmiot pomiaru). Zmierzone 17.10.2026 w pełnym przebiegu: to kryterium
+            # zwracało **0 wierszy**, a to samo w izolacji — **3**. Czerwień pochodziła
+            # z kolejności kryteriów, nie z kodu aplikacji; `?spolka=` jest widokiem
+            # na jedno żądanie, więc sam niczego nie zostawia.
+            OGON_SP = f"&spolka={ids['spolka']}"
+
             def wiersze(param: str) -> list:
-                pg.goto(BAZA + "/kalendarz?widok=zespol" + param, wait_until="networkidle")
+                pg.goto(BAZA + "/kalendarz?widok=zespol" + param + OGON_SP,
+                        wait_until="networkidle")
                 # ⚠ Gdyby żądanie wróciło przekierowaniem (wybór firmy, wygaszona sesja), zero
                 # wierszy znaczyłoby „nie ma czego pokazać", a nie „zakres zadziałał". Pomiar
                 # na innym ekranie niż mierzony to nie pomiar.
@@ -1812,8 +1855,8 @@ def sprawdz_zasieg_podgladu(b) -> dict:
             miary = {}
             for etykieta, szer in (("1920", 1920), ("1440", 1440), ("374", 374)):
                 pg.set_viewport_size({"width": szer, "height": 900})
-                pg.goto(BAZA + "/kalendarz?widok=zespol&osoby=%d,%d,%d" % (ja, dziecko, wnuk),
-                        wait_until="networkidle")
+                pg.goto(BAZA + "/kalendarz?widok=zespol&osoby=%d,%d,%d" % (ja, dziecko, wnuk)
+                        + OGON_SP, wait_until="networkidle")
                 miary[etykieta] = pg.evaluate("""() => {
                   const g = document.querySelector('.team-grid');
                   const o = document.querySelector('.team-scroll');
@@ -1861,7 +1904,7 @@ def sprawdz_zasieg_podgladu(b) -> dict:
             paski: list[str] = []
             if ids.get("miesiac"):
                 pg.goto(BAZA + "/kalendarz?widok=zespol&miesiac=%s&osoby=%d,%d,%d"
-                        % (ids["miesiac"], ja, dziecko, wnuk), wait_until="networkidle")
+                        % (ids["miesiac"], ja, dziecko, wnuk) + OGON_SP, wait_until="networkidle")
                 # ⚠ **Rodzaj czytamy z `aria-label`, nie z napisu na pasku** — od 06.10.2026
                 # na pasku stoi ZAKRES DAT (zlecenie `kontrolki-kalendarza-i-paski` §3),
                 # a nazwa rodzaju przeniosła się do treści dostępnej. Reguła jest bez zmian:
@@ -1871,8 +1914,9 @@ def sprawdz_zasieg_podgladu(b) -> dict:
                     .map(e => (e.getAttribute('aria-label') || '').split(',')[0].trim())
                     .filter(t => t !== '')""")
             ogolne = {"urlop", "zwolnienie", "inna nieobecność", "nieobecność"}
-            przelacznik = pg.evaluate("""() => Array.from(
-                document.querySelectorAll('.page__actions .segmented__item')).map(e => e.textContent.trim())""")
+            przelacznik = pg.evaluate(
+                "() => Array.from(document.querySelectorAll('" + SEL_WIDOK + "'))"
+                ".map(e => e.textContent.trim())")
             szerokosci_ok = all(
                 m is not None and not m["karta_przewija"] and m["kolumna_dnia"] >= 16
                 and m["kolumna_osoby"] >= 120 and not m["nazwa_ucieta"]
@@ -2213,7 +2257,14 @@ def sprawdz_prawde_kalendarza(b) -> dict:
                 and ekran["sub"] is None
                 and _re.search(r"\d+", ekran["przycisk_kontrolki"] or "") is not None
                 and (ekran["spolka_w_karcie"] or "") != ""
-                and zdanie_liczba == ekran["paskow"]
+                # ⚠ **Zdania „N nieobecności" JUŻ NIE MA** (decyzja Krzysztofa, Z8, 17.10.2026),
+                # więc porównanie go z liczbą pasków straciło przedmiot — i przez to kryterium
+                # świeciło czerwono na ekranie, który jest poprawny. Zostają dwa twierdzenia,
+                # które dalej coś znaczą: **zdanie nie wróciło** (liczba stoi raz, na przycisku
+                # kontrolki) i **paski są** — bez tego drugiego pusty ekran przechodziłby
+                # wszystkie warunki o kształcie.
+                and zdanie_liczba is None and (ekran["card_sub"] or "") == ""
+                and ekran["paskow"] > 0
                 and ekran["paski_uciete"] == 0
                 and any("tylko weekendy" in z and "nie ma zatrudnienia" in z for z in ekran["zdania"])
                 and not any("Twojego rozkładu czasu pracy" in z for z in ekran["zdania"])
@@ -4077,6 +4128,149 @@ def nazwy_znacznika_dzis() -> dict:
     return rdzenie
 
 
+def _png_barwy(dane: bytes) -> dict:
+    """Ile razy występuje każda barwa w zrzucie — własny czytnik PNG (8 bitów, typ 2/6).
+
+    ⚠ Dlaczego własny: na maszynie deweloperskiej nie ma Pillow, a dokładanie zależności
+    do `dev/` dla pięćdziesięciu linii dekodera to supply chain bez powodu (CLAUDE.md §0).
+    PNG z Playwrighta jest zawsze 8-bitowy i bez przeplotu, więc obsługujemy dokładnie to.
+    """
+    if dane[:8] != b"\x89PNG\r\n\x1a\n":
+        raise ValueError("to nie PNG")
+    i, idat, ihdr = 8, [], None
+    while i < len(dane):
+        dl = struct.unpack(">I", dane[i:i + 4])[0]
+        typ, tresc = dane[i + 4:i + 8], dane[i + 8:i + 8 + dl]
+        if typ == b"IHDR":
+            ihdr = struct.unpack(">IIBBBBB", tresc)
+        elif typ == b"IDAT":
+            idat.append(tresc)
+        elif typ == b"IEND":
+            break
+        i += 12 + dl
+    w, h, glebia, typ_k, _, _, przeplot = ihdr
+    if glebia != 8 or przeplot != 0 or typ_k not in (2, 6):
+        raise ValueError(f"nieobsługiwany PNG: {ihdr}")
+    kan = 3 if typ_k == 2 else 4
+    sur, szer_b = zlib.decompress(b"".join(idat)), w * kan
+    poprz, p, barwy = bytearray(szer_b), 0, {}
+    for _ in range(h):
+        f = sur[p]
+        p += 1
+        linia = bytearray(sur[p:p + szer_b])
+        p += szer_b
+        for x in range(szer_b):
+            a = linia[x - kan] if x >= kan else 0
+            bb = poprz[x]
+            c = poprz[x - kan] if x >= kan else 0
+            if f == 1:
+                linia[x] = (linia[x] + a) & 255
+            elif f == 2:
+                linia[x] = (linia[x] + bb) & 255
+            elif f == 3:
+                linia[x] = (linia[x] + (a + bb) // 2) & 255
+            elif f == 4:
+                pa, pb, pc = abs(bb - c), abs(a - c), abs(a + bb - 2 * c)
+                pr = a if (pa <= pb and pa <= pc) else (bb if pb <= pc else c)
+                linia[x] = (linia[x] + pr) & 255
+        for x in range(0, szer_b, kan):
+            k = (linia[x], linia[x + 1], linia[x + 2])
+            barwy[k] = barwy.get(k, 0) + 1
+        poprz = linia
+    return barwy
+
+
+def sprawdz_pasy_szczelin(b, usterka: str | None = None) -> dict:
+    """**Szczeliny wokół przyklejonego bloku nagłówka mają WYŁĄCZNIE kolor tła strony** (Z25).
+
+    ⚠ **Kryterium mierzy PIKSELE, nie reguły arkusza, i to jest sedno.** Zgłoszenie brzmiało
+    „w szczelinie widać cienką linię i fragment lewej krawędzi karty, która przejeżdża pod
+    spodem", a pierwszy pomiar — hit-test `elementFromPoint` w trzech punktach pasa — świecił
+    zielono, bo pytał 3 px od krawędzi, a usterką był 1 px ramki i cień przy samej krawędzi.
+    Stąd dwie zasady: pas mierzy się **na całej szerokości kolumny treści** i **barwą piksela**.
+      1. `pas_nad` — między dolną krawędzią belki a górą bloku nagłówka,
+      2. `pas_pod` — między dołem bloku nagłówka a górą następnego bloku.
+
+    ⚠ Krok 8 px przewinięcia w zakresie 0–240 px. Dowód do zlecenia szedł co 4 px, ale usterka
+    powtarza się z okresem wiersza (56 px) i przy zwężonym pasie zapalała się na **59 z 61**
+    położeń w pasie dolnym — do pilnowania wystarczy krok dwa razy większy.
+    ⚠ Dwie szerokości okna, bo wyściółka strony (czyli WYSOKOŚĆ pasa) zmienia się na progu
+    1024 px, a przyklejenie liczy się od niej.
+    """
+    haslo = HASLO or haslo_dev(LOGIN)
+    if not haslo:
+        return {"ok": False, "powod": f"brak hasła konta {LOGIN} — pomiaru NIE wykonano"}
+    TLO = (245, 246, 248)   # --c-bg
+    GEO = """() => {
+      const karta = document.querySelector('.card--kal-naglowek');
+      const page = document.querySelector('.page');
+      const belka = document.querySelector('.topbar');
+      if (!karta || !page || !belka || !karta.nextElementSibling) { return null; }
+      const k = karta.getBoundingClientRect(), p = page.getBoundingClientRect();
+      const bl = belka.getBoundingClientRect(), n = karta.nextElementSibling.getBoundingClientRect();
+      return {x: Math.round(p.left), szer: Math.round(p.width),
+              nad_y: Math.round(bl.bottom), nad_h: Math.round(k.top - bl.bottom),
+              pod_y: Math.round(k.bottom), pod_h: Math.round(n.top - k.bottom),
+              przyklejona: getComputedStyle(karta).position};
+    }"""
+    wynik: dict = {"okna": {}}
+    ctx = None
+    try:
+        for szer, wys in ((1920, 1080), (1366, 768)):
+            ctx = nowy_kontekst(b, usterka, viewport={"width": szer, "height": wys},
+                                ignore_https_errors=True)
+            pg = ctx.new_page()
+            pg.goto(BAZA + "/logowanie", wait_until="networkidle")
+            pg.fill("#login-email", LOGIN)
+            pg.fill("#login-password", haslo)
+            pg.click("button[type=submit]")
+            pg.wait_for_load_state("networkidle")
+            pg.goto(BAZA + "/kalendarz?widok=firma", wait_until="networkidle")
+            g = pg.evaluate(GEO)
+            if g is None:
+                wynik["okna"][f"{szer}x{wys}"] = {"blad": "brak bloku nagłówka kalendarza"}
+                ctx.close()
+                ctx = None
+                continue
+            obce = {"nad": 0, "pod": 0}
+            gdzie: list = []
+            for y in range(0, 241, 8):
+                pg.evaluate("v => window.scrollTo(0, v)", y)
+                pg.wait_for_timeout(30)
+                for nazwa, py, ph in (("nad", g["nad_y"], g["nad_h"]),
+                                      ("pod", g["pod_y"], g["pod_h"])):
+                    if ph <= 0:
+                        continue
+                    png = pg.screenshot(clip={"x": g["x"], "y": py,
+                                              "width": g["szer"], "height": ph})
+                    inne = {k: v for k, v in _png_barwy(png).items() if k != TLO}
+                    if inne:
+                        obce[nazwa] += sum(inne.values())
+                        if len(gdzie) < 5:
+                            gdzie.append({"pas": nazwa, "scroll": y,
+                                          "piksele": sum(inne.values()),
+                                          "barwa": max(inne.items(), key=lambda kv: kv[1])[0]})
+            wynik["okna"][f"{szer}x{wys}"] = {
+                "przyklejona": g["przyklejona"], "pas_nad_h": g["nad_h"], "pas_pod_h": g["pod_h"],
+                "obce_piksele": obce, "przyklady": gdzie}
+            ctx.close()
+            ctx = None
+    except Exception as e:  # noqa: BLE001
+        wynik["ok"] = False
+        wynik["powod"] = str(e)
+        return wynik
+    finally:
+        if ctx is not None:
+            ctx.close()
+    okna = list(wynik["okna"].values())
+    wynik["ok"] = bool(okna) and all(
+        "blad" not in o and o["przyklejona"] == "sticky"
+        and o["pas_nad_h"] > 0 and o["pas_pod_h"] > 0
+        and o["obce_piksele"]["nad"] == 0 and o["obce_piksele"]["pod"] == 0
+        for o in okna)
+    return wynik
+
+
 def sprawdz_znacznik_dzis(b, usterka: str | None = None) -> dict:
     """**Znacznik „dziś": jeden na widok, czytelny i ustępujący rodzajowi** (Z23 + tura Z22).
 
@@ -4258,17 +4452,36 @@ def sprawdz_jedna_wizualizacje(b) -> dict:
     if len(spolki) < 2:
         return {"ok": False, "powod": f"konto {LOGIN3} ma {len(spolki)} spółek — kontrolki "
                                       "wyboru spółki nie da się zmierzyć"}
+    # ⚠ **Komponenty WSPÓLNE, nie jeden komponent** — tak brzmi dzisiejsza postać tego samego
+    # wymagania. Do 13.10.2026 każdy widok rysował oś czasu i kryterium pytało wprost o `.team-grid`.
+    # Po rozstrzygnięciu z 13.10 (§4c systemu wizualnego) „Tylko ja" rysuje SIATKĘ (`.msiatka` —
+    # ten sam komponent, co skala Roku) z wykazem wpisów obok, a Zespół i Firma zostają przy osi
+    # czasu, bo tam wiersz znaczy OSOBĘ. Pytanie zostaje to samo i jest sednem zgłoszenia
+    # Krzysztofa: czy pracownik widzi te same komponenty, co administrator, czy własny, martwy
+    # ekran, do którego nie dochodzi żadna poprawka. Dlatego liczymy **rodzinę wspólną**
+    # (`.msiatka` albo `.team-grid`) i **zero klas zniesionych**.
     STAN = """() => ({
       os_czasu: document.querySelectorAll('.team-grid').length,
-      siatka_stara: document.querySelectorAll('.calendar-grid, .day-cell, .calendar-weekdays').length,
+      siatka: document.querySelectorAll('.msiatka').length,
+      siatka_stara: document.querySelectorAll(
+        '.calendar-grid, .day-cell, .calendar-weekdays, .month-grid, .rok__dzien, .kwartal__kratka').length,
       wierszy: document.querySelectorAll('.team-grid__person').length,
       paskow: document.querySelectorAll('.team-grid__bar').length,
+      wpisow: document.querySelectorAll('.wpisy__poz').length,
+      ma_odnosnik: document.querySelector('.mies__wpisy .card__meta a') !== null,
       lista: document.querySelectorAll('.table--rekordy tbody tr').length,
       lista_pusta: document.querySelectorAll('.table--rekordy tbody .empty-state').length,
+      pusty_stan: document.querySelectorAll('.empty-state').length,
       znacznik: ((document.querySelector('.spolka__nazwa') || {}).textContent || '').trim(),
       tytul: ((document.querySelector('.card__title') || {}).textContent || '').trim()
     })"""
     poziomy: list[tuple[int, int]] = []
+    try:
+        _ids_prac = zatrudnienia_pracownika()
+        _spolka_prac = int(_ids_prac.get("spolka") or 0)
+    except Exception:  # noqa: BLE001
+        _ids_prac, _spolka_prac = {}, 0
+    OGON_PRAC = f"&spolka={_spolka_prac}" if _spolka_prac > 0 else ""
     ctx = None
     try:
         wynik: dict = {}
@@ -4283,8 +4496,15 @@ def sprawdz_jedna_wizualizacje(b) -> dict:
         if "/kontekst" in pg.url:
             pg.locator("button.settings-list__row").first.click()
             pg.wait_for_load_state("networkidle")
+        # ⚠ **Adres niesie `&spolka=`, czyli firmę TEGO etatu, z którym porównujemy bazę**
+        # (ta sama poprawka, co w `sprawdz_skale_czasu` — i ta sama pułapka). Konto pomiarowe
+        # ma dwa etaty, a domyślny kontekst wybiera ten drugi: zmierzone 17.10.2026 w pełnym
+        # przebiegu — ekran stał w firmie z **jedną** nieobecnością w sierpniu, a `wlasna_lista`
+        # porównywała go z etatem 76 w drugiej firmie, gdzie są **dwie**. Kryterium świeciło
+        # czerwono na poprawnym ekranie, czyli mierzyło kontekst, a nie wykaz.
         for widok in ("ja", "zespol", "firma"):
-            pg.goto(BAZA + f"/kalendarz?widok={widok}&miesiac=2026-08", wait_until="networkidle")
+            pg.goto(BAZA + f"/kalendarz?widok={widok}&miesiac=2026-08{OGON_PRAC}",
+                    wait_until="networkidle")
             wynik["pracownik_" + widok] = pg.evaluate(STAN)
         # Przełączenie spółki kontrolką — i sprawdzenie, że kontekst pulpitu ZOSTAJE.
         pg.goto(BAZA + "/", wait_until="networkidle")
@@ -4316,17 +4536,36 @@ def sprawdz_jedna_wizualizacje(b) -> dict:
         pg.goto(BAZA + "/kalendarz?widok=firma&miesiac=2026-08", wait_until="networkidle")
         wynik["admin_firma"] = pg.evaluate(STAN)
 
+        # ⚠ Każdy ekran rysuje DOKŁADNIE JEDNĄ wizualizację z rodziny wspólnej i zero klas
+        # zniesionych. Liczymy oba warunki, nie jeden: sama obecność siatki nie wyklucza, że obok
+        # wróciła druga, stara.
         jedna_wizualizacja = all(
-            w["os_czasu"] == 1 and w["siatka_stara"] == 0 for w in wynik.values()
-        )
+            (w["siatka"] + w["os_czasu"]) >= 1 and w["siatka_stara"] == 0
+            for w in wynik.values()
+        ) and wynik["pracownik_ja"]["siatka"] == 1 and wynik["pracownik_ja"]["os_czasu"] == 0 \
+          and wynik["admin_firma"]["os_czasu"] == 1 and wynik["admin_firma"]["siatka"] == 0
         wlasny = wynik["pracownik_ja"]
-        # ⚠ Lista i paski liczą to samo zjawisko dwiema drogami: wiersz listy to CIĄG
-        # nieobecności, pasek to ciąg na osi. Przy zgodności obie drogi mówią to samo —
-        # a rozjazd znaczy, że jedna z nich pokazuje nieprawdę.
+        # ⚠ Wykaz obok siatki liczy to samo zjawisko, co kratki, drugą drogą: wiersz wykazu to
+        # CIĄG nieobecności z kadr. Od Z14 (17.10.2026) wykaz pokazuje **najwyżej pięć** pozycji
+        # i odnośnik „wszystkie (N)", więc kryterium porównuje z BAZĄ, nie z liczbą kratek:
+        # „tyle, ile jest, ale nie więcej niż pięć — a jeśli więcej, to z odnośnikiem".
+        ciagow = None
+        try:
+            # ⚠ Identyfikator zatrudnienia CZYTAMY Z BAZY (`zatrudnienia_pracownika`), nie
+            # wpisujemy: po pierwszym resecie danych wpisany numer pilnowałby nieistniejącego
+            # zatrudnienia i kryterium świeciłoby zielono bez pomiaru.
+            ciagow = nieobecnosci_pracownika(
+                int(zatrudnienia_pracownika()["ja"]), "2026-08-01", "2026-08-31")
+        except Exception:  # noqa: BLE001
+            ciagow = None
         wlasna_lista = (
-            wlasny["lista"] > 0 and wlasny["lista_pusta"] == 0
-            and wlasny["paskow"] == wlasny["lista"]
-            and wynik["admin_firma"]["lista"] == 0
+            wlasny["wpisow"] > 0 and wlasny["pusty_stan"] == 0
+            and wlasny["wpisow"] <= 5
+            and (ciagow is None or (
+                wlasny["wpisow"] == min(5, ciagow["wpisow"])
+                and (wlasny["ma_odnosnik"] == (ciagow["wpisow"] > 5))))
+            # Na widoku firmy wykazu nie ma — tam wiersz znaczy osobę, nie nieobecność.
+            and wynik["admin_firma"]["wpisow"] == 0
         )
         # ⚠ **Kryterium zawężone 07.10.2026 (wariant C) — i to NIE jest rozluźnienie.**
         # Do wariantu C stało tu `kontekst_po == kontekst_przed`: kontrolka była parametrem
@@ -4353,6 +4592,7 @@ def sprawdz_jedna_wizualizacje(b) -> dict:
             "wlasna_lista": wlasna_lista,
             "znacznik_pracownika": znacznik_pracownika,
             "ekrany": wynik,
+            "ciagow_w_bazie": ciagow,
             "znacznik": {"przed": combo_przed, "po": combo_po, "pozycje": pozycje},
             "kontekst_pulpitu": {"przed": kontekst_przed, "po": kontekst_po},
         }
@@ -5965,9 +6205,41 @@ def powody_nakladki(n: dict) -> list[str]:
     return powody
 
 
+# ⚠ **Rejestr kontroli negatywnych**: nazwa usterki → kryterium, które ma się na niej złamać.
+# Wpis tutaj jest częścią przepięcia kryterium, nie dodatkiem — kryterium bez wpisu nikt nigdy
+# nie złamał i nie wiadomo, czy potrafi zapalić się z właściwego powodu (tura Z22).
+KONTROLE: dict[str, object] = {
+    "znacznik_dzis": sprawdz_znacznik_dzis,
+    "pasy_szczelin": sprawdz_pasy_szczelin,
+}
+
+
+def tryb_kontrola() -> int:
+    """Uruchamia każde kryterium z jego wstrzykniętą usterką i żąda wyniku `ok: False`."""
+    zle = False
+    with sync_playwright() as pw:
+        b = pw.chromium.launch(args=[f"--host-resolver-rules=MAP {HOST} 127.0.0.1"])
+        for nazwa, funkcja in KONTROLE.items():
+            if nazwa not in USTERKI:
+                print(f"KONTROLA {nazwa}: BRAK WSTRZYKIWANEJ USTERKI")
+                zle = True
+                continue
+            wynik = funkcja(b, nazwa)  # type: ignore[operator]
+            zlamane = wynik.get("ok") is False
+            print(f"KONTROLA {nazwa}: {'złamane (dobrze)' if zlamane else 'NIE ZŁAMANE — kryterium jest ozdobą'}")
+            if not zlamane:
+                print(f"  {wynik}")
+                zle = True
+        b.close()
+    print("KONTROLA NEGATYWNA: " + ("CZʌŚĆ KRYTERIÓW NIE DAŁA SIĘ ZŁAMAĆ" if zle else "wszystkie kryteria z rejestru się łamią"))
+    return 1 if zle else 0
+
+
 def main() -> int:
     prog = prog_z_arkusza()
     tryb = sys.argv[1] if len(sys.argv) > 1 else "oba"
+    if tryb == "kontrola":
+        return tryb_kontrola()
     okna = []
     admin = (LOGIN, HASLO)
     # ⚠ Ekrany pracownika chodzą na KONCIE PRACOWNIKA. Administrator tenanta nie ma zatrudnienia,
@@ -6007,6 +6279,7 @@ def main() -> int:
                     "paski_nieobecnosci": None,
                     "skale_czasu": None,
                     "znacznik_dzis": None,
+                    "pasy_szczelin": None,
                     "slowo_spolka": [],
                     "tytul_ekranu": [],
                     "jedna_wizualizacja": None,
@@ -6111,6 +6384,7 @@ def main() -> int:
         raport["paski_nieobecnosci"] = sprawdz_paski_nieobecnosci(b)
         raport["skale_czasu"] = sprawdz_skale_czasu(b)
         raport["znacznik_dzis"] = sprawdz_znacznik_dzis(b)
+        raport["pasy_szczelin"] = sprawdz_pasy_szczelin(b)
         raport["jedna_wizualizacja"] = sprawdz_jedna_wizualizacje(b)
         raport["kontekst_spolki"] = sprawdz_kontekst_spolki(b)
         raport["dziennik_i_zdania"] = sprawdz_dziennik_i_zdania(b)
@@ -6303,6 +6577,15 @@ def main() -> int:
         print("  z etatem plus nadanym podglądem, bo jedno konto nie pokazuje obu kształtów).")
         print("  ⚠ Sam napis w znaczniku niczego nie dowodzi: ekran czytający spółkę po staremu")
         print("  pokazuje jedno w belce, a drugie na liście — i wygląda bez zarzutu.")
+    if raport["pasy_szczelin"] is not None and not raport["pasy_szczelin"]["ok"]:
+        zle = True
+        print("SZCZELINY WOK\u00d3\u0141 PRZYKLEJONEGO NAG\u0141\u00d3WKA KALENDARZA \u2014 PRZE\u015aWITUJ\u0104:")
+        print(f"  {raport['pasy_szczelin']}")
+        print("  \u26a0 Pas mi\u0119dzy belk\u0105 a blokiem nag\u0142\u00f3wka i pas mi\u0119dzy blokiem a siatk\u0105 maj\u0105 mie\u0107")
+        print("  WY\u0141\u0104CZNIE kolor t\u0142a strony \u2014 pod przyklejonym blokiem przewijaj\u0105 si\u0119 wiersze")
+        print("  i w ka\u017cdej nieprzykrytej szparze wida\u0107 ich kraw\u0119dzie (Z25).")
+        print("  \u26a0 Mierzone BARW\u0104 PIKSELA na pe\u0142nej szeroko\u015bci kolumny tre\u015bci: hit-test w \u015brodku")
+        print("  pasa przepuszcza\u0142 1 px ramki przy samej kraw\u0119dzi, czyli dok\u0142adnie t\u0119 usterk\u0119.")
     if raport["znacznik_dzis"] is not None and not raport["znacznik_dzis"]["ok"]:
         zle = True
         print("ZNACZNIK „DZIŚ” ALBO KSZTAŁT KRATKI DNIA — NIE TRZYMA:")

@@ -15,11 +15,17 @@
     zdanie w samym fragmencie nie dotarłoby do połowy ekranów.
     ⚠ Nie jest to błąd i nie wygląda jak błąd: adres bywa po prostu stary. 404 na poprawnym
     koncie wyglądałby jak awaria systemu i wygenerowałby zgłoszenie, zamiast je zamknąć. -#}
-{% if widok_odmowa is not null %}
+{#- ⚠ **Komunikat o braku zatrudnienia ZNIKĄŁ 17.10.2026** (zlecenie Z24 punkt 2, decyzja
+    Krzysztofa). Konto bez zatrudnienia i bez nadanego podglądu widzi już zdanie w karcie
+    poniżej (`spolka is null`), a konto z nadanym podglądem — kalendarz firmy; zdanie o zespole
+    było więc drugim komunikatem o tym samym stanie, na górze ekranu, nad właściwą treścią.
+    ⚠ Warunek sprawdza WARTOŚĆ, a nie tylko „jest czy nie ma": `widok_odmowa` dalej przyjmuje
+    `brak_zatrudnienia` w modelu (mierzy to bramka i czyta to dziennik zdarzeń), tylko ekran
+    o tym milczy. ⚠ Pojemnik nie może powstać pusty — `<p class="notice">` bez treści to pasek
+    wyściółki nad kartą, więc wyklucza się cały akapit, nie samo zdanie. -#}
+{% if widok_odmowa is not null and widok_odmowa != 'brak_zatrudnienia' %}
     <p class="notice" role="status">
-        {%- if widok_odmowa == 'brak_zatrudnienia' -%}
-            To konto nie ma zatrudnienia, więc nie ma zespołu do pokazania. Widok „Zespół” należy do pracownika, pod którym ktoś stoi w hierarchii.
-        {%- elseif widok_odmowa == 'brak_podwladnych' -%}
+        {%- if widok_odmowa == 'brak_podwladnych' -%}
             Nie masz podwładnych, więc pokazuję Twój kalendarz. Widok „Zespół” pojawia się u osób, pod którymi ktoś jest w hierarchii.
         {%- else -%}
             Nie masz nadanego podglądu kalendarza firmy, więc pokazuję Twój kalendarz. Taki podgląd nadaje administrator tenanta.
@@ -62,7 +68,7 @@
             trzydzieści pustych wierszy, żeby znaleźć jedyną nieobecność w 29. wierszu. Decyzja
             Krzysztofa jest nowsza; `zespol.nieobecnosci` i `osob_z_nieobecnoscia` zostają
             w modelu, bo mierzy je bramka, ale na ekranie ich nie ma. -#}
-        <section class="card card--panel">
+        <section class="card card--panel card--kal-naglowek">
             {% include 'partials/naglowek-kalendarza.twig' %}
             {#- ⚠ **Kontrolka wyboru osób wyszła do nagłówka** (drugi wiersz, za strzałkami —
                 zlecenie Z8); tutaj zostaje komunikat o LIMICIE WYŚWIETLANIA.
@@ -169,7 +175,7 @@
             Zespół, Firma): dwa układy zależne od skali to ta sama niespójność, którą rozpad
             na bloki miał usunąć. -#}
         {#- ⚠ Nazwy okresu („Rok 2026") w tym zdaniu NIE MA — stoi raz, w tytule nad nim. -#}
-        <section class="card">
+        <section class="card card--kal-naglowek">
             {% include 'partials/naglowek-kalendarza.twig' %}
         </section>
         {#- ⚠ `card--os` także tutaj: dwanaście pudełek nie przewija się samo, ale zakaz
@@ -212,7 +218,7 @@
             ⚠ Ten sam blok w tej samej kolejności w KAŻDEJ gałęzi ekranu (Miesiąc, Rok, Lista,
             Zespół, Firma): dwa układy zależne od skali to ta sama niespójność, którą rozpad
             na bloki miał usunąć. -#}
-        <section class="card">
+        <section class="card card--kal-naglowek">
             {% include 'partials/naglowek-kalendarza.twig' %}
         </section>
         {#- ⚠ Blok z tabelą **obcina treść** (zwyczajna `.card`, bez `card--os`): tabela dochodzi
@@ -253,7 +259,7 @@
         ⚠ Ten sam blok w tej samej kolejności w KAŻDEJ gałęzi ekranu (Miesiąc, Rok, Lista,
         Zespół, Firma): dwa układy zależne od skali to ta sama niespójność, którą rozpad
         na bloki miał usunąć. -#}
-    <section class="card">
+    <section class="card card--kal-naglowek">
         {% include 'partials/naglowek-kalendarza.twig' %}
     </section>
     {#- ⚠ **Zwyczajna `.card`, BEZ `card--os`.** Wyjątek `card--os` (brak `overflow: hidden`)

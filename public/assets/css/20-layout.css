@@ -8,7 +8,23 @@
    powłoka osobna".
    ⚠ `dvh` po `vh`, tą samą parą co `.app` niżej: `vh` liczy pasek adresu przeglądarki, więc
    bez drugiej linii kadr jest za wysoki dokładnie o ten pasek. */
+/* ⚠ **Gdzie zatrzymuje się przyklejony pas treści** — dwie zmienne, bo odpowiedź zna
+   wyłącznie powłoka: `--przyklej-luka` to pusty pas między belką a pierwszym blokiem strony
+   (czyli `padding-block` z `.page`), a `--przyklej-pod-belka` to jego dolna krawędź, w której
+   blok nagłówka kalendarza ma się zatrzymywać przy przewijaniu (zlecenie Z24, 17.10.2026).
+   ⚠ **`top` równy NATURALNEJ pozycji bloku jest wyborem Krzysztofa, nie wygodą zapisu:**
+   przy `top: var(--topbar-h)` blok najpierw podjechałby o te 32 px i dopiero stanął — czyli
+   pierwszy ruch suwakiem ruszyłby nagłówkiem, który ma stać nieruchomo. Zmierzone: belka
+   kończy się na 64 px (razem z własną kreską, bo `box-sizing: border-box`), a pierwszy blok
+   stoi na 96 px na każdej z badanych szerokości okna.
+   ⚠ **Powłoka mobilna tych zmiennych NIE DEFINIUJE i to jest decyzja, nie przeoczenie**
+   (`20-layout-mobile.css` jest ładowany zamiast tego pliku): blok nagłówka kalendarza ma
+   na telefonie 2/3 wysokości ekranu, więc przyklejony zabrałby widok danych. Komponent
+   pyta o `var(--przyklej-pod-belka, auto)` — brak zmiennej znaczy „nie przyklejaj",
+   a nie „przyklej w złym miejscu". */
 :root {
+  --przyklej-luka: var(--s-6);
+  --przyklej-pod-belka: calc(var(--topbar-h) + var(--przyklej-luka));
   --kadr-h: calc(100vh - var(--topbar-h) - var(--s-5));
   --kadr-h: calc(100dvh - var(--topbar-h) - var(--s-5));
 }
@@ -394,6 +410,9 @@
 .toolbar__result { font-size: var(--t-small); color: var(--c-text-3); }
 
 @media (max-width: 1024px) {
+  /* ⚠ Razem z `padding` strony zmienia się luka pod belką — inaczej przyklejony blok
+     nagłówka zatrzymałby się 16 px niżej, niż stoi, i podjechałby przy pierwszym ruchu. */
+  :root { --przyklej-luka: var(--s-4); }
   .app { grid-template-columns: minmax(0, 1fr); }
   .sidebar { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--c-line); }
   .page { padding: var(--s-4); }

@@ -19,6 +19,11 @@
     Bez niego kontrolka dalej działa (panel ma zapas wysokości w CSS, a oba działania
     to przyciski wysyłające formularz) — JavaScript dociąga wysokość do okna i przelicza licznik. -#}
 {% if kalendarz ?? false %}<script src="{{ asset('js/modules/kalendarz-wybor.js') }}" defer></script>{% endif %}
+{#- ⚠ Jedna zmierzona liczba dla przyklejonego wiersza dni (zlecenie Z24): wysokości bloku
+    nagłówka arkusz nie zna, bo legenda i przełączniki się zawijają. Bez tego pliku ekran działa
+    w całości — blok nagłówka przykleja się samym CSS-em, a wiersz dni po prostu nie. Ten sam
+    warunek co wyżej, bo to ten sam ekran. -#}
+{% if kalendarz ?? false %}<script src="{{ asset('js/modules/kalendarz-przyklej.js') }}" defer></script>{% endif %}
 {#- ⚠ Ekran grup: jedyne zadanie to zdjęcie paska „Cofnij" po kilku sekundach. Bez tego pliku
     ekran działa w całości — dodawanie i wypisywanie to formularze, a pasek zostaje widoczny
     do następnej czynności. -#}

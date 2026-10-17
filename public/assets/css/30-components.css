@@ -1461,7 +1461,87 @@ body:has(dialog.modal[open]) { overflow: hidden; }
    a `position: sticky` odnosi się do najbliższego takiego przodka — przyklejony nagłówek dni
    zjechał wtedy pod pierwsze nazwisko. Cena: prostokątna siatka dochodzi do zaokrąglonego
    narożnika bloku. Przyklejony nagłówek jest ważniejszy niż 8 px promienia. */
-.bloki { display: flex; flex-direction: column; gap: var(--s-4); }
+/* ⚠ Odstęp między blokami w ZMIENNEJ, bo tę samą liczbę musi znać pas tła pod przyklejonym
+   blokiem nagłówka (`.card--kal-naglowek::after`): zakrywa dokładnie tę szczelinę, przez którą
+   inaczej prześwitują przewijane wiersze. Dwie niezależne liczby rozjechałyby się przy pierwszej
+   zmianie odstępu i objawiłoby się to kreską w szczelinie, nie błędem. */
+.bloki { --bloki-luka: var(--s-4); display: flex; flex-direction: column; gap: var(--bloki-luka); }
+
+/* ⚠ **Blok nagłówka kalendarza zostaje na ekranie przy przewijaniu strony** (zlecenie Z24,
+   17.10.2026, po drugim prototypie — wybór Krzysztofa między „suwak w pudełku" i „przewija się
+   strona z przyklejonym nagłówkiem").
+
+   ⚠ **`top` jest NATURALNĄ pozycją bloku** (`--przyklej-pod-belka` = belka + luka strony,
+   zmierzone 64 + 32 = 96 px), a nie wysokością belki. Przy `top: var(--topbar-h)` blok
+   podjechałby o te 32 px i dopiero stanął — pierwszy ruch suwakiem ruszyłby rzeczą, która ma
+   stać nieruchomo.
+
+   ⚠ **Dwa pasy tła strony, nad kartą i pod nią, są WARUNKIEM, nie ozdobą.** Przewijane wiersze
+   siatki przechodzą pod przyklejonym blokiem, a nad nim i pod nim są szczeliny (luka strony
+   i odstęp między blokami) — bez zakrycia widać w nich jadącą treść. W prototypie robił to
+   `box-shadow: 0 -32px 0, 0 16px 0` i zostawała **cienka kreska pod belką**: cień ma promień
+   karty, więc w narożnikach pasa zostają niezakryte ścięcia, a sam pas był liczony od krawędzi
+   pudełka, nie od krawędzi ramki. Pseudoelementy są prostokątne i liczone z tokenami.
+   ⚠ **Dlaczego `+ var(--kal-ramka)` w obu przesunięciach:** blokiem zawierającym dla potomka
+   `absolute` jest **pudełko wyściółki**, czyli krawędź już ZA ramką karty. Bez tej jednej
+   wartości pas nad kartą zamalowałby jej własną górną kreskę, a pas pod kartą zacząłby się
+   o 1 px za wysoko i zostawiłby 1 px prześwitu na dole — dokładnie tę kreskę, która była
+   w prototypie.
+   ⚠ Pas pod kartą ma **dokładnie odstęp bloków** i kończy się na górnej krawędzi bloku
+   z siatką — tam zaczyna się przyklejony wiersz dni (`--kal-dol-naglowka` jest liczone
+   do tej samej krawędzi). Pierwsza wersja dokładała do pasa dwie krawędzie po 1 px, żeby
+   zakryć wszystko do naturalnej pozycji wiersza, i skutek był widoczny od razu: **blok siatki
+   tracił własną górną kreskę** na każdym położeniu suwaka. Teraz wiersz dni przykleja się
+   o te 2 px wyżej niż stoi w spoczynku — czyli zakrywa te krawędzie dopiero wtedy, kiedy
+   i tak jadą pod nim przewijane wiersze.
+
+   ⚠ `overflow: visible` jest konieczne, bo `.card` obcina treść dla zaokrąglonych narożników,
+   a pasy tła muszą wyjść za kartę. W gałęzi „Zespół"/„Firma" ta karta ma i tak `card--panel`
+   (panel kontrolki wyboru osób też musi wyjść) — czyli nic nowego się nie dzieje.
+   ⚠ **Ta reguła stoi PO `.card--panel`** (wiersz ~66) i to nie jest przypadek: obie klasy
+   siedzą na jednym elemencie, mają tę samą szczegółowość, a `position` musi wyjść `sticky`,
+   nie `relative`. Przeniesienie tej reguły wyżej w pliku odkleiłoby nagłówek na dwóch ekranach.
+   ⚠ `z-index: 4` — ta sama warstwa, co `.card--panel`: nad siatką (2 i 3), pod paskiem
+   komunikatów (9) i pod belką (10).
+
+   ⚠ Bez `--przyklej-pod-belka` (powłoka mobilna go nie definiuje) `top` wychodzi `auto`
+   i karta po prostu stoi w miejscu — na telefonie przewija się cała strona i to jest zamierzone
+   (zmierzone: blok nagłówka ma tam **380 px przy ekranie 812 px**, czyli przyklejony zabrałby
+   połowę widoku danych). Pas nad kartą ma wtedy zerową wysokość (`--przyklej-luka` nie
+   istnieje), a pas pod kartą zostaje — zamalowuje tłem strony odstęp między blokami, czyli
+   maluje tło na tle, i jedzie razem z kartą. Nie widać go i nie ma czego wyłączać. */
+.card--kal-naglowek {
+  /* Grubość ramki `.card` — jedna wartość w jednym miejscu, używana dwa razy niżej. */
+  --kal-ramka: 1px;
+  position: sticky;
+  top: var(--przyklej-pod-belka, auto);
+  z-index: 4;
+  overflow: visible;
+}
+/* ⚠ **Pas sięga POZA kartę, aż do krawędzi kolumny treści** (poprawka Z25, 17.10.2026).
+   `left: 0` to krawędź pudełka wyściółki, czyli **już za ramką karty** — zgłoszenie brzmiało
+   „w szczelinie widać cienką linię i fragment lewej krawędzi karty siatki", i to było dokładnie
+   to: 1 px ramki bloku przejeżdżającego pod spodem z każdej strony plus jego cień
+   (`--shadow-card` ma 2 px rozmycia). Pierwszy skan szczelin tego nie złapał, bo mierzył
+   punkty 3 px od krawędzi — stąd reguła: **pas mierzy się na całej szerokości, nie w środku**.
+   Zasięg `--przyklej-luka` to wyściółka strony (32 px, na węższym oknie 16 px), czyli pas kończy
+   się dokładnie na krawędzi kolumny treści; dalej jest już samo tło strony. */
+.card--kal-naglowek::before,
+.card--kal-naglowek::after {
+  content: '';
+  position: absolute;
+  left: calc(-1 * var(--przyklej-luka, 0px));
+  right: calc(-1 * var(--przyklej-luka, 0px));
+  background: var(--c-bg);
+}
+.card--kal-naglowek::before {
+  top: calc(-1 * (var(--przyklej-luka, 0px) + var(--kal-ramka)));
+  height: var(--przyklej-luka, 0px);
+}
+.card--kal-naglowek::after {
+  top: calc(100% + var(--kal-ramka));
+  height: var(--bloki-luka);
+}
 
 /* ⚠ **Wiersz nawigacji stoi W BLOKU, nie nad kartą.** `.page__actions` z tego ekranu zniknęło:
    strzałki miesiąca i oba przełączniki dotyczą tego, co jest w karcie, a stały poza nią.
@@ -1597,9 +1677,17 @@ body:has(dialog.modal[open]) { overflow: hidden; }
    jedna kolumna nie zmieści się na 374 px przy żadnej typografii — więc przy wąskim ekranie
    siatka jedzie w bok, a nie kruszy treść do nieczytelności. Bramka mierzy za to szerokość
    kolumny dnia i kolumny osoby. */
-/* ⚠ **Opakowanie siatki przewija się ZAWSZE i w obu osiach — to jest układ arkusza**
-   (zlecenie `2026-10-11-waskie-ekrany-i-dni-tygodnia.md` §1): zamrożony pierwszy wiersz
-   (nagłówek dni) i zamrożona pierwsza kolumna (nazwiska).
+/* ⚠ **Do 17.10.2026 opakowanie siatki przewijało się ZAWSZE i w obu osiach.** Od zlecenia Z24
+   jest inaczej: w pionie przewija się **strona**, a własny pasek pudełko dostaje wyłącznie wtedy,
+   kiedy siatka nie mieści się w bloku (próg pod komentarzem). Powodem jest wybór Krzysztofa
+   po dwóch prototypach: pudełko dociągnięte do dołu okna ma własny suwak obok suwaka strony
+   i dolne wiersze dojezdża się dwoma różnymi gestami. Zamiast tego na ekranie zostają dwa
+   przyklejone pasy: blok nagłówka (`.card--kal-naglowek`) i wiersz dni.
+   ⚠ Cała historia poniżej zostaje, bo jej pomiary są dalej prawdziwe — opisują, czego NIE WOLNO
+   zrobić, i obowiązują w całości pod progiem, gdzie pudełko znowu jest kontenerem przewijania.
+
+   ⚠ **Układ arkusza** (zlecenie `2026-10-11-waskie-ekrany-i-dni-tygodnia.md` §1): zamrożony
+   pierwszy wiersz (nagłówek dni) i zamrożona pierwsza kolumna (nazwiska).
 
    ⚠ **Co było źle do 11.10.2026 i dlaczego nie dało się tego mieć „tylko czasem":**
    stało tu `@media (max-width: 1320px) { .team-scroll { overflow-x: auto } }`, z komentarzem,
@@ -1635,14 +1723,55 @@ body:has(dialog.modal[open]) { overflow: hidden; }
    Pełną widoczność daje przedział przewinięcia strony, który przy oknie 900 ma 24 px
    (246–270) — wąski, bo opakowanie jest tak wysokie, jak się da.
    ⚠ `overscroll-behavior-x: contain` **nie jest ozdobą**: bez niego przewinięcie siatki do końca
-   przechodzi na stronę i na gładziku potrafi cofnąć przeglądarkę. */
+   przechodzi na stronę i na gładziku potrafi cofnąć przeglądarkę.
+
+   ⚠ **Warunek, bez którego cały Z24 nie działa: nikt nad wierszem dni nie może być kontenerem
+   przewijania.** To ta sama reguła, co dwa akapity wyżej, tylko użyta w drugą stronę — **także
+   `overflow-x: auto` czyni opakowanie kontenerem przewijania**, a wtedy `position: sticky`
+   wiersza dni odnosi się do opakowania, nie do okna, i przyklejenie do strony przestaje
+   istnieć (bez błędu i bez śladu w stylu obliczonym poza `top`). Dlatego pasek poziomy pojawia
+   się **tylko pod progiem** — i pod tym samym progiem wraca całe stare zachowanie: pudełko
+   przewijane w obu osiach, `max-height` z kadru powłoki i nagłówek dni przyklejony do pudełka.
+   ⚠ **Próg to 1006 px SZEROKOŚCI BLOKU** (`@container karta`), nie okna, i jest wyliczony,
+   nie wzięty z oka: `min-width` siatki to kolumna nazwisk plus 31 dni po 26 px, czyli
+   200 + 806 = **1006 px** w najszerszym przypadku. Zmierzone na `?widok=firma`: blok 1558 px
+   (okno 1920) i 1052 px (okno 1366) mieszczą miesiąc bez przewijania, a blok 786 px (okno 1100)
+   daje `scrollWidth` 947 przy `clientWidth` 786.
+   ⚠ **Jeden próg dla wszystkich miesięcy**, choć luty (200 + 728 = 928 px) i miesiąc
+   przy zwężonej kolumnie nazwisk (140 + 806 = 946 px) zmieściłyby się jeszcze w bloku 950 px.
+   Celowo: ten sam ekran nie może zamrażać nagłówka w lutym i nie zamrażać go w marcu, a różnica
+   dotyczy pasa 60 px szerokości bloku.
+   ⚠ Na szerokim ekranie poziomego przewijania nie ma wcale — i to jest odpowiedź na pytanie
+   „po co w ogóle próg": przy bloku 1558 px pudełko z `overflow` nie przewijałoby niczego,
+   a i tak odbierałoby przyklejenie do strony. */
 .team-scroll {
   max-width: 100%;
-  overflow: auto;
-  max-height: var(--kadr-h);
-  overscroll-behavior-x: contain;
-  scrollbar-width: thin;
-  scrollbar-color: var(--c-line-strong) transparent;
+}
+
+/* Pod progiem: wszystko jak do 17.10.2026 — arkusz we własnym pudełku. */
+@container karta (max-width: 1006px) {
+  .team-scroll {
+    overflow: auto;
+    max-height: var(--kadr-h);
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--c-line-strong) transparent;
+  }
+}
+/* ⚠ Przeglądarka bez zapytań kontenerowych dostaje próg od OKNA i wypada on na **1320 px** —
+   dokładnie tam, gdzie stał stary `@media` zdjęty 11.10.2026, bo blok jest węższy od okna
+   o pasek boczny i wyściółkę strony (248 + 64 + 2 ≈ 314 px, a 1006 + 314 = 1320). Zbieżność
+   nie jest przypadkiem: to ta sama granica mierzona dwoma sposobami. */
+@supports not (container-type: inline-size) {
+  @media (max-width: 1320px) {
+    .team-scroll {
+      overflow: auto;
+      max-height: var(--kadr-h);
+      overscroll-behavior-x: contain;
+      scrollbar-width: thin;
+      scrollbar-color: var(--c-line-strong) transparent;
+    }
+  }
 }
 
 /* Szerokości w tokenach, bo wchodzą w trzy reguły (siatka, minimalna szerokość, przewijanie). */
@@ -1666,11 +1795,19 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   @media (max-width: 900px) { .team-grid { --team-person-w: 140px; } }
 }
 
+/* ⚠ **Siatka nie rysuje już własnej górnej i lewej krawędzi — rysują je KOMÓRKI** (poprawka
+   Z25, 17.10.2026). Powód jest w przyklejeniu: ramka na siatce jedzie razem z nią, więc
+   po przewinięciu przyklejony wiersz dni zostawał **bez górnej krawędzi** — „wisi goly"
+   (zgłoszenie Krzysztofa). Ramka na komórkach nagłówka zostaje z wierszem, bo to ta sama
+   rzecz. W spoczynku wygląd jest **co do piksela ten sam**: krawędź stoi w tym samym miejscu,
+   zmienia się tylko element, który ją rysuje.
+   ⚠ To samo z lewą krawędzią i kolumną nazwisk, i tu jest to **dodatkowo poprawka błędu**:
+   kolumna nazwisk przykleja się w bok, a ramka siatki zostawała na jej pierwotnym miejscu,
+   więc pod progiem szerokości (gdzie pudełko przewija się poziomo) przyklejona kolumna
+   jechała bez własnej krawędzi. */
 .team-grid {
   display: grid;
   grid-template-columns: var(--team-person-w) repeat(var(--team-days), minmax(var(--team-day-w), 1fr));
-  border-top: 1px solid var(--c-line);
-  border-left: 1px solid var(--c-line);
   min-width: calc(var(--team-person-w) + var(--team-days) * var(--team-day-w));
 }
 
@@ -1698,6 +1835,7 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   padding: var(--s-1) 0;
   font-size: var(--t-caption);
   color: var(--c-text-3);
+  border-top: 1px solid var(--c-line);
   border-right: 1px solid var(--c-line);
   border-bottom: 1px solid var(--c-line);
   background: var(--c-surface-mute);
@@ -1733,6 +1871,7 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 @container (max-width: 33px) { .team-grid__dow { display: none; } }
 
 .team-grid__head--person {
+  border-left: 1px solid var(--c-line);
   align-items: flex-start;
   justify-content: center;
   text-align: left;
@@ -1767,9 +1906,45 @@ body:has(dialog.modal[open]) { overflow: hidden; }
        nazwisko — dokładnie usterka, którą naprawia ta tura. Przy `top: 0` nagłówek stoi
        na górnej krawędzi opakowania, a belki nie dotyka, bo opakowanie nigdy pod nią nie wchodzi
        (patrz rachunek `max-height`).
+     • **od 17.10.2026 (Z24) odniesieniem jest znowu STRONA** — opakowanie przestało przewijać
+       w pionie, a poziomo przewija tylko pod progiem szerokości (patrz `.team-scroll`). Wiersz
+       dni ma się zatrzymywać **na górnej krawędzi bloku z siatką**, kiedy ten blok dochodzi
+       do przyklejonego bloku nagłówka: `luka pod belką` plus wysokość bloku nagłówka plus
+       odstęp bloków. W spoczynku wiersz stoi 2 px niżej (ramka bloku i górna krawędź siatki),
+       więc przykleja się po dwóch pikselach przewinięcia — i dopiero wtedy zakrywa te krawędzie,
+       zamiast kasować kreskę bloku na stałe.
    ⚠ Sens tego ciągu: **`top` przyklejenia zależy od tego, KTO jest kontenerem przewijania.**
-   Zmiana `overflow` gdziekolwiek wyżej unieważnia tę liczbę, choć nikt jej nie dotknął. */
-.team-grid__head { position: sticky; top: 0; z-index: 2; }
+   Zmiana `overflow` gdziekolwiek wyżej unieważnia tę liczbę, choć nikt jej nie dotknął.
+
+   ⚠ **Wysokości bloku nagłówka nie da się zapisać w arkuszu** — i to jest jedyne miejsce
+   w tym ekranie, gdzie potrzebny jest JavaScript. Blok nagłówka ma nazwę okresu, legendę,
+   strzałki, kontrolkę wyboru osób i dwa przełączniki; przy węższym oknie legenda i przełączniki
+   się **zawijają**, więc jego wysokość zależy od danych i od łamania wierszy (zmierzone 172 px
+   przy 1920, 1366 i 1100 px okna — ale to pomiar, nie stała). CSS nie ma wyrażenia
+   „wysokość rodzeństwa", więc jedną zmierzoną liczbę podaje `modules/kalendarz-przyklej.js`
+   w `--kal-dol-naglowka`, a resztę liczą tokeny.
+   ⚠ **Bez tego pliku `top` wychodzi `auto`, czyli wiersz dni się nie przykleja — i to jest
+   zamierzony stan zapasowy**, nie usterka: przewijanie strony, nawigacja i dane działają
+   bez zmian, a przyklejony blok nagłówka (czysty CSS) zostaje. Odwrotny wybór — `top: 0`
+   jako wartość zapasowa — byłby GORSZY: wiersz dni przykleiłby się do góry okna, czyli
+   **pod belkę** (`z-index` 2 wobec 10 belki), i zniknąłby z ekranu — dokładnie usterka
+   z 10.10.2026 opisana w pierwszym punkcie wyżej. */
+.team-grid__head { position: sticky; top: var(--kal-dol-naglowka, auto); z-index: 2; }
+
+/* ⚠ **Pod progiem szerokości bloku odniesieniem jest znowu PUDEŁKO** (`.team-scroll` ma tam
+   `overflow: auto` i `max-height`), więc wiersz dni wraca na jego górną krawędź. Te dwie reguły
+   **muszą stać PO regule bazowej**, nie przy progu wyżej w pliku: ta sama szczegółowość,
+   więc rozstrzyga kolejność, a `var(--kal-dol-naglowka)` z bazy wygrałoby z `top: 0`
+   postawionym wcześniej. Tu należy też `/m/`: blok treści telefonu nigdy nie dochodzi
+   do 1006 px, więc powłoka mobilna nie potrzebuje ani jednej własnej reguły. */
+@container karta (max-width: 1006px) {
+  .team-grid__head { top: 0; }
+}
+@supports not (container-type: inline-size) {
+  @media (max-width: 1320px) {
+    .team-grid__head { top: 0; }
+  }
+}
 
 /* Narożnik: przyklejony w obu osiach, więc warstwa wyżej niż jedna i druga krawędź. */
 .team-grid__head--person { left: 0; z-index: 3; }
@@ -1783,6 +1958,7 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   position: sticky;
   left: 0;
   z-index: 1;
+  border-left: 1px solid var(--c-line);
   background: var(--c-surface);
   display: flex;
   flex-direction: column;
@@ -1831,6 +2007,16 @@ body:has(dialog.modal[open]) { overflow: hidden; }
    te dwie liczby nie są tą samą liczbą. */
 .team-grid__head--ostatni,
 .team-grid__cell--ostatnia { border-right: 0; }
+
+/* ⚠ **Przyklejony wiersz dni ma wyglądać jak górna krawędź karty** (Z25): ramka 1 px wyżej,
+   a tutaj promień — ten sam, co w karcie, bo to ta krawędź udaje. W spoczynku zaokrąglenie
+   siedzi 1 px wewnątrz zaokrąglenia bloku, czyli współśrodkowo; po przyklejeniu jest jedynym
+   zaokrągleniem w kadrze, bo górna krawędź bloku odjechała w górę.
+   ⚠ Lewe i prawe boki bloku **zostają widoczne** przy przyklejonym wierszu i to nie wymaga
+   niczego: blok z siatką jest wysoki, więc jego pionowe ramki są rysowane także na wysokości
+   przyklejonego wiersza. Brakowało wyłącznie góry. */
+.team-grid__head--person { border-top-left-radius: var(--radius-card); }
+.team-grid__head--ostatni { border-top-right-radius: var(--radius-card); }
 
 /* ⚠ Dzień wolny w OSI CZASU jest słabszy niż w siatce miesiąca i to jest celowe: tu konkuruje
    z paskiem nieobecności, który niesie treść tego ekranu. Zmierzone przed poprawką: weekend miał

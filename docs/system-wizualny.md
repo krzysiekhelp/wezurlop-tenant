@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.4, 17.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.5, 17.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,49 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.4 → 1.18.5: na kalendarzu przewija się STRONA, a nie pudełko osi czasu**
+> (zlecenia Z24 i Z25, 17.10.2026 — wybór Krzysztofa po dwóch prototypach). Oś czasu miała
+> własny pasek przewijania i własną wysokość liczoną z okna; teraz jest tak wysoka, jak ma
+> wierszy, a w kadrze zostają **dwa przyklejone pasy**.
+> **(1)** **Blok nagłówka kalendarza przykleja się w swojej NATURALNEJ pozycji**
+> (`.card--kal-naglowek`, `top: var(--przyklej-pod-belka)` = belka plus wyściółka strony,
+> zmierzone 64 + 32 = 96 px; przy oknie ≤ 1024 px wyściółka ma 16 px). Nie „pod belką":
+> przy `top: var(--topbar-h)` blok podjechałby o te 32 px i dopiero stanął, czyli pierwszy ruch
+> suwakiem ruszyłby rzeczą, która ma stać nieruchomo. Dotyczy wszystkich skal: Miesiąca, Roku,
+> Listy, Zespołu i Firmy — jeden układ, nie pięć.
+> **(2)** ⚠ **Szczeliny nad blokiem i pod nim muszą być ZAKRYTE tłem strony na pełnej szerokości
+> kolumny treści.** Przewijane wiersze przechodzą pod przyklejonym blokiem i bez zakrycia widać
+> je w szczelinach. Robią to dwa pseudoelementy bloku (`::before` i `::after`), a nie `box-shadow`
+> z prototypu: cień ma promień karty, więc zostawia niezakryte ścięcia w narożnikach.
+> ⚠ Zasięg pasa to `--przyklej-luka` **w obie strony**, bo `left: 0` to krawędź pudełka
+> wyściółki, czyli już za ramką karty — i w tej szparze widać było 1 px ramki bloku
+> przejeżdżającego pod spodem razem z jego cieniem.
+> **Dowód z pomiaru** (Z25): skan pasów szczelin przy przewinięciu 0–240 px co 4 px, przy
+> 1920 × 1080 i 1366 × 768, na Firmie, Roku i Liście — **0 pikseli innych niż tło strony**
+> (6 × 61 × 2 pasów). Kontrola negatywna ze zwężonym pasem: **59 z 61** położeń z obcymi
+> pikselami w pasie dolnym i **12 z 61** w górnym.
+> **(3)** **Przyklejony wiersz dni wygląda jak górna krawędź karty.** Górna i lewa ramka
+> przeszły z `.team-grid` **na komórki** (`.team-grid__head`, `.team-grid__person`), bo ramka
+> na siatce jedzie razem z nią i przyklejony wiersz zostawał bez góry; komórki skrajne dostają
+> `border-top-left/right-radius: var(--radius-card)`. W spoczynku wygląd jest co do piksela ten
+> sam. ⚠ Przy okazji poprawka błędu: pod progiem szerokości przyklejona w bok kolumna nazwisk
+> jechała bez własnej lewej krawędzi.
+> **(4)** ⚠ **Próg 1006 px SZEROKOŚCI BLOKU** (`@container karta`): poniżej wraca cały dotychczasowy
+> arkusz we własnym pudełku (`overflow: auto`, `max-height: var(--kadr-h)`, nagłówek dni na jego
+> górnej krawędzi). Powodem jest reguła, nie wybór: **`overflow-x: auto` też czyni element
+> kontenerem przewijania**, a wtedy `sticky` wiersza dni odnosi się do pudełka, nie do okna.
+> 1006 px to `min-width` siatki w najszerszym przypadku (200 + 31 × 26); od okna wypada to
+> na 1320 px, czyli dokładnie tam, gdzie stał stary próg z 11.10. **Powłoka telefonu nie
+> definiuje zmiennych przyklejenia**, więc `/m/` zostaje przy dotychczasowym układzie — blok
+> nagłówka ma tam 380 px przy ekranie 812 px i przyklejony zabrałby połowę widoku danych.
+> **(5)** Jedyny nowy JavaScript to **jedna zmierzona liczba**
+> (`modules/kalendarz-przyklej.js` → `--kal-dol-naglowka`): wysokości bloku nagłówka arkusz nie
+> zna, bo legenda i przełączniki się zawijają. Bez tego pliku blok nagłówka dalej się przykleja
+> (czysty CSS), a wiersz dni po prostu nie — i to jest zamierzony stan zapasowy.
+> **(6)** Z ekranu znika komunikat **„To konto nie ma zatrudnienia, więc nie ma zespołu
+> do pokazania"** (Z24 punkt 2): to samo konto widzi już zdanie w karcie poniżej, a pusty
+> pojemnik komunikatu nie powstaje wcale.
 
 > **Zmiana 1.18.3 → 1.18.4: znacznik „dziś” to BŁĘKITNE TŁO kratki** — trzeci i ostatni
 > kształt tego znacznika w ciągu jednego dnia (pełna obwódka → przerywana → tło), wybrany przez
@@ -543,7 +586,8 @@ robią reguły zawężone do `.mies__kalendarz`, a nie drugi komponent (§4c).
 ⚠ Wykaz pokazuje **pięć wpisów i odnośnik „wszystkie (N)"** — przycina serwer, nie wysokość
 pudełka (lista ucięta stylem dalej niesie cały HTML dla czytnika ekranu).
 
-*Kalendarz — blok nagłówka (1.18, zlecenie Z8)*
+*Kalendarz — blok nagłówka (1.18, zlecenie Z8; przyklejenie 1.18.5, Z24/Z25)*
+`.card--kal-naglowek` (blok nagłówka przyklejony przy przewijaniu strony, z pasami tła w szczelinach)
 `.kal-nav` `.kal-nav__gora` `.kal-nav__dol` `.kal-nav__lewa` `.kal-nav__prawa`
 `.kal-grupa` `.kal-btn` `.kal-btn--on` `.kal-btn--ikona` `.kal-btn__etykieta`
 `.legend` `.legend__item` `.legend__mark` `.legend__mark--urlop|--zasilek|--kadrowe|--free`
