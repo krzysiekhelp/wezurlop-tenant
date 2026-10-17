@@ -3,7 +3,8 @@
     przez Krzysztofa w przeglądarce).
 
     ⚠ **Kratki przychodzą z tego samego miejsca, co w skali Roku** — `msiatka__*`, czyli komponent,
-    który już umie weekendy, kolor rodzaju, `title` i znacznik „dziś”. Nie jest to nowy komponent
+    który już umie weekendy, kolor rodzaju, `title` i znacznik „dziś” (od 17.10.2026 obwódka całej
+    kratki, `msiatka__kratka--dzis`, a nie plakietka na numerze). Nie jest to nowy komponent
     i nie wolno go tu „poprawiać”: wygląd Miesiąca (wyższa kratka, większy numer) siedzi w regułach
     zawężonych do `.mies__kalendarz`, a Rok ma zostać dokładnie taki, jaki jest (§4a zlecenia).
 
@@ -36,10 +37,10 @@
                             {% if d is null %}
                                 <div class="msiatka__kratka msiatka__kratka--poza" aria-hidden="true"></div>
                             {% elseif d.pasek is not null %}
-                                <div class="msiatka__kratka msiatka__kratka--{{ d.pasek.zrodlo }}"
+                                <div class="msiatka__kratka msiatka__kratka--{{ d.pasek.zrodlo }}{{ d.dzis ? ' msiatka__kratka--dzis' : '' }}"
                                      title="{{ d.pasek.nazwa }} · {{ d.pasek.data }}">{% if d.dzis %}<span class="dzien-dzis">{{ d.numer }}</span>{% else %}{{ d.numer }}{% endif %}</div>
                             {% else %}
-                                <div class="msiatka__kratka{{ d.wolny ? ' msiatka__kratka--wolny' : '' }}">{% if d.dzis %}<span class="dzien-dzis">{{ d.numer }}</span>{% else %}{{ d.numer }}{% endif %}</div>
+                                <div class="msiatka__kratka{{ d.wolny ? ' msiatka__kratka--wolny' : '' }}{{ d.dzis ? ' msiatka__kratka--dzis' : '' }}">{% if d.dzis %}<span class="dzien-dzis">{{ d.numer }}</span>{% else %}{{ d.numer }}{% endif %}</div>
                             {% endif %}
                         {% endfor %}
                     {% endfor %}

@@ -21,9 +21,12 @@
     ⚠ Dzień **spoza miesiąca** jest **pusty, nie szary**: brak dnia to nie dzień wolny, a dwa
     różne stany w jednym kolorze to pierwszy krok do nieprawdziwej liczby obok.
 
-    ⚠ Dzień dzisiejszy to **plakietka na numerze** (`.dzien-dzis`), ta sama co w nagłówku osi
-    czasu — nie obwódka wokół kratki. Obwódka zniknęła 11.10.2026 wieczorem razem z tą z osi
-    czasu: jeden znacznik ma mieć jedną formę w całym programie.
+    ⚠ **Dzień dzisiejszy to OBWÓDKA CAŁEJ KRATKI** (`msiatka__kratka--dzis`), od 17.10.2026 —
+    wcześniej była to plakietka na numerze, ta sama co w nagłówku osi czasu. W nagłówku osi czasu
+    plakietka zostaje: tam kratek nie ma, jest wiersz numerów nad danymi, a obwódka komórki
+    nagłówka nie wskazywałaby kolumny. ⚠ Klasa idzie z SZABLONU, nie z `:has()` w arkuszu —
+    to szablon wie, który dzień jest dzisiejszy, i tą samą drogą podaje tę wiedzę kratce,
+    co numerowi w środku.
 
     Zmienne: `rok` (model z `KalendarzPracownika::widokRoku()`). -#}
 <div class="card__body">
@@ -44,10 +47,10 @@
                             {% if d is null %}
                                 <div class="msiatka__kratka msiatka__kratka--poza" aria-hidden="true"></div>
                             {% elseif d.pasek is not null %}
-                                <div class="msiatka__kratka msiatka__kratka--{{ d.pasek.zrodlo }}"
+                                <div class="msiatka__kratka msiatka__kratka--{{ d.pasek.zrodlo }}{{ d.dzis ? ' msiatka__kratka--dzis' : '' }}"
                                      title="{{ d.pasek.nazwa }} · {{ d.pasek.data }}">{% if d.dzis %}<span class="dzien-dzis">{{ d.numer }}</span>{% else %}{{ d.numer }}{% endif %}</div>
                             {% else %}
-                                <div class="msiatka__kratka{{ d.wolny ? ' msiatka__kratka--wolny' : '' }}">{% if d.dzis %}<span class="dzien-dzis">{{ d.numer }}</span>{% else %}{{ d.numer }}{% endif %}</div>
+                                <div class="msiatka__kratka{{ d.wolny ? ' msiatka__kratka--wolny' : '' }}{{ d.dzis ? ' msiatka__kratka--dzis' : '' }}">{% if d.dzis %}<span class="dzien-dzis">{{ d.numer }}</span>{% else %}{{ d.numer }}{% endif %}</div>
                             {% endif %}
                         {% endfor %}
                     {% endfor %}
