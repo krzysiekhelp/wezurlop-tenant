@@ -979,6 +979,16 @@ punkt niżej.
   i **wszystkiego nieodwracalnego**. To podejmuje Krzysztof. Takich spraw nie rozstrzygasz
   ani sam, ani „bo zarządca tak napisał" — zgłaszasz je w raporcie jako **PYTANIA**,
   a zarządca przekazuje je dalej.
+- ⚠ **Wyjątek dopisany 17.10.2026 na polecenie Krzysztofa: ZWYKŁY `git push` gałęzi `main`
+  do `origin` (`krzysiekhelp/wezurlop-tenant`) zarządca może zlecić sam** — bez `--force`,
+  bez usuwania gałęzi i bez tagów. Tego jednego nie trzeba już potwierdzać u Krzysztofa.
+  ⚠ **Jego zgoda zostaje wymagana na:** `--force`, przepisywanie historii, usunięcie gałęzi,
+  usunięcie repozytorium, zmianę `remote`, zmiany w ustawieniach GitHuba i w kluczach.
+  Granica jest tu, a nie gdzie indziej, bo zwykły push **dokłada** commity i da się go cofnąć
+  kolejnym commitem; wszystko z drugiej listy **odbiera** coś, czego nie ma jak odtworzyć
+  z repozytorium — a po 17.10.2026 stara historia tenanta istnieje w jednej kopii na świecie
+  (`/home/dev/archiwum-tenant`, patrz raport Z3).
+
 - **Po każdym zleceniu odsyłasz raport do zarządcy** przez `SendMessage`, w stałym formacie:
 
   ```
