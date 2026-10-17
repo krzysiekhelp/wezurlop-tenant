@@ -446,7 +446,7 @@ final class InstallController
                         . 'zniknie przy najbliższym przebiegu — stan i gotowe polecenie do wklejenia '
                         . 'znajdziesz w Ustawieniach, w sekcji „Cron".',
                     'manual'      => implode("\n", array_map(
-                        static fn (array $f): string => $f['file'] . ' ← ' . $f['source'],
+                        static fn (array $f): string => $f['file'] . ' (z: ' . $f['source'] . ')',
                         array_values(array_filter($state['deploy_files'] ?? [], static fn (array $f): bool => $f['status'] === DeployFiles::MANUAL)),
                     )),
                 ]];

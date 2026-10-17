@@ -58,15 +58,17 @@ use Wezurlop\Service\Hierarchia;
         Hierarchia::najglebszyPoziom($zepsute, [1]) === Hierarchia::GLEBOKOSC_MAX);
 
     // --- zdanie: jedno brzmienie dla paska zmian i dla dziennika
+    // ⚠ Myślnik, nie strzałka: hostowany podzbiór IBM Plex Sans nie ma U+2192 i w dzienniku
+    // wychodził pusty prostokąt (zmierzone 17.10.2026, zlecenie Z19).
     $check('zdanie o nowym przełożonym',
         Hierarchia::zdanie('Nowak Anna', 'Kowalski Jan', false, null, false)
-        === 'Nowak Anna → przełożony: Kowalski Jan (było: nie ustawiono)');
+        === 'Nowak Anna — przełożony: Kowalski Jan (było: nie ustawiono)');
     $check('zdanie o szczycie',
         Hierarchia::zdanie('Kowalski Jan', null, true, 'Nowak Anna', false)
-        === 'Kowalski Jan → nie podlega nikomu (szczyt hierarchii) (było: Nowak Anna)');
+        === 'Kowalski Jan — nie podlega nikomu (szczyt hierarchii) (było: Nowak Anna)');
     $check('zdanie o zdjęciu ze struktury',
         Hierarchia::zdanie('Mazur Paweł', null, false, null, true)
-        === 'Mazur Paweł → zdjęty ze struktury (nie ustawiono) (było: szczyt hierarchii)');
+        === 'Mazur Paweł — zdjęty ze struktury (nie ustawiono) (było: szczyt hierarchii)');
 
     echo $failures === 0 ? "\nWSZYSTKO PRZESZŁO\n" : "\nBŁĘDÓW: {$failures}\n";
     exit($failures === 0 ? 0 : 1);

@@ -185,7 +185,7 @@
                     {%- endif %}
                     {%- if zaproszenie_w_kolejce %} {% include 'partials/termin-wysylki.twig' with {co: 'Wiadomość'} %}
                     {% elseif zaproszenie_zadanie is not null and zaproszenie_zadanie.status == 'failed' %}
-                        Wysyłki <strong>nie udało się wykonać</strong> — szczegóły w widoku kolejki (Ustawienia → Poczta).
+                        Wysyłki <strong>nie udało się wykonać</strong> — szczegóły w widoku kolejki (Ustawienia, sekcja Poczta).
                     {#- ⚠ „Wiadomość wyszła" tylko przy linku CZYNNYM: przy wygaszonym opisuje
                         wiadomość niosącą link, który już nie działa — czyli dokłada mylącą
                         prawdę do zdania, które właśnie powiedziało, że trzeba wysłać ponownie. -#}

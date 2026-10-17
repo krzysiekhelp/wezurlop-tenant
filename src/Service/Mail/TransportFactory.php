@@ -20,7 +20,7 @@ final class TransportFactory
 {
     public const POWOD_BRAK_KONFIGURACJI =
         'Poczta wychodząca nie jest skonfigurowana (serwer SMTP i adres nadawcy). '
-        . 'Ustaw ją na ekranie Ustawienia → Poczta; do tego czasu wiadomości nie wychodzą.';
+        . 'Ustaw ją na ekranie Ustawienia, w sekcji Poczta; do tego czasu wiadomości nie wychodzą.';
 
     public function __construct(
         private readonly MailSettings $ustawienia,

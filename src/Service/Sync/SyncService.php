@@ -656,7 +656,7 @@ final class SyncService
             throw new ApiError(400, 'ZBIOR_NIEZNANY', 'Nieznany zbiór');
         }
         if (!is_int($body['paczka'] ?? null) || $body['paczka'] < 1 || !is_bool($body['ostatnia'] ?? null)) {
-            throw new ApiError(400, 'ZADANIE_NIEPOPRAWNE', 'Wymagane pola: paczka (liczba ≥ 1) i ostatnia (true/false)');
+            throw new ApiError(400, 'ZADANIE_NIEPOPRAWNE', 'Wymagane pola: paczka (liczba co najmniej 1) i ostatnia (true/false)');
         }
 
         return [$zbior, $body['ostatnia']];

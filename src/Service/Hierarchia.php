@@ -350,7 +350,7 @@ final class Hierarchia
             default             => 'nie ustawiono',
         };
 
-        return $osoba . ' → ' . $co . ' (było: ' . $bylo . ')';
+        return $osoba . ' — ' . $co . ' (było: ' . $bylo . ')';
     }
 
     /**

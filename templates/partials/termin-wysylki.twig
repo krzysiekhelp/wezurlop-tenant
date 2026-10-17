@@ -22,13 +22,13 @@
     {#- ⚠ Przy włączonym drugim wyzwalaczu kolejki pilna poczta wychodzi PO ODPOWIEDZI na zwykłe
         żądanie, więc „nie wyjdzie" byłoby nieprawdą — zmierzone: wiadomość wyszła sekundę po
         komunikacie, który to wykluczał. Reszta kolejki i tak stoi, i to mówimy osobno. #}
-    {%- if termin.zapasowy %}. Pilną pocztę domknie wyzwalacz zapasowy przy najbliższym żądaniu, ale reszta zadań stoi — cron trzeba naprawić (Ustawienia → Cron).
-    {%- else %} — poczta nie wyjdzie, dopóki to nie ruszy (Ustawienia → Cron).
+    {%- if termin.zapasowy %}. Pilną pocztę domknie wyzwalacz zapasowy przy najbliższym żądaniu, ale reszta zadań stoi — cron trzeba naprawić (Ustawienia, sekcja Cron).
+    {%- else %} — poczta nie wyjdzie, dopóki to nie ruszy (Ustawienia, sekcja Cron).
     {%- endif -%}
 {%- elseif termin.stan == 'minuty' -%}
     {{ co }} wyjdzie w ciągu około {{ termin.minuty }} {{ termin.minuty == 1 ? 'minuty' : 'minut' }}.
 {%- elseif termin.stan == 'godzina' -%}
     {{ co }} wyjdzie przy najbliższym przebiegu zadania w tle, około {{ czas_prognoza(termin.najblizszy_utc) }} (cron co {{ termin.minuty }} min).
 {%- else -%}
-    {{ co }} czeka w kolejce. Wyjdzie przy najbliższym przebiegu zadania cyklicznego — jego częstotliwości nie znamy (Ustawienia → Cron).
+    {{ co }} czeka w kolejce. Wyjdzie przy najbliższym przebiegu zadania cyklicznego — jego częstotliwości nie znamy (Ustawienia, sekcja Cron).
 {%- endif -%}

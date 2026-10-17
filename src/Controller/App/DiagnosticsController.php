@@ -22,6 +22,7 @@ use Wezurlop\Repository\HierarchyRepository;
 use Wezurlop\Repository\PermissionRepository;
 use Wezurlop\Repository\EventLogRepository;
 use Wezurlop\Repository\SyncDomainRepository;
+use Wezurlop\Repository\SyncRepository;
 use Wezurlop\Repository\TenantSettingRepository;
 use Wezurlop\Service\Canary;
 use Wezurlop\Service\CronHeartbeat;
@@ -72,6 +73,10 @@ final class DiagnosticsController
         private readonly TransportFactory $transporty,
         private readonly ErrorHandler $errors,
         private readonly UrlGenerator $urls,
+        /** ⚠ Potrzebny do pozycji „Cisza firm”: ta sama droga do danych, co w alercie
+         *  (`JobRunner::checkCompanyIdle()`) — ostatni DOMKNIĘTY przebieg firmy, nie ostatnie
+         *  żądanie. Druga droga znaczyłaby, że ekran i alert mówią o firmie dwie różne rzeczy. */
+        private readonly SyncRepository $sync,
     ) {
     }
 
@@ -168,7 +173,7 @@ final class DiagnosticsController
             $cron['awaria'] ? CheckResult::FAIL : ($cron['potwierdzony'] ? CheckResult::OK : CheckResult::WARN),
             $cron['nigdy'] ? 'nigdy' : $cron['wiek'] . ' min temu',
             $cron['awaria']
-                ? 'CRON NIE PRZEBIEGŁ — poczta nie wychodzi, eskalacje stoją; szczegóły i polecenie do wklejenia: Ustawienia → Cron'
+                ? 'CRON NIE PRZEBIEGŁ — poczta nie wychodzi, eskalacje stoją; szczegóły i polecenie do wklejenia: Ustawienia, sekcja Cron'
                 : ($cron['potwierdzony'] ? '' : 'cron niepotwierdzony — pilne wiadomości wysyłane po zwykłych żądaniach, dopóki nie ruszy'));
         if (ServerProfile::usesHttpCron($profile)) {
             $probe = (new CronHttpProbe($target))->check();
@@ -262,7 +267,7 @@ final class DiagnosticsController
             default => new CheckResult('Poczta', 'Wysyłka', CheckResult::FAIL,
                 'nieskonfigurowana',
                 'zaproszenia i linki do ustawienia hasła nie docierają do nikogo; ustaw serwer SMTP '
-                . 'na ekranie Ustawienia → Poczta'),
+                . 'na ekranie Ustawienia, w sekcji Poczta'),
         };
 
         return [
@@ -273,6 +278,48 @@ final class DiagnosticsController
                 $ostatnia === null ? 'znacznik stawia kolejka po udanej wysyłce — jeśli poczta jest skonfigurowana, wyślij wiadomość próbną' : ''),
             $this->skrzynkaAlertowa(),
         ];
+    }
+
+    /**
+     * Cisza POJEDYNCZEJ firmy przy działającym kluczu — trwała pozycja obok „Ciszy connectora”.
+     *
+     * ⚠ Dwie różne awarie, dwie pozycje: wyżej „connector nie chodzi”, tutaj „connector chodzi,
+     * stoi strumień tej jednej firmy”. Przy jednym kluczu na dwie firmy — a tak stoi u klienta
+     * odniesienia — pierwsza pozycja nie zauważy niczego, bo klucz jest używany przez tę drugą.
+     *
+     * ⚠ Liczone od **ostatniego domkniętego przebiegu**, dokładnie jak alert, i wyłącznie dla firm
+     * klucza, który się odzywa. Ekran i poczta mają mówić to samo.
+     * ⚠ Bez NIP-ów — nazwa firmy wystarczy do rozpoznania, a numer i tak nie ma tu nic do roboty.
+     *
+     * @param array<string, true> $podZywymKluczem
+     */
+    private function ciszaFirm(int $prog, array $podZywymKluczem): CheckResult
+    {
+        $milczace = [];
+        foreach ($this->sync->streams() as $firma) {
+            if (!isset($podZywymKluczem[$firma['nip']])) {
+                continue;
+            }
+            $ostatni = $this->sync->lastClosedRunAt((int) $firma['id']);
+            // Firma bez ani jednego domkniętego przebiegu to nie cisza, tylko połączenie, które się
+            // nie zaczęło — mówi o niej pozycja „Klucz wydany i nieużyty” oraz ekran integracji.
+            if ($ostatni === null) {
+                continue;
+            }
+            $godzin = Cisza::godziny($ostatni);
+            if ($godzin >= $prog && $prog > 0) {
+                $milczace[] = $firma['name'] . ' — ' . $godzin . ' h';
+            }
+        }
+
+        return new CheckResult('Synchronizacja', 'Cisza firm', $milczace === [] ? CheckResult::OK : CheckResult::WARN,
+            $milczace === []
+                ? ($prog === 0 ? 'ostrzeżenie wyłączone (próg 0)' : 'każda firma ma domknięty przebieg w progu ' . $prog . ' h')
+                : implode(', ', $milczace),
+            $milczace === []
+                ? 'liczone od ostatniego DOMKNIĘTEGO przebiegu firmy, próg wspólny z ciszą connectora (key_idle_alert_hours)'
+                : 'connector się odzywa, ale ta firma nie dostała ani jednego domkniętego przebiegu — sprawdź ekran integracji '
+                    . 'tej firmy (zatrzymany rozjazd tożsamości?) i połączenie connectora z JEJ bazą kadrową');
     }
 
     /**
@@ -408,7 +455,7 @@ final class DiagnosticsController
 
         return [new CheckResult(
             'Bezpieczeństwo',
-            'Rozdział ról (administrator ≠ pracownik)',
+            'Rozdział ról — administrator to nie pracownik',
             $naruszenia === [] ? CheckResult::OK : CheckResult::FAIL,
             $naruszenia === []
                 ? 'zachowany'
@@ -469,6 +516,7 @@ final class DiagnosticsController
         $czekajace = [];
         $bezFirm = [];
         $rozjazdy = [];
+        $podZywymKluczem = [];
         foreach ($this->apiKeys->all() as $key) {
             if ($key['status'] !== 'active') {
                 continue;
@@ -490,6 +538,13 @@ final class DiagnosticsController
                 }
             } elseif (Cisza::przekroczona($key['last_used_at'], (string) $key['created_at'], $prog)) {
                 $milczace[] = $key['name'] . ' — ' . Cisza::godziny((string) $key['last_used_at']) . ' h';
+            } else {
+                // Firmy klucza, który się odzywa — tylko o nich mówi pozycja „Cisza firm”, bo tylko
+                // dla nich wyjdzie alert (`JobRunner::checkCompanyIdle()`). Gdyby ekran pokazywał
+                // więcej niż alert, każda taka pozycja rodziłaby pytanie „dlaczego nie przyszła poczta”.
+                foreach ($key['nips'] as $nip) {
+                    $podZywymKluczem[(string) $nip] = true;
+                }
             }
         }
         $results[] = new CheckResult('Synchronizacja', 'Odcisk tożsamości firm jednego klucza',
@@ -518,6 +573,7 @@ final class DiagnosticsController
             $milczace === []
                 ? 'próg w Ustawieniach (key_idle_alert_hours)'
                 : 'sprawdź, czy maszyna z connectorem działa, czy usługa wstała i czy nie zmienił się adres serwera kadrowego');
+        $results[] = $this->ciszaFirm($prog, $podZywymKluczem);
 
         // ⚠ Kalendarz bez `normaUrlopowaMin` znaczy, że minuty na dni dzielimy wartością zapasową 480.
         // U firmy z dniówką 12 h myliłby się KAŻDY wniosek, a bez tej pozycji nikt by się o tym nie dowiedział.
