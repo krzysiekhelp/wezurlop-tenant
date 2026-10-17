@@ -1526,12 +1526,6 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   background: var(--c-line);
 }
 
-/* ⚠ **Legenda stoi NAD SIATKĄ, w jej bloku** (zlecenie 13.10 §1, prototyp: „rzecz stoi przy tym,
-   czego dotyczy"). Wyrównana do PRAWEJ krawędzi siatki, bo jest podpisem, a nie nagłówkiem —
-   po lewej konkurowałaby z nazwiskiem w pierwszej kolumnie. Wyściółka daje jednocześnie górny
-   odstęp bloku z siatką: `os-czasu.twig` ma `card__body--flush`, czyli zero wyściółki, bo siatka
-   dochodzi do krawędzi. */
-.siatka-legenda { display: flex; justify-content: flex-end; padding: var(--s-3) var(--s-5) var(--s-1); }
 
 /* ⚠ **Objaśnienia pod kalendarzem NIE SĄ KARTĄ** (zlecenie 13.10 §3). Do 13.10.2026 stały we
    własnej `.card`, z tą samą ramką i tą samą wagą, co kalendarz nad nimi — a to komentarz,

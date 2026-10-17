@@ -1,0 +1,26 @@
+{#- **Legenda kalendarza — JEDEN plik na cztery widoki** (zlecenie Z7 z 17.10.2026, decyzja
+    Krzysztofa po prototypie).
+
+    ⚠ Powód istnienia tego pliku jest taki sam, jak przy `os-czasu.twig` i `nawigacja-kalendarza.twig`:
+    te same cztery próbki stały w TRZECH kopiach (Rok, Miesiąc, Zespół) i w trzech różnych
+    miejscach ekranu — raz w bloku nagłówka, raz nad siatką, raz pod listą wpisów. Kopie tego
+    samego znaczenia rozjeżdżają się przy pierwszej zmianie: dodanie piątego rodzaju trzeba by
+    pamiętać w trzech plikach, a kolejność próbek i tak już się różniła od miejsca do miejsca.
+
+    ⚠ **Legenda opisuje RODZAJE NIEOBECNOŚCI, a nie konkretną siatkę** — i to jest cała zmiana
+    wobec 13.10, kiedy stała „przy tym, czego dotyczy" (nad siatką, pod listą). Rodzaje są wspólne
+    dla wszystkich skal i widoków, więc legenda stoi tam, gdzie reszta rzeczy wspólnych:
+    w bloku nagłówka, pod tytułem i zdaniem o okresie.
+
+    ⚠ Kolejność próbek jest częścią umowy: urlop · zwolnienie · inna nieobecność · dzień wolny.
+    Trzy pierwsze to rodzaje z kadr w kolejności częstości, czwarta nie jest nieobecnością
+    i dlatego stoi na końcu (i ma inny kształt — patrz `legend__mark--free`).
+
+    ⚠ Tokeny wypełnień są te same, co w kratce siatki i w pasku osi czasu. Gdyby legenda miała
+    własne, opisywałaby kolor, którego na ekranie nie ma. -#}
+<div class="legend">
+    <span class="legend__item"><span class="legend__mark legend__mark--urlop" aria-hidden="true"></span>urlop</span>
+    <span class="legend__item"><span class="legend__mark legend__mark--zasilek" aria-hidden="true"></span>zwolnienie</span>
+    <span class="legend__item"><span class="legend__mark legend__mark--kadrowe" aria-hidden="true"></span>inna nieobecność</span>
+    <span class="legend__item"><span class="legend__mark legend__mark--free" aria-hidden="true"></span>dzień wolny od pracy</span>
+</div>

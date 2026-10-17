@@ -68,8 +68,18 @@
         {% set podtytul %}{% if zespol.nieobecnosci == 0 %}Brak nieobecności w tym miesiącu u {{ zespol.osob_pokazanych }} {{ odmiana_osob_d(zespol.osob_pokazanych) }} na liście.{% else %}{{ zespol.nieobecnosci }} {{ odmiana_nieobecnosci(zespol.nieobecnosci) }} w tym miesiącu u {{ zespol.osob_z_nieobecnoscia }} {{ odmiana_osob_d(zespol.osob_z_nieobecnoscia) }} z {{ zespol.osob_pokazanych }} pokazanych.{% endif %}{% endset %}
         <section class="card card--panel">
             {% include 'partials/nawigacja-kalendarza.twig' with {'podtytul': podtytul} %}
-            {#- ⚠ `card__body--tight` zdejmuje GÓRNĄ wyściółkę, bo wiersz nawigacji ma już własną
-                — z `card__head` zostałoby 48 px między tytułem a kontrolką wyboru osób. -#}
+            {#- ⚠ **Legenda stoi w BLOKU NAGŁÓWKA, w tym samym miejscu we wszystkich czterech
+                widokach** (zlecenie Z7 z 17.10.2026, decyzja Krzysztofa po prototypie). Odwraca to
+                §2 zlecenia z 13.10, które kazało jej stać „przy tym, czego dotyczy" — nad siatką
+                na Zespole i pod listą wpisów w Miesiącu. Nowe rozstrzygnięcie: legenda opisuje
+                **rodzaje nieobecności**, a te są wspólne dla wszystkich skal i widoków, więc stoi
+                tam, gdzie reszta rzeczy wspólnych. Jeden partial, jedno miejsce, zero kopii.
+                `card__body--tight` zdejmuje górną wyściółkę, bo odstęp dał już wiersz nawigacji. -#}
+            <div class="card__body card__body--tight">
+                {% include 'partials/legenda-kalendarza.twig' %}
+            </div>
+            {#- ⚠ `card__body--tight` i tutaj z tego samego powodu: nad kontrolką wyboru osób stoi
+                już legenda z własną wyściółką. -#}
             <div class="card__body card__body--tight">
                 {#- Kontrolka wyboru osób: natywne `<details>`, więc działa bez JavaScriptu.
                     ⚠ Lista zawiera WYŁĄCZNIE osoby, które wolno oglądać — powstaje po stronie
@@ -101,20 +111,6 @@
             </section>
         {% else %}
             <section class="card card--os">
-                {#- ⚠ **Legenda stoi NAD SIATKĄ, w jej bloku** (zlecenie 13.10 §1, prototyp:
-                    „rzecz stoi przy tym, czego dotyczy"). Dwa poprzednie miejsca były gorsze
-                    i oba z pomiaru: w prawym kącie nagłówka cztery próbki konkurowały
-                    z przełącznikami o to samo miejsce i rozpychały wiersz, a w dolnej części
-                    bloku nagłówka opisywały siatkę **z innego pudełka**. Wyrównana do prawej
-                    krawędzi siatki, bo to podpis, a nie nagłówek. -#}
-                <div class="siatka-legenda">
-                    <div class="legend">
-                        <span class="legend__item"><span class="legend__mark legend__mark--urlop" aria-hidden="true"></span>urlop</span>
-                        <span class="legend__item"><span class="legend__mark legend__mark--zasilek" aria-hidden="true"></span>zwolnienie</span>
-                        <span class="legend__item"><span class="legend__mark legend__mark--kadrowe" aria-hidden="true"></span>inna nieobecność</span>
-                        <span class="legend__item"><span class="legend__mark legend__mark--free" aria-hidden="true"></span>dzień wolny od pracy</span>
-                    </div>
-                </div>
                 {% include 'partials/os-czasu.twig' with {'os': zespol} only %}
             </section>
         {% endif %}
@@ -207,12 +203,7 @@
                 kalendarza w wersji rok bo jest dobry". `card__body--tight` zdejmuje górną
                 wyściółkę, bo odstęp dał już wiersz nawigacji. -#}
             <div class="card__body card__body--tight">
-                <div class="legend">
-                    <span class="legend__item"><span class="legend__mark legend__mark--urlop" aria-hidden="true"></span>urlop</span>
-                    <span class="legend__item"><span class="legend__mark legend__mark--zasilek" aria-hidden="true"></span>zwolnienie</span>
-                    <span class="legend__item"><span class="legend__mark legend__mark--kadrowe" aria-hidden="true"></span>inna nieobecność</span>
-                    <span class="legend__item"><span class="legend__mark legend__mark--free" aria-hidden="true"></span>dzień wolny od pracy</span>
-                </div>
+                {% include 'partials/legenda-kalendarza.twig' %}
             </div>
         </section>
         {#- ⚠ `card--os` także tutaj: dwanaście pudełek nie przewija się samo, ale zakaz
@@ -260,6 +251,10 @@
         {% set podtytul %}{% if lista_roku.nieobecnosci == 0 %}Nie masz nieobecności w tym roku.{% else %}{{ lista_roku.nieobecnosci }} {{ odmiana_nieobecnosci(lista_roku.nieobecnosci) }} w tym roku · {{ lista_roku.dni_robocze }} {{ lista_roku.dni_robocze == 1 ? 'dzień roboczy' : 'dni roboczych' }}.{% endif %}{% endset %}
         <section class="card">
             {% include 'partials/nawigacja-kalendarza.twig' with {'podtytul': podtytul} %}
+            {#- ⚠ **Legenda w tym samym miejscu, co w pozostałych trzech widokach** (Z7). -#}
+            <div class="card__body card__body--tight">
+                {% include 'partials/legenda-kalendarza.twig' %}
+            </div>
         </section>
         {#- ⚠ Blok z tabelą **obcina treść** (zwyczajna `.card`, bez `card--os`): tabela dochodzi
             do krawędzi bloku, więc jej narożniki muszą być przycięte promieniem. Wyjątek
@@ -302,11 +297,15 @@
         Zespół, Firma): dwa układy zależne od skali to ta sama niespójność, którą rozpad
         na bloki miał usunąć. -#}
     {% set podtytul %}{% if ja.nieobecnosci == 0 %}Nie masz nieobecności w tym miesiącu.{% else %}{{ ja.nieobecnosci }} {{ odmiana_nieobecnosci(ja.nieobecnosci) }} w tym miesiącu.{% endif %}{% endset %}
-    {#- ⚠ Blok nagłówka to tutaj **sam wiersz nawigacji**: legenda zeszła pod listę wpisów, bo
-        tam stoi rzecz, którą opisuje, a pojemnik na nią zostałby pusty (24 px zmierzone)
-        — patrz §1a zlecenia z 13.10. -#}
     <section class="card">
         {% include 'partials/nawigacja-kalendarza.twig' with {'podtytul': podtytul} %}
+        {#- ⚠ **Legenda wróciła do bloku nagłówka 17.10.2026** (Z7) — cztery dni wcześniej zeszła
+            stąd pod listę wpisów „przy tym, czego dotyczy". Nowe rozstrzygnięcie: opisuje rodzaje
+            nieobecności, wspólne dla wszystkich widoków, więc stoi tam, gdzie rzeczy wspólne.
+            Pojemnik nie jest już pusty, bo legenda jest jego treścią. -#}
+        <div class="card__body card__body--tight">
+            {% include 'partials/legenda-kalendarza.twig' %}
+        </div>
     </section>
     {#- ⚠ **Zwyczajna `.card`, BEZ `card--os`.** Wyjątek `card--os` (brak `overflow: hidden`)
         należy do bloku z OSIĄ CZASU, gdzie nagłówek dni się przykleja i gdzie przycięcie

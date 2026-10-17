@@ -12,6 +12,9 @@
     Usunięta jest **tutaj, w szablonie tego widoku** — nie wycięta z `msiatka`, gdzie jest potrzebna:
     w Roku dwanaście pudełek bez podpisu nie dałoby się rozróżnić.
 
+    ⚠ **Legenda NIE stoi już w tej kolumnie** — od 17.10.2026 (Z7) jest w bloku nagłówka, wspólnie
+    ze wszystkimi widokami: opisuje rodzaje nieobecności, a te są wspólne dla każdej skali.
+
     ⚠ **Lista obok siatki nie jest ozdobą** (§2 zlecenia, punkt o koszcie zmiany). Kratka znaczy
     dzień samym wypełnieniem i nie ma paska z napisem „25–29.05”, który niósł zakres na osi czasu.
     Zakres, liczbę dni roboczych i źródło wpisu niesie więc lista — bez niej ten widok traci dane,
@@ -74,14 +77,6 @@
                     {% endfor %}
                 </ul>
             {% endif %}
-            {#- ⚠ Legenda stoi **pod listą**, czyli przy rzeczy, którą opisuje: kolory kratek
-                nazywa lista obok nich, a nie pasek w nagłówku ekranu. -#}
-            <div class="legend">
-                <span class="legend__item"><span class="legend__mark legend__mark--urlop" aria-hidden="true"></span>urlop</span>
-                <span class="legend__item"><span class="legend__mark legend__mark--zasilek" aria-hidden="true"></span>zwolnienie</span>
-                <span class="legend__item"><span class="legend__mark legend__mark--kadrowe" aria-hidden="true"></span>inna nieobecność</span>
-                <span class="legend__item"><span class="legend__mark legend__mark--free" aria-hidden="true"></span>dzień wolny od pracy</span>
-            </div>
         </div>
     </div>
 </div>
