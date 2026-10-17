@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.2, 17.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.3, 17.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -10,6 +10,22 @@ co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej ju
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
 
+> **Zmiana 1.18.2 → 1.18.3:** znacznik „dziś” to **linia PRZERYWANA wewnątrz kratki**, nie pełna
+> obwódka (decyzja Krzysztofa po porównaniu trzech wariantów na żywo). Pełna obwódka 2 px czytała
+> się jak ZAZNACZENIE albo ramka kontrolki; przerywana mówi „to jest dziś”, a nie „to jest
+> wybrane”. W siatce (Miesiąc i Rok) `outline: 1.5px dashed var(--c-accent)` z `outline-offset:
+> -4px`, w nagłówku osi czasu ten sam rysunek pseudoelementem z `inset: 3px` — bo komórka
+> nagłówka jest `sticky`, a obrys na niej wędrowałby razem z przyklejeniem. Numer bez zmian.
+> ⚠ **Zmierzony prēświt do numeru** (linia nie dotyka plakietki nigdzie): Miesiąc 1920 — 42 px
+> po bokach i 14 px góra–dół, Rok 1920 — 5,4 px, oś czasu — 5,4 i 6,4 px, a najciasniej
+> w powłoce telefonu: **1,7 px** przy kratce 37 px. Gdyby to było za mało, przesunięcie schodzi
+> do -3 px (linia idzie wtedy BLIŻEJ krawędzi, czyli DALEJ od numeru).
+> ⚠ **Kontrast linii** (WCAG 1.4.11, próg 3:1) na wszystkich tłach kratki: zwykła 4,46 · dzień
+> wolny 4,08 · urlop 3,84 · zwolnienie 3,92 · kadrowe 3,79 · biel karty 4,57 — wszędzie z zapasem.
+> ⚠ **Chromium przy DPR 1 renderuje `outline-width: 1.5px` jako 1 px** (wartość obliczona
+> `1px`). Linia jest więc cieńsza, niż mówi arkusz; na ekranach o większej gęstości dostanie
+> pół piksela więcej. Zapis zostaje 1.5 px świadomie — to wartość projektowa, nie złudzenie.
+>
 > **Zmiany 1.18.1 → 1.18.2:**
 > **(1)** **`.kafle` NIE JEST kartą.** Pasek kafli na pulpicie nie ma tła, ramki, cienia ani
 > wyściółki — kafle stoją wprost na tle strony, a krawędzie skrajnych równają się z krawędziami

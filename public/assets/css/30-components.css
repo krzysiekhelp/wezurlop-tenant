@@ -1936,11 +1936,17 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 .team-grid__head--dzis .team-grid__dow,
 .team-grid__head--dzis.team-grid__head--free,
 .team-grid__head--dzis.team-grid__head--free .team-grid__dow { color: var(--c-accent-text); }
+/* ⚠ Ten sam znacznik, co w siatce miesiąca i roku — przerywany, bo „dziś" ma wyglądać wszędzie
+   tak samo (Z21). Tu zostaje pseudoelement zamiast `outline`, bo komórka nagłówka jest
+   `position: sticky` i obrys na niej wędrowałby razem z przyklejeniem.
+   ⚠ `inset: 3px`, nie 4 px jak przesunięcie w siatce: kolumna dnia ma 26 px szerokości, a przy
+   4 px linia dotykała dwucyfrowego numeru (zmierzone). Różnica jednego piksela jest niewidoczna
+   obok siebie, a kolizja była widoczna od razu. */
 .team-grid__head--dzis::after {
   content: "";
   position: absolute;
-  inset: 2px;
-  border: 2px solid var(--c-accent);
+  inset: 3px;
+  border: 1.5px dashed var(--c-accent);
   border-radius: 6px;
   pointer-events: none;
 }
@@ -3127,7 +3133,19 @@ body:has(dialog.modal[open]) { overflow: hidden; }
    na każdym z pięciu teł kratki (biel, szarość dnia wolnego, trzy pastele rodzaju).
    ⚠ Promień NIE jest podawany — kratka ma swój (`--radius` w Roku, `--radius-card` w Miesiącu)
    i cień wewnętrzny bierze go sam. Osobna wartość byłaby drugim miejscem do rozjechania się. */
-.msiatka__kratka--dzis { box-shadow: inset 0 0 0 2px var(--c-accent); }
+/* ⚠ **Znacznik „dziś" to PRZERYWANA linia wewnątrz kratki** (Z21, 17.10.2026, decyzja Krzysztofa
+   po porównaniu trzech wariantów na żywo). Pełna obwódka 2 px czytała się jak ZAZNACZENIE albo
+   jak ramka kontrolki — przerywana mówi „to jest dziś", a nie „to jest wybrane".
+   ⚠ `outline`, nie `box-shadow` i nie `border`: obrys nie wchodzi w układ (nie przesuwa treści
+   kratki, jak zrobiłby `border`) i rysuje się NAD wypełnieniem rodzaju, więc widać go także
+   na pokolorowanym dniu. Ujemny `outline-offset` wciąga linię do środka — bez tego obrys
+   wychodziłby poza kratkę i zderzał się z sąsiadką o 1 px odstępu.
+   ⚠ Kolor `--c-accent`, nie `--c-accent-text`: ten pierwszy ma zmierzony kontrast ≥ 3:1 do
+   wszystkich pięciu teł kratki (zwykłe, dzień wolny, urlop, zwolnienie, kadrowe). */
+.msiatka__kratka--dzis {
+  outline: 1.5px dashed var(--c-accent);
+  outline-offset: -4px;
+}
 
 /* ——— MIESIĄC dla jednej osoby: siatka tygodniowa + lista wpisów obok ————————————
    (zlecenie `2026-10-13-kalendarz-naglowek-i-ksztalt-miesiaca.md` §2, prototyp zatwierdzony
