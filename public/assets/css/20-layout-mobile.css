@@ -1,0 +1,217 @@
+/* Powłoka mobilna (docs/system-wizualny.md §11.2). Odpowiednik 20-layout.css dla telefonu:
+   te same komponenty z 30-components.css, inna powłoka.
+
+   ⚠ Zasada: KOMPONENTY WSPÓLNE, POWŁOKA OSOBNA. Ten plik zawiera wyłącznie belkę górną,
+   obszar treści, dolną nawigację i nieliczne nadpisania komponentów wymuszone szerokością
+   ekranu. Komponent potrzebny tylko na telefonie jest sygnałem, że ekran robi na telefonie
+   co innego niż na komputerze — to decyzja produktowa i zgłaszamy ją, a nie dopisujemy tutaj (§11.5).
+
+   ⚠ Ani jednej wartości `#rrggbb` — wszystko z 00-tokens.css. Stary `layout-mobile.css`
+   (44 linie, zero użyć tokenów) zastępuje ten plik w całości. */
+
+/* ⚠ **Kadr treści telefonu** — ta sama zmienna, co w `20-layout.css`, inna zawartość: tutaj
+   pion zabiera belka górna, dolna nawigacja i pasek gestów. Bez tego siatka osi czasu ze swoim
+   `max-height` schowałaby ostatnie wiersze pod nawigacją, bo nawigacja jest przyklejona. */
+:root {
+  --kadr-h: calc(100vh - var(--m-topbar-h) - var(--m-nav-h) - var(--safe-bottom) - var(--s-4));
+  --kadr-h: calc(100dvh - var(--m-topbar-h) - var(--m-nav-h) - var(--safe-bottom) - var(--s-4));
+}
+
+/* ——— rama ——————————————————————————————————————————————————————————————— */
+
+.app-shell {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  min-height: 100vh;
+  min-height: 100dvh;   /* ⚠ `vh` liczy pasek adresu — bez tego układ skacze przy jego chowaniu */
+  margin-inline: auto;
+  background: var(--c-bg);
+}
+
+/* ——— belka górna ————————————————————————————————————————————————————————
+   ⚠ Tytuł ekranu nosi BELKA, nie karta (§11.2): dziś belka mówi „Moje wnioski” i nagłówek karty
+   mówi to samo na każdym ekranie. Zdublowany nagłówek zjada pierwszy ekran telefonu. */
+
+.m-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  min-height: var(--m-topbar-h);
+  padding: var(--s-2) calc(var(--s-4) + var(--safe-right)) var(--s-2) calc(var(--s-4) + var(--safe-left));
+  padding-top: calc(var(--s-2) + var(--safe-top));
+  /* Tło PEŁNE, nie półprzezroczyste: pod belką przewija się treść, a rozmycie na telefonie
+     kosztuje wydajność i na starszych sprzętach miga. */
+  background: var(--c-surface);
+  border-bottom: 1px solid var(--c-line);
+}
+
+.m-topbar h1 {
+  font-size: var(--t-h2);
+  font-weight: var(--w-semibold);
+  color: var(--c-text);
+  letter-spacing: normal;   /* --ls-tight jest dla h1 na komputerze, tu tytuł jest mniejszy */
+}
+
+.m-topbar p {
+  font-size: var(--t-caption);
+  color: var(--c-text-3);
+}
+
+/* ——— treść ———————————————————————————————————————————————————————————————
+   Dolny odstęp musi zmieścić belkę nawigacji ORAZ bezpieczny obszar — inaczej ostatnia karta
+   chowa się pod nawigacją albo pod paskiem gestów. */
+
+.m-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  padding: var(--s-4) calc(var(--s-4) + var(--safe-right))
+           calc(var(--m-nav-h) + var(--s-5) + var(--safe-bottom)) calc(var(--s-4) + var(--safe-left));
+}
+
+/* ——— dolna nawigacja ————————————————————————————————————————————————————
+   ⚠ Istnieje WYŁĄCZNIE tutaj. W starym systemie siedziała w `layout-mobile.css`, więc wpuszczenie
+   komponentów bez tego pliku zostawiłoby telefon bez nawigacji (§11 — powód, dla którego migracja
+   i powłoka idą jednym krokiem). */
+
+.bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  display: flex;
+  margin-inline: auto;
+  max-width: 520px;
+  min-height: var(--m-nav-h);
+  padding-bottom: var(--safe-bottom);
+  background: var(--c-surface);
+  border-top: 1px solid var(--c-line);
+}
+
+.bottom-nav .nav-item {
+  flex: 1 1 0;               /* pięć pozycji równej szerokości */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  /* Cel dotykowy 44 × 44 — pole dotyku, nie rysunek. */
+  min-height: var(--control-h-touch);
+  min-width: var(--control-h-touch);
+  padding: var(--s-2) var(--s-1);
+  border-radius: 0;
+  background: transparent;
+  color: var(--c-text-3);
+  font-size: var(--t-label);
+  font-weight: var(--w-medium);
+  letter-spacing: normal;
+  text-align: center;
+  text-decoration: none;
+}
+
+.bottom-nav .nav-item .ico {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+
+/* ⚠ Stan aktywny: kolor na ikonie I na etykiecie, bez tła i bez pigułki (§11.2).
+   Tło pod pozycją na 56 px wysokości wygląda jak przycisk, którego nie da się wyłączyć. */
+.bottom-nav .nav-item--active {
+  color: var(--c-accent);
+}
+
+.bottom-nav .nav-item--active .ico {
+  color: var(--c-accent);
+}
+
+@media (hover: hover) {
+  .bottom-nav .nav-item:hover { color: var(--c-text-2); text-decoration: none; }
+}
+
+/* ——— ekrany uwierzytelnienia w telefonie ————————————————————————————————— */
+
+.m-auth {
+  min-height: 100vh;
+  min-height: 100dvh;
+  max-width: 520px;
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  padding: calc(var(--s-7) + var(--safe-top)) calc(var(--s-5) + var(--safe-right))
+           calc(var(--s-6) + var(--safe-bottom)) calc(var(--s-5) + var(--safe-left));
+  background: var(--c-surface);
+}
+
+.m-auth__logo { height: 40px; width: auto; object-fit: contain; }
+.m-auth__tag { font-size: var(--t-small); color: var(--c-text-3); max-width: var(--measure); }
+
+/* ——— nadpisania komponentów wymuszone szerokością ekranu —————————————————
+   ⚠ To JEDYNE odstępstwo komponentu od wariantu komputerowego i jest celowe (§11.2):
+   padding 24 px z obu stron zjada 13% szerokości telefonu. Zapisane jako nadpisanie w powłoce,
+   nie jako drugi komponent — komponent zostaje jeden. */
+
+.m-content .card { border-radius: var(--radius-card); }
+.m-content .card__body,
+.m-content .card__head { padding: var(--s-4); }
+/* ⚠ Wiersz nawigacji kalendarza jest od 13.10.2026 **jedynym** nagłówkiem tego ekranu (zdanie
+   o nieobecnościach weszło do bloku tytułu, `card__head` zniknęło), więc wyściółkę telefonu
+   musi dostać on — inaczej jedna karta na ekranie ma 16 px z boków, a nagłówek 24 px. */
+.m-content .kal-nav { padding: var(--s-4); }
+.m-content .card__foot { padding: var(--s-3) var(--s-4); }
+/* ⚠ Podsumowanie na telefonie idzie W KOLUMNIE, jedna pozycja pod drugą. Zmierzone przy 376 px:
+   trzy pozycje w rzędzie dawały 113 px szerokości każda, czyli etykieta „Wnioski oczekujące"
+   łamała się na trzy linie, a wartość gubiła się obok podpisu. `flex-wrap` tego nie ratuje,
+   bo `min-width` musiałem tu wcześniej wyzerować, żeby nie rozpychały strony. */
+.m-content .stats { flex-direction: column; }
+.m-content .stats__item { padding: var(--s-4); min-width: 0; }
+.m-content .stats__item + .stats__item {
+  border-left: none;
+  border-top: 1px solid var(--c-line-soft);
+}
+/* ⚠ `grid-template-columns` NIE stoi już tutaj — przeszło na `@container karta` w komponentach,
+   bo nadpisanie powłoki nie obejmowało ekranu licencji ani instalatora. Zostaje sam odstęp,
+   który jest cechą powłoki: na telefonie ciaśniej. */
+.m-content .defs { gap: var(--s-4); }
+
+/* Pasek komunikatu — tu WYŁĄCZNIE pozycjonowanie. Wygląd daje `.notice` z 30-components.css,
+   ten sam w obu wariantach; szablon nosi `class="flash notice"`.
+   ⚠ Na telefonie musi stać NAD dolną nawigacją, inaczej komunikat ląduje pod belką i nie da się
+   go przeczytać ani zamknąć — dlatego odstęp liczy się z `--m-nav-h`, a nie ze stałej. */
+.flash {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--m-nav-h) + var(--s-4) + var(--safe-bottom));
+  transform: translateX(-50%);
+  z-index: 200;
+  width: min(92%, 520px);
+  box-shadow: var(--shadow-pop);
+}
+.flash[hidden] { display: none; }
+
+/* ——— znacznik spółki w pasku wąskim (zlecenie 2026-10-10-globalny-wybor-spolki §1) —————————
+   ⚠ Etykiety „SPÓŁKA" nie ma już nigdzie (prośba Krzysztofa 11.10.2026 — kontrolka wygląda tak,
+   jak wyglądała w nagłówkach zakładek), więc ta sekcja nie musi jej wyłączać. Zostaje to,
+   co jest naprawdę mobilne: zmienna szerokość i panel otwierany od lewej krawędzi.
+   ⚠ Przycinamy wielokropkiem, nie zawijamy: druga linia w pasku `fixed` przesunęłaby całą
+   treść pod nim. */
+/* ⚠ **Na wąskim pasku szerokość ZMIENNA, nie stała 14rem jak w wersji szerokiej.** Belka
+   telefonu ma 374 px i dzieli je z tytułem ekranu, więc stała szerokość kontrolki albo zostawia
+   pustkę, albo wypycha pasek w przewijanie poziome (warunek odbioru: **0 przewijania w poziomie**
+   na `/m/*`). Ograniczenie robi `max-width: 100%`, a długą nazwę ucina wielokropek. */
+.m-topbar .spolka { width: auto; max-width: 100%; padding: 0; height: auto; }
+.m-topbar .spolka--staly { border: 0; }
+.m-topbar .spolka__trigger { width: auto; max-width: 100%; height: var(--control-h-sm); }
+.m-topbar .spolka__nazwa { font-size: var(--t-small); }
+/* ⚠ Panel od LEWEJ krawędzi kontrolki, odwrotnie niż w wersji szerokiej: tam kontrolka stoi
+   na środku belki, tu przy lewym brzegu ekranu, więc panel przyklejony prawą krawędzią
+   wyszedłby poza kadr i część pozycji byłaby nieczytelna. */
+.m-topbar .spolka__panel { left: 0; right: auto; min-width: 200px; max-width: calc(100vw - 2 * var(--s-4)); }
+

@@ -1,0 +1,2769 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "wezurlop — API tenanta dla connectora R2",
+    "version": "1",
+    "description": "Protokół 1 (docs/api-connector.md). Przykłady żądań i odpowiedzi: docs/przyklady-api.md — bin/sync-symulator.php sprawdza je względem tego pliku i względem działającej aplikacji. Adres bazowy to domena instalacji klienta (każdy klient ma własną). Kodowanie UTF-8; daty nieobecności `YYYY-MM-DD`, znaczniki czasu ISO 8601 z przesunięciem strefy. Każda odpowiedź błędna ma postać `{\"blad\":{\"kod\",\"komunikat\",\"zdarzenieId\"}}` — bez szczegółów technicznych."
+  },
+  "servers": [
+    {
+      "url": "https://{domenaKlienta}",
+      "variables": {
+        "domenaKlienta": {
+          "default": "urlopy.example.pl"
+        }
+      }
+    }
+  ],
+  "security": [
+    {
+      "bearer": []
+    },
+    {
+      "apiKey": []
+    }
+  ],
+  "paths": {
+    "/api/v1/sync/stan": {
+      "get": {
+        "operationId": "stan",
+        "summary": "Stan połączenia (test połączenia)",
+        "description": "Odpowiada na pytanie „czy klucz działa i co z moją firmą”. ⚠ NIE otwiera przebiegu, nie rusza kursorów i nie liczy się do statystyki przebiegów — to jest różnica wobec `start`. `nip` jest opcjonalny: bez niego wraca sam stan klucza, więc connector może sprawdzić poświadczenia, zanim pozna NIP firmy. Nazwy firmy odpowiedź nie zawiera nigdy.",
+        "parameters": [
+          {
+            "name": "nip",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/Nip"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Protokol"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Stan klucza, a przy podanym NIP-ie także stan firmy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StanResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Zły (`KLUCZ_NIEPRAWIDLOWY`) albo wygasły (`KLUCZ_WYGASL`) klucz; pole `powod` mówi, co się stało z kluczem",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`NIP_NIEPOPRAWNY` — zła suma kontrolna NIP-u",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`ZA_SZYBKO` — limit częstotliwości; nagłówek `Retry-After`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sync/start": {
+      "post": {
+        "operationId": "start",
+        "summary": "Otwarcie przebiegu",
+        "description": "Otwiera przebieg dla firmy (poprzedni otwarty przebieg tej firmy zostaje porzucony). Dla każdego zbioru: `tryb: pelny`, gdy tenant nie ma kursora, connector go nie przysłał albo się różnią; inaczej `zmiany`. `przegladKontrolny` — po pełnym ładowaniu, na żądanie administratora albo gdy od ostatniego minął próg (`sync_review_hours`). `wycofane` — requestId wydanych zadań zapisu, których wnioski wycofano.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Idempotency"
+          },
+          {
+            "$ref": "#/components/parameters/Protokol"
+          },
+          {
+            "$ref": "#/components/parameters/ContentEncoding"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Przebieg otwarty",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Żądanie niezgodne z protokołem (`ZADANIE_NIEPOPRAWNE`, `ZBIOR_NIEZNANY`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Zły (`KLUCZ_NIEPRAWIDLOWY`) albo wygasły (`KLUCZ_WYGASL`) klucz — connector zatrzymuje się w całości; pole `powod` mówi, co się stało z kluczem",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`FIRMA_NIEZATWIERDZONA` — firma nie jest obsługiwana tym kluczem; pole `stan` mówi dlaczego. Zatrzymuje tylko tę firmę. `TOZSAMOSC_ZMIENIONA` — connector zgłosił inny odcisk tożsamości niż zapamiętany; strumień tej firmy stoi do decyzji administratora w aplikacji (odpowiedź niesie pole `odcisk`), pozostałe firmy pracują dalej.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/BladFirmy"
+                    },
+                    {
+                      "$ref": "#/components/schemas/BladTozsamosci"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`WERSJA_PROTOKOLU` (z listą `obslugiwane`) albo `PRZEBIEG_NIEZNANY` — przebieg zamknięty, wygasły (30 minut bezczynności), unieważniony nowym `start` tej samej firmy albo nieznany; connector otwiera nowy przebieg. `PRZEBIEG_NIEZNANY` niesie pole `powod` (wygasl | zamkniety | zastapiony | nieznany). Kursory zostają, więc nowy przebieg podejmuje pracę od ostatniego potwierdzonego kursora.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/BladWersji"
+                    },
+                    {
+                      "$ref": "#/components/schemas/BladPrzebiegu"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "`PACZKA_ZA_DUZA` — ponad 500 rekordów albo 2 MB (po rozpakowaniu gzip, odcięcie na 8 MB)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BladRozmiaru"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`KODOWANIE_NIEOBSLUGIWANE` — Content-Encoding inne niż gzip",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`NIP_NIEPOPRAWNY` — NIP o błędnej sumie kontrolnej (po normalizacji)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`ZA_SZYBKO` — limit 120 żądań na minutę na klucz",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Sekundy do ponowienia",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`BLAD_WEWNETRZNY` — szczegóły w logu tenanta pod `zdarzenieId`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "`PRZERWA_TECHNICZNA` („Baza zajęta, powtórz paczkę”) — blokada w bazie; cała paczka wycofana w transakcji, nic nie zapisano połowicznie. Powtórzyć to samo żądanie po `Retry-After` (30 s).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Sekundy do ponowienia",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sync/dane": {
+      "post": {
+        "operationId": "dane",
+        "summary": "Paczka rekordów zbioru",
+        "description": "Paczka to jedna transakcja: walidacja całości PRZED zapisem, rekord niezgodny ze schematem → 422 dla całej paczki z listą `pozycje`. Rekord usunięty: `{\"id\": \"…\", \"usuniety\": true}` (\"wypadł z zakresu\"). Znany `id` z inną `suma` to aktualizacja. `kursor` w odpowiedzi to token potwierdzenia paczki. Po paczce `ostatnia: true` w trybie `pelny` tenant zaplanuje przegląd kontrolny.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Idempotency"
+          },
+          {
+            "$ref": "#/components/parameters/Protokol"
+          },
+          {
+            "$ref": "#/components/parameters/ContentEncoding"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DaneRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Paczka przyjęta",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DaneResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Żądanie niezgodne z protokołem (`ZADANIE_NIEPOPRAWNE`, `ZBIOR_NIEZNANY`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Zły (`KLUCZ_NIEPRAWIDLOWY`) albo wygasły (`KLUCZ_WYGASL`) klucz — connector zatrzymuje się w całości; pole `powod` mówi, co się stało z kluczem",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`FIRMA_NIEZATWIERDZONA` — firma nie jest obsługiwana tym kluczem; pole `stan` mówi dlaczego. Zatrzymuje tylko tę firmę.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BladFirmy"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`WERSJA_PROTOKOLU` (z listą `obslugiwane`) albo `PRZEBIEG_NIEZNANY` — przebieg zamknięty, wygasły (30 minut bezczynności), unieważniony nowym `start` tej samej firmy albo nieznany; connector otwiera nowy przebieg. `PRZEBIEG_NIEZNANY` niesie pole `powod` (wygasl | zamkniety | zastapiony | nieznany). Kursory zostają, więc nowy przebieg podejmuje pracę od ostatniego potwierdzonego kursora.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/BladWersji"
+                    },
+                    {
+                      "$ref": "#/components/schemas/BladPrzebiegu"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "`PACZKA_ZA_DUZA` — ponad 500 rekordów albo 2 MB (po rozpakowaniu gzip, odcięcie na 8 MB)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BladRozmiaru"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`KODOWANIE_NIEOBSLUGIWANE` — Content-Encoding inne niż gzip",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`REKORDY_NIEPOPRAWNE` — paczka odrzucona w całości; connector usuwa wskazane pozycje i ponawia resztę z nowym X-Idempotency-Key; albo `NIP_NIEPOPRAWNY` — NIP o błędnej sumie kontrolnej",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/BladRekordow"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Blad"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`ZA_SZYBKO` — limit 120 żądań na minutę na klucz",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Sekundy do ponowienia",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`BLAD_WEWNETRZNY` — szczegóły w logu tenanta pod `zdarzenieId`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "`PRZERWA_TECHNICZNA` („Baza zajęta, powtórz paczkę”) — blokada w bazie; cała paczka wycofana w transakcji, nic nie zapisano połowicznie. Powtórzyć to samo żądanie po `Retry-After` (30 s).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Sekundy do ponowienia",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sync/przeglad": {
+      "post": {
+        "operationId": "przeglad",
+        "summary": "Przegląd kontrolny: identyfikatory i sumy",
+        "description": "Pozycje `{id, suma}` zbioru. ⚠ Rekordy, których nie było w przeglądzie, są oznaczane jako usunięte WYŁĄCZNIE po paczce `ostatnia: true` w tym samym przebiegu — przerwany przegląd nie kasuje niczego. Drugi przegląd tego samego zbioru w jednym przebiegu nie usuwa niczego. Rozjazd sum → pełne ładowanie zbioru w następnym przebiegu.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Idempotency"
+          },
+          {
+            "$ref": "#/components/parameters/Protokol"
+          },
+          {
+            "$ref": "#/components/parameters/ContentEncoding"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrzegladRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Pozycje przyjęte",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrzegladResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Żądanie niezgodne z protokołem (`ZADANIE_NIEPOPRAWNE`, `ZBIOR_NIEZNANY`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Zły (`KLUCZ_NIEPRAWIDLOWY`) albo wygasły (`KLUCZ_WYGASL`) klucz — connector zatrzymuje się w całości; pole `powod` mówi, co się stało z kluczem",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`FIRMA_NIEZATWIERDZONA` — firma nie jest obsługiwana tym kluczem; pole `stan` mówi dlaczego. Zatrzymuje tylko tę firmę.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BladFirmy"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`WERSJA_PROTOKOLU` (z listą `obslugiwane`) albo `PRZEBIEG_NIEZNANY` — przebieg zamknięty, wygasły (30 minut bezczynności), unieważniony nowym `start` tej samej firmy albo nieznany; connector otwiera nowy przebieg. `PRZEBIEG_NIEZNANY` niesie pole `powod` (wygasl | zamkniety | zastapiony | nieznany). Kursory zostają, więc nowy przebieg podejmuje pracę od ostatniego potwierdzonego kursora.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/BladWersji"
+                    },
+                    {
+                      "$ref": "#/components/schemas/BladPrzebiegu"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "`PACZKA_ZA_DUZA` — ponad 500 rekordów albo 2 MB (po rozpakowaniu gzip, odcięcie na 8 MB)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BladRozmiaru"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`KODOWANIE_NIEOBSLUGIWANE` — Content-Encoding inne niż gzip",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`REKORDY_NIEPOPRAWNE` — pozycje bez `id` albo z niepoprawną `suma`; albo `NIP_NIEPOPRAWNY` — NIP o błędnej sumie kontrolnej",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/BladRekordow"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Blad"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`ZA_SZYBKO` — limit 120 żądań na minutę na klucz",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Sekundy do ponowienia",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`BLAD_WEWNETRZNY` — szczegóły w logu tenanta pod `zdarzenieId`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "`PRZERWA_TECHNICZNA` („Baza zajęta, powtórz paczkę”) — blokada w bazie; cała paczka wycofana w transakcji, nic nie zapisano połowicznie. Powtórzyć to samo żądanie po `Retry-After` (30 s).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Sekundy do ponowienia",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sync/zadania": {
+      "get": {
+        "operationId": "zadania",
+        "summary": "Zadania do wykonania w kadrach",
+        "description": "Weryfikacja na świeżych danych (aktywne zatrudnienie, data zwolnienia, kolizja z nieobecnością zewnętrzną osoby), potem wydanie z rezerwacją 15 minut — najwyżej jedno zadanie na wniosek naraz. Zadanie niezakończone wynikiem wraca do wydania po upływie rezerwacji z tym samym `requestId`.",
+        "parameters": [
+          {
+            "name": "nip",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Nip"
+            }
+          },
+          {
+            "name": "przebiegId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/PrzebiegId"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "description": "Większa wartość jest przycinana do 100."
+          },
+          {
+            "$ref": "#/components/parameters/Protokol"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista zadań (może być pusta)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZadaniaResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Żądanie niezgodne z protokołem (`ZADANIE_NIEPOPRAWNE`, `ZBIOR_NIEZNANY`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Zły (`KLUCZ_NIEPRAWIDLOWY`) albo wygasły (`KLUCZ_WYGASL`) klucz — connector zatrzymuje się w całości; pole `powod` mówi, co się stało z kluczem",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`FIRMA_NIEZATWIERDZONA` — firma nie jest obsługiwana tym kluczem; pole `stan` mówi dlaczego. Zatrzymuje tylko tę firmę.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BladFirmy"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`WERSJA_PROTOKOLU` (z listą `obslugiwane`) albo `PRZEBIEG_NIEZNANY` — przebieg zamknięty, wygasły (30 minut bezczynności), unieważniony nowym `start` tej samej firmy albo nieznany; connector otwiera nowy przebieg. `PRZEBIEG_NIEZNANY` niesie pole `powod` (wygasl | zamkniety | zastapiony | nieznany). Kursory zostają, więc nowy przebieg podejmuje pracę od ostatniego potwierdzonego kursora.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/BladWersji"
+                    },
+                    {
+                      "$ref": "#/components/schemas/BladPrzebiegu"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`NIP_NIEPOPRAWNY` — NIP o błędnej sumie kontrolnej (po normalizacji)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`ZA_SZYBKO` — limit 120 żądań na minutę na klucz",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Sekundy do ponowienia",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`BLAD_WEWNETRZNY` — szczegóły w logu tenanta pod `zdarzenieId`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "`PRZERWA_TECHNICZNA` („Baza zajęta, powtórz paczkę”) — blokada w bazie; cała paczka wycofana w transakcji, nic nie zapisano połowicznie. Powtórzyć to samo żądanie po `Retry-After` (30 s).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Sekundy do ponowienia",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sync/wyniki": {
+      "post": {
+        "operationId": "wyniki",
+        "summary": "Wyniki wykonanych zadań",
+        "description": "⚠ O zachowaniu decyduje `status`; `kod` służy wyłącznie do wyświetlenia (nieznany kod przy znanym statusie jest poprawny). `zapisy` to faktyczny stan w kadrach po operacji — dni i minuty wniosku to suma WSZYSTKICH części. Powtórzony wynik nie zmienia stanu. Nieznany requestId jest pomijany (nie liczy się do `przyjeto`).",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Idempotency"
+          },
+          {
+            "$ref": "#/components/parameters/Protokol"
+          },
+          {
+            "$ref": "#/components/parameters/ContentEncoding"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WynikiRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Wyniki przyjęte",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WynikiResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Żądanie niezgodne z protokołem (`ZADANIE_NIEPOPRAWNE`, `ZBIOR_NIEZNANY`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Zły (`KLUCZ_NIEPRAWIDLOWY`) albo wygasły (`KLUCZ_WYGASL`) klucz — connector zatrzymuje się w całości; pole `powod` mówi, co się stało z kluczem",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`FIRMA_NIEZATWIERDZONA` — firma nie jest obsługiwana tym kluczem; pole `stan` mówi dlaczego. Zatrzymuje tylko tę firmę.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BladFirmy"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`WERSJA_PROTOKOLU` (z listą `obslugiwane`) albo `PRZEBIEG_NIEZNANY` — przebieg zamknięty, wygasły (30 minut bezczynności), unieważniony nowym `start` tej samej firmy albo nieznany; connector otwiera nowy przebieg. `PRZEBIEG_NIEZNANY` niesie pole `powod` (wygasl | zamkniety | zastapiony | nieznany). Kursory zostają, więc nowy przebieg podejmuje pracę od ostatniego potwierdzonego kursora.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/BladWersji"
+                    },
+                    {
+                      "$ref": "#/components/schemas/BladPrzebiegu"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "`PACZKA_ZA_DUZA` — ponad 500 rekordów albo 2 MB (po rozpakowaniu gzip, odcięcie na 8 MB)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BladRozmiaru"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`KODOWANIE_NIEOBSLUGIWANE` — Content-Encoding inne niż gzip",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`REKORDY_NIEPOPRAWNE` — wynik bez requestId, z nieznanym statusem albo z niepoprawnymi `zapisy`; albo `NIP_NIEPOPRAWNY` — NIP o błędnej sumie kontrolnej",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/BladRekordow"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Blad"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`ZA_SZYBKO` — limit 120 żądań na minutę na klucz",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Sekundy do ponowienia",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`BLAD_WEWNETRZNY` — szczegóły w logu tenanta pod `zdarzenieId`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "`PRZERWA_TECHNICZNA` („Baza zajęta, powtórz paczkę”) — blokada w bazie; cała paczka wycofana w transakcji, nic nie zapisano połowicznie. Powtórzyć to samo żądanie po `Retry-After` (30 s).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Sekundy do ponowienia",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sync/koniec": {
+      "post": {
+        "operationId": "koniec",
+        "summary": "Zamknięcie przebiegu",
+        "description": "Podsumowanie connectora trafia do opisu przebiegu (liczby i identyfikatory, bez danych osobowych). `nastepnyInterwal`: 30 s gdy czekają zadania, 300 s w nocy (22–6 czasu polskiego), inaczej 60 s. `Retry-After` ma zawsze pierwszeństwo.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Idempotency"
+          },
+          {
+            "$ref": "#/components/parameters/Protokol"
+          },
+          {
+            "$ref": "#/components/parameters/ContentEncoding"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KoniecRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Przebieg zamknięty",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KoniecResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Żądanie niezgodne z protokołem (`ZADANIE_NIEPOPRAWNE`, `ZBIOR_NIEZNANY`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Zły (`KLUCZ_NIEPRAWIDLOWY`) albo wygasły (`KLUCZ_WYGASL`) klucz — connector zatrzymuje się w całości; pole `powod` mówi, co się stało z kluczem",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`FIRMA_NIEZATWIERDZONA` — firma nie jest obsługiwana tym kluczem; pole `stan` mówi dlaczego. Zatrzymuje tylko tę firmę.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BladFirmy"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`WERSJA_PROTOKOLU` (z listą `obslugiwane`) albo `PRZEBIEG_NIEZNANY` — przebieg zamknięty, wygasły (30 minut bezczynności), unieważniony nowym `start` tej samej firmy albo nieznany; connector otwiera nowy przebieg. `PRZEBIEG_NIEZNANY` niesie pole `powod` (wygasl | zamkniety | zastapiony | nieznany). Kursory zostają, więc nowy przebieg podejmuje pracę od ostatniego potwierdzonego kursora.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/BladWersji"
+                    },
+                    {
+                      "$ref": "#/components/schemas/BladPrzebiegu"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "`PACZKA_ZA_DUZA` — ponad 500 rekordów albo 2 MB (po rozpakowaniu gzip, odcięcie na 8 MB)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BladRozmiaru"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`KODOWANIE_NIEOBSLUGIWANE` — Content-Encoding inne niż gzip",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`NIP_NIEPOPRAWNY` — NIP o błędnej sumie kontrolnej (po normalizacji)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`ZA_SZYBKO` — limit 120 żądań na minutę na klucz",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Sekundy do ponowienia",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`BLAD_WEWNETRZNY` — szczegóły w logu tenanta pod `zdarzenieId`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "`PRZERWA_TECHNICZNA` („Baza zajęta, powtórz paczkę”) — blokada w bazie; cała paczka wycofana w transakcji, nic nie zapisano połowicznie. Powtórzyć to samo żądanie po `Retry-After` (30 s).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Sekundy do ponowienia",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sync/zgloszenie-firmy": {
+      "post": {
+        "operationId": "zgloszenieFirmy",
+        "summary": "Zgłoszenie firmy spoza zakresu klucza",
+        "description": "Wąska operacja: wyłącznie `nip` i `nazwa`, bez przebiegu i bez danych osobowych, własny limit 10 na godzinę. Firma NIE powstaje automatycznie — decyduje administrator tenanta; po zatwierdzeniu NIP wchodzi do zakresu klucza. Powtórzone zgłoszenie nigdy nie tworzy duplikatu, a odpowiedź mówi, co się z nim stało (trzy stany).",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Idempotency"
+          },
+          {
+            "$ref": "#/components/parameters/Protokol"
+          },
+          {
+            "$ref": "#/components/parameters/ContentEncoding"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ZgloszenieRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stan rozstrzygnięty: `zatwierdzona` albo `odrzucona`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZgloszenieResponse"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "`oczekuje` — zgłoszenie czeka na decyzję administratora",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZgloszenieResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Żądanie niezgodne z protokołem (`ZADANIE_NIEPOPRAWNE`, `ZBIOR_NIEZNANY`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Zły (`KLUCZ_NIEPRAWIDLOWY`) albo wygasły (`KLUCZ_WYGASL`) klucz — connector zatrzymuje się w całości; pole `powod` mówi, co się stało z kluczem",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "`PACZKA_ZA_DUZA` — ponad 500 rekordów albo 2 MB (po rozpakowaniu gzip, odcięcie na 8 MB)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BladRozmiaru"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`KODOWANIE_NIEOBSLUGIWANE` — Content-Encoding inne niż gzip",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`NIP_NIEPOPRAWNY` — NIP o błędnej sumie kontrolnej (po normalizacji)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`ZA_SZYBKO` — limit 120 żądań na minutę na klucz",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Sekundy do ponowienia",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`BLAD_WEWNETRZNY` — szczegóły w logu tenanta pod `zdarzenieId`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "`PRZERWA_TECHNICZNA` („Baza zajęta, powtórz paczkę”) — blokada w bazie; cała paczka wycofana w transakcji, nic nie zapisano połowicznie. Powtórzyć to samo żądanie po `Retry-After` (30 s).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Blad"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Sekundy do ponowienia",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Klucz instalacji: 64 znaki hex. Connector wysyła go w OBU nagłówkach."
+      },
+      "apiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Key",
+        "description": "Ścieżka zapasowa, gdy hosting wycina Authorization (CGI/FastCGI)."
+      }
+    },
+    "parameters": {
+      "Idempotency": {
+        "name": "X-Idempotency-Key",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,64}$"
+        },
+        "description": "UUID paczki. Powtórzenie z tym samym kluczem zwraca zapamiętaną odpowiedź (nagłówek `X-Idempotent-Replay: true`), bez ponownego przetwarzania. Brak nagłówka jest dopuszczalny, ale liczony w statystyce przebiegu."
+      },
+      "Protokol": {
+        "name": "X-Protokol",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "enum": [
+            1
+          ]
+        },
+        "description": "Wersja protokołu; brak nagłówka = 1."
+      },
+      "ContentEncoding": {
+        "name": "Content-Encoding",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "gzip",
+            "identity"
+          ]
+        }
+      }
+    },
+    "schemas": {
+      "Nip": {
+        "type": "string",
+        "maxLength": 32,
+        "description": "NIP firmy. Przed sprawdzeniem normalizowany: usuwamy myślniki, spacje i prefiks `PL`; potem 10 cyfr z poprawną sumą kontrolną (wagi 6 5 7 2 3 4 5 6 7, mod 11). Błędna suma → `422 NIP_NIEPOPRAWNY`, sprawdzane PRZED zakresem klucza (nigdy 403)."
+      },
+      "PrzebiegId": {
+        "type": "string",
+        "maxLength": 36,
+        "description": "Identyfikator przebiegu z `start`. Żyje do `koniec`, do 30 minut bezczynności (`tenant_setting.sync_run_ttl_minutes`), do nowego `start` tej samej firmy (jeden otwarty przebieg na firmę) albo do utraty stanu po stronie tenanta. Martwy `przebiegId` → `409 PRZEBIEG_NIEZNANY`; kursory przeżywają przebieg i obowiązuje ostatni potwierdzony."
+      },
+      "RequestId": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9-]{1,32}$"
+      },
+      "RekordId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "Suma": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "Kursor": {
+        "type": "string",
+        "maxLength": 32,
+        "description": "Nieprzezroczysty token potwierdzenia"
+      },
+      "Zbior": {
+        "type": "string",
+        "enum": [
+          "firma",
+          "pracownik",
+          "zatrudnienie",
+          "limit",
+          "nieobecnosc",
+          "slownik",
+          "kalendarz"
+        ]
+      },
+      "StartRequest": {
+        "type": "object",
+        "required": [
+          "nip"
+        ],
+        "properties": {
+          "nip": {
+            "$ref": "#/components/schemas/Nip"
+          },
+          "wersjaConnectora": {
+            "type": "string",
+            "nullable": true
+          },
+          "wersjaR2": {
+            "type": "string",
+            "nullable": true
+          },
+          "ostatniUdanyCykl": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "stan": {
+            "type": "string",
+            "nullable": true
+          },
+          "stanOpis": {
+            "type": "string",
+            "nullable": true,
+            "description": "Maks. 200 znaków (dłuższy przycinany), bez danych osobowych"
+          },
+          "kursory": {
+            "type": "object",
+            "properties": {
+              "firma": {
+                "$ref": "#/components/schemas/Kursor"
+              },
+              "pracownik": {
+                "$ref": "#/components/schemas/Kursor"
+              },
+              "zatrudnienie": {
+                "$ref": "#/components/schemas/Kursor"
+              },
+              "limit": {
+                "$ref": "#/components/schemas/Kursor"
+              },
+              "nieobecnosc": {
+                "$ref": "#/components/schemas/Kursor"
+              },
+              "slownik": {
+                "$ref": "#/components/schemas/Kursor"
+              },
+              "kalendarz": {
+                "$ref": "#/components/schemas/Kursor"
+              }
+            },
+            "additionalProperties": false
+          },
+          "odciskTozsamosci": {
+            "type": "string",
+            "nullable": true,
+            "pattern": "^[0-9a-f]{8}$",
+            "description": "Odcisk sekretu, z którego connector liczy `osobaId` — 8 znaków szesnastkowych, bez żadnej informacji o osobach. Pole opcjonalne: starszy connector go nie wysyła i nic się nie dzieje. ⚠ Odcisk inny niż zapamiętany dla tej firmy zatrzymuje jej strumień (`403 TOZSAMOSC_ZMIENIONA`) PRZED pierwszą paczką — inaczej utrata sekretu przy przenosinach daje komplet duplikatów osób."
+          }
+        }
+      },
+      "ZbiorStan": {
+        "type": "object",
+        "required": [
+          "kursor",
+          "tryb"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "kursor": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Kursor"
+              }
+            ],
+            "nullable": true
+          },
+          "tryb": {
+            "type": "string",
+            "enum": [
+              "zmiany",
+              "pelny"
+            ]
+          }
+        }
+      },
+      "StartResponse": {
+        "type": "object",
+        "required": [
+          "przebiegId",
+          "zbiory",
+          "przegladKontrolny",
+          "rozmiarPaczki",
+          "wycofane"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "przebiegId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "zbiory": {
+            "type": "object",
+            "description": "Zawsze wszystkie siedem zbiorów.",
+            "properties": {
+              "firma": {
+                "$ref": "#/components/schemas/ZbiorStan"
+              },
+              "pracownik": {
+                "$ref": "#/components/schemas/ZbiorStan"
+              },
+              "zatrudnienie": {
+                "$ref": "#/components/schemas/ZbiorStan"
+              },
+              "limit": {
+                "$ref": "#/components/schemas/ZbiorStan"
+              },
+              "nieobecnosc": {
+                "$ref": "#/components/schemas/ZbiorStan"
+              },
+              "slownik": {
+                "$ref": "#/components/schemas/ZbiorStan"
+              },
+              "kalendarz": {
+                "$ref": "#/components/schemas/ZbiorStan"
+              }
+            },
+            "additionalProperties": false
+          },
+          "przegladKontrolny": {
+            "type": "boolean"
+          },
+          "rozmiarPaczki": {
+            "type": "integer",
+            "enum": [
+              500
+            ]
+          },
+          "wycofane": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RequestId"
+            }
+          }
+        }
+      },
+      "Usuniecie": {
+        "type": "object",
+        "required": [
+          "id",
+          "usuniety"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/RekordId"
+          },
+          "usuniety": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        }
+      },
+      "RekordFirma": {
+        "type": "object",
+        "description": "Zbiór `firma`. Wymagane pola muszą być obecne i mieć wartość; brak klucza pola opcjonalnego = null. Pola nieznane są pomijane i liczone (`pominietePola`).",
+        "required": [
+          "id",
+          "suma",
+          "nazwa"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/RekordId"
+          },
+          "suma": {
+            "$ref": "#/components/schemas/Suma"
+          },
+          "nazwa": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        "additionalProperties": true
+      },
+      "RekordPracownik": {
+        "type": "object",
+        "description": "Zbiór `pracownik`. Wymagane pola muszą być obecne i mieć wartość; brak klucza pola opcjonalnego = null. Pola nieznane są pomijane i liczone (`pominietePola`).",
+        "required": [
+          "id",
+          "suma",
+          "nazwisko",
+          "imie",
+          "zwolniony",
+          "skasowany",
+          "umowy"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/RekordId"
+          },
+          "suma": {
+            "$ref": "#/components/schemas/Suma"
+          },
+          "osobaId": {
+            "type": "string",
+            "maxLength": 128,
+            "nullable": true
+          },
+          "nazwisko": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "imie": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "identyfikator": {
+            "type": "string",
+            "maxLength": 32,
+            "nullable": true
+          },
+          "zwolniony": {
+            "type": "boolean"
+          },
+          "dataZwolnienia": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "skasowany": {
+            "type": "boolean"
+          },
+          "umowy": {
+            "type": "object",
+            "required": [
+              "oPrace",
+              "zlecenie",
+              "oDzielo"
+            ],
+            "properties": {
+              "oPrace": {
+                "type": "boolean"
+              },
+              "zlecenie": {
+                "type": "boolean"
+              },
+              "oDzielo": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "additionalProperties": true
+      },
+      "RekordZatrudnienie": {
+        "type": "object",
+        "description": "Zbiór `zatrudnienie`. Wymagane pola muszą być obecne i mieć wartość; brak klucza pola opcjonalnego = null. Pola nieznane są pomijane i liczone (`pominietePola`).",
+        "required": [
+          "id",
+          "suma",
+          "pracownikId",
+          "aktualne",
+          "domyslne"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/RekordId"
+          },
+          "suma": {
+            "$ref": "#/components/schemas/Suma"
+          },
+          "pracownikId": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "aktualne": {
+            "type": "boolean"
+          },
+          "domyslne": {
+            "type": "boolean"
+          },
+          "etat": {
+            "type": "number",
+            "nullable": true
+          },
+          "dataRozpoczecia": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "dataZakonczenia": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "kalendarzId": {
+            "type": "string",
+            "maxLength": 32,
+            "nullable": true
+          }
+        },
+        "additionalProperties": true
+      },
+      "RekordLimit": {
+        "type": "object",
+        "description": "Zbiór `limit`. Wymagane pola muszą być obecne i mieć wartość; brak klucza pola opcjonalnego = null. Pola nieznane są pomijane i liczone (`pominietePola`).",
+        "required": [
+          "id",
+          "suma",
+          "zatrudnienieId",
+          "rok",
+          "rodzaj",
+          "naliczony"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/RekordId"
+          },
+          "suma": {
+            "$ref": "#/components/schemas/Suma"
+          },
+          "zatrudnienieId": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "rok": {
+            "type": "integer"
+          },
+          "rodzaj": {
+            "type": "string",
+            "maxLength": 24
+          },
+          "naliczony": {
+            "type": "boolean"
+          },
+          "wymiarMin": {
+            "type": "integer",
+            "nullable": true
+          },
+          "zaleglyMin": {
+            "type": "integer",
+            "nullable": true
+          },
+          "dostepneNaStartMin": {
+            "type": "integer",
+            "nullable": true
+          },
+          "wykorzystaneMin": {
+            "type": "integer",
+            "nullable": true
+          },
+          "korektyMin": {
+            "type": "integer",
+            "nullable": true
+          },
+          "pozostaloMin": {
+            "type": "integer",
+            "nullable": true
+          },
+          "naZadanieWykorzystaneDni": {
+            "type": "integer",
+            "nullable": true
+          }
+        },
+        "additionalProperties": true
+      },
+      "RekordNieobecnosc": {
+        "type": "object",
+        "description": "Zbiór `nieobecnosc`. Wymagane pola muszą być obecne i mieć wartość; brak klucza pola opcjonalnego = null. Pola nieznane są pomijane i liczone (`pominietePola`).",
+        "required": [
+          "id",
+          "suma",
+          "zatrudnienieId",
+          "rodzaj",
+          "dataOd",
+          "dataDo",
+          "zrodloWpisu"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/RekordId"
+          },
+          "suma": {
+            "$ref": "#/components/schemas/Suma"
+          },
+          "zatrudnienieId": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "rodzaj": {
+            "type": "object",
+            "required": [
+              "zrodlo",
+              "kod"
+            ],
+            "properties": {
+              "zrodlo": {
+                "type": "string",
+                "maxLength": 16
+              },
+              "kod": {
+                "type": "integer"
+              }
+            }
+          },
+          "dataOd": {
+            "type": "string",
+            "format": "date"
+          },
+          "dataDo": {
+            "type": "string",
+            "format": "date"
+          },
+          "dni": {
+            "type": "integer",
+            "nullable": true
+          },
+          "minuty": {
+            "type": "integer",
+            "nullable": true
+          },
+          "requestId": {
+            "type": "string",
+            "maxLength": 32,
+            "nullable": true
+          },
+          "zrodloWpisu": {
+            "type": "string",
+            "maxLength": 16
+          },
+          "kontynuacja": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "utworzono": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 z przesunięciem strefy",
+            "nullable": true
+          },
+          "zmieniono": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 z przesunięciem strefy",
+            "nullable": true
+          }
+        },
+        "additionalProperties": true
+      },
+      "RekordSlownik": {
+        "type": "object",
+        "description": "Zbiór `slownik`. Wymagane pola muszą być obecne i mieć wartość; brak klucza pola opcjonalnego = null. Pola nieznane są pomijane i liczone (`pominietePola`).",
+        "required": [
+          "id",
+          "suma",
+          "zrodlo",
+          "kod",
+          "nazwa",
+          "tylkoOdczyt",
+          "doWniosku",
+          "nieobecnosc"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/RekordId"
+          },
+          "suma": {
+            "$ref": "#/components/schemas/Suma"
+          },
+          "zrodlo": {
+            "type": "string",
+            "maxLength": 16
+          },
+          "kod": {
+            "type": "integer"
+          },
+          "nazwa": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "tylkoOdczyt": {
+            "type": "boolean"
+          },
+          "doWniosku": {
+            "type": "boolean"
+          },
+          "nieobecnosc": {
+            "type": "boolean"
+          },
+          "obciazaLimit": {
+            "type": "string",
+            "maxLength": 24,
+            "description": "Który limit obciąża ten rodzaj — wartość jak `rodzaj` rekordu `limit` (np. `wypoczynkowy`, `opieka_art188`) albo null. ⚠ Dla źródeł `kadrowe` i `zasilek` zawsze null; niepusta wartość jest odrzucana i odnotowywana.",
+            "nullable": true
+          },
+          "obciazaLimitZrodlo": {
+            "type": "string",
+            "enum": [
+              "dane",
+              "domyslne"
+            ],
+            "description": "Skąd wiemy o powiązaniu: `dane` — policzone z sald tej firmy, `domyslne` — zachowanie programu kadrowego, rodzaj nieużywany u klienta. ⚠ `domyslne` NIE blokuje wniosku; wniosek przechodzi z ostrzeżeniem.",
+            "nullable": true
+          }
+        },
+        "additionalProperties": true
+      },
+      "RekordKalendarz": {
+        "type": "object",
+        "description": "Zbiór `kalendarz`. Wymagane pola muszą być obecne i mieć wartość; brak klucza pola opcjonalnego = null. Pola nieznane są pomijane i liczone (`pominietePola`).",
+        "required": [
+          "id",
+          "suma",
+          "kalendarzId",
+          "nazwa",
+          "rok",
+          "indywidualne",
+          "dniNierobocze"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/RekordId"
+          },
+          "suma": {
+            "$ref": "#/components/schemas/Suma"
+          },
+          "kalendarzId": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "nazwa": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "rok": {
+            "type": "integer"
+          },
+          "indywidualne": {
+            "type": "boolean"
+          },
+          "dniNierobocze": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          "normaUrlopowaMin": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Dzielnik minut na dni dla urlopu. Brak pola = wartość zapasowa 480 min, odnotowana w opisie przebiegu i na stronie diagnostyki.",
+            "nullable": true
+          },
+          "normaDobowaMin": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Norma dobowa kalendarza (informacyjnie).",
+            "nullable": true
+          }
+        },
+        "additionalProperties": true
+      },
+      "DaneRequest": {
+        "type": "object",
+        "required": [
+          "nip",
+          "przebiegId",
+          "zbior",
+          "paczka",
+          "ostatnia",
+          "rekordy"
+        ],
+        "properties": {
+          "nip": {
+            "$ref": "#/components/schemas/Nip"
+          },
+          "przebiegId": {
+            "$ref": "#/components/schemas/PrzebiegId"
+          },
+          "zbior": {
+            "$ref": "#/components/schemas/Zbior"
+          },
+          "paczka": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "ostatnia": {
+            "type": "boolean"
+          },
+          "rekordy": {
+            "type": "array",
+            "maxItems": 500,
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Usuniecie"
+                },
+                {
+                  "$ref": "#/components/schemas/RekordFirma"
+                },
+                {
+                  "$ref": "#/components/schemas/RekordPracownik"
+                },
+                {
+                  "$ref": "#/components/schemas/RekordZatrudnienie"
+                },
+                {
+                  "$ref": "#/components/schemas/RekordLimit"
+                },
+                {
+                  "$ref": "#/components/schemas/RekordNieobecnosc"
+                },
+                {
+                  "$ref": "#/components/schemas/RekordSlownik"
+                },
+                {
+                  "$ref": "#/components/schemas/RekordKalendarz"
+                }
+              ],
+              "description": "Rekord zbioru wskazanego w `zbior` albo usunięcie."
+            }
+          }
+        }
+      },
+      "DaneResponse": {
+        "type": "object",
+        "required": [
+          "przyjeto",
+          "kursor",
+          "pominietePola"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "przyjeto": {
+            "type": "integer",
+            "description": "Liczba rekordów w tej paczce"
+          },
+          "kursor": {
+            "$ref": "#/components/schemas/Kursor"
+          },
+          "pominietePola": {
+            "type": "integer"
+          }
+        }
+      },
+      "Pozycja": {
+        "type": "object",
+        "required": [
+          "id",
+          "suma"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/RekordId"
+          },
+          "suma": {
+            "$ref": "#/components/schemas/Suma"
+          }
+        }
+      },
+      "PrzegladRequest": {
+        "type": "object",
+        "required": [
+          "nip",
+          "przebiegId",
+          "zbior",
+          "paczka",
+          "ostatnia",
+          "pozycje"
+        ],
+        "properties": {
+          "nip": {
+            "$ref": "#/components/schemas/Nip"
+          },
+          "przebiegId": {
+            "$ref": "#/components/schemas/PrzebiegId"
+          },
+          "zbior": {
+            "$ref": "#/components/schemas/Zbior"
+          },
+          "paczka": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "ostatnia": {
+            "type": "boolean"
+          },
+          "pozycje": {
+            "type": "array",
+            "maxItems": 500,
+            "items": {
+              "$ref": "#/components/schemas/Pozycja"
+            }
+          }
+        }
+      },
+      "PrzegladResponse": {
+        "type": "object",
+        "required": [
+          "przyjeto",
+          "kursor"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "przyjeto": {
+            "type": "integer",
+            "description": "Liczba pozycji w tej paczce"
+          },
+          "kursor": {
+            "$ref": "#/components/schemas/Kursor"
+          }
+        }
+      },
+      "Rodzaj": {
+        "type": "object",
+        "required": [
+          "zrodlo",
+          "kod"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "zrodlo": {
+            "type": "string"
+          },
+          "kod": {
+            "type": "integer"
+          }
+        }
+      },
+      "Zadanie": {
+        "type": "object",
+        "required": [
+          "requestId",
+          "operacja",
+          "zatrudnienieId",
+          "rodzaj",
+          "dataOd",
+          "dataDo",
+          "zapisy"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "requestId": {
+            "$ref": "#/components/schemas/RequestId"
+          },
+          "operacja": {
+            "type": "string",
+            "enum": [
+              "zapis",
+              "usuniecie"
+            ],
+            "description": "Etap 1: `zmiana` nie jest wydawana. ⚠ `zapis` i `usuniecie` tego samego wniosku nigdy nie wychodzą w jednym cyklu: niepotwierdzony `zapis` anulowanego wniosku zamyka lista `wycofane` i wynik `wycofano`, a `usuniecie` powstaje dopiero po potwierdzonym zapisie."
+          },
+          "zatrudnienieId": {
+            "type": "string"
+          },
+          "rodzaj": {
+            "$ref": "#/components/schemas/Rodzaj"
+          },
+          "dataOd": {
+            "type": "string",
+            "format": "date"
+          },
+          "dataDo": {
+            "type": "string",
+            "format": "date"
+          },
+          "zapisy": {
+            "type": "array",
+            "description": "Przy `usuniecie`: wpisy R2 do usunięcia; przy `zapis` puste",
+            "items": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "$ref": "#/components/schemas/RekordId"
+                }
+              }
+            }
+          }
+        }
+      },
+      "ZadaniaResponse": {
+        "type": "object",
+        "required": [
+          "zadania"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "zadania": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/Zadanie"
+            }
+          }
+        }
+      },
+      "Zapis": {
+        "type": "object",
+        "required": [
+          "id",
+          "dataOd",
+          "dataDo"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/RekordId"
+          },
+          "dataOd": {
+            "type": "string",
+            "format": "date"
+          },
+          "dataDo": {
+            "type": "string",
+            "format": "date"
+          },
+          "dni": {
+            "type": "integer",
+            "nullable": true
+          },
+          "minuty": {
+            "type": "integer",
+            "nullable": true
+          }
+        }
+      },
+      "Wynik": {
+        "type": "object",
+        "required": [
+          "requestId",
+          "status"
+        ],
+        "properties": {
+          "requestId": {
+            "$ref": "#/components/schemas/RequestId"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "zapisano",
+              "zapisanoZOstrzezeniem",
+              "blad",
+              "bladPrzejsciowy",
+              "wycofano"
+            ]
+          },
+          "kod": {
+            "type": "string",
+            "maxLength": 64,
+            "nullable": true,
+            "description": "Tylko do wyświetlenia (config/sync-result-codes.php)"
+          },
+          "komunikat": {
+            "type": "string",
+            "maxLength": 1000,
+            "nullable": true
+          },
+          "zapisy": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Zapis"
+            },
+            "description": "Faktyczny stan w programie kadrowym po wykonaniu zadania. Przy `zapisano`/`zapisanoZOstrzezeniem` — wpisy, które powstały (dni i minuty wniosku to suma WSZYSTKICH części). ⚠ Przy `blad` lista może być niepusta: gdy zapis odrzucono, bo termin jest zajęty, są to wpisy blokujące termin — NIE są realizacją wniosku, nie liczymy z nich dni ani minut, trafiają do treści konfliktu. Przy innych błędach `[]`."
+          }
+        }
+      },
+      "WynikiRequest": {
+        "type": "object",
+        "required": [
+          "nip",
+          "przebiegId",
+          "wyniki"
+        ],
+        "properties": {
+          "nip": {
+            "$ref": "#/components/schemas/Nip"
+          },
+          "przebiegId": {
+            "$ref": "#/components/schemas/PrzebiegId"
+          },
+          "wyniki": {
+            "type": "array",
+            "maxItems": 500,
+            "items": {
+              "$ref": "#/components/schemas/Wynik"
+            }
+          }
+        }
+      },
+      "WynikiResponse": {
+        "type": "object",
+        "required": [
+          "przyjeto"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "przyjeto": {
+            "type": "integer",
+            "description": "Wyniki ze znanym requestId (także powtórzone)"
+          }
+        }
+      },
+      "KoniecRequest": {
+        "type": "object",
+        "required": [
+          "nip",
+          "przebiegId"
+        ],
+        "properties": {
+          "nip": {
+            "$ref": "#/components/schemas/Nip"
+          },
+          "przebiegId": {
+            "$ref": "#/components/schemas/PrzebiegId"
+          },
+          "wyslano": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "usuniete": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "odrzucone": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "zbior": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "zdarzenieId": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "zadaniaPobrane": {
+            "type": "integer"
+          },
+          "wynikiWyslane": {
+            "type": "integer"
+          },
+          "pominietePola": {
+            "type": "integer"
+          },
+          "czasMs": {
+            "type": "integer"
+          }
+        }
+      },
+      "KoniecResponse": {
+        "type": "object",
+        "required": [
+          "nastepnyInterwal",
+          "pelnyPrzegladWymagany"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "nastepnyInterwal": {
+            "type": "integer",
+            "enum": [
+              30,
+              60,
+              300
+            ],
+            "description": "Prośba o ZWOLNIENIE tempa, nie o przyspieszenie: 30 s gdy czekają zadania, 300 s w nocy (22–6 czasu polskiego), inaczej 60 s. Connector honoruje wartość tylko wtedy, gdy wydłuża jego cykl; jego własny odstęp u klienta jest nadrzędny i nie schodzi poniżej 5 minut. `Retry-After` ma pierwszeństwo."
+          },
+          "pelnyPrzegladWymagany": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ZgloszenieRequest": {
+        "type": "object",
+        "required": [
+          "nip",
+          "nazwa"
+        ],
+        "properties": {
+          "nip": {
+            "$ref": "#/components/schemas/Nip"
+          },
+          "nazwa": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        }
+      },
+      "ZgloszenieResponse": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "oczekuje",
+              "zatwierdzona",
+              "odrzucona"
+            ],
+            "description": "`oczekuje` (202) — czeka na decyzję administratora; `zatwierdzona` (200) — NIP w zakresie klucza, wróć do `start` w tym samym cyklu; `odrzucona` (200) — przestań zgłaszać ten NIP."
+          }
+        }
+      },
+      "Blad": {
+        "type": "object",
+        "required": [
+          "blad"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "blad": {
+            "type": "object",
+            "required": [
+              "kod",
+              "komunikat",
+              "zdarzenieId"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "kod": {
+                "type": "string"
+              },
+              "komunikat": {
+                "type": "string"
+              },
+              "zdarzenieId": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}$"
+              },
+              "powod": {
+                "type": "string",
+                "enum": [
+                  "uniewazniony_przez_administratora",
+                  "zastapiony_nowym_kluczem",
+                  "firma_nieznana",
+                  "firma_zgloszona",
+                  "firma_poza_zakresem",
+                  "wygasl",
+                  "zamkniety",
+                  "zastapiony",
+                  "nieznany"
+                ],
+                "description": "Powód odrzucenia — pole DODATKOWE, kod odpowiedzi bez zmian. Przy 401 mówi, co stało się z kluczem (unieważniony ręcznie, zastąpiony nowym, zastąpiony nowym, który przejął synchronizację), przy 409 PRZEBIEG_NIEZNANY — co stało się z przebiegiem. Connector, który go nie zna, ma je zignorować."
+              },
+              "stan": {
+                "type": "string",
+                "enum": [
+                  "firma_nieznana",
+                  "firma_zgloszona",
+                  "firma_poza_zakresem"
+                ],
+                "description": "403 FIRMA_NIEZATWIERDZONA: na jakim etapie jest zgłoszenie firmy."
+              },
+              "odcisk": {
+                "type": "string",
+                "description": "403 TOZSAMOSC_ZMIENIONA: odcisk tożsamości zgłoszony przez connectora."
+              },
+              "pozycje": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "400 przy walidacji: które pola żądania są błędne."
+              },
+              "obslugiwane": {
+                "type": "array",
+                "items": {
+                  "type": "integer"
+                },
+                "description": "409 WERSJA_PROTOKOLU: wersje protokołu obsługiwane przez tenanta."
+              },
+              "maks": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "413: limity paczki (rekordy, bajty)."
+              }
+            }
+          }
+        }
+      },
+      "BladWersji": {
+        "type": "object",
+        "required": [
+          "blad"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "blad": {
+            "type": "object",
+            "required": [
+              "kod",
+              "komunikat",
+              "zdarzenieId"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "kod": {
+                "type": "string"
+              },
+              "komunikat": {
+                "type": "string"
+              },
+              "zdarzenieId": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}$"
+              },
+              "obslugiwane": {
+                "type": "array",
+                "items": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "BladRozmiaru": {
+        "type": "object",
+        "required": [
+          "blad"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "blad": {
+            "type": "object",
+            "required": [
+              "kod",
+              "komunikat",
+              "zdarzenieId",
+              "maks"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "kod": {
+                "type": "string"
+              },
+              "komunikat": {
+                "type": "string"
+              },
+              "zdarzenieId": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}$"
+              },
+              "maks": {
+                "type": "object",
+                "required": [
+                  "rekordy",
+                  "bajty"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "rekordy": {
+                    "type": "integer",
+                    "enum": [
+                      500
+                    ]
+                  },
+                  "bajty": {
+                    "type": "integer",
+                    "enum": [
+                      2097152
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "BladRekordow": {
+        "type": "object",
+        "required": [
+          "blad"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "blad": {
+            "type": "object",
+            "required": [
+              "kod",
+              "komunikat",
+              "zdarzenieId",
+              "pozycje"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "kod": {
+                "type": "string"
+              },
+              "komunikat": {
+                "type": "string"
+              },
+              "zdarzenieId": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}$"
+              },
+              "pozycje": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "kod",
+                    "pole"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "kod": {
+                      "type": "string",
+                      "enum": [
+                        "POLE_WYMAGANE",
+                        "ZLY_TYP",
+                        "ZA_DLUGIE",
+                        "ZLA_WARTOSC"
+                      ]
+                    },
+                    "pole": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "BladPrzebiegu": {
+        "type": "object",
+        "required": [
+          "blad"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "blad": {
+            "type": "object",
+            "required": [
+              "kod",
+              "komunikat",
+              "zdarzenieId",
+              "powod"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "kod": {
+                "type": "string"
+              },
+              "komunikat": {
+                "type": "string"
+              },
+              "zdarzenieId": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}$"
+              },
+              "powod": {
+                "type": "string",
+                "enum": [
+                  "wygasl",
+                  "zamkniety",
+                  "zastapiony",
+                  "nieznany"
+                ],
+                "description": "Dlaczego przebieg nie żyje: wygasł po bezczynności, zamknięty przez `koniec`, zastąpiony nowym `start` tej samej firmy albo nieznany. Informacja do diagnozy — connector reaguje tak samo niezależnie od wartości."
+              }
+            }
+          }
+        }
+      },
+      "BladFirmy": {
+        "type": "object",
+        "required": [
+          "blad"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "blad": {
+            "type": "object",
+            "required": [
+              "kod",
+              "komunikat",
+              "zdarzenieId",
+              "stan"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "kod": {
+                "type": "string"
+              },
+              "komunikat": {
+                "type": "string"
+              },
+              "zdarzenieId": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}$"
+              },
+              "stan": {
+                "type": "string",
+                "enum": [
+                  "firma_nieznana",
+                  "firma_zgloszona",
+                  "firma_poza_zakresem"
+                ],
+                "description": "Dlaczego firma nie jest obsługiwana: nieznana (wyślij `zgloszenie-firmy`), zgłoszona i czeka na decyzję administratora, albo istnieje, ale poza zakresem tego klucza. Nazwy firmy w odpowiedzi nie ma."
+              }
+            }
+          }
+        }
+      },
+      "StanResponse": {
+        "type": "object",
+        "description": "Odpowiedź operacji `stan`. Pola `firma` i `ostatniPrzebieg` są null, gdy żądanie nie podało NIP-u albo firma nie jest jeszcze znana.",
+        "required": [
+          "protokol",
+          "klucz",
+          "firma",
+          "ostatniPrzebieg"
+        ],
+        "properties": {
+          "protokol": {
+            "type": "integer",
+            "enum": [
+              1
+            ],
+            "description": "Wersja protokołu obsługiwana przez tenanta."
+          },
+          "klucz": {
+            "type": "string",
+            "enum": [
+              "aktywny"
+            ],
+            "description": "Klucz, którym przyszło żądanie. Klucz zły albo wygasły nie dochodzi tutaj — kończy się na `401`."
+          },
+          "firma": {
+            "type": "object",
+            "required": [
+              "stan"
+            ],
+            "properties": {
+              "stan": {
+                "type": "string",
+                "enum": [
+                  "ok",
+                  "firma_nieznana",
+                  "firma_zgloszona",
+                  "firma_poza_zakresem"
+                ],
+                "description": "`ok` — firma istnieje i jest w zakresie tego klucza; pozostałe wartości jak w `403 FIRMA_NIEZATWIERDZONA`."
+              }
+            },
+            "additionalProperties": false,
+            "nullable": true
+          },
+          "ostatniPrzebieg": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Czas domknięcia ostatniego przebiegu tej firmy (UTC) albo null, gdy jeszcze go nie było.",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "BladTozsamosci": {
+        "type": "object",
+        "description": "`403 TOZSAMOSC_ZMIENIONA` — connector zgłosił inny odcisk sekretu tożsamości niż zapamiętany dla tej firmy. Strumień firmy stoi do jawnej decyzji administratora; żaden rekord nie został przyjęty.",
+        "required": [
+          "blad"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "blad": {
+            "type": "object",
+            "required": [
+              "kod",
+              "komunikat",
+              "zdarzenieId",
+              "odcisk"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "kod": {
+                "type": "string",
+                "enum": [
+                  "TOZSAMOSC_ZMIENIONA"
+                ]
+              },
+              "komunikat": {
+                "type": "string"
+              },
+              "zdarzenieId": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}$"
+              },
+              "odcisk": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}$",
+                "description": "Odcisk, który przyszedł w żądaniu — ten sam, który administrator zobaczy na ekranie integracji."
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

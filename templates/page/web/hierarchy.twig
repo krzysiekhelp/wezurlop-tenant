@@ -1,0 +1,190 @@
+{% extends 'layout/web.twig' %}
+
+{#- Przeciąganie kart to jedyny ekran, który potrzebuje tego modułu JS. -#}
+{% set hierarchia = true %}
+
+{% block nazwa_ekranu %}Hierarchia{% endblock %}
+
+{% block okruchy %}
+{% endblock %}
+
+{% block content %}
+    <div class="page__head">
+        <div class="page__title">
+            {#- ⚠ Drugie zdanie dochodzi tylko kontu z rolą tenantową i tylko przy więcej niż
+                jednej spółce — inaczej byłoby zdaniem o wyborze, którego nie ma. Powód jego
+                istnienia: ta sama kontrolka spółek w kalendarzu pokazuje WYŁĄCZNIE spółki
+                z nadanym podglądem (uprawnienie per spółka), a tutaj wszystkie (uprawnienie
+                tenantowe). Bez tego zdania dwa ekrany z identyczną kontrolką wyglądają
+                na sprzeczne (zlecenie 08.10 §4, wariant a). -#}
+            <p class="page__sub">Kto komu zatwierdza urlop. Struktura jest osobna dla każdej firmy — przełożony musi być z tej samej firmy.{% if caly_tenant %} Jako administrator tenanta prowadzisz hierarchię <strong>wszystkich spółek</strong> — dlatego widzisz je tu wszystkie, także te, w których nie masz podglądu kalendarza.{% endif %}</p>
+            {% if spolka is not null %}
+                <p class="page__sub">Struktura firmy: <strong>{{ spolka.nazwa }}</strong>{% if z_adresu %} — firma z adresu, na jedno wyświetlenie; znacznik w belce nadal pokazuje Twój wybór{% elseif fallback %} — firma wybrana w belce jest poza zakresem tego ekranu albo już niedostępna, więc pokazujemy pierwszą dozwoloną{% endif %}.</p>
+            {% endif %}
+        </div>
+        {#- ⚠ **Kontrolka wyboru spółki zniknęła z tego ekranu** (zlecenie
+            `2026-10-10-globalny-wybor-spolki.md` §1): spółkę wybiera jeden znacznik w górnej
+            belce, widoczny na każdym ekranie. Dwie kontrolki do jednego wyboru rozjeżdżają się
+            przy pierwszej zmianie — to był cel tej zmiany, nie efekt uboczny. Zdanie o tym,
+            którą spółkę widzisz, stoi pod tytułem, bo przy znaczniku nie ma miejsca
+            na wyjaśnienie zakresu. -#}
+    </div>
+
+    {% if error is not null %}<p class="notice notice--danger" role="alert">{{ error }}</p>{% endif %}
+    {% if notice is not null %}<p class="notice" role="status">{{ notice }}</p>{% endif %}
+
+    {% if spolka is null %}
+        <p class="empty-state">To konto nie ma firmy, w której mogłoby ustawiać strukturę. Hierarchię prowadzi się w obrębie firmy, do której masz dostęp.</p>
+    {% else %}
+        {#- Pasek liczb — rodzina `.stats`, ta sama co kafelki na `/admin/konta`.
+
+            ⚠ Był tu `.defs` (lista definicyjna) wrzucony wprost w `.card`, który z założenia
+            nie ma wyściółki — treść stała 1 px od obrysu, liczby miały 14 px/400, czyli
+            dokładnie tyle co zwykły tekst, kresek nie było, a na liczbę pięciu kolumn musiał
+            powstać wariant `--piec`. Dwa ekrany pokazywały tę samą rzecz dwoma komponentami;
+            to jest ta choroba, dla której powstał system wizualny (§0).
+
+            ⚠ „Nieustawionych" i „Na szczycie" to DWIE różne liczby i tylko pierwsza jest
+            do zrobienia — to cały powód, dla którego szczyt jest jawną decyzją. -#}
+        <section class="card stats">
+            <div class="stats__item">
+                <span class="stats__key">Zatrudnionych w firmie</span>
+                <span class="stats__value" data-hier-liczba="zatrudnionych">{{ struktura.liczby.zatrudnionych }}</span>
+            </div>
+            <div class="stats__item">
+                <span class="stats__key">Nieustawionych</span>
+                {#- ⚠ Odchylenie to KOLOR WARTOŚCI, nie plakietka: liczba ma zostać liczbą
+                    tej samej wielkości co pozostałe. -#}
+                <span class="stats__value{{ struktura.liczby.nieustawionych > 0 ? ' stats__value--odchylenie' : '' }}"
+                      data-hier-liczba="nieustawionych">{{ struktura.liczby.nieustawionych }}</span>
+            </div>
+            <div class="stats__item">
+                <span class="stats__key">Na szczycie hierarchii</span>
+                <span class="stats__value" data-hier-liczba="szczytow">{{ struktura.liczby.szczytow }}</span>
+            </div>
+            <div class="stats__item">
+                <span class="stats__key">Najgłębszy poziom</span>
+                <span class="stats__value" data-hier-liczba="najglebszy">{{ struktura.liczby.najglebszy }}</span>
+            </div>
+            <div class="stats__item">
+                <span class="stats__key">Wymaga uwagi</span>
+                {#- ⚠ Objaśnienie stoi W TEJ pozycji, której dotyczy, a nie akapitem pod siatką:
+                    liczba, która czegoś nie liczy, musi o tym mówić tam, gdzie stoi.
+                    ⚠ Jeden wiersz, nie dwa: przy dwóch wartość rosła do 50 px, pasek do 122 px
+                    (kontra 97 px na `/admin/konta` — ten sam komponent), a pod czterema liczbami
+                    zostawało 49 px pustki. Wycięta jest połowa mówiąca, CO DOJDZIE PÓŹNIEJ —
+                    „bez roli przełożonego" to kategoria, której administrator nigdy nie widział;
+                    to zdanie było dla nas, nie dla niego. Zostaje to, co mówi, że liczba
+                    jest niepełna. -#}
+                <span class="stats__value{{ struktura.liczby.uwagi > 0 ? ' stats__value--odchylenie' : '' }}"
+                      data-hier-liczba="uwagi">{{ struktura.liczby.uwagi }}
+                    {%- if not struktura.rola_znana %} <small>tylko zablokowane konta</small>{% endif %}
+                </span>
+            </div>
+        </section>
+
+        <div class="hier">
+            <section class="card hier__panel">
+                <div class="card__head">
+                    <h2 class="card__title">Nieustawieni</h2>
+                    <span class="card__meta">{{ struktura.liczby.nieustawionych }} z {{ struktura.liczby.zatrudnionych }}</span>
+                </div>
+                <div class="card__body">
+                    <p class="field__hint">Tu trafia każdy nowy pracownik z R2. Dopóki ktoś tu stoi, jego wniosek nie ma do kogo pójść — i nikt tego nie zauważy, bo wniosku jeszcze nie ma.</p>
+                    {#- ⚠ Kontrolki filtrowania są UKRYTE bez JavaScriptu (`hidden` zdejmuje je
+                        z układu), bo bez niego nie mają czego filtrować — a przycisk, który nic
+                        nie robi, jest gorszy od jego braku. Bez JS zostaje pełna lista i ścieżka
+                        „⋯": degradacja, nie awaria. -#}
+                    <label class="field" id="hier-filtr-panel" hidden>
+                        <span class="field__label">Szukaj w nieustawionych</span>
+                        <input class="input" type="search" data-hier-filtr="hier-nieustawieni" maxlength="100" placeholder="nazwisko albo imię">
+                    </label>
+                    {#- ⚠ Filtr MUSI mówić, ilu ukrył: panel pusty z powodu filtra i panel pusty,
+                        bo robota skończona, nie mają prawa wyglądać tak samo — a to jedyny
+                        licznik na tym ekranie, który jest listą zadań. -#}
+                    <p class="field__hint" data-hier-ukryte="hier-nieustawieni" hidden></p>
+                    {#- ⚠ Karta owinięta w `li.hier__node` TAK SAMO jak w drzewie. Dwa powody,
+                        oba zmierzone: `<ul>` z dzieckiem innym niż `<li>` to niepoprawny HTML,
+                        a uchwyt przeciągania szuka najbliższego `.hier__node` — bez niego karty
+                        z tego panelu w ogóle nie dawały się przeciągnąć (pasek zmian zostawał
+                        pusty przy poprawnym zdarzeniu `drop`). -#}
+                    <ul class="hier__list" id="hier-nieustawieni" data-hier-drop="zdejmij">
+                        {% for w in struktura.nieustawieni %}
+                            <li class="hier__node">
+                                {% include 'partials/page/hierarchy-card.twig' with {'w': w, 'spolka': spolka} only %}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                    {% if struktura.nieustawieni is empty %}
+                        <p class="empty-state">Nikogo — każde zatrudnienie ma rozstrzygniętą pozycję.</p>
+                    {% else %}
+                        <p class="hier__drop hier__drop--panel">Upuść tutaj, żeby zdjąć ze struktury</p>
+                    {% endif %}
+                </div>
+            </section>
+
+            <section class="card hier__tree">
+                <div class="card__head">
+                    <h2 class="card__title">Struktura — {{ spolka.nazwa }}</h2>
+                    <span class="card__meta">przeciągnij kartę na kartę: „ta osoba jest przełożonym"</span>
+                </div>
+                <div class="card__body">
+                    <div class="toolbar" id="hier-narzedzia" hidden>
+                        <label class="field">
+                            <span class="field__label">Szukaj w strukturze</span>
+                            <input class="input" type="search" data-hier-filtr="hier-drzewo" maxlength="100" placeholder="nazwisko albo imię">
+                        </label>
+                        {#- Stanu zwinięcia nie zapamiętujemy między wejściami — żadnego
+                            ustawienia użytkownika na coś, co jest wygodą jednego spojrzenia. -#}
+                        <button type="button" class="btn btn--ghost" id="hier-zwin">Zwiń wszystko</button>
+                        <button type="button" class="btn btn--ghost" id="hier-rozwin">Rozwiń wszystko</button>
+                        <span class="toolbar__spacer"></span>
+                        <span class="toolbar__result" data-hier-ukryte="hier-drzewo"></span>
+                    </div>
+                    {#- ⚠ §5: wariantu mobilnego tego ekranu NIE MA i nie będzie, ale człowiek,
+                        który ciągnie kartę palcem i nic się nie dzieje, zgłasza usterkę.
+                        Jedno zdanie zamiast planszy — ścieżka „⋯" działa dalej. -#}
+                    <p class="notice hier__tylko-komputer" role="status">Ten ekran jest przeznaczony na komputer — przeciąganie kart nie działa palcem. Strukturę ustawisz menu (trzy kropki) przy karcie.</p>
+                    <p class="hier__drop" data-hier-drop="szczyt">Upuść tutaj, żeby zapisać, że ta osoba nie podlega nikomu</p>
+                    {% if struktura.wezly is empty %}
+                        <p class="empty-state">W tej firmie nie ma czynnych zatrudnień.</p>
+                    {% else %}
+                        <div id="hier-drzewo">
+                            {% include 'partials/page/hierarchy-branch.twig' with {
+                                'wezly': struktura.wezly, 'rodzic': null, 'spolka': spolka, 'poziom': 1
+                            } only %}
+                        </div>
+                    {% endif %}
+                </div>
+            </section>
+        </div>
+
+        {#- Pasek zmian. ⚠ Przeciągnięcie NICZEGO nie zapisuje: jedno nieuważne upuszczenie
+            przestawia ścieżkę akceptacji całemu zespołowi, a skutek widać dopiero wtedy, gdy
+            czyjś wniosek pójdzie nie tam. Bez JavaScriptu pasek jest pusty i niewidoczny —
+            wtedy zapisuje się pojedynczo, menu „⋯" przy karcie. -#}
+        <form class="hier__bar" id="hier-bar" method="post" action="{{ url('/admin/hierarchia/zapisz') }}" hidden>
+            {% include 'partials/csrf.twig' %}
+            <input type="hidden" name="spolka" value="{{ spolka.id }}">
+            <div class="hier__bar-text">
+                <strong id="hier-bar-count">0 zmian</strong>
+                <ul class="hier__bar-list" id="hier-bar-list"></ul>
+            </div>
+            <div class="hier__bar-actions">
+                <button type="button" class="btn btn--ghost" id="hier-undo">Cofnij ostatnią</button>
+                <button type="button" class="btn btn--ghost" id="hier-discard">Odrzuć wszystkie</button>
+                <button type="submit" class="btn btn--primary">Zapisz zmiany</button>
+            </div>
+        </form>
+        {#- ⚠ Istniejący komponent `.modal` (ten sam co na `/admin/konta` i `/admin/integracja`),
+            nie nowy: tło, `Escape`, ognisko i wspólna obsługa `data-modal-open` są już zrobione.
+            Treść dociąga htmx dopiero przy otwarciu — zamknięte okno nie odpytuje serwera. -#}
+        <dialog id="hier-modal" class="modal" aria-labelledby="hier-modal-title" role="dialog" aria-modal="true">
+            <div class="modal__head">
+                <h3 id="hier-modal-title">Zmień przełożonego</h3>
+                <button type="button" class="modal__close" data-modal-close="hier-modal" aria-label="Zamknij okno">×</button>
+            </div>
+            <div class="modal__body" id="hier-modal-tresc"></div>
+        </dialog>
+    {% endif %}
+{% endblock %}

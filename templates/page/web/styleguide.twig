@@ -1,0 +1,12 @@
+{% extends 'layout/web.twig' %}
+
+{% block nazwa_ekranu %}Styleguide{% endblock %}
+
+{% block content %}
+    <div class="page__head">
+        <div class="page__title">
+            <p class="page__sub">Wszystkie komponenty na jednym ekranie. Strona istnieje tylko przy APP_ENV=dev.</p>
+        </div>
+    </div>
+    {% include 'partials/page/styleguide.twig' %}
+{% endblock %}

@@ -1,0 +1,17 @@
+{%- if status == 419 -%}
+    <p>Formularz był otwarty zbyt długo albo sesja wygasła. Wróć i spróbuj ponownie.</p>
+    <p><a class="btn btn--primary" href="{{ back_url ?? url('/') }}">Wróć i spróbuj ponownie</a></p>
+{%- elseif status == 404 -%}
+    <p>Strona nie istnieje albo nie masz do niej dostępu.</p>
+    <p><a class="btn btn--ghost" href="{{ url('/') }}">Strona główna</a></p>
+{%- elseif status == 403 -%}
+    <p>Nie masz uprawnień do tej części aplikacji.</p>
+    <p><a class="btn btn--ghost" href="{{ url('/') }}">Strona główna</a></p>
+{%- elseif status == 503 -%}
+    <p>{{ message ?? 'Aplikacja jest chwilowo niedostępna. Spróbuj ponownie później.' }}</p>
+{%- else -%}
+    <p>Coś poszło nie tak po naszej stronie. Spróbuj ponownie za chwilę.</p>
+{%- endif -%}
+{%- if event_id is not null %}
+    <p class="chip mono">Identyfikator zdarzenia: {{ event_id }}</p>
+{%- endif %}

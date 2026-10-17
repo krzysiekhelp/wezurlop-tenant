@@ -1,0 +1,23 @@
+{#- Wybór firmy. Zmienne: employments (id, company, fte, current). Przełączenie przez POST. -#}
+<section class="card">
+    <div class="card__body">
+        <p>Twoje konto ma zatrudnienie w kilku firmach. Wybierz, w której chcesz teraz pracować.</p>
+        <ul class="settings-list">
+            {% for item in employments %}
+                <li>
+                    <form method="post" action="{{ url('/kontekst/' ~ item.id) }}">
+                        {% include 'partials/csrf.twig' %}
+                        {#- ⚠ Stan „bieżąca" niosła wcześniej ZIELONA krawędź wiersza plus plakietka,
+                            czyli dwa razy to samo, a raz kolorem akcji na stanie normalnym (§2).
+                            Zostaje plakietka. `company-mark` czeka na makietę — nie ma odpowiednika. -#}
+                        <button type="submit" class="settings-list__row">
+                            <span class="company-mark" aria-hidden="true">{{ item.company|first|upper }}</span>
+                            <span class="settings-list__copy"><strong>{{ item.company }}</strong><small>etat {{ item.fte }}</small></span>
+                            {% if item.current %}<span class="chip">bieżąca</span>{% else %}<span class="chip">wybierz</span>{% endif %}
+                        </button>
+                    </form>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+</section>

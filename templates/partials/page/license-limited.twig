@@ -1,0 +1,11 @@
+{#- Tryb ograniczony licencji. Zmienne: reason (kod dla wsparcia — bez opisu mechanizmu). -#}
+<section class="card">
+    <div class="card__body">
+        <p class="notice notice--warn">Licencja tej instalacji jest nieaktywna. Dane są bezpieczne, ale praca w aplikacji
+            jest wstrzymana do czasu odnowienia licencji.</p>
+        <p>Skontaktuj się z administratorem systemu w swojej firmie.
+            {% if can('admin.license') %}Szczegóły znajdziesz na stronie <a href="{{ url('/licencja') }}">Licencja</a>.{% endif %}</p>
+        <p class="chip mono">Kod: {{ reason }}</p>
+        {% include 'partials/logout.twig' %}
+    </div>
+</section>

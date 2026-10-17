@@ -1,0 +1,86 @@
+{#- **Miesiąc dla JEDNEJ osoby: siatka tygodniowa po lewej, lista wpisów po prawej**
+    (zlecenie `2026-10-13-kalendarz-naglowek-i-ksztalt-miesiaca.md` §2, prototyp zatwierdzony
+    przez Krzysztofa w przeglądarce).
+
+    ⚠ **Kratki przychodzą z tego samego miejsca, co w skali Roku** — `msiatka__*`, czyli komponent,
+    który już umie weekendy, kolor rodzaju, `title` i znacznik „dziś”. Nie jest to nowy komponent
+    i nie wolno go tu „poprawiać”: wygląd Miesiąca (wyższa kratka, większy numer) siedzi w regułach
+    zawężonych do `.mies__kalendarz`, a Rok ma zostać dokładnie taki, jaki jest (§4a zlecenia).
+
+    ⚠ **Nazwy miesiąca w pudełku NIE MA**, bo tytuł ekranu już ją mówi („Maj 2026” nad siatką).
+    Usunięta jest **tutaj, w szablonie tego widoku** — nie wycięta z `msiatka`, gdzie jest potrzebna:
+    w Roku dwanaście pudełek bez podpisu nie dałoby się rozróżnić.
+
+    ⚠ **Lista obok siatki nie jest ozdobą** (§2 zlecenia, punkt o koszcie zmiany). Kratka znaczy
+    dzień samym wypełnieniem i nie ma paska z napisem „25–29.05”, który niósł zakres na osi czasu.
+    Zakres, liczbę dni roboczych i źródło wpisu niesie więc lista — bez niej ten widok traci dane,
+    a nie tylko wygląd. Dlatego jedzie razem z siatką, a nie „gdy się zmieści”.
+
+    ⚠ **Nieobecność przez weekend rozpada się na dwa wiersze siatki** i to jest przyjęte świadomie:
+    pełny zakres stoi obok, na liście. To ta sama wada, za którą odrzucono stronicowanie po
+    tygodniach — różnica jest w tym, że tam nie było czego postawić obok.
+
+    Zmienne: `mies` (model z `KalendarzPracownika::widokJa()`), `pusto` (zdanie dla zera wpisów).
+
+    ⚠ Zero logiki — klasy odpowiadają stanom kratek przysłanym z serwisu. -#}
+<div class="card__body">
+    <div class="mies">
+        <div class="mies__kalendarz">
+            <section class="msiatka">
+                <div class="msiatka__siatka">
+                    {% for d in mies.dni_tygodnia %}
+                        <div class="msiatka__dzien-tygodnia">{{ d }}</div>
+                    {% endfor %}
+                    {% for tydzien in mies.tygodnie %}
+                        {% for d in tydzien %}
+                            {% if d is null %}
+                                <div class="msiatka__kratka msiatka__kratka--poza" aria-hidden="true"></div>
+                            {% elseif d.pasek is not null %}
+                                <div class="msiatka__kratka msiatka__kratka--{{ d.pasek.zrodlo }}"
+                                     title="{{ d.pasek.nazwa }} · {{ d.pasek.data }}">{% if d.dzis %}<span class="dzien-dzis">{{ d.numer }}</span>{% else %}{{ d.numer }}{% endif %}</div>
+                            {% else %}
+                                <div class="msiatka__kratka{{ d.wolny ? ' msiatka__kratka--wolny' : '' }}">{% if d.dzis %}<span class="dzien-dzis">{{ d.numer }}</span>{% else %}{{ d.numer }}{% endif %}</div>
+                            {% endif %}
+                        {% endfor %}
+                    {% endfor %}
+                </div>
+            </section>
+        </div>
+        <div class="mies__wpisy">
+            <h3 class="mies__naglowek">Twoje nieobecności</h3>
+            {% if mies.lista is empty %}
+                <p class="empty-state">{{ pusto }}</p>
+            {% else %}
+                <ul class="wpisy">
+                    {% for n in mies.lista %}
+                        {#- ⚠ Kropka w **tym samym tokenie, co wypełnienie kratki i próbka w legendzie**
+                            — trzy miejsca mówiące o jednym rodzaju muszą mieć jeden kolor. Obwódka
+                            w kolorze tekstu rodzaju jest konieczna, nie ozdobna: sam pastel na białym
+                            tle karty ma kontrast ~1,2 i kropki po prostu nie widać. -#}
+                        <li class="wpisy__poz">
+                            <span class="wpisy__kropka wpisy__kropka--{{ n.zrodlo }}" aria-hidden="true"></span>
+                            <div class="wpisy__tresc">
+                                <span class="wpisy__rodzaj">{{ n.rodzaj }}{% if n.poza_oknem %} <span class="chip">poza oknem</span>{% endif %}</span>
+                                {#- ⚠ Zakres dat i liczba dni roboczych to **dane, których nie ma
+                                    na kratkach** — a nie powtórzenie siatki. Źródło wpisu zostaje,
+                                    bo odpowiada na pytanie „skąd to się tu wzięło”. -#}
+                                <span class="wpisy__meta">{{ n.kiedy }} · {% if n.dni is null %}kadry nie podały liczby dni{% else %}{{ n.dni }} {{ odmiana_dni_robocze(n.dni) }}{% endif %} · {{ n.wpis }}</span>
+                                {#- Wpis sklejony z kilku pozycji kadrowych mówi o tym wprost:
+                                    inaczej liczba dni nie zgadzałaby się z żadnym pojedynczym wpisem. -#}
+                                {% if n.wpisow > 1 %}<span class="wpisy__meta">jeden ciąg, {{ n.wpisow }} wpisy w kadrach</span>{% endif %}
+                            </div>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+            {#- ⚠ Legenda stoi **pod listą**, czyli przy rzeczy, którą opisuje: kolory kratek
+                nazywa lista obok nich, a nie pasek w nagłówku ekranu. -#}
+            <div class="legend">
+                <span class="legend__item"><span class="legend__mark legend__mark--urlop" aria-hidden="true"></span>urlop</span>
+                <span class="legend__item"><span class="legend__mark legend__mark--zasilek" aria-hidden="true"></span>zwolnienie</span>
+                <span class="legend__item"><span class="legend__mark legend__mark--kadrowe" aria-hidden="true"></span>inna nieobecność</span>
+                <span class="legend__item"><span class="legend__mark legend__mark--free" aria-hidden="true"></span>dzień wolny od pracy</span>
+            </div>
+        </div>
+    </div>
+</div>

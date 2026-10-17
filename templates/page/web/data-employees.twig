@@ -1,0 +1,95 @@
+{% extends 'layout/web.twig' %}
+
+{% block nazwa_ekranu %}{{ firma.name }}{% endblock %}
+
+{% block okruchy %}
+    <a href="{{ url('/dane') }}">Dane z kadr</a>
+    <span class="crumbs__sep">/</span>
+{% endblock %}
+
+{% block content %}
+    <div class="page__head">
+        <div class="page__title">
+            {# NIP grupami, przy nazwie firmy — nie osobną linijką techniczną (§5.1). #}
+            <p class="page__sub">NIP {{ nip_grupami(firma.nip) }} · {{ strona.razem }} {{ strona.razem == 1 ? 'zatrudnienie' : 'zatrudnień' }} · dane tylko do odczytu, źródło: R2 Płatnik</p>
+        </div>
+        <div class="page__actions">
+            <a class="btn btn--ghost" href="{{ url('/dane') }}">Wszystkie firmy</a>
+        </div>
+    </div>
+
+    {# Filtry POZA kartą — na każdym ekranie w tym samym miejscu (§5). Formularz GET: działa bez JS. #}
+    <form class="toolbar" method="get" action="{{ url('/dane/firma/' ~ firma.id) }}">
+        <label class="field">
+            <span class="field__label">Nazwisko lub imię</span>
+            <input class="input" type="text" name="szukaj" value="{{ szukaj }}" maxlength="100" placeholder="np. Kowalska">
+        </label>
+        <label class="field">
+            <span class="field__label">Sortuj</span>
+            <select class="select" name="sortuj">
+                <option value="nazwisko"{{ sortuj == 'nazwisko' ? ' selected' : '' }}>po nazwisku</option>
+                <option value="zatrudnienie"{{ sortuj == 'zatrudnienie' ? ' selected' : '' }}>po dacie zatrudnienia</option>
+                <option value="etat"{{ sortuj == 'etat' ? ' selected' : '' }}>po etacie</option>
+            </select>
+        </label>
+        <label class="field">
+            <span class="field__label">Kierunek</span>
+            <select class="select" name="kierunek">
+                <option value="asc"{{ kierunek == 'asc' ? ' selected' : '' }}>rosnąco</option>
+                <option value="desc"{{ kierunek == 'desc' ? ' selected' : '' }}>malejąco</option>
+            </select>
+        </label>
+        <button type="submit" class="btn btn--primary">Pokaż</button>
+        <span class="toolbar__spacer"></span>
+        <span class="toolbar__result">Wynik: {{ pracownicy|length }} z {{ strona.razem }}</span>
+    </form>
+
+    <section class="card">
+        <div class="table-scroll">
+            {#- `table--zebra`: lista stronicowana, siedem kolumn (reguła §3.4). -#}
+            <table class="table table--zebra">
+                <thead>
+                    <tr>
+                        <th class="table__grow">Pracownik</th>
+                        <th>Nr kadrowy</th>
+                        <th class="table__num">Etat</th>
+                        <th>Zatrudniony od</th>
+                        <th>Rozkład czasu pracy</th>
+                        <th class="table__num">Nieobecności {{ rok }}</th>
+                        <th>Stan</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for p in pracownicy %}
+                    <tr>
+                        {# ⚠ Nazwisko w formie źródłowej z R2 — bez text-transform i bez zamiany (§3.2). #}
+                        <td class="table__grow"><a class="table__name" href="{{ url('/dane/pracownik/' ~ p.person_id) }}">{{ p.name }}</a></td>
+                        <td class="table__mute mono">{{ p.identyfikator ?? '—' }}</td>
+                        <td class="table__num">{{ etat(p.fte) }}</td>
+                        <td class="table__mute">{{ p.hired_at ?? '—' }}</td>
+                        <td class="table__mute">{{ p.calendar ?: '—' }}</td>
+                        <td class="table__num">{{ p.absence_days }} dni</td>
+                        {# Stan normalny nie dostaje koloru ani plakietki — kolumna zostaje pusta (§3.1). #}
+                        <td>{% if not p.active %}<span class="chip">zakończone{% if p.terminated_at %} {{ p.terminated_at }}{% endif %}</span>{% endif %}</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="7" class="table__empty">{{ szukaj ? 'Nikt nie pasuje do szukanej frazy.' : 'Ta firma nie ma jeszcze przysłanych pracowników.' }}</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="card__foot">
+            <span>Pokazano {{ strona.razem > 0 ? strona.offset + 1 : 0 }}–{{ strona.offset + pracownicy|length }} z {{ strona.razem }}</span>
+            {% if strona.stron > 1 %}
+                <div class="btn-row">
+                    {% if strona.numer > 1 %}
+                        <a class="btn btn--ghost btn--sm" href="{{ url('/dane/firma/' ~ firma.id) }}?szukaj={{ szukaj|url_encode }}&amp;sortuj={{ sortuj|url_encode }}&amp;kierunek={{ kierunek|url_encode }}&amp;strona={{ strona.numer - 1 }}">Poprzednie</a>
+                    {% endif %}
+                    {% if strona.numer < strona.stron %}
+                        <a class="btn btn--ghost btn--sm" href="{{ url('/dane/firma/' ~ firma.id) }}?szukaj={{ szukaj|url_encode }}&amp;sortuj={{ sortuj|url_encode }}&amp;kierunek={{ kierunek|url_encode }}&amp;strona={{ strona.numer + 1 }}">Następne</a>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </section>
+{% endblock %}

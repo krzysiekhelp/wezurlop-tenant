@@ -1,0 +1,330 @@
+{#- Panel osoby (etap 3 zlecenia `konta-budowa-2`).
+
+    ⚠ Ten sam fragment idzie do szuflady (htmx) i na pełny ekran `page/web/person-panel.twig` —
+    tak jak `fragments/confirm.twig`. Bez JavaScriptu odnośnik z listy prowadzi na ten ekran.
+
+    ⚠ Panel dzieli się OSTRO: dane z kadr są tylko do odczytu, bo następna synchronizacja
+    i tak je nadpisze. Pole do edycji nad takimi danymi obiecywałoby zmianę, która zniknie. -#}
+<div class="drawer__head">
+    <div>
+        <div class="drawer__title">
+            {#- ⚠ **Nazwisko w nagłówku panelu tylko w SZUFLADZIE** (zlecenie 11.10.2026 §2d).
+                Szuflada otwiera się nad listą i nie ma belki, więc bez tego nagłówka nie
+                wiadomo, czyje dane widać. Na pełnym ekranie (`/admin/konta/osoba/{id}`) to samo
+                nazwisko stoi już w belce jako nazwa ekranu — i wtedy nagłówek karty tylko je
+                powtarza. Zmierzone przez bramkę, nie przewidziane: `tytul_ekranu` zgłosił
+                „powtorzone_w_naglowku: Kamil Gąsiorkiewicz". -#}
+            {% if w_szufladzie %}<h2>{{ o.name }}</h2>{% endif %}
+            {#- ⚠ Plakietka tylko wtedy, gdy WIEMY: wiązanie tożsamości (`person_external_ref`)
+                dowodzi, że osoba przyszła z kadr. Odwrotnej plakietki („spoza kadr") tu nie ma,
+                bo brak wiersza w innej tabeli nie jest oświadczeniem — to własna kolumna z etapu 4. -#}
+            {#- ⚠ „z kadr" dowodzi wiązanie tożsamości; „spoza kadr" — własna kolumna (etap 4).
+                Przy obu prawdziwych wygrywa wiązanie: jest nowszą informacją. -#}
+            {% if o.z_kadr %}<span class="chip">z kadr</span>
+            {%- elseif o.spoza_kadr %}<span class="chip">spoza kadr</span>{% endif %}
+        </div>
+        <div class="drawer__sub">
+            {% if wiersz.etat_nazwy is not empty %}{{ wiersz.etat_nazwy|join(' · ') }}{% else %}bez aktywnego zatrudnienia{% endif %}
+        </div>
+    </div>
+    {% if w_szufladzie %}
+        <button type="button" class="modal__close" data-modal-close="osoba-panel" aria-label="Zamknij panel">×</button>
+    {% endif %}
+</div>
+
+<div class="drawer__body">
+    {#- ⚠ Komunikat o przyjęciu do wysyłki zawsze mówi KIEDY — z faktycznej częstotliwości crona.
+        Stan awarii crona ma własny wygląd, bo „nie przyszło" znaczy wtedy usterkę, nie czekanie. -#}
+    {% if notice is not null %}
+        <p class="notice{{ notice_termin is not null and termin.awaria ? ' notice--danger' : '' }}"
+           role="{{ notice_termin is not null and termin.awaria ? 'alert' : 'status' }}">
+            {{ notice }}
+            {%- if notice_termin is not null %} {% include 'partials/termin-wysylki.twig' with {co: notice_termin} %}{% endif %}
+        </p>
+    {% endif %}
+    {% if error is not null %}<p class="notice notice--danger" role="alert">{{ error }}</p>{% endif %}
+
+    <section class="pane">
+        <div class="pane__head">
+            <span class="pane__title">Dane z kadr</span>
+            <span class="pane__meta">tylko do odczytu</span>
+        </div>
+        {% if zatrudnienia is empty %}
+            <p class="empty-state">Ta osoba nie ma żadnego zatrudnienia w programie kadrowym.</p>
+        {% else %}
+            <div class="defs">
+                {% for z in zatrudnienia %}
+                    <div>
+                        <div class="defs__term">Firma{% if not z.aktywne %} (zakończona){% endif %}</div>
+                        <div class="defs__value">{{ z.company }}<span class="cell__druga">NIP {{ nip_grupami(z.nip) }}</span></div>
+                    </div>
+                    <div>
+                        <div class="defs__term">Wymiar etatu</div>
+                        <div class="defs__value">{{ z.fte_numerator }}/{{ z.fte_denominator }}</div>
+                    </div>
+                    <div>
+                        <div class="defs__term">Zatrudnienie od</div>
+                        {#- ⚠ `|date`, a NIE `czas_data`: data zatrudnienia to data KALENDARZOWA,
+                            nie moment w czasie. Ekran ustawień mówi to wprost — „daty kalendarzowe
+                            nie zależą od strefy i nie zmienią się" — więc przepuszczenie jej przez
+                            konwersję strefy mogłoby przesunąć ją o dzień. -#}
+                        <div class="defs__value">{{ z.hired_at is null ? '—' : z.hired_at|date('d.m.Y') }}{% if z.terminated_at is not null %} do {{ z.terminated_at|date('d.m.Y') }}{% endif %}</div>
+                    </div>
+                    <div>
+                        <div class="defs__term">Limit urlopu {{ z.limit_rok }}</div>
+                        {#- Limit jest w bazie w MINUTACH; na dni przelicza widok, bo długość dnia
+                            zależy od etatu, nie od bazy. -#}
+                        <div class="defs__value">{{ z.limit_min is null ? '—' : czas_pracy(z.limit_min) }}</div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+        <p class="notice">Te dane przychodzą z programu kadrowego. Zmienia się je w R2 — następna synchronizacja nadpisze tu wszystko.</p>
+    </section>
+
+    {#- ⚠ Formularz ma `id`, a jego przycisk stoi w STOPCE panelu i wskazuje go atrybutem
+        `form=` — ta sama sztuczka co przy pasku zaznaczania na liście. Powód: stopka jest
+        przyklejona do dołu szuflady, a pola muszą zostać w przewijanej treści. -#}
+    <form id="osoba-dane" method="post" action="{{ url('/admin/konta/osoba/' ~ o.person_id ~ '/zapisz') }}"
+          hx-post="{{ url('/admin/konta/osoba/' ~ o.person_id ~ '/zapisz') }}"
+          hx-target="#osoba-tresc" hx-swap="innerHTML">
+        {% include 'partials/csrf.twig' %}
+        <section class="pane">
+            <div class="pane__head"><span class="pane__title">Dane konta</span></div>
+            <div class="form-column">
+                <label class="field">
+                    <span class="field__label">Adres e-mail</span>
+                    {#- ⚠ Adres jest edytowalny, DOPÓKI KONTO NIE JEST AKTYWNE (rozstrzygnięcie
+                        22.09.2026, zmiana reguły z 21.09). Konto zaproszone nie ma hasła i nikt
+                        nie potwierdził, że ten adres do niego należy; zamrożony login bez drogi
+                        wyjścia oznaczał, że jedna literówka blokuje osobę na zawsze — bo
+                        `account.email` i `account.person_id` są `UNIQUE`.
+                        Przy koncie AKTYWNYM pole zostaje wyłączone: zmiana loginu to osobna
+                        operacja i osobna decyzja. -#}
+                    {% set adres_zamrozony = o.account_id is not null and o.account_status == 'active' %}
+                    <input class="input" type="email" name="email" maxlength="254"
+                           value="{{ wpisane.email ?? o.account_email ?? o.email_kontaktowy }}"
+                           {% if adres_zamrozony %}
+                               disabled title="Konto jest aktywne — adres jest jego loginem i zmienia się osobną ścieżką"
+                           {% endif %}>
+                    {% if adres_zamrozony %}
+                        <span class="field__hint">Adres jest loginem tego konta.</span>
+                    {% elseif o.account_status == 'invited' %}
+                        <span class="field__hint">Adres jest loginem zaproszonego konta. Zmiana unieważni czynne zaproszenie i <strong>nie wyśle</strong> nowego — wyślesz je przyciskiem „Wyślij ponownie".</span>
+                    {% endif %}
+                </label>
+                <label class="field">
+                    <span class="field__label">Telefon</span>
+                    <input class="input" type="tel" name="telefon" maxlength="32" value="{{ wpisane.telefon ?? o.phone }}">
+                    {#- ⚠ ŹRÓDŁO numeru, nie flaga „zweryfikowany". Dziś jest tylko jedno źródło:
+                        `person.phone` nie jest zapisywany przez nic poza tym ekranem, więc numer
+                        może pochodzić wyłącznie od administratora. -#}
+                    <span class="field__hint">{{ o.phone is null ? 'Nie wpisano numeru. Numer nie przychodzi z programu kadrowego.' : 'Wpisany przez administratora — numer nie przychodzi z programu kadrowego.' }}</span>
+                </label>
+            </div>
+        </section>
+    </form>
+
+    <section class="pane">
+        <div class="pane__head"><span class="pane__title">Dostęp</span></div>
+        {#- ⚠ „Dostęp" MOŻE BYĆ PUSTY i wtedy ekran mówi to wprost (zmiana z §2 zlecenia). -#}
+        {% if dostepy is empty %}
+            <p class="empty-state">Bez żadnego dostępu ta osoba nie widzi w programie niczego.</p>
+        {% else %}
+            <div class="btn-row">
+                {% for d in dostepy %}
+                    <span class="chip">{{ d.rola }}{% if d.company_id == 0 %} · wszystkie firmy{% else %} · {{ d.spolka }}{% endif %}</span>
+                {% endfor %}
+            </div>
+        {% endif %}
+        {#- ⚠ Zmiana dostępu idzie TĄ SAMĄ kontrolką co na liście — jeden komponent, jedna trasa
+            zapisu, jedna reguła licencji. Makieta miała tu wiersze z „Dodaj dostęp", czyli drugi
+            interfejs do tej samej operacji; to jest dokładnie ten wzorzec, który przy zaproszeniach
+            i licencji kosztował nas dwie rundy poprawek. -#}
+        {% if wiersz.caly_tenant %}
+            <span class="field__hint">Administrator tenanta obejmuje wszystkie firmy, także przyszłe — tego nie zmienia się stąd.</span>
+        {% else %}
+            <div>
+                <button type="button" class="access access--btn" aria-haspopup="true" aria-expanded="false"
+                        data-dostep="{{ o.person_id }}"
+                        hx-get="{{ url('/admin/konta/osoba/' ~ o.person_id ~ '/dostep') }}"
+                        hx-target="#dostep-panel" hx-swap="innerHTML">
+                    <span class="access__licznik">{{ wiersz.dostepy }} z {{ wiersz.etat_spolki }}{{ wiersz.etat_spolki == 1 ? ' firmy' : ' firm' }}</span>
+                    <svg class="ico ico--sm access__strzalka" viewBox="0 0 20 20" aria-hidden="true"><path d="M6 8l4 4 4-4"/></svg>
+                </button>
+            </div>
+            <span class="field__hint">Rola i firma idą w parze — w bazie to jeden wiersz, więc osoba w dwóch firmach ma dwa wiersze.</span>
+        {% endif %}
+
+        {% include 'partials/page/person-permissions.twig' %}
+
+    </section>
+
+    <section class="pane">
+        <div class="pane__head"><span class="pane__title">Konto</span></div>
+        <div class="btn-row">
+            {% if o.account_status is null %}
+                <span class="chip">brak konta</span><span class="field__hint">Nigdy nie była zapraszana.</span>
+            {% elseif o.account_status == 'niezaproszone' %}
+                <span class="chip">niezaproszone</span><span class="field__hint">Konto istnieje, żeby dostęp miał na czym stanąć. Zalogować się nim nie da.</span>
+            {% elseif o.account_status == 'invited' %}
+                {#- ⚠ „Zaproszony" nie odpowiada na jedyne pytanie, które się tu zadaje: „to dlaczego
+                    tego nie ma w skrzynce". Dlatego dwa fakty obok stanu — KIEDY wydano link
+                    i CO ZROBIŁA KOLEJKA (zlecenie §3). To dwa różne zdarzenia i dwa źródła:
+                    link wydaje zaproszenie, wysyłkę wykonuje kolejka i tylko ona zna jej koniec. -#}
+                <span class="chip">zaproszony</span>
+                <span class="field__hint">
+                    Hasło jeszcze nieustawione.
+                    {#- ⚠ Zdanie mówi o WAŻNOŚCI, nie tylko o wydaniu. „Link wydany 12:50:59"
+                        przy linku unieważnionym czyta się jak „jest czym kliknąć" — zmierzone
+                        na żywym ekranie 22.09.2026, zgłoszone jako sprzeczność z licznikiem
+                        czynnych zaproszeń. Ta sama klasa usterki co „1 min temu" na karcie
+                        otwartej przed godziną: prawda o jednej rzeczy, milczenie o drugiej. -#}
+                    {%- if zaproszenie_wydane_utc is not null and zaproszenie_link == 'czynny' %} Czynny link wydany {{ czas_pelny(zaproszenie_wydane_utc) }}.
+                    {%- elseif zaproszenie_wydane_utc is not null %} Ostatni link wydano {{ czas_pelny(zaproszenie_wydane_utc) }} i <strong>już nie działa</strong> — żeby osoba mogła ustawić hasło, wyślij zaproszenie ponownie.
+                    {%- endif %}
+                    {%- if zaproszenie_w_kolejce %} {% include 'partials/termin-wysylki.twig' with {co: 'Wiadomość'} %}
+                    {% elseif zaproszenie_zadanie is not null and zaproszenie_zadanie.status == 'failed' %}
+                        Wysyłki <strong>nie udało się wykonać</strong> — szczegóły w widoku kolejki (Ustawienia → Poczta).
+                    {#- ⚠ „Wiadomość wyszła" tylko przy linku CZYNNYM: przy wygaszonym opisuje
+                        wiadomość niosącą link, który już nie działa — czyli dokłada mylącą
+                        prawdę do zdania, które właśnie powiedziało, że trzeba wysłać ponownie. -#}
+                    {% elseif zaproszenie_link == 'czynny' and zaproszenie_zadanie is not null and zaproszenie_zadanie.zakonczone_utc is not null %}
+                        {# ⚠ „Wyszła", nie „doszła": kolejka wie tylko, że przekaźnik przyjął
+                            wiadomość (docs/audyt.md). Odbicia wracają na inną skrzynkę.
+                            ⚠ Komentarz BEZ myślników przy klamrach — z nimi obcina biały znak
+                            przed i po sobie, a wtedy to zdanie zlepia się z poprzednim. #}
+                        Wiadomość wyszła {{ czas_pelny(zaproszenie_zadanie.zakonczone_utc) }} — tyle wie kolejka; potwierdzenia dostarczenia nie mamy.
+                    {%- endif %}
+                </span>
+            {% elseif o.account_status == 'blocked' %}
+                <span class="chip chip--danger">zablokowane</span>
+                {#- ⚠ Stan konta mówi, CO JEST TERAZ — powód blokady stoi w kolumnie, nie tylko
+                    w dzienniku, więc widać go bez szukania w historii. -#}
+                <span class="field__hint">
+                    {{ o.powod_blokady == 'sync' ? 'Zablokowane przez synchronizację — wygasły wszystkie zatrudnienia.'
+                        : (o.powod_blokady == 'manual' ? 'Zablokowane decyzją administratora — synchronizacja tego nie zdejmie.'
+                        : 'Powód nieznany (blokada sprzed wprowadzenia kolumny powodu).') }}
+                    {%- if o.blokada_od is not null %} Od {{ czas_ze_strefa(o.blokada_od) }}.{% endif %}
+                </span>
+            {% else %}
+                <span class="chip">aktywne</span>
+                <span class="field__hint">
+                    {{ o.last_login_at is null ? 'Jeszcze się nie logowała.' : 'Ostatnie logowanie: ' ~ czas_ze_strefa(o.last_login_at) }}
+                    · 2FA {{ o.totp ? 'włączone' : 'wyłączone' }} · sesji: {{ o.sesje }}
+                </span>
+            {% endif %}
+        </div>
+
+        {#- Zaproszenie idzie TĄ SAMĄ trasą partii co z listy, tylko z jedną osobą: jedna ścieżka,
+            jeden ekran wyniku, jedna obsługa powodów pominięcia. -#}
+        {% if o.account_id is null or o.account_status == 'niezaproszone' %}
+            <form method="post" action="{{ url('/admin/konta/zapros') }}"
+                  hx-post="{{ url('/admin/konta/zapros') }}" hx-target="#wynik-tresc" hx-swap="innerHTML">
+                {% include 'partials/csrf.twig' %}
+                <input type="hidden" name="osoby[]" value="{{ o.person_id }}">
+                <button type="submit" class="btn btn--primary">Wyślij zaproszenie</button>
+            </form>
+        {#- ⚠ Ponowienie: normalny bieg rzeczy, nie sytuacja wyjątkowa — link wygasa po 7 dniach,
+            a poczta bywa w spamie. Przycisk WYŁĄCZONY z powodem, a nie ukryty: administrator ma
+            wiedzieć, że droga istnieje, i kiedy będzie wolna (system-wizualny.md §3.1). -#}
+        {% elseif o.account_status == 'invited' %}
+            <div class="btn-row">
+                {% if zaproszenie_w_kolejce %}
+                    {#- ⚠ Powód wyłączenia stoi w widocznym tekście obok, nie tylko w `title`:
+                        `title` nie istnieje na telefonie i nie wchodzi na zrzut ekranu. -#}
+                    <button type="button" class="btn btn--ghost" disabled
+                            title="Zaproszenie czeka już w kolejce">Wyślij ponownie</button>
+                {% elseif odstep_ponowienia > 0 %}
+                    <button type="button" class="btn btn--ghost" disabled
+                            title="Ostatnie zaproszenie wyszło niedawno — ponowienie będzie możliwe za {{ (odstep_ponowienia / 60)|round(0, 'ceil') }} min">Wyślij ponownie</button>
+                {% else %}
+                    <form method="post" action="{{ url('/admin/konta/osoba/' ~ o.person_id ~ '/zapros-ponownie') }}"
+                          hx-post="{{ url('/admin/konta/osoba/' ~ o.person_id ~ '/zapros-ponownie') }}"
+                          hx-target="#osoba-tresc" hx-swap="innerHTML">
+                        {% include 'partials/csrf.twig' %}
+                        <button type="submit" class="btn btn--primary">Wyślij ponownie</button>
+                    </form>
+                {% endif %}
+                <span class="field__hint">
+                    {#- ⚠ BEZ powtórzenia terminu: pełne zdanie „kiedy wyjdzie" stoi wyżej,
+                        w linii stanu konta. Zmierzone: ten sam komunikat renderował się dwa razy
+                        pod sobą („czeka w kolejce, ale cron nie przebiegł od 40 min" ×2). -#}
+                    {%- if zaproszenie_w_kolejce %}Zaproszenie czeka już w kolejce — termin wysyłki podany wyżej.
+                    {%- else %}Poprzedni link przestanie działać — czynne jest zawsze jedno zaproszenie.{% endif %}
+                </span>
+            </div>
+        {% endif %}
+
+        {#- Trzy działania wymagają istniejącego konta — i te, których jeszcze nie ma, są wyłączone
+            z podanym powodem, a nie ukryte. -#}
+        <div class="btn-row">
+            {#- ⚠ Jedno wejście na obie strony przełącznika: co się stanie, rozstrzyga STAN KONTA
+                w bazie, a nie to, który przycisk kliknięto. Potwierdzenie pokazuje skutek. -#}
+            {% if o.account_id is not null %}
+                {% set zablokowane = o.account_status == 'blocked' or o.account_status == 'do_odblokowania' %}
+                {#- ⚠ Gdy blokada jest niedozwolona, przycisk jest WYŁĄCZONY z powodem w `title`,
+                    a nie czynny „na próbę". Powód liczy ten sam serwis, który blokadę wykonuje. -#}
+                {% if not zablokowane and odmowa_blokady is not null %}
+                    <button type="button" class="btn btn--ghost btn--sm" disabled title="{{ odmowa_blokady }}">Zablokuj</button>
+                {% else %}
+                    <button type="button" class="btn btn--{{ zablokowane ? 'ghost' : 'danger' }} btn--sm"
+                            hx-get="{{ url('/admin/konta/osoba/' ~ o.person_id ~ '/blokada') }}"
+                            hx-target="#osoba-tresc" hx-swap="innerHTML">{{ zablokowane ? 'Odblokuj' : 'Zablokuj' }}</button>
+                {% endif %}
+            {% else %}
+                <button type="button" class="btn btn--ghost btn--sm" disabled
+                        title="Wymaga istniejącego konta">Zablokuj</button>
+            {% endif %}
+            {% if o.account_id is not null and o.totp %}
+                <form class="inline-form" method="post" action="{{ url('/admin/konta/' ~ o.account_id ~ '/2fa/reset') }}">
+                    {% include 'partials/csrf.twig' %}
+                    <button type="submit" class="btn btn--ghost btn--sm">Resetuj 2FA</button>
+                </form>
+            {% else %}
+                <button type="button" class="btn btn--ghost btn--sm" disabled
+                        title="{{ o.account_id is null ? 'Wymaga istniejącego konta' : 'To konto nie ma włączonego 2FA' }}">Resetuj 2FA</button>
+            {% endif %}
+            {% if o.account_id is not null and o.sesje > 0 %}
+                <form class="inline-form" method="post" action="{{ url('/admin/konta/' ~ o.account_id ~ '/sesje/zakoncz') }}">
+                    {% include 'partials/csrf.twig' %}
+                    {#- ⚠ Na WŁASNYM koncie ta czynność wylogowuje także tę sesję, w której
+                        administrator właśnie jest — i musi to powiedzieć wprost. Wylogowanie
+                        siebie jest odwracalne (można się zalogować z powrotem), więc przycisku
+                        nie wyłączamy; wyłączenie byłoby tu nadopiekuńczością. -#}
+                    {% if o.account_id == current_id %}
+                        <button type="submit" class="btn btn--ghost btn--sm"
+                                title="Zakończy także tę sesję — będziesz musiał zalogować się ponownie">Zakończ sesje (także tę)</button>
+                    {% else %}
+                        <button type="submit" class="btn btn--ghost btn--sm">Zakończ sesje</button>
+                    {% endif %}
+                </form>
+            {% else %}
+                <button type="button" class="btn btn--ghost btn--sm" disabled
+                        title="{{ o.account_id is null ? 'Wymaga istniejącego konta' : 'To konto nie ma aktywnych sesji' }}">Zakończ sesje</button>
+            {% endif %}
+            {#- ⚠ Przejście do historii tylko dla kogoś, kto ma uprawnienie do dziennika. Wyłączonego
+                przycisku też tu nie pokazujemy: reklamowałby ekran, którego ta osoba nie otworzy.
+                Uprawnienie pozycji i uprawnienie trasy to jedno i to samo `admin.event_log`. -#}
+            {% if can('admin.event_log') %}
+                {% if o.account_id is not null %}
+                    <a class="btn btn--ghost btn--sm" href="{{ url('/admin/dziennik') }}?konto={{ o.account_id }}">Historia w dzienniku</a>
+                {% else %}
+                    <button type="button" class="btn btn--ghost btn--sm" disabled
+                            title="Wymaga istniejącego konta — zdarzenia dziennika wiążą się z kontem">Historia w dzienniku</button>
+                {% endif %}
+            {% endif %}
+        </div>
+    </section>
+</div>
+
+{#- Stopka panelu: przyklejona do dołu, więc główne działanie jest osiągalne niezależnie
+    od długości treści. „Zapisz zmiany" wysyła formularz z treści przez atrybut `form`. -#}
+<div class="drawer__foot">
+    {#- ⚠ „Zamknij" tylko w szufladzie: na ekranie zapasowym nie miałby czego zamknąć, a przycisk,
+        który nic nie robi, jest atrapą. Powrót z pełnego ekranu prowadzi odnośnikiem pod kartą. -#}
+    {% if w_szufladzie %}
+        <button type="button" class="btn btn--quiet" data-modal-close="osoba-panel">Zamknij</button>
+    {% endif %}
+    <button type="submit" form="osoba-dane" class="btn btn--primary" data-zapisz>Zapisz zmiany</button>
+</div>

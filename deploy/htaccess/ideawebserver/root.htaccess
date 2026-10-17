@@ -1,0 +1,23 @@
+# Profil ideawebserver (IdeaWebServer home.pl) — .htaccess KORZENIA APLIKACJI, gdy katalog domeny
+# wskazuje na korzeń aplikacji. docs/profile-hostingu.md.
+# ⚠ Ten serwer ignoruje bez błędu RedirectMatch i Require, a <FilesMatch> nie działa wcale —
+# blokady WYŁĄCZNIE przez RewriteRule [F]. Obecność reguły niczego nie dowodzi: rozstrzyga krok 7
+# instalatora (pobranie po HTTP).
+
+RewriteEngine On
+
+# pliki z kropką (.env, .git) — poza /.well-known/ (odnawianie certyfikatu)
+RewriteCond %{REQUEST_URI} !^/\.well-known/
+RewriteRule (^|/)\. - [F]
+
+# wszystko poza public/ i /.well-known/ trafia do public/ — vendor/, src/, storage/ kończą się 404 w aplikacji
+RewriteCond %{REQUEST_URI} !^/public/
+RewriteCond %{REQUEST_URI} !^/\.well-known/
+RewriteRule ^(.*)$ public/$1 [L]
+
+# Warstwa dodatkowa WYŁĄCZNIE w tym profilu: Order/Deny działa na IdeaWebServer,
+# a na Apache z AllowOverride FileInfo daje 500 — dlatego nie ma go w profilu apache.
+<Files ~ "^\.(env|git|htaccess|htpasswd)">
+Order allow,deny
+Deny from all
+</Files>

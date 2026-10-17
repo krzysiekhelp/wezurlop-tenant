@@ -1,0 +1,20 @@
+# .htaccess KORZENIA APLIKACJI — działa tylko, gdy katalog domeny wskazuje na korzeń aplikacji
+# zamiast na public/ (wariant zalecany: katalog domeny = public/, wtedy ten plik jest nieużywany).
+# Tylko dyrektywy klasy FileInfo; zakaz Require (docs/szkielet-tenanta.md, rozdział 14).
+
+# Katalog domeny = korzeń aplikacji. Wszystko wchodzi do public/,
+# więc /.env, /vendor/..., /src/... trafiają do public/ i kończą się 404.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{REQUEST_URI} !^/public/
+  RewriteCond %{REQUEST_URI} !^/\.well-known/
+  RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+
+# Bez mod_rewrite nie da się przepisać — wtedy przynajmniej zamykamy resztę drzewa.
+# Aplikacja jest wtedy dostępna pod /public/index.php/... (PATH_INFO, rozdział 3).
+<IfModule !mod_rewrite.c>
+  <IfModule mod_alias.c>
+    RedirectMatch 404 ^/(?!public/|\.well-known/).*$
+  </IfModule>
+</IfModule>

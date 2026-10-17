@@ -1,0 +1,49 @@
+{% extends 'layout/web.twig' %}
+
+{% block nazwa_ekranu %}Podłączenie{% endblock %}
+
+{% block okruchy %}
+    <span>Administracja</span>
+    <span class="crumbs__sep">/</span>
+    <a href="{{ url('/admin/integracja') }}">Integracja</a>
+    <span class="crumbs__sep">/</span>
+{% endblock %}
+
+{% block content %}
+    {# Ten sam kreator co w oknie nad ekranem integracji — ekran zapasowy dla przeglądarki bez JS. #}
+    <div class="page__head">
+        <div class="page__title">
+            <p class="page__sub">Cztery kroki od pustej instalacji do pierwszej synchronizacji. Ekran sam sprawdza stan co kilka sekund — nie trzeba go odświeżać ręcznie.</p>
+        </div>
+        <div class="page__actions">
+            <a class="btn btn--ghost" href="{{ url('/admin/integracja') }}">Pełne ustawienia integracji</a>
+        </div>
+    </div>
+
+    {% if notice is not null %}<p class="notice" role="status">{{ notice }}</p>{% endif %}
+
+    {% if new_key is not null %}
+        <section class="card" aria-labelledby="klucz-title">
+            <div class="card__head"><h2 class="card__title" id="klucz-title">Klucz instalacji — pokazujemy go tylko teraz</h2></div>
+            <div class="card__body">
+                <p class="notice notice--warn">Zobaczysz go tylko teraz. Po odświeżeniu strony już go nie zobaczysz — w bazie zostaje wyłącznie jego skrót. Jeśli przepadnie, wygeneruj nowy (poprzedni zostanie od razu unieważniony).</p>
+                <div class="secret">
+                    <div class="secret__row">
+                        <input class="secret__value mono" id="klucz-ekran" type="text" value="{{ new_key.key }}" readonly
+                               aria-label="Klucz instalacji" autocomplete="off" spellcheck="false">
+                        <button type="button" class="btn btn--ghost" data-copy="klucz-ekran" data-copy-done="klucz-ekran-ok">Kopiuj</button>
+                        <span class="secret__done" id="klucz-ekran-ok" role="status" hidden>Skopiowano</span>
+                    </div>
+                    <p class="field__hint">Wklej go w konfiguracji connectora w polu „Klucz instalacji”.</p>
+                </div>
+            </div>
+        </section>
+    {% endif %}
+
+    <section class="card" aria-labelledby="kreator-title">
+        <div class="card__head"><h2 class="card__title" id="kreator-title">Gdzie jesteśmy</h2></div>
+        <div class="card__body">
+            {% include 'fragments/connect-wizard.twig' with {'nowy_klucz': null, 'komunikat': null} %}
+        </div>
+    </section>
+{% endblock %}

@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<!--
+  Bramka blokująca build (CLAUDE.md §0): zgodność z zakresem instalacyjnym PHP 8.3–8.5 — funkcje spoza 8.3
+  i konstrukcje deprecjonowane wyżej (np. niejawnie nullowalne parametry od 8.4, curl_close() od 8.5).
+  ⚠ To JEDYNY zestaw reguł. Wcześniejszy drugi przebieg (8.2–8.5, granica składni z Encodera) zniknął
+  20.09.2026: ionCube Encoder 14 obsługuje składnię 8.3, a 15 — 8.4, więc przy podłodze 8.3 ten zestaw
+  pokrywa oba warunki. Wraca tylko wtedy, gdyby kupiony Encoder okazał się starszy niż 14.
+  Uruchomienie: vendor/bin/phpcs   (zależność deweloperska, nie jedzie do paczki klienta)
+-->
+<ruleset name="wezurlop-php-range">
+    <description>PHPCompatibility, testVersion 8.3-8.5 (zakres instalacyjny)</description>
+    <file>src</file>
+    <file>dev</file>
+    <file>bin</file>
+    <file>config</file>
+    <file>db</file>
+    <file>deploy</file>
+    <file>public</file>
+    <file>tests</file>
+    <arg name="extensions" value="php"/>
+    <arg value="sp"/>
+    <config name="testVersion" value="8.3-8.5"/>
+    <rule ref="PHPCompatibility"/>
+</ruleset>

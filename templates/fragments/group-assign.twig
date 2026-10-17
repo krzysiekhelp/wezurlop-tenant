@@ -1,0 +1,223 @@
+{#- **Przypisywanie osób do grupy — DWIE RÓWNE KOLUMNY, zapis natychmiastowy**
+    (zlecenie `2026-10-10-grupy-ekran-dwie-kolumny.md` §2–§3, aneks `2026-10-10-grupy-okno-i-symetria.md`).
+
+    ⚠ **Dlaczego to nie jest `pickbox`.** `pickbox` został na kalendarzu, bo tam wybór osób jest
+    **filtrem nad siatką**, czyli nakładką. Tu wybór osób **jest treścią**, więc nakładka była
+    błędem — i to ona wyprodukowała wszystkie trzy usterki zmierzone 10.10.2026: panel
+    `position: absolute` w karcie z `overflow: hidden` ucięty na 396 px (razem z listą, licznikiem
+    i przyciskiem „Zapisz grupę" na 820 → 852 px, do którego nie dało się dojechać, bo strona się
+    nie przewijała), działania masowe z `display: none` (reguła przypięta do kontekstu kalendarza)
+    i licznik renderowany przez serwer, który przy pierwszym kliknięciu przestawał być prawdą.
+
+    ⚠ **JEDEN szablon, DWIE oprawy** (aneks §1): to samo renderuje podstrona `/admin/grupy/{id}`
+    i okno modalne na liście grup. `w_oknie` dokłada nagłówek okna; kolumny są te same.
+    Dlatego **wszystkie** formularze mają `hx-select="#grupa-przypisanie"` — z odpowiedzi
+    wyjmowane są same kolumny, więc oprawa nadawcy nie ma znaczenia.
+
+    ⚠ **Nie ma przycisku „Zapisz" i nie ma pól wyboru.** Jedno kliknięcie `+` albo `✕` to jedno
+    żądanie i jedna zmiana w bazie. Skutki, wszystkie zamierzone: nie istnieje stan „zaznaczone,
+    ale niezapisane", więc nie ma czego zgubić przy szukaniu i nie ma licznika, który mógłby
+    skłamać — liczby w nagłówkach pochodzą z tego samego odczytu co listy.
+
+    ⚠ **Nie ma też paska „Cofnij"** (aneks §3a, odwołanie §3 z poprzedniego zlecenia). Pasek
+    dublował akcję, która stoi dwa centymetry dalej: osoba właśnie dodana jest w drugiej kolumnie
+    i ma przy sobie akcję odwrotną. Dla akcji **zbiorczej** drogą powrotu jest druga akcja
+    zbiorcza w przeciwnej kolumnie — i ona powstała **przed** usunięciem paska, nie po.
+
+    ⚠ **Obie kolumny są lustrzane** (aneks §3): nagłówek z licznikiem, wyszukiwarka, lista
+    z akcją na wiersz, stopka z akcją zbiorczą. Różnica 15 % szerokości z pierwszej wersji
+    (`1fr / 1.15fr`) opisywała różnicę w treści, której już nie ma — dlatego 50:50.
+
+    ⚠ Przewija się **wyłącznie `.assign__list`** — nazwany wyjątek z `system-wizualny.md` §12.
+    Kolumną elastyczną jest `.assign__col`, i **żaden przodek nie ma `overflow: hidden`**
+    (dlatego kolumny nie są `.card` — `.card` przycina).
+
+    ⚠ **Bez JavaScriptu działa bez zmian**: `+`/`✕` i akcje zbiorcze to `<form method="post">`,
+    szukanie to `GET` na podstronę. Z JS podmienia się fragment, bez JS strona się przeładowuje.
+
+    Zmienne: grupa, spolka, czlonkowie, nieaktywnych, czlonkow_pasujacych, czlonkow_razem,
+    szukaj_w_grupie, poza, poza_pasujacych, poza_razem, szukaj, error, htmx, w_oknie. -#}
+{%- set adres_dodaj = url('/admin/grupy/' ~ grupa.id ~ '/osoby/dodaj') -%}
+{%- set adres_usun = url('/admin/grupy/' ~ grupa.id ~ '/osoby/usun') -%}
+{%- set adres_kolumn = url('/admin/grupy/' ~ grupa.id ~ '/osoby') -%}
+{%- set adres_strony = url('/admin/grupy/' ~ grupa.id) -%}
+{#- ⚠ **„Wszystkich" wolno napisać tylko wtedy, gdy lista NAPRAWDĘ pokazuje wszystkich** —
+    i to dotyczy obu kolumn (aneks §3). Przycisk mówiący „wszystkich" nad zawężoną listą jest
+    zaproszeniem do wyczyszczenia grupy przez pomyłkę; ten sam napis nad listą przyciętą limitem
+    kłamałby tak samo, tylko ciszej. Warunek obejmuje więc **filtr i limit** naraz. -#}
+{%- set wszyscy_w_grupie = szukaj_w_grupie == '' and czlonkowie|length == czlonkow_razem -%}
+{%- set wszyscy_poza = szukaj == '' and poza|length == poza_razem -%}
+{% if w_oknie|default(false) %}
+    {#- ⚠ Nagłówek okna jest **w tym fragmencie**, bo tytułem jest nazwa grupy — czyli dana,
+        którą ma podać serwer razem z treścią. Okno na liście jest jedno i puste; wkłada się
+        do niego nazwa i kolumny jednym żądaniem. -#}
+    <div class="modal__head">
+        <h3 id="grupa-okno-tytul">{{ grupa.nazwa }}</h3>
+        <button type="button" class="modal__close" data-modal-close="grupa-okno" aria-label="Zamknij okno">×</button>
+    </div>
+    <div class="modal__body">
+{% endif %}
+<div class="assign" id="grupa-przypisanie">
+    {#- ⚠ Komunikat o niepełnym zapisie stoi **w tym fragmencie**, a nie na stronie wokół niego:
+        po podmianie htmx wymienia się dokładnie ten blok, więc pasek wyrenderowany poza nim
+        albo by nie powstał, albo zostałby po poprzednim żądaniu i kłamał. -#}
+    {% if error|default(null) is not null %}<p class="notice notice--danger assign__blad" role="alert">{{ error }}</p>{% endif %}
+
+    <section class="assign__col" aria-labelledby="assign-w-grupie">
+        <header class="assign__head">
+            <h2 class="assign__title" id="assign-w-grupie">W grupie</h2>
+            {#- Licznik ma własny identyfikator, bo szukanie podmienia **sam wynik**, a jego
+                trzeba zaktualizować osobno (`hx-select-oob`). -#}
+            <span class="assign__count" id="w-grupie-licznik">{% if szukaj_w_grupie != '' %}{{ czlonkow_pasujacych }} z {{ czlonkow_razem }}{% else %}{{ czlonkow_razem }}{% endif %}{% if nieaktywnych > 0 %} <span class="assign__note">(nieaktywnych: {{ nieaktywnych }})</span>{% endif %}</span>
+        </header>
+        {#- ⚠ **Szukanie podmienia WYNIK, nie całą kontrolkę** — naprawa usterki zmierzonej
+            10.10.2026 na pierwszej wersji ekranu: podmiana całego bloku niszczyła pole tekstowe
+            razem z **ogniskiem klawiatury** (`document.activeElement` → `BODY`), więc drugi
+            `Backspace` nie robił nic. `hx-select` wyjmuje z odpowiedzi sam wynik, `hx-select-oob`
+            podmienia licznik — serwer zwraca ten sam, jeden fragment (CLAUDE.md §5).
+            ⚠ **Ta sama droga co po prawej** (aneks §3): po stronie serwera, przez ten sam punkt
+            wejścia. Filtrowanie lewej kolumny w przeglądarce byłoby drugim miejscem decydującym
+            o tym samym. -#}
+        <form class="assign__search" method="get" action="{{ adres_strony }}"
+              {% if htmx|default(false) %}hx-get="{{ adres_kolumn }}"
+              hx-target="#w-grupie-wynik" hx-select="#w-grupie-wynik" hx-select-oob="#w-grupie-licznik"
+              hx-swap="outerHTML"
+              hx-trigger="submit, input from:find input[name=szukajg] delay:300ms"{% endif %}>
+            <input type="hidden" name="spolka" value="{{ spolka.id }}">
+            {#- Drugi filtr jedzie razem, inaczej zawężenie jednej kolumny zerowałoby drugą. -#}
+            <input type="hidden" name="szukaj" value="{{ szukaj }}">
+            <label class="field">
+                <span class="field__label">Szukaj w grupie</span>
+                <input class="input" type="search" name="szukajg" value="{{ szukaj_w_grupie }}" maxlength="100"
+                       autocomplete="off" placeholder="nazwisko lub imię">
+            </label>
+            <noscript><button type="submit" class="btn btn--sm">Szukaj</button></noscript>
+        </form>
+        <div class="assign__wynik" id="w-grupie-wynik">
+            {#- ⚠ **Lewa kolumna JEST wykazem członków.** Wykazu pod spodem nie ma: dotąd ta sama
+                lista stała w dwóch miejscach i to była połowa bałaganu — panel zasłaniał tabelę,
+                a tabela pokazywała stan sprzed kliknięcia. -#}
+            {% if czlonkowie is empty %}
+                <p class="assign__empty">{{ szukaj_w_grupie != '' ? 'Nikt w grupie nie pasuje.' : 'Nikogo jeszcze nie ma — dodaj po prawej.' }}</p>
+            {% else %}
+                <ul class="assign__list">
+                    {% for o in czlonkowie %}
+                        <li class="assign__row">
+                            <span class="assign__name" title="{{ o.osoba }}">{{ o.osoba }}</span>
+                            {#- ⚠ `filter`+`map`, nie `{% for … if %}`: warunek w `for` zniknął
+                                w Twigu 3 i daje `SyntaxError` (zmierzone — 500 na tym ekranie). -#}
+                            {%- set inne = o.grupy|filter(g => g.id != grupa.id)|map(g => g.nazwa) -%}
+                            {% if not o.czynne %}<small class="assign__tag assign__tag--off">wygaszone</small>{% endif %}
+                            {% if inne is not empty %}<small class="assign__tag">{{ inne|join(', ') }}</small>{% endif %}
+                            <form class="assign__form" method="post" action="{{ adres_usun }}"
+                                  {% if htmx|default(false) %}hx-post="{{ adres_usun }}" hx-target="#grupa-przypisanie" hx-select="#grupa-przypisanie" hx-swap="outerHTML"{% endif %}>
+                                {% include 'partials/csrf.twig' %}
+                                <input type="hidden" name="spolka" value="{{ spolka.id }}">
+                                <input type="hidden" name="szukaj" value="{{ szukaj }}">
+                                <input type="hidden" name="szukajg" value="{{ szukaj_w_grupie }}">
+                                <input type="hidden" name="osoby[]" value="{{ o.id }}">
+                                {#- ⚠ Sam znak „✕" nic nie znaczy dla czytnika ekranu — stąd
+                                    `aria-label` z nazwiskiem i nazwą grupy. -#}
+                                <button type="submit" class="assign__btn assign__btn--del"
+                                        aria-label="Wypisz {{ o.osoba }} z grupy {{ grupa.nazwa }}">✕</button>
+                            </form>
+                        </li>
+                    {% endfor %}
+                </ul>
+                <div class="assign__foot">
+                    {#- ⚠ **Akcja zbiorcza po lewej to DROGA POWROTU po zbiorczym dodaniu**
+                        (aneks §3a) — dlatego istnieje i dlatego musiała powstać przed zdjęciem
+                        paska „Cofnij". Jedno żądanie, jawna lista pokazanych, jeden wpis
+                        w dzienniku. ⚠ Przycisk **cichy** (`btn--ghost`): akcja masowa nie ma
+                        przeważać nad pojedynczymi `✕`. -#}
+                    <form method="post" action="{{ adres_usun }}"
+                          {% if htmx|default(false) %}hx-post="{{ adres_usun }}" hx-target="#grupa-przypisanie" hx-select="#grupa-przypisanie" hx-swap="outerHTML"{% endif %}>
+                        {% include 'partials/csrf.twig' %}
+                        <input type="hidden" name="spolka" value="{{ spolka.id }}">
+                        <input type="hidden" name="szukaj" value="{{ szukaj }}">
+                        <input type="hidden" name="szukajg" value="{{ szukaj_w_grupie }}">
+                        {% for o in czlonkowie %}<input type="hidden" name="osoby[]" value="{{ o.id }}">{% endfor %}
+                        <button type="submit" class="btn btn--ghost btn--sm btn--block">✕ Usuń wszystkich{{ wszyscy_w_grupie ? '' : ' pokazanych' }} ({{ czlonkowie|length }})</button>
+                    </form>
+                    {% if czlonkow_pasujacych > czlonkowie|length %}
+                        <p class="assign__note">Pokazuję {{ czlonkowie|length }} z {{ czlonkow_pasujacych }} pasujących — zawęź szukanie, żeby dojść do pozostałych.</p>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </section>
+
+    <section class="assign__col" aria-labelledby="assign-pozostali">
+        <header class="assign__head">
+            <h2 class="assign__title" id="assign-pozostali">Pozostali w {{ spolka.nazwa }}</h2>
+            <span class="assign__count" id="poza-licznik">{% if szukaj != '' %}{{ poza_pasujacych }} z {{ poza_razem }}{% else %}{{ poza_razem }}{% endif %}</span>
+        </header>
+        <form class="assign__search" method="get" action="{{ adres_strony }}"
+              {% if htmx|default(false) %}hx-get="{{ adres_kolumn }}"
+              hx-target="#poza-wynik" hx-select="#poza-wynik" hx-select-oob="#poza-licznik"
+              hx-swap="outerHTML"
+              hx-trigger="submit, input from:find input[name=szukaj] delay:300ms"{% endif %}>
+            <input type="hidden" name="spolka" value="{{ spolka.id }}">
+            <input type="hidden" name="szukajg" value="{{ szukaj_w_grupie }}">
+            <label class="field">
+                <span class="field__label">Szukaj osoby</span>
+                <input class="input" type="search" name="szukaj" value="{{ szukaj }}" maxlength="100"
+                       autocomplete="off" placeholder="nazwisko lub imię">
+            </label>
+            <noscript><button type="submit" class="btn btn--sm">Szukaj</button></noscript>
+        </form>
+        {#- ⚠ Opakowanie jest **kolumną elastyczną**: między stałą wysokością `.assign__col`
+            a przewijaną listą nie może być ogniwa bez `min-height: 0`, bo wtedy element
+            elastyczny nie zmniejszy się poniżej treści i przewija się strona. -#}
+        <div class="assign__wynik" id="poza-wynik">
+            {% if poza is empty %}
+                <p class="assign__empty">{{ szukaj != '' ? 'Nikt nie pasuje.' : 'Wszyscy są już w grupie.' }}</p>
+            {% else %}
+                <ul class="assign__list">
+                    {% for o in poza %}
+                        <li class="assign__row">
+                            <span class="assign__name" title="{{ o.osoba }}">{{ o.osoba }}</span>
+                            {#- ⚠ Plakietka z grupami osoby stoi **przy decyzji o dodaniu**,
+                                a nie w osobnej kolumnie wykazu: ta sama informacja, postawiona
+                                tam, gdzie jest potrzebna. -#}
+                            {% if not o.czynne %}<small class="assign__tag assign__tag--off">wygaszone</small>{% endif %}
+                            {% if o.grupy is not empty %}<small class="assign__tag">{{ o.grupy|map(g => g.nazwa)|join(', ') }}</small>{% endif %}
+                            <form class="assign__form" method="post" action="{{ adres_dodaj }}"
+                                  {% if htmx|default(false) %}hx-post="{{ adres_dodaj }}" hx-target="#grupa-przypisanie" hx-select="#grupa-przypisanie" hx-swap="outerHTML"{% endif %}>
+                                {% include 'partials/csrf.twig' %}
+                                <input type="hidden" name="spolka" value="{{ spolka.id }}">
+                                <input type="hidden" name="szukaj" value="{{ szukaj }}">
+                                <input type="hidden" name="szukajg" value="{{ szukaj_w_grupie }}">
+                                <input type="hidden" name="osoby[]" value="{{ o.id }}">
+                                <button type="submit" class="assign__btn assign__btn--add"
+                                        aria-label="Dodaj {{ o.osoba }} do grupy {{ grupa.nazwa }}">+</button>
+                            </form>
+                        </li>
+                    {% endfor %}
+                </ul>
+                <div class="assign__foot">
+                    {#- ⚠ **Jedno żądanie z jawną listą pokazanych, WYŁĄCZNIE dodające.** Nigdy
+                        nie zdejmuje: działanie masowe, które mogłoby odebrać, byłoby decyzją
+                        nad ludźmi, których nikt nie oglądał. ⚠ Cichy, tak jak po lewej —
+                        dotąd był to zielony przycisk główny pełnej szerokości, czyli najbardziej
+                        krzykliwy element okna, a jedno kliknięcie dokłada trzydzieści osób. -#}
+                    <form method="post" action="{{ adres_dodaj }}"
+                          {% if htmx|default(false) %}hx-post="{{ adres_dodaj }}" hx-target="#grupa-przypisanie" hx-select="#grupa-przypisanie" hx-swap="outerHTML"{% endif %}>
+                        {% include 'partials/csrf.twig' %}
+                        <input type="hidden" name="spolka" value="{{ spolka.id }}">
+                        <input type="hidden" name="szukaj" value="{{ szukaj }}">
+                        <input type="hidden" name="szukajg" value="{{ szukaj_w_grupie }}">
+                        {% for o in poza %}<input type="hidden" name="osoby[]" value="{{ o.id }}">{% endfor %}
+                        <button type="submit" class="btn btn--ghost btn--sm btn--block">+ Dodaj wszystkich{{ wszyscy_poza ? '' : ' pokazanych' }} ({{ poza|length }})</button>
+                    </form>
+                    {% if poza_pasujacych > poza|length %}
+                        <p class="assign__note">Pokazuję {{ poza|length }} z {{ poza_pasujacych }} pasujących — zawęź szukanie, żeby dojść do pozostałych.</p>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </section>
+</div>
+{% if w_oknie|default(false) %}
+    </div>
+{% endif %}

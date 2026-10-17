@@ -1,0 +1,130 @@
+{#- **Wiersz nawigacji kalendarza** — strzałki przy nazwie okresu, przełącznik skal, przełącznik
+    widoku. Jeden plik, bo ten sam wiersz stoi na górze pierwszego bloku w KAŻDEJ gałęzi ekranu
+    (Miesiąc, Rok, Lista, Zespół, Firma); druga kopia znaczników rozjechałaby się przy pierwszej
+    zmianie.
+
+    ⚠ **Powstał 11.10.2026 z przeniesienia, nie z wymyślenia** (zlecenie
+    `2026-10-11-trzy-bloki-nawigacja-w-naglowku.md` §2): ta sama zawartość stała wcześniej
+    w `.page__actions`, czyli w pasku NAD kartą. Pasek znika, bo nawigacja dotyczy tego, co jest
+    w karcie, a stała poza nią.
+
+    ⚠ **Strzałki stoją PRZY nazwie okresu**, bo jej dotyczą — a nie w prawym kącie paska razem
+    z przełącznikami, które dotyczą czegoś innego. ⚠ I **obok siebie, przed nazwą**: przeskok o okres
+    w tył i w przód to jedna czynność, a nazwa okresu ma zmienną szerokość — para za nazwą
+    przesuwałaby się przy każdym kliknięciu.
+
+    ⚠ **Etykieta mówi o tym, co naprawdę przeskakuje.** W skali Rok i Lista krok to ROK
+    (`okres()` liczy go z bieżącej skali), więc „Poprzedni miesiąc" byłby po prostu nieprawdą —
+    i to nieprawdą niewidoczną na obrazku, bo ikona jest ta sama. Przycisk bez tekstu bez
+    `aria-label` jest dla czytnika ekranu pustym odnośnikiem.
+
+    ⚠ **Zdanie o nieobecnościach stoi TUTAJ, pod nazwą okresu** (zlecenie
+    `2026-10-13-kalendarz-naglowek-i-ksztalt-miesiaca.md` §1, prototyp zatwierdzony w przeglądarce).
+    Do 13.10.2026 stało w osobnym `.card__head` pod tym wierszem i miało tę samą wagę, co
+    kontrolki — ekran nie miał tematu. Nazwa okresu i zdanie o tym okresie mówią o jednej rzeczy,
+    więc są **jednym blokiem**: tytuł, a pod nim podpis.
+    ⚠ Treść zdania **przychodzi gotowa** (`podtytul`), bo jest inna w każdej gałęzi ekranu
+    (miesiąc, rok, lista, zespół). Gdyby to rozstrzygał ten plik, miałby cztery warunki o tym,
+    który model danych jest w kontekście — a wtedy nie byłby jednym wierszem nawigacji, tylko
+    drugim miejscem, w którym wybiera się skalę.
+
+    ⚠ **Nazwa okresu jedzie w OBU wariantach, strzałki i przełączniki tylko w webowym.** Powłoka
+    mobilna tej nawigacji nie miała (pasek akcji stał w `fragments/calendar.twig`, którego ona nie
+    dołącza) i nie dostaje jej w tej turze — wiersz z dwoma przełącznikami na 374 px to osobna
+    decyzja. Ale nazwa okresu była tam nagłówkiem karty, więc gdyby wyjechała razem ze strzałkami,
+    **mobilny ekran stracił by miesiąc**, czyli jedyną informację o tym, co pokazuje siatka.
+    Dlatego atrybuty `hx-*` są bezwarunkowe wewnątrz gałęzi webowej — tak jak były
+    w `.page__actions`, które też istniało wyłącznie w tym wariancie.
+
+    Zmienne z kontekstu: okres, widok, skala, skale, pozycji_widoku, zatrudnienie, ma_zespol,
+    ma_firme. Przekazywana przy dołączeniu: `podtytul` — zdanie pod nazwą okresu. -#}
+{% import 'partials/ikony.twig' as ikony %}
+{% set hx_cel = '#kalendarz' %}
+{% set hx_sposob = 'innerHTML show:none' %}
+{#- ⚠ **Bez `&spolka=`** (zlecenie `2026-10-10-globalny-wybor-spolki.md` §1): spółkę niesie
+    znacznik w belce, więc odnośnik okresu i widoku nie może być drugim źródłem tej samej prawdy.
+    Przychodzące `?spolka=` nadal honorujemy — przez jedno żądanie, jako widok. -#}
+{#- ⚠ Skala jedzie w KAŻDYM adresie tego ekranu: bez tego kliknięcie „Następny" w skali roku
+    wracałoby do miesiąca, czyli przełącznik gubiłby stan przy pierwszym użyciu. -#}
+{% set ogon = skala != 'miesiac' ? '&skala=' ~ skala : '' %}
+{% set adres_poprz = url('/kalendarz') ~ '?widok=' ~ widok ~ '&miesiac=' ~ okres.poprzedni ~ ogon %}
+{% set adres_nast = url('/kalendarz') ~ '?widok=' ~ widok ~ '&miesiac=' ~ okres.nastepny ~ ogon %}
+{% set okres_slowo = skala in ['rok', 'lista'] ? 'rok' : 'miesiąc' %}
+<div class="kal-nav">
+    <div class="kal-nav__okres">
+        {#- ⚠ **Strzałki parą i PRZED nazwą okresu — żeby nie skakały** (zgłoszenie Krzysztofa
+            z 11.10.2026, późny wieczór, dwie poprawki tego samego wiersza):
+              • **obok siebie**, bo przeskok o okres w tył i w przód to jedna czynność; rozdzielone
+                napisem przestawały być jedną kontrolką o dwóch kierunkach,
+              • **przed** nazwą, bo nazwa okresu ma **zmienną szerokość** („Maj 2026" kontra
+                „Październik 2026" to różnica kilkudziesięciu pikseli). Para postawiona ZA nazwą
+                przesuwała się przy każdym kliknięciu — czyli przycisk uciekał spod kursora
+                dokładnie wtedy, gdy ktoś przewija kilka miesięcy po kolei. Przed nazwą ich
+                pozycja nie zależy od tego, co właśnie pokazujemy. -#}
+        {% if variant == 'web' %}
+        <div class="kal-nav__strzalki">
+            <a class="ikona-btn" href="{{ adres_poprz }}" aria-label="Poprzedni {{ okres_slowo }}" title="Poprzedni {{ okres_slowo }}"
+               hx-get="{{ adres_poprz }}" hx-target="{{ hx_cel }}" hx-swap="{{ hx_sposob }}"
+               hx-push-url="true">{{ ikony.szewron_lewo() }}</a>
+            <a class="ikona-btn" href="{{ adres_nast }}" aria-label="Następny {{ okres_slowo }}" title="Następny {{ okres_slowo }}"
+               hx-get="{{ adres_nast }}" hx-target="{{ hx_cel }}" hx-swap="{{ hx_sposob }}"
+               hx-push-url="true">{{ ikony.szewron() }}</a>
+        </div>
+        {% endif %}
+        {#- ⚠ Nazwa okresu stoi raz, tutaj, i nie powtarza się w nagłówku bloku: dwa razy
+            „Maj 2026" w jednym pudełku to dwa miejsca do rozjechania się. -#}
+        <div class="kal-nav__tytul">
+            <h2 class="card__title">{{ okres.nazwa|capitalize }}</h2>
+            <p class="card__sub">{{ podtytul }}</p>
+        </div>
+    </div>
+    {% if variant == 'web' %}
+    <div class="kal-nav__kontrolki">
+        {#- ⚠ **Przełącznik SKAL — ten sam `.segmented`, co „Tylko ja / Zespół"**: to ta sama
+            czynność (zmiana stanu widoku), więc nie wymyślamy drugiej kontrolki. Stoi tylko przy
+            „Tylko ja", bo tylko tam skala coś zmienia — przy zespole i firmie serwer i tak wraca
+            do miesiąca. Pozycje przychodzą gotowe z kontrolera (`skale`).
+            ⚠ `data-skala` niesie bieżącą skalę **daną, nie skryptem** (CLAUDE.md §6). -#}
+        {% if skale is not empty %}
+            <div class="segmented" data-skala="{{ skala }}">
+                {% for s in skale %}
+                    {% set adres_s = url('/kalendarz') ~ '?widok=ja&miesiac=' ~ okres.miesiac ~ (s.kod != 'miesiac' ? '&skala=' ~ s.kod : '') %}
+                    <a class="segmented__item{{ skala == s.kod ? ' segmented__item--on' : '' }}" href="{{ adres_s }}"
+                       hx-get="{{ adres_s }}" hx-target="{{ hx_cel }}" hx-swap="{{ hx_sposob }}"
+                       hx-push-url="true"{% if skala == s.kod %} aria-current="true"{% endif %}>{{ s.nazwa }}</a>
+                {% endfor %}
+            </div>
+        {% endif %}
+        {#- ⚠ **Przełącznik istnieje od DWÓCH pozycji**, nie od jednej (§3 zlecenia z wieczora
+            06.10): `.segmented` z jedną pozycją „Firma" to przycisk bez działania. Każda pozycja
+            istnieje tylko wtedy, gdy ma treść — „Tylko ja" przy zatrudnieniu, „Zespół" przy
+            podwładnych, „Firma" przy nadanym poziomie widoczności. O dostępie decyduje serwer,
+            nie obecność przycisku.
+            ⚠ **Ikona OBOK podpisu, nie zamiast niego** (zlecenie §2): w 16 px sylwetka jednej
+            osoby i grupy są bardzo podobne, a pomyłka znaczy, że człowiek patrzy na inne dane,
+            niż myśli. -#}
+        {% if pozycji_widoku > 1 %}
+            {% set adres_ja = url('/kalendarz') ~ '?widok=ja&miesiac=' ~ okres.miesiac ~ ogon %}
+            {% set adres_zespol = url('/kalendarz') ~ '?widok=zespol&miesiac=' ~ okres.miesiac %}
+            {% set adres_firma = url('/kalendarz') ~ '?widok=firma&miesiac=' ~ okres.miesiac %}
+            <div class="segmented">
+                {% if zatrudnienie is not null %}
+                    <a class="segmented__item{{ widok == 'ja' ? ' segmented__item--on' : '' }}" href="{{ adres_ja }}"
+                       hx-get="{{ adres_ja }}" hx-target="{{ hx_cel }}" hx-swap="{{ hx_sposob }}"
+                       hx-push-url="true">{{ ikony.konto() }}Tylko ja</a>
+                {% endif %}
+                {% if ma_zespol %}
+                    <a class="segmented__item{{ widok == 'zespol' ? ' segmented__item--on' : '' }}" href="{{ adres_zespol }}"
+                       hx-get="{{ adres_zespol }}" hx-target="{{ hx_cel }}" hx-swap="{{ hx_sposob }}"
+                       hx-push-url="true">{{ ikony.zespol() }}Zespół</a>
+                {% endif %}
+                {% if ma_firme %}
+                    <a class="segmented__item{{ widok == 'firma' ? ' segmented__item--on' : '' }}" href="{{ adres_firma }}"
+                       hx-get="{{ adres_firma }}" hx-target="{{ hx_cel }}" hx-swap="{{ hx_sposob }}"
+                       hx-push-url="true">{{ ikony.firma() }}Firma</a>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>

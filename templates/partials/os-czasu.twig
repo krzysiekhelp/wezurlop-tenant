@@ -1,0 +1,77 @@
+{#- Oś czasu nieobecności — **JEDYNE miejsce, w którym rysujemy nieobecności w kalendarzu**.
+
+    ⚠ Powstała 07.10.2026 ze zgłoszenia Krzysztofa: „wizualizacja kalendarza ma być trzymana
+    w jednym miejscu, aby zmiana szła na wszystkich użytkowników". Wcześniej widok „Tylko ja”
+    miał własną siatkę miesiąca, a „Zespół” i „Firma” — tę oś czasu. Skutek był zmierzony:
+    zwykły pracownik (bez podwładnych i bez nadanego poziomu) ma dostęp **wyłącznie** do „Tylko ja”,
+    więc żadna z poprawek wyglądu z 06.10 do niego nie dotarła. Druga wizualizacja tego samego
+    to nie wybór estetyczny, tylko część kont bez poprawek.
+
+    Zmienne: `os` (model z `KalendarzPracownika::siatka()`).
+
+    ⚠ Zero logiki — klasy odpowiadają stanom komórek przysłanym z serwisu. -#}
+<div class="card__body card__body--flush">
+    <div class="team-scroll">
+        <div class="team-grid team-grid--days-{{ os.dni_w_miesiacu }}">
+            <div class="team-grid__head team-grid__head--person">Osoba</div>
+            {% for d in os.naglowki %}
+                {#- ⚠ **Nad numerem stoi SKRÓT DNIA TYGODNIA** (zlecenie
+                    `2026-10-11-waskie-ekrany-i-dni-tygodnia.md` §4), **ten sam, co w skali Roku**
+                    (`pon … niedz`, jedna stała w serwisie — zgłoszenie z 13.10.2026). Skrót
+                    przychodzi **z serwera** (`d.skrot`), a nie z daty liczonej w szablonie —
+                    ten ekran działa bez JavaScriptu i bez liczenia w widoku. Gdy kolumna jest
+                    za wąska na najdłuższy skrót, cała kolejka gaśnie regułą w arkuszu.
+                    ⚠ **Znacznik „dziś" stoi WYŁĄCZNIE w nagłówku i jest plakietką na numerze**
+                    (zlecenie `2026-10-11-trzy-bloki-nawigacja-w-naglowku.md` §3). Obwódka na
+                    każdej komórce kolumny osobno zniknęła: siedem oddzielnych obwódek jedna pod
+                    drugą oko czyta jako **przerywaną ramkę**, a nie jako „to jest dzisiaj" —
+                    Krzysztof nazwał to „dziwną linią". Teraz obszar danych jest nietknięty.
+                    ⚠ Numer **w elemencie**, nie w samym tekście komórki: okrągła plakietka
+                    potrzebuje pudełka o własnej szerokości, a komórka nagłówka jest kolumną
+                    siatki i rozciąga się na całą jej szerokość. -#}
+                <div class="team-grid__head{{ d.wolny ? ' team-grid__head--free' : '' }}{{ d.dzis ? ' team-grid__head--dzis' : '' }}{{ loop.last ? ' team-grid__head--ostatni' : '' }}"><span class="team-grid__dow">{{ d.skrot }}</span>{% if d.dzis %}<span class="dzien-dzis">{{ d.numer }}</span>{% else %}<span class="team-grid__numer">{{ d.numer }}</span>{% endif %}</div>
+            {% endfor %}
+            {% for w in os.wiersze %}
+                <div class="team-grid__person">
+                    <span>{{ w.osoba }}</span>
+                    <small>{{ w.rola }}</small>
+                </div>
+                {% for k in w.komorki %}
+                    {#- ⚠ Komórka wiersza **nie niesie już znacznika „dziś"** (§3 zlecenia
+                        z wieczora 11.10) — znacznik jest jeden, w nagłówku kolumny.
+                        ⚠ **`--ostatnia` wskazuje szablon, bo tylko on wie, gdzie kończy się
+                        wiersz.** Arkusz próbował tego `nth-child`-em po liczbie kolumn i było
+                        to błędne: pasek wielodniowy to JEDNA komórka z `span N`, więc wiersz
+                        z nieobecnością ma mniej dzieci niż kolumn, licznik się rozjeżdża
+                        i gasi krawędź w środku wiersza (albo przy nazwisku — wtedy nazwisko
+                        zlewa się z pierwszym dniem). Komórki pokrywają wszystkie dni, więc
+                        `loop.last` jest ostatnią kolumną zawsze. -#}
+                    <div class="team-grid__cell{{ k.rozpietosc > 1 ? ' team-grid__cell--span-' ~ k.rozpietosc : '' }}{{ k.wolny ? ' team-grid__cell--free' : '' }}{{ loop.last ? ' team-grid__cell--ostatnia' : '' }}">
+                        {% if k.pasek is not null %}
+                            {#- ⚠ **Na pasku ZAKRES DAT, nie nazwa rodzaju** (zlecenie 06.10 §3).
+                                Policzone na sierpniu w SERWAL: 16 z 17 pasków miało napis
+                                „urlop wypoczynkowy", czyli tekst powtarzał legendę szesnaście
+                                razy, a jedynej zmiennej rzeczy — od kiedy do kiedy — nie było
+                                na pasku wcale. Rodzaj niesie wypełnienie, legenda, `title`
+                                i `aria-label`; skrótu nazwy przysłanej z kadr nie wymyślamy.
+                                ⚠ **Pasek JEDNODNIOWY niesie NUMER DNIA** (zlecenie 11.10 §2) —
+                                od 11.10.2026, bo wcześniej nie miał napisu wcale i był bladą
+                                plamką bez informacji (zmierzone: 12 takich w sierpniu,
+                                szerokość 39 px). Sam numer, bez miesiąca: siatka jest
+                                jednomiesięczna, a „14.08" w 39 px nie wchodzi.
+                                ⚠ Numer przychodzi **z serwera** (`k.pasek.numer_dnia`), nie
+                                z JavaScriptu — ten ekran działa bez JS i ma działać dalej.
+                                ⚠ Klasa `--jeden` jest po to, żeby arkusz mógł schować numer
+                                na wąskim ekranie (komórka ma tam mniej niż 39 px) — bez niej
+                                trzeba by liczyć szerokość skryptem. Pełny zakres zostaje
+                                w `title` i `aria-label`, więc nic nie ginie. -#}
+                            <span class="team-grid__bar team-grid__bar--{{ k.pasek.zrodlo }}{{ k.rozpietosc == 1 ? ' team-grid__bar--jeden' : '' }}"
+                                  title="{{ k.pasek.nazwa }} · {{ k.pasek.zakres }}{{ k.pasek.wiele ? ' · w tych dniach jest więcej niż jedna nieobecność' : '' }}"
+                                  aria-label="{{ k.pasek.nazwa }}, {{ k.pasek.zakres }}">{% if k.rozpietosc > 1 %}{{ k.pasek.zakres_krotki }}{% else %}{{ k.pasek.numer_dnia }}{% endif %}</span>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            {% endfor %}
+        </div>
+    </div>
+</div>

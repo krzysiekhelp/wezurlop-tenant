@@ -1,0 +1,18 @@
+{#- Wspólna część <head>. Zmienne: variant (globalna). Style i skrypty wyłącznie z plików (CLAUDE.md §6). -#}
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#ffffff">
+{#- htmx nie może wstrzykiwać własnych reguł CSS do head (CSP style-src 'self'), nie wykonuje kodu z tekstu (bez unsafe-eval). -#}
+<meta name="htmx-config" content='{"includeIndicatorStyles":false,"allowEval":false,"allowScriptTags":false,"selfRequestsOnly":true}'>
+<link rel="icon" type="image/png" href="{{ asset('img/icon-192.png') }}">
+{#- System wizualny: kolejność z docs/system-wizualny.md §1. Komponenty wspólne, powłoka osobna:
+    różni się TYLKO warstwa 20. -#}
+<link rel="stylesheet" href="{{ asset('css/00-tokens.css') }}">
+<link rel="stylesheet" href="{{ asset('css/10-base.css') }}">
+{% if variant == 'mobile' %}
+<link rel="stylesheet" href="{{ asset('css/20-layout-mobile.css') }}">
+{% else %}
+<link rel="stylesheet" href="{{ asset('css/20-layout.css') }}">
+{% endif %}
+<link rel="stylesheet" href="{{ asset('css/30-components.css') }}">

@@ -1,0 +1,27 @@
+{#- ⚠ htmx tylko tam, gdzie jest używany (docs/system-wizualny.md §5.8). Ekrany uwierzytelnienia
+    nie mają ani jednego atrybutu `hx-*`, więc nie pobierają biblioteki — to koszt bez pożytku. -#}
+{% if htmx ?? true %}<script src="{{ asset('js/vendor/htmx.min.js') }}" defer></script>{% endif %}
+<script src="{{ asset('js/modules/flash.js') }}" defer></script>
+<script src="{{ asset('js/modules/ui.js') }}" defer></script>
+<script src="{{ asset('js/modules/bridge.js') }}" defer></script>
+{% if variant == 'mobile' %}
+<script src="{{ asset('js/app-mobile.js') }}" defer></script>
+{% else %}
+{#- Pasek zaznaczania jest tylko na ekranach administracyjnych wariantu web. -#}
+<script src="{{ asset('js/modules/selectbar.js') }}" defer></script>
+<script src="{{ asset('js/modules/dropdown-dostep.js') }}" defer></script>
+<script src="{{ asset('js/modules/zapisz.js') }}" defer></script>
+{#- ⚠ Przeciąganie kart tylko na ekranie, który je ma (ta sama zasada co htmx wyżej):
+    koszt bez pożytku na każdym innym ekranie. Bez tego pliku ekran hierarchii nadal
+    działa — zapis idzie menu „⋯" i formularzami (§8 zlecenia). -#}
+{% if hierarchia ?? false %}<script src="{{ asset('js/modules/hierarchia.js') }}" defer></script>{% endif %}
+{#- ⚠ Kontrolka wyboru osób na kalendarzu — ta sama zasada: plik tylko na ekranie, który go ma.
+    Bez niego kontrolka dalej działa (panel ma zapas wysokości w CSS, a oba działania
+    to przyciski wysyłające formularz) — JavaScript dociąga wysokość do okna i przelicza licznik. -#}
+{% if kalendarz ?? false %}<script src="{{ asset('js/modules/kalendarz-wybor.js') }}" defer></script>{% endif %}
+{#- ⚠ Ekran grup: jedyne zadanie to zdjęcie paska „Cofnij" po kilku sekundach. Bez tego pliku
+    ekran działa w całości — dodawanie i wypisywanie to formularze, a pasek zostaje widoczny
+    do następnej czynności. -#}
+{% if grupy ?? false %}<script src="{{ asset('js/modules/grupy.js') }}" defer></script>{% endif %}
+<script src="{{ asset('js/app-web.js') }}" defer></script>
+{% endif %}

@@ -1,0 +1,24 @@
+<p class="field__hint">Adres, pod którym użytkownicy otwierają aplikację. Na jego podstawie powstają linki w wiadomościach.</p>
+<div class="form-grid">
+    <div class="field">
+        <label for="app-url">Adres aplikacji</label>
+        <input class="input" id="app-url" name="app_url" type="url" value="{{ default_url }}" maxlength="255" required>
+        <span class="field__hint">Postać https://host, bez ścieżki.</span>
+    </div>
+    <div class="field">
+        <label for="app-env">Rodzaj instalacji</label>
+        <select class="input" id="app-env" name="app_env">
+            <option value="prod">Produkcyjna</option>
+            <option value="dev">Deweloperska</option>
+        </select>
+    </div>
+</div>
+<p class="notice">{{ variant }}</p>
+{#- Pary etykieta/wartość na `.defs` — patrz komentarz w `partials/page/settings.twig`.
+    ⚠ Ścieżki bywają długie, więc wartość MUSI się zawijać; `.defs__value` to zwykły blok,
+    a nie komórka tabeli z `white-space: nowrap`, więc zawija się sama. -#}
+<div class="defs">
+    {% for label, path in paths %}
+        <div><div class="defs__term">{{ label }}</div><div class="defs__value"><code>{{ path }}</code></div></div>
+    {% endfor %}
+</div>

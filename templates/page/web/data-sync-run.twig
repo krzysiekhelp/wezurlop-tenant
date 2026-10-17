@@ -1,0 +1,119 @@
+{% extends 'layout/web.twig' %}
+
+{% block nazwa_ekranu %}Przebieg {{ czas(przebieg.started_at) }}{% endblock %}
+
+{% block content %}
+    <div class="page__head">
+        <div class="page__title">
+            <p class="page__sub">{{ przebieg.company }} · connector {{ przebieg.connector ?: '—' }}{% if przebieg.r2 %} · program kadrowy {{ przebieg.r2 }}{% endif %} · {{ przebieg.seconds is null ? '—' : przebieg.seconds ~ ' s' }}</p>
+        </div>
+        <div class="page__actions">
+            <a class="btn btn--ghost" href="{{ url('/dane/synchronizacja') }}">Wszystkie przebiegi</a>
+        </div>
+    </div>
+
+    <section class="card">
+        <div class="card__head"><h2>Co się zmieniło</h2></div>
+        <div class="card__body">
+            <p class="card__meta">
+                Dodane: <strong>{{ liczby.dodany }}</strong> ·
+                zmienione: <strong>{{ liczby.zmieniony }}</strong> ·
+                usunięte lub poza oknem: <strong>{{ liczby.usuniety }}</strong> ·
+                razem dotkniętych rekordów: <strong>{{ liczby.razem }}</strong>.
+                Rekordy przysłane bez zmiany treści nie są tu liczone — tenant je rozpoznaje po sumie kontrolnej i pomija.
+            </p>
+            <div class="table-scroll">
+                {#- `table--zebra`: lista rosnie z danymi przebiegu, piec kolumn. -#}
+                <table class="table table--zebra">
+                    <thead><tr><th>Zbiór</th><th>Identyfikator z R2</th><th>Zmiana</th><th>Stan rekordu</th><th>Czas</th></tr></thead>
+                    <tbody>
+                    {% for r in rekordy %}
+                        <tr>
+                            <td>{{ r.zbior }}</td>
+                            <td>{{ r.record_id }}</td>
+                            <td>
+                                {% if r.change == 'dodany' %}<span class="chip">dodany</span>
+                                {% elseif r.change == 'usuniety' %}<span class="chip chip--danger">usunięty</span>
+                                {% else %}<span class="chip">zmieniony</span>{% endif %}
+                            </td>
+                            <td>{{ r.state }}</td>
+                            <td>{{ czas_sekundy(r.updated_at) }}</td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="5" class="empty-state">W tym przebiegu nie zmienił się żaden rekord — connector przysłał dane, ale nic nowego w nich nie było.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if strona.stron > 1 %}
+                <nav class="pager" aria-label="Strony rekordów">
+                    {% if strona.numer > 1 %}
+                        <a class="btn btn--ghost btn--sm" href="{{ url('/dane/synchronizacja/' ~ przebieg.id) }}?strona={{ strona.numer - 1 }}">Poprzednia</a>
+                    {% endif %}
+                    <span class="pager__info">Strona {{ strona.numer }} z {{ strona.stron }}</span>
+                    {% if strona.numer < strona.stron %}
+                        <a class="btn btn--ghost btn--sm" href="{{ url('/dane/synchronizacja/' ~ przebieg.id) }}?strona={{ strona.numer + 1 }}">Następna</a>
+                    {% endif %}
+                </nav>
+            {% endif %}
+        </div>
+    </section>
+
+    <section class="card">
+        <div class="card__head"><h2>Liczby przebiegu</h2></div>
+        <div class="card__body">
+            <div class="table-scroll">
+                <table class="table">
+                    <thead><tr><th>Zbiór</th><th>Nowe</th><th>Zmienione</th><th>Bez zmian</th><th>Usunięte</th><th>Poza oknem</th><th>Oczekujące</th><th>Paczki</th></tr></thead>
+                    <tbody>
+                    {% for zbior, l in przebieg.stats.dane ?? {} %}
+                        <tr>
+                            <td>{{ zbior }}</td>
+                            <td>{{ l.nowe ?? 0 }}</td>
+                            <td>{{ l.zmienione ?? 0 }}</td>
+                            <td>{{ l.bezZmian ?? 0 }}</td>
+                            <td>{{ l.usuniete ?? 0 }}</td>
+                            <td>{{ l.pozaOknem ?? 0 }}</td>
+                            <td>{{ l.oczekujace ?? 0 }}</td>
+                            <td>{{ l.paczki ?? 0 }}</td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="8" class="empty-state">Ten przebieg nie przyniósł paczek danych.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <p class="card__meta">
+                Pominięte pola: <strong>{{ przebieg.stats.pominietePola ?? 0 }}</strong> ·
+                przerwy techniczne (503): <strong>{{ przebieg.stats.przerwyTechniczne ?? 0 }}</strong> ·
+                odpowiedzi „za szybko” (429): <strong>{{ przebieg.stats.zaSzybko ?? 0 }}</strong> ·
+                zadania wydane: <strong>{{ przebieg.stats.zadaniaWydane ?? 0 }}</strong>.
+            </p>
+        </div>
+    </section>
+
+    <section class="card">
+        <div class="card__head"><h2>Konflikty</h2></div>
+        <div class="card__body">
+            <div class="table-scroll">
+                {#- `table--zebra`: lista rosnie z danymi przebiegu, piec kolumn. -#}
+                <table class="table table--zebra">
+                    <thead><tr><th>Rodzaj</th><th>Powód</th><th>Wniosek</th><th>Czas</th><th>Stan</th></tr></thead>
+                    <tbody>
+                    {% for k in konflikty %}
+                        <tr>
+                            <td>{{ k.kind }}</td>
+                            <td>{{ k.reason }}</td>
+                            <td>{{ k.request is null ? '—' : '#' ~ k.request }}</td>
+                            <td>{{ czas_sekundy(k.created_at) }}</td>
+                            <td>{% if k.resolved %}<span class="chip">rozwiązany</span>{% else %}<span class="chip chip--warn">otwarty</span>{% endif %}</td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="5" class="empty-state">Ten przebieg nie wygenerował konfliktów.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+{% endblock %}

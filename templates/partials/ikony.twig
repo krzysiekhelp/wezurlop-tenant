@@ -1,0 +1,45 @@
+{#- Jeden zestaw ikon: konturowe, viewBox 0 0 20 20, stroke-width 1.5, bez wypełnienia
+    (docs/system-wizualny.md §3.6). Kolor dziedziczy się przez currentColor.
+
+    ⚠ Ikony wstawiamy MAKRAMI, nigdy `include` ze zmienną — `{% include 'partials/ikony/' ~ nazwa %}`
+    to SSTI/LFI i jest zakazane w CLAUDE.md §5. Użycie:
+      {% import 'partials/ikony.twig' as ikony %}
+      {{ ikony.kalendarz() }}
+-#}
+{% macro pulpit() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M3.5 9 10 3.8 16.5 9v6.7a.8.8 0 0 1-.8.8h-3.4v-4.6H7.7v4.6H4.3a.8.8 0 0 1-.8-.8Z"/></svg>{% endmacro %}
+{% macro kalendarz() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><rect x="3.2" y="4.5" width="13.6" height="12" rx="1.6"/><path d="M3.2 8.3h13.6M7 3v3M13 3v3"/></svg>{% endmacro %}
+{% macro wnioski() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M5.5 3h6l3.5 3.5V17H5.5Z"/><path d="M11.5 3v3.5H15M8 10.5h5M8 13.5h4"/></svg>{% endmacro %}
+{% macro nowy() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle cx="10" cy="10" r="6.8"/><path d="M10 7v6M7 10h6"/></svg>{% endmacro %}
+{% macro zespol() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="2.6"/><path d="M3.6 16c.4-2.4 2.2-3.8 4.4-3.8s4 1.4 4.4 3.8M13.2 6.2a2.4 2.4 0 0 1 0 4.4M14 12.6c1.5.5 2.5 1.7 2.8 3.4"/></svg>{% endmacro %}
+{% macro dane() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><ellipse cx="10" cy="5.6" rx="5.6" ry="2.2"/><path d="M4.4 5.6v8.8c0 1.2 2.5 2.2 5.6 2.2s5.6-1 5.6-2.2V5.6M4.4 10c0 1.2 2.5 2.2 5.6 2.2s5.6-1 5.6-2.2"/></svg>{% endmacro %}
+{% macro konta() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><rect x="3" y="5" width="14" height="10" rx="1.8"/><circle cx="7.8" cy="9.4" r="1.6"/><path d="M5.2 13.2c.3-1.2 1.3-1.9 2.6-1.9s2.3.7 2.6 1.9M12.4 8.8h2.8M12.4 11.4h2.8"/></svg>{% endmacro %}
+{% macro integracja() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M8.4 11.6 6.2 13.8a2.9 2.9 0 0 1-4.1-4.1L4.3 7.5M11.6 8.4l2.2-2.2a2.9 2.9 0 0 1 4.1 4.1l-2.2 2.2M7.6 12.4l4.8-4.8"/></svg>{% endmacro %}
+{% macro diagnostyka() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M2.8 10h3l2-5 3.4 10 2.2-5h3.8"/></svg>{% endmacro %}
+{% macro licencja() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M10 3.2 15.6 5.4v4.2c0 3.2-2.2 5.6-5.6 7-3.4-1.4-5.6-3.8-5.6-7V5.4Z"/><path d="M7.8 9.9 9.4 11.5l3-3"/></svg>{% endmacro %}
+{% macro ustawienia() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle cx="10" cy="10" r="2.4"/><path d="M10 2.8v2M10 15.2v2M17.2 10h-2M4.8 10h-2M15.1 4.9l-1.4 1.4M6.3 13.7l-1.4 1.4M15.1 15.1l-1.4-1.4M6.3 6.3 4.9 4.9"/></svg>{% endmacro %}
+{% macro konto() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle cx="10" cy="7.4" r="2.8"/><path d="M4.4 16.4c.6-2.8 2.8-4.4 5.6-4.4s5 1.6 5.6 4.4"/></svg>{% endmacro %}
+{% macro strzalka() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="m6 8 4 4 4-4"/></svg>{% endmacro %}
+{% macro google() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M17.3 10.2c0-.6-.05-1.1-.16-1.6H10v3.05h4.1a3.5 3.5 0 0 1-1.52 2.3v1.9h2.46c1.44-1.33 2.26-3.28 2.26-5.65Z"/><path d="M10 17.5c2.05 0 3.77-.68 5.03-1.85l-2.46-1.9c-.68.46-1.56.73-2.57.73-1.98 0-3.65-1.33-4.25-3.12H3.2v1.96A7.5 7.5 0 0 0 10 17.5Z"/><path d="M5.75 11.36a4.5 4.5 0 0 1 0-2.72V6.68H3.2a7.5 7.5 0 0 0 0 6.64l2.55-1.96Z"/><path d="M10 5.52c1.11 0 2.11.38 2.9 1.13l2.17-2.17A7.5 7.5 0 0 0 3.2 6.68l2.55 1.96C6.35 6.85 8.02 5.52 10 5.52Z"/></svg>{% endmacro %}
+
+{% macro apple() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M13.6 10.6c0-1.6 1.3-2.4 1.36-2.44-.74-1.09-1.9-1.24-2.31-1.26-.98-.1-1.92.58-2.42.58-.5 0-1.27-.57-2.09-.55-1.07.02-2.06.62-2.61 1.58-1.11 1.93-.28 4.78.8 6.34.53.76 1.16 1.62 1.99 1.59.8-.03 1.1-.51 2.07-.51.96 0 1.24.51 2.08.5.86-.02 1.4-.78 1.93-1.55.61-.89.86-1.75.87-1.8-.02-.01-1.67-.64-1.67-2.48Z"/><path d="M12.1 5.9c.44-.53.73-1.27.65-2-.63.03-1.39.42-1.84.95-.4.47-.75 1.22-.66 1.94.7.05 1.41-.36 1.85-.89Z"/></svg>{% endmacro %}
+
+{% macro oko() %}<svg class="ico ico--sm" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M1.8 10S4.9 4.8 10 4.8 18.2 10 18.2 10 15.1 15.2 10 15.2 1.8 10 1.8 10Z"/><circle cx="10" cy="10" r="2.6"/></svg>{% endmacro %}
+
+{% macro oko_przekreslone() %}<svg class="ico ico--sm" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M7.9 5.2A7.7 7.7 0 0 1 10 4.8c5.1 0 8.2 5.2 8.2 5.2a15 15 0 0 1-2.6 3.1M4.6 6.6A15 15 0 0 0 1.8 10S4.9 15.2 10 15.2c.9 0 1.7-.15 2.4-.4"/><path d="M8.2 8.3a2.6 2.6 0 0 0 3.6 3.6"/><path d="m3.5 3.5 13 13"/></svg>{% endmacro %}
+
+{% macro ptaszek() %}<svg class="ico ico--sm" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="m5 10.4 3.4 3.4L15 6.8"/></svg>{% endmacro %}
+{#- ⚠ Trzy kropki RYSOWANE, nie pisane znakiem `⋯` (U+22EF). Zmierzone 22.09.2026:
+    w środowisku bez tego znaku w czcionce przycisk menu renderował się **pusty** — czyli cała
+    ścieżka bez myszki wisiała na niewidocznej kontrolce. Ikona nie zależy od czcionki. -#}
+{% macro wiecej() %}<svg class="ico ico--sm" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle cx="5" cy="10" r="1.3" fill="currentColor" stroke="none"/><circle cx="10" cy="10" r="1.3" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r="1.3" fill="currentColor" stroke="none"/></svg>{% endmacro %}
+
+{% macro szewron() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="m8 6 4 4-4 4"/></svg>{% endmacro %}
+{#- ⚠ Szewron W LEWO jest **osobnym makrem, nie obróconym tym samym** (`transform: scaleX(-1)`):
+    obrót w arkuszu znaczy „ta sama rzecz do góry nogami", a tu są dwie różne czynności
+    (poprzedni / następny okres) i każda ma własną etykietę dla czytnika ekranu. -#}
+{% macro szewron_lewo() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="m12 6-4 4 4 4"/></svg>{% endmacro %}
+
+{#- Jedna osoba, grupa i firma — trzy pozycje przełącznika widoku kalendarza. `konto()` i `zespol()`
+    już były (menu), `firma()` dochodzi, bo przełącznik z dwiema ikonami na trzy pozycje wygląda
+    na niedokończony, a nie na decyzję. -#}
+{% macro firma() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M4.4 16.6V4.6a.8.8 0 0 1 .8-.8h5.2a.8.8 0 0 1 .8.8v12"/><path d="M11.2 8.6h3.6a.8.8 0 0 1 .8.8v7.2M2.8 16.6h14.4M7 6.8h1.6M7 9.8h1.6M7 12.8h1.6"/></svg>{% endmacro %}

@@ -1,0 +1,91 @@
+{#- Kontrolka „kogo widać na kalendarzu" — **ZNACZENIE**; szkielet i zachowanie stoją
+    w `partials/pickbox.twig` (podział z 08.10.2026, zlecenie `grupy-dzialy` §2a).
+
+    ⚠ Tu zapisujemy **WYŁĄCZENIA**: domyślnie widać wszystkich w zasięgu, a kontrolka zawęża.
+    W działach ta sama kontrolka zapisuje **przynależność** — znaczenie odwrotne, komponent ten
+    sam. Granica przebiega dokładnie tutaj: szkielet nie wie, co znaczy zaznaczone pole.
+
+    ⚠ **Osobny fragment, bo szukanie wymienia TYLKO tę listę.** Gdyby szukajka celowała w całą
+    kartę (`#kalendarz`), rozwijany panel zwijałby się po każdym wpisaniu litery — czyli
+    funkcja, której nie da się użyć.
+
+    ⚠ **Dwie drogi, jedna treść.** Bez JavaScriptu szukanie to zwykły `GET` na `/kalendarz`
+    (pełna strona z `?szukaj=`), z htmx — wymiana tego fragmentu. Ten sam endpoint, ta sama
+    lista, ten sam zasięg sprawdzony po stronie serwera (`system-wizualny.md` 12: lista
+    przycięta limitem **nigdy** nie jest filtrowana w przeglądarce).
+
+    Zmienne: osoby, osob_w_liscie, wybrane, w_zasiegu, szukaj, okres, widok, spolka, htmx. -#}
+{% embed 'partials/pickbox.twig' with {
+    'id': 'kalendarz-lista',
+    'lista_id': 'kalendarz-osoby',
+    'szukaj_akcja': url('/kalendarz'),
+    'zapis_akcja': url('/kalendarz/osoby'),
+    'zapis_etykieta': 'Pokaż',
+    'pokazanych': osoby|length,
+    'zaznaczonych': zaznaczonych_w_liscie,
+    'szukaj': szukaj,
+    'htmx': htmx|default(false),
+    'hx_get_listy': url('/kalendarz/osoby'),
+    'hx_include': '#kalendarz-osoby',
+    'hx_cel_zapisu': '#kalendarz',
+    'hx_push_zapisu': url('/kalendarz') ~ '?widok=' ~ widok ~ '&miesiac=' ~ okres.miesiac,
+    'osoby': osoby, 'osob_w_liscie': osob_w_liscie, 'wybrane': wybrane,
+    'w_zasiegu': w_zasiegu, 'wyl_poza_lista': wyl_poza_lista,
+    'okres': okres, 'widok': widok, 'spolka': spolka
+} only %}
+    {% block naglowek %}
+        <p class="pickbox__note">Domyślnie widzisz wszystkich — odznacz osoby, których nie chcesz mieć na kalendarzu. Lista zawiera wyłącznie tych, których wolno Ci oglądać.{% if osob_w_liscie > osoby|length %} Pokazuję {{ osoby|length }} z {{ osob_w_liscie }} pasujących — zawęź szukanie.{% endif %}</p>
+    {% endblock %}
+
+    {% block szukaj_stan %}
+        <input type="hidden" name="widok" value="{{ widok }}">
+        <input type="hidden" name="miesiac" value="{{ okres.miesiac }}">
+        <input type="hidden" name="spolka" value="{{ spolka.id }}">
+    {% endblock %}
+
+    {% block zapis_stan %}
+        <input type="hidden" name="miesiac" value="{{ okres.miesiac }}">
+        <input type="hidden" name="widok" value="{{ widok }}">
+        <input type="hidden" name="spolka" value="{{ spolka.id }}">
+    {% endblock %}
+
+    {% block lista %}
+        {#- ⚠ **Znacznik „to żądanie niesie stan kontrolki".** Bez niego serwer nie odróżnia
+            wejścia na ekran (wtedy liczy wyłączenia z bazy) od szukania i zapisu z kontrolki
+            (wtedy liczy je z tego, co przyszło). Jedno pole, jedno znaczenie.
+            ⚠ Stoi **wewnątrz listy**, bo szukanie dołącza do żądania właśnie listę
+            (`hx-include="#kalendarz-osoby"`) — pole postawione obok nie pojechałoby z nią. -#}
+        <input type="hidden" name="stan" value="1">
+        {#- ⚠ **Wyłączenia osób, których NIE MA na pokazanej liście** — odsyłane z powrotem,
+            żeby decyzja o kimś, kto wypadł z wyniku szukania, nie zginęła. Stan pokazanych
+            wyraża POLE WYBORU, nie to pole — inaczej byłyby dwa źródła prawdy o jednej osobie. -#}
+        {% for id in wyl_poza_lista %}<input type="hidden" name="wyl[]" value="{{ id }}">{% endfor %}
+        {#- ⚠ Lista POKAZANYCH identyfikatorów jedzie razem z zaznaczeniami. Bez niej serwer nie
+            wie, o kim człowiek w ogóle decydował — i musiałby założyć „o całym zasięgu". -#}
+        {% for o in osoby %}
+            <input type="hidden" name="widoczne[]" value="{{ o.id }}">
+            <label class="pickbox__item">
+                <input class="pickbox__box" type="checkbox" name="osoby[]" value="{{ o.id }}"{{ o.id in wybrane ? ' checked' : '' }}>
+                <span class="pickbox__name">{{ o.osoba }}</span>
+                <small class="pickbox__tag">{{ o.rola }}</small>
+            </label>
+        {% else %}
+            <p class="pickbox__note">{{ szukaj == '' ? 'W Twoim zasięgu nie ma nikogo poza Tobą.' : 'Nikt w Twoim zasięgu nie pasuje do szukanego tekstu.' }}</p>
+        {% endfor %}
+    {% endblock %}
+
+    {% block akcje %}
+        {#- ⚠ **Zasięg działania jest RÓŻNY i liczby w etykietach to pokazują.** „Zaznacz
+            wszystkich" obejmuje cały zasięg, bo poszerzanie widoku jest zawsze bezpieczne —
+            nikt nie znika. „Odznacz pokazanych" obejmuje tylko listę na ekranie, bo zawężanie
+            o osoby, których nikt nie widział, ukrywa ludzi po cichu.
+            ⚠ „Zaznacz wszystkich" znaczy w przeglądarce „zaznacz pokazane **i wyrzuć wszystkie
+            `wyl[]`**" — zamiar wyrażony stanem, nie znacznikiem. -#}
+        <button type="button" data-pick="wszystkie" class="btn btn--ghost btn--sm pickbox__akcja">Zaznacz wszystkich ({{ w_zasiegu }})</button>
+        <button type="button" data-pick="zadne" class="btn btn--ghost btn--sm pickbox__akcja">Odznacz pokazanych ({{ osoby|length }})</button>
+    {% endblock %}
+
+    {% block stopka_uwaga %}
+        {% if osob_w_liscie > osoby|length %}<span class="field__hint">Zapis dotyczy wyłącznie osób z tej listy — pozostałe zostają bez zmian.</span>{% endif %}
+    {% endblock %}
+{% endembed %}

@@ -1,0 +1,34 @@
+{% extends layout_auth %}
+
+{% block title %}Link dotyczy innego konta — wezurlop{% endblock %}
+
+{#- ⚠ Ten ekran widzi osoba, która NIE JEST właścicielem konta z linku. Dlatego jest tu
+    wyłącznie imię, nazwisko i ZAMASKOWANY adres (§2.6 zlecenia) — tyle, ile trzeba, żeby
+    rozpoznać „to nie mój link", i nic więcej.
+
+    ⚠ Nie ma tu formularza hasła i nie ma automatycznego wylogowania: pierwsze ustawiałoby
+    hasło cudzemu kontu, drugie byłoby sposobem na wyrzucenie kogoś z pracy podesłanym linkiem. -#}
+{% block content %}
+    <h1>Ten link dotyczy innego konta</h1>
+
+    <p class="notice notice--warn" role="status">
+        Jesteś zalogowany jako <strong>{{ zalogowany }}</strong>, a link
+        {{ rodzaj == 'zaproszenie' ? 'z zaproszeniem' : 'do ustawienia nowego hasła' }} należy
+        {%- if wlasciciel %} do konta <strong>{{ wlasciciel.imie_nazwisko }}</strong> ({{ wlasciciel.email }}){% else %} do innego konta{% endif %}.
+    </p>
+
+    <p class="field__hint">Nic się jeszcze nie zmieniło — link jest nienaruszony i zadziała
+        później, także na innym komputerze.</p>
+
+    <div class="btn-row">
+        {#- Wylogowanie WYŁĄCZNIE po kliknięciu, i to jest jedyne miejsce, w którym ta ścieżka
+            kończy czyjąś sesję. Token wraca tą samą drogą, którą przyszedł. -#}
+        <form method="post" action="{{ url('/haslo/link/wyloguj') }}">
+            {% include 'partials/csrf.twig' %}
+            <input type="hidden" name="token" value="{{ token }}">
+            <input type="hidden" name="rodzaj" value="{{ rodzaj }}">
+            <button type="submit" class="btn btn--primary">Wyloguj się i ustaw hasło dla tego konta</button>
+        </form>
+        <a class="btn btn--ghost" href="{{ url('/') }}">Zostań zalogowany jako {{ zalogowany }}</a>
+    </div>
+{% endblock %}

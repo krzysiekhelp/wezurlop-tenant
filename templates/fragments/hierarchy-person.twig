@@ -1,0 +1,102 @@
+{#- Treść „Zmień przełożonego" — TA SAMA dla osobnej strony i dla okna modalnego.
+
+    ⚠ Jedna treść, dwa opakowania. Strona zostaje, bo to ścieżka bez JavaScriptu z adresem
+    do wklejenia; okno istnieje, bo pełna nawigacja **kasowała niezapisane zmiany z paska**
+    (zmiany żyją tylko w przeglądarce do kliknięcia „Zapisz"). Gdyby to były dwa szablony,
+    rozjechałyby się przy pierwszej poprawce — tak jak rozjechały się dwie nazwy nagłówka
+    strony i dwa paski komunikatu. -#}
+    <section class="card">
+        <div class="card__head">
+            <h2 class="card__title">Kto ma zatwierdzać wnioski tej osoby</h2>
+            {#- ⚠ Licznik mówi, ILE POKAZANO z ilu — lista ucięta w ciszy jest gorsza od krótkiej,
+                bo nie wiadomo, że kogoś w niej nie ma. -#}
+            <span class="card__meta">
+                {%- if kandydaci.osoby|length < kandydaci.razem %}pokazano {{ kandydaci.osoby|length }} z {{ kandydaci.razem }} — zawęź wyszukiwaniem
+                {%- else %}{{ kandydaci.razem }} {{ kandydaci.razem == 1 ? 'osoba w firmie' : 'osób w firmie' }}{% endif %}
+            </span>
+        </div>
+        <div class="card__body">
+            {#- Wyszukiwanie PO STRONIE SERWERA: zwykły formularz GET, więc działa bez
+                JavaScriptu i daje adres do wklejenia. Lista rośnie z firmą, a przy 36 osobach
+                okno ważyło już 44 KB — zawężanie w przeglądarce niczego by nie oszczędziło. -#}
+            {#- ⚠ `hx-target="closest .card"`: fragment JEST kartą, więc podmiana działa tak samo
+                w oknie i na osobnej stronie. Bez JavaScriptu to zwykły GET z adresem do wklejenia. -#}
+            <form class="toolbar" method="get" action="{{ url('/admin/hierarchia/osoba/' ~ osoba.id) }}"
+                  hx-get="{{ url('/admin/hierarchia/osoba/' ~ osoba.id) }}"
+                  hx-target="closest .card" hx-swap="outerHTML">
+                <input type="hidden" name="spolka" value="{{ spolka.id }}">
+                <label class="field">
+                    <span class="field__label">Szukaj osoby</span>
+                    <input class="input" type="search" name="szukaj" value="{{ kandydaci.szukaj }}" maxlength="100" placeholder="nazwisko albo imię">
+                </label>
+                <button type="submit" class="btn btn--primary">Szukaj</button>
+                {% if kandydaci.szukaj != '' %}
+                    <a class="btn btn--ghost" href="{{ url('/admin/hierarchia/osoba/' ~ osoba.id) }}">Wyczyść</a>
+                {% endif %}
+            </form>
+            <ul class="settings-list">
+                <li class="settings-list__row">
+                    <span class="settings-list__copy">Nie podlega nikomu — szczyt hierarchii</span>
+                    <form method="post" action="{{ url('/admin/hierarchia/zapisz') }}"
+                          data-hier-wybor data-hier-osoba-id="{{ osoba.id }}" data-hier-cel="szczyt">
+                        {% include 'partials/csrf.twig' %}
+                        <input type="hidden" name="spolka" value="{{ spolka.id }}">
+                        <input type="hidden" name="zmiany[0][employment]" value="{{ osoba.id }}">
+                        <input type="hidden" name="zmiany[0][cel]" value="szczyt">
+                        <button type="submit" class="btn btn--ghost"{{ osoba.szczyt ? ' disabled' : '' }}>Ustaw</button>
+                    </form>
+                </li>
+                <li class="settings-list__row">
+                    <span class="settings-list__copy">Zdejmij ze struktury — wróci na listę „Nieustawieni"</span>
+                    <form method="post" action="{{ url('/admin/hierarchia/zapisz') }}"
+                          data-hier-wybor data-hier-osoba-id="{{ osoba.id }}" data-hier-cel="zdejmij">
+                        {% include 'partials/csrf.twig' %}
+                        <input type="hidden" name="spolka" value="{{ spolka.id }}">
+                        <input type="hidden" name="zmiany[0][employment]" value="{{ osoba.id }}">
+                        <input type="hidden" name="zmiany[0][cel]" value="zdejmij">
+                        <button type="submit" class="btn btn--ghost"{{ osoba.nieustawiony ? ' disabled' : '' }}>Zdejmij</button>
+                    </form>
+                </li>
+                {% for k in kandydaci.osoby %}
+                    <li class="settings-list__row">
+                        <span class="settings-list__copy">
+                            {{ k.osoba }}
+                            {%- if k.podwladnych > 0 %} <span class="table__mute">({{ k.podwladnych }} {{ k.podwladnych == 1 ? 'podwładny' : 'podwładnych' }})</span>{% endif %}
+                            {%- if k.powod is not null %} <span class="chip chip--warn">{{ k.powod }}</span>{% endif %}
+                        </span>
+                        {% if k.powod is null %}
+                            {#- ⚠ Atrybuty `data-hier-*` są tu dla JavaScriptu: w oknie wybór trafia
+                                do TEGO SAMEGO paska zmian co przeciągnięcie, bez żądania i bez
+                                opuszczania ekranu. Bez JavaScriptu ten formularz zapisuje od razu,
+                                jak dotąd — jedna ścieżka zapisu, dwa wejścia. -#}
+                            <form method="post" action="{{ url('/admin/hierarchia/zapisz') }}"
+                                  data-hier-wybor data-hier-osoba-id="{{ osoba.id }}"
+                                  data-hier-cel-id="{{ k.id }}">
+                                {% include 'partials/csrf.twig' %}
+                                <input type="hidden" name="spolka" value="{{ spolka.id }}">
+                                <input type="hidden" name="zmiany[0][employment]" value="{{ osoba.id }}">
+                                <input type="hidden" name="zmiany[0][cel]" value="przelozony">
+                                <input type="hidden" name="zmiany[0][supervisor]" value="{{ k.id }}">
+                                <button type="submit" class="btn btn--primary"{{ osoba.supervisor_id == k.id ? ' disabled' : '' }}>
+                                    {{- osoba.supervisor_id == k.id ? 'Obecny przełożony' : 'Wybierz' -}}
+                                </button>
+                            </form>
+                        {% else %}
+                            <button type="button" class="btn btn--ghost" disabled>Niedostępne</button>
+                        {% endif %}
+                    </li>
+                {% endfor %}
+                {% if kandydaci.osoby is empty %}
+                    <li class="settings-list__row">
+                        <span class="settings-list__copy">
+                            {%- if kandydaci.szukaj != '' %}Nikt nie odpowiada wyszukiwaniu „{{ kandydaci.szukaj }}" — w tej firmie jest {{ kandydaci.razem }} {{ kandydaci.razem == 1 ? 'osoba' : 'osób' }}.
+                            {%- else %}W tej firmie nie ma innych czynnych zatrudnień.{% endif %}
+                        </span>
+                    </li>
+                {% endif %}
+            </ul>
+        </div>
+        <div class="card__foot">
+            <a class="btn btn--ghost" href="{{ url('/admin/hierarchia') }}">Wróć do struktury</a>
+        </div>
+    </section>

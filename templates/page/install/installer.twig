@@ -1,0 +1,79 @@
+{% extends 'layout/install.twig' %}
+
+{#- Zmienne: step, steps, csrf, errors, notice, expired, finished oraz dane kroku.
+    Instalator nigdy nie wyświetla wpisanych poświadczeń (CLAUDE.md §15) — pola haseł zawsze puste. -#}
+{% block title %}{{ steps[step] ?? 'Instalator' }} — instalator wezurlop{% endblock %}
+
+{% block content %}
+    <div class="card__head">
+        <div>
+            <strong>Konfiguracja nowej instalacji</strong>
+            <div class="field__hint">{% if step > 0 %}Krok {{ step }} z {{ steps|length }}: {{ steps[step] }}{% endif %}</div>
+        </div>
+        <ol class="stepper" aria-hidden="true">
+            {% for number, label in steps %}
+                <li class="step-dot{% if number < step or finished is not null %} step-dot--done{% elseif number == step %} step-dot--active{% endif %}"></li>
+            {% endfor %}
+        </ol>
+    </div>
+
+    {% if expired %}
+        <div class="card__body">
+            <h1>Formularz wygasł</h1>
+            <p class="notice notice--danger" role="alert">Formularz jest nieaktualny. Odśwież stronę i spróbuj ponownie.</p>
+            <a class="btn btn--primary" href="{{ url('/instalacja') }}">Wróć do instalatora</a>
+        </div>
+    {% elseif finished is not null %}
+        <div class="card__body">
+            <p class="eyebrow">Gotowe</p>
+            <h1>Instalacja zakończona</h1>
+            <p class="notice" role="status">Na adres {{ finished.admin_email }} wysłaliśmy link do ustawienia hasła administratora. Link jest jednorazowy.</p>
+            <p class="field__hint">{{ finished.panel }}</p>
+            <p class="field__hint">Cron: {{ finished.cron }}</p>
+            {#- ⚠ Sonda: instalator jej NIE CZEKA. Cron bywa ustawiany w panelu hostingu dopiero
+                po instalacji, a instalacja, której nie da się dokończyć, jest gorszym problemem
+                niż brak sondy. Wynik sprawdza się w Ustawieniach, tą samą sondą. -#}
+            {% if finished.cron_sonda is defined %}<p class="field__hint">{{ finished.cron_sonda }}</p>{% endif %}
+            {% if finished.manual != '' %}
+                <p class="notice notice--warn">Pliki do skopiowania ręcznie (serwer nie miał prawa zapisu):</p>
+                <pre class="secret">{{ finished.manual }}</pre>
+            {% endif %}
+            <p class="field__hint">Instalator jest teraz zablokowany. Plik .env ma już prawa 0640. Pamiętaj o zadaniu cron (bin/run-jobs.php co 5 minut).</p>
+            <a class="btn btn--primary" href="{{ finished.login_url }}">Przejdź do logowania</a>
+        </div>
+    {% else %}
+        <form method="post" action="{{ url('/instalacja') }}">
+            <input type="hidden" name="_install_csrf" value="{{ csrf }}">
+            <input type="hidden" name="step" value="{{ step }}">
+            <div class="card__body">
+                <p class="eyebrow">Krok {{ step }}/{{ steps|length }}</p>
+                <h1>{{ steps[step] }}</h1>
+
+                {% if notice is not null %}
+                    <p class="notice" role="status">{{ notice }}</p>
+                {% endif %}
+                {% for error in errors %}
+                    <p class="notice notice--danger" role="alert">{{ error }}</p>
+                {% endfor %}
+
+                {#- Biała lista szablonów kroków — nazwa nigdy nie jest składana z danych. -#}
+                {%- set step_templates = {
+                    1: 'partials/install/step-1.twig', 2: 'partials/install/step-2.twig',
+                    3: 'partials/install/step-3.twig', 4: 'partials/install/step-4.twig',
+                    5: 'partials/install/step-5.twig', 6: 'partials/install/step-6.twig',
+                    7: 'partials/install/step-7.twig', 8: 'partials/install/step-8.twig',
+                    9: 'partials/install/step-9.twig', 10: 'partials/install/step-10.twig',
+                } -%}
+                {% include step_templates[step] %}
+            </div>
+            <div class="card__foot">
+                {% if step >= 5 and step <= 7 %}
+                    <button class="btn btn--ghost" type="submit" name="back" value="1" formnovalidate>Wstecz</button>
+                {% else %}
+                    <span></span>
+                {% endif %}
+                <button class="btn btn--primary" type="submit">{{ step == 1 ? 'Dalej' : (step == 8 ? 'Uruchom migracje' : (step == 10 ? 'Zapisz i zakończ' : 'Dalej')) }}</button>
+            </div>
+        </form>
+    {% endif %}
+{% endblock %}

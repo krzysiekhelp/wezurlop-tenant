@@ -1,0 +1,31 @@
+{#- Strona błędu: ogólny komunikat i identyfikator zdarzenia, szczegóły wyłącznie w logu (CLAUDE.md §14). -#}
+{%- set titles = {
+    403: 'Brak dostępu',
+    404: 'Nie znaleziono strony',
+    405: 'Niedozwolona operacja',
+    419: 'Formularz wygasł',
+    500: 'Wystąpił błąd',
+    503: 'Aplikacja jest niedostępna',
+} -%}
+{%- set title = titles[status] ?? 'Wystąpił błąd' -%}
+<!doctype html>
+<html lang="pl">
+<head>
+    {% include 'partials/head.twig' %}
+    <title>{{ title }} — wezurlop</title>
+</head>
+{#- ⚠ Bez klasy na <body>: `page-error` i `app-body` nie miały reguły w ŻADNYM arkuszu,
+    ani nowym, ani starym. Tło strony daje `10-base.css`. -#}
+<body>
+<main class="status-layout" id="main">
+    <section class="card">
+        <div class="card__body status-card">
+            <img class="status-brand" src="{{ asset('img/logo.png') }}" alt="wezurlop" width="228" height="44">
+            <p class="status-code">{{ status }}</p>
+            <h1>{{ title }}</h1>
+            {% include 'partials/error-message.twig' %}
+        </div>
+    </section>
+</main>
+</body>
+</html>

@@ -1,0 +1,38 @@
+{#- Layout mobilny (WebView): nagłówek, treść, dolna nawigacja, safe-area-inset (rozdz. 8). -#}
+{%- set me = current_user() -%}
+<!doctype html>
+<html lang="pl">
+<head>
+    {% include 'partials/head.twig' %}
+    {#- ⚠ Jedno źródło nazwy ekranu, ten sam blok co w powłoce webowej (zlecenie 11.10 §2b):
+        tytuł dokumentu i `h1` w pasku powstają z `nazwa_ekranu`. Bloki `title` i `heading`
+        zniknęły — były dwoma napisami o jednym ekranie. -#}
+    {%- set nazwa = block('nazwa_ekranu') is defined ? block('nazwa_ekranu')|trim : '' -%}
+    <title>{{ nazwa != '' ? nazwa ~ ' — wezurlop' : 'wezurlop' }}</title>
+</head>
+<body hx-headers='{"X-CSRF-Token": "{{ csrf_token() }}"}'>
+<div class="app-shell">
+    <header class="m-topbar">
+        <div>
+            <h1>{{ nazwa != '' ? nazwa : 'wezurlop' }}</h1>
+            {#- ⚠ **Na wąskim ekranie sama nazwa spółki, bez etykiety „Spółka"** (zlecenie
+                10.10.2026 §1): etykieta zabierałaby miejsce nazwie, a przy długiej nazwie
+                pasek zaczynałby się przewijać w poziomie. Przycięcie wielokropkiem robi
+                arkusz (`.spolka__nazwa`), nie zawijanie — warunek odbioru to **0 przewijania
+                w poziomie** na wszystkich ekranach `/m/*`.
+                ⚠ Ten sam partial co w wersji szerokiej: dwa znaczniki znaczyłyby dwa miejsca
+                z tą samą regułą zakresu. -#}
+            {% include 'partials/znacznik-spolki.twig' only %}
+        </div>
+    </header>
+    <main class="m-content" id="main">
+        {#- W układzie, nie obok niego (§2.2). Na telefonie pasek i tak jest `position: fixed`,
+            więc miejsce w drzewie nie zmienia wyglądu — zmienia wysokość kontenera. -#}
+        {% include 'partials/flash.twig' %}
+        {% block content %}{% endblock %}
+    </main>
+    {% include 'partials/nav-mobile.twig' %}
+</div>
+{% include 'partials/scripts.twig' %}
+</body>
+</html>

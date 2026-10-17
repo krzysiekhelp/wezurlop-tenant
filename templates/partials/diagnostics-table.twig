@@ -1,0 +1,36 @@
+{#- Wyniki EnvironmentCheck. Zmienne: groups (nazwa grupy => lista name, status, value, note). -#}
+{% import 'partials/plakietka.twig' as plakietka %}
+{%- set labels = {'ok': 'OK', 'warn': 'Uwaga', 'fail': 'Błąd'} -%}
+{% for group, rows in groups %}
+    <section class="card diag-group">
+        <div class="card__head"><h2>{{ group }}</h2></div>
+        <div class="table-scroll">
+            {#- ⚠ Stałe szerokości (`table--stale` + `colgroup`), bo bez nich przeglądarka liczy
+                z TREŚCI: zmierzone przy 1440 px — dwie grupy przewijały się w bok o 301 i 167 px,
+                a pozostałe dziesięć nie, choć markup mają identyczny. Różnicę robi długość
+                objaśnienia („Katalog domeny", „Przerwy techniczne API"), a nie budowa tabeli.
+                ⚠ Objaśnienie ma się ZAWIJAĆ, nie rozpychać wiersz — dlatego szerokości są
+                procentowe i ostatnia kolumna bierze resztę. -#}
+            <table class="table table--stale table--zawija">
+                <colgroup>
+                    <col class="col--diag-stan">
+                    <col class="col--diag-nazwa">
+                    <col class="col--diag-wartosc">
+                    <col class="col--diag-uwaga">
+                </colgroup>
+                <tbody>
+                {% for r in rows %}
+                    <tr>
+                        <td>{{ plakietka.stan(r.status, labels[r.status]) }}</td>
+                        <td>{{ r.name }}</td>
+                        <td class="cell--zawija"><code>{{ r.value }}</code></td>
+                        {#- Klasa `cell--zawija` zdejmuje ucinanie wielokropkiem z tej jednej
+                            kolumny: tu liczy się CAŁE zdanie, nie jego początek. -#}
+                        <td class="table__mute cell--zawija">{{ r.note }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+{% endfor %}

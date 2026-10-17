@@ -1,0 +1,26 @@
+{% extends 'layout/web.twig' %}
+
+{% block nazwa_ekranu %}Potwierdzenie{% endblock %}
+
+{% block okruchy %}
+    <span>Administracja</span>
+    <span class="crumbs__sep">/</span>
+    <a href="{{ powrot }}">Integracja</a>
+    <span class="crumbs__sep">/</span>
+{% endblock %}
+
+{% block content %}
+    {# Ekran zapasowy: to samo potwierdzenie, gdy JavaScript nie działa i okno modalne się nie otworzy.
+       Treść jest jedna — fragment niżej renderuje się też w oknie nad ekranem integracji. #}
+    <div class="page__head">
+        <div class="page__title">
+            <p class="page__sub">Ta operacja jest nieodwracalna — przeczytaj, co się stanie, zanim potwierdzisz.</p>
+        </div>
+    </div>
+
+    <section class="card">
+        <div class="card__body">
+            {% include 'fragments/confirm.twig' %}
+        </div>
+    </section>
+{% endblock %}

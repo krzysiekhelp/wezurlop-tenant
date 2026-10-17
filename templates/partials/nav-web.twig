@@ -1,0 +1,54 @@
+{#- Pasek boczny w trzech sekcjach (docs/system-wizualny.md §3.5). Ikony makrami, nigdy include
+    ze zmienną (CLAUDE.md §5). `can()` ukrywa pozycję; dostępu pilnuje trasa, nie szablon (§10).
+    „Moje konto” i „Wyloguj” wyszły stąd do menu pod awatarem — to nie są pozycje pierwszego rzędu. -#}
+{% import 'partials/ikony.twig' as ikony %}
+<nav aria-label="Menu główne">
+    <div class="nav-group">
+        <div class="nav-group__label">Moja praca</div>
+        <a class="nav-item{% if active('/') %} nav-item--on{% endif %}" href="{{ url('/') }}"><span class="nav-item__ico">{{ ikony.pulpit() }}</span>Pulpit</a>
+        <a class="nav-item{% if active('/kalendarz') %} nav-item--on{% endif %}" href="{{ url('/kalendarz') }}"><span class="nav-item__ico">{{ ikony.kalendarz() }}</span>Kalendarz</a>
+        <a class="nav-item{% if active('/wnioski') %} nav-item--on{% endif %}" href="{{ url('/wnioski') }}"><span class="nav-item__ico">{{ ikony.wnioski() }}</span>Moje wnioski</a>
+        <a class="nav-item{% if active('/wniosek/nowy') %} nav-item--on{% endif %}" href="{{ url('/wniosek/nowy') }}"><span class="nav-item__ico">{{ ikony.nowy() }}</span>Nowy wniosek</a>
+    </div>
+
+    <div class="nav-group">
+        <div class="nav-group__label">Zespół</div>
+        <a class="nav-item{% if active('/zespol') %} nav-item--on{% endif %}" href="{{ url('/zespol') }}"><span class="nav-item__ico">{{ ikony.zespol() }}</span>Zespół</a>
+        {% if can('data.view') %}
+            <a class="nav-item{% if active('/dane') %} nav-item--on{% endif %}" href="{{ url('/dane') }}"><span class="nav-item__ico">{{ ikony.dane() }}</span>Dane z kadr</a>
+        {% endif %}
+    </div>
+
+    {% if can('admin.users') or can('admin.hierarchy') or can('integration.manage') or can('admin.settings') or can('admin.license') or can('admin.event_log') %}
+        <div class="nav-group">
+            <div class="nav-group__label">Administracja</div>
+            {% if can('admin.users') %}
+                <a class="nav-item{% if active('/admin/konta') %} nav-item--on{% endif %}" href="{{ url('/admin/konta') }}"><span class="nav-item__ico">{{ ikony.konta() }}</span>Konta</a>
+            {% endif %}
+            {#- Pozycja i trasa pilnują TEGO SAMEGO uprawnienia.
+                ⚠ Grupy i hierarchia stoją pod `admin.hierarchy` — `admin.groups` świadomie
+                nie powstało (zlecenie 08.10 §0). Grupy są PRZED hierarchią, bo etykieta jest
+                prostsza niż ścieżka zatwierdzania, a nie jej częścią. -#}
+            {% if can('admin.hierarchy') %}
+                <a class="nav-item{% if active('/admin/grupy') %} nav-item--on{% endif %}" href="{{ url('/admin/grupy') }}"><span class="nav-item__ico">{{ ikony.konta() }}</span>Grupy</a>
+                <a class="nav-item{% if active('/admin/hierarchia') %} nav-item--on{% endif %}" href="{{ url('/admin/hierarchia') }}"><span class="nav-item__ico">{{ ikony.zespol() }}</span>Hierarchia</a>
+            {% endif %}
+            {% if can('integration.manage') %}
+                <a class="nav-item{% if active('/admin/integracja') or active('/admin/podlaczenie') %} nav-item--on{% endif %}" href="{{ url('/admin/integracja') }}"><span class="nav-item__ico">{{ ikony.integracja() }}</span>Integracja{% set czekajace = zgloszenia_firm() %}{% if czekajace > 0 %}<span class="nav-item__badge">{{ czekajace }}</span>{% endif %}</a>
+            {% endif %}
+            {# Pozycja i trasa pilnują TEGO SAMEGO uprawnienia — inaczej menu kłamie o dostępie. #}
+            {% if can('admin.event_log') %}
+                <a class="nav-item{% if active('/admin/dziennik') %} nav-item--on{% endif %}" href="{{ url('/admin/dziennik') }}"><span class="nav-item__ico">{{ ikony.wnioski() }}</span>Dziennik zdarzeń</a>
+            {% endif %}
+            {% if can('admin.settings') %}
+                <a class="nav-item{% if active('/diagnostyka') %} nav-item--on{% endif %}" href="{{ url('/diagnostyka') }}"><span class="nav-item__ico">{{ ikony.diagnostyka() }}</span>Diagnostyka</a>
+            {% endif %}
+            {% if can('admin.license') %}
+                <a class="nav-item{% if active('/licencja') %} nav-item--on{% endif %}" href="{{ url('/licencja') }}"><span class="nav-item__ico">{{ ikony.licencja() }}</span>Licencja</a>
+            {% endif %}
+            {% if can('admin.settings') %}
+                <a class="nav-item{% if active('/ustawienia') and not active('/ustawienia/2fa') and not active('/ustawienia/urzadzenia') %} nav-item--on{% endif %}" href="{{ url('/ustawienia') }}"><span class="nav-item__ico">{{ ikony.ustawienia() }}</span>Ustawienia</a>
+            {% endif %}
+        </div>
+    {% endif %}
+</nav>

@@ -1,0 +1,7 @@
+# Profil minimal — serwer bez przepisywania adresów. docs/profile-hostingu.md.
+# ⚠ Blokady katalogów w tym profilu NIE MA: instalacja dopuszczalna wyłącznie w wariancie 1
+# (katalog domeny = public/), gdzie poza public/ nic nie leży w drzewie dostępnym z internetu.
+# RedirectMatch zostaje jako ścieżka zapasowa i niczego nie dowodzi — rozstrzyga krok 7 instalatora.
+<IfModule mod_alias.c>
+  RedirectMatch 404 ^/(?!public/|\.well-known/).*$
+</IfModule>

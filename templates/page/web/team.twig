@@ -1,0 +1,10 @@
+{% extends 'layout/web.twig' %}
+
+{#- ⚠ Nazwa ekranu stoi WYŁĄCZNIE w belce (zlecenie 11.10 §2) — stąd nie ma już ani `h1`,
+    ani opakowania `.page__head`: po przeniesieniu zdania „Osoby w Twojej firmie." do karty
+    (§2d) nie zostało tu nic do pokazania, a puste opakowanie to odstęp bez treści. -#}
+{% block nazwa_ekranu %}Zespół{% endblock %}
+
+{% block content %}
+    {% include 'partials/page/team.twig' %}
+{% endblock %}

@@ -1,0 +1,22 @@
+{#- Formularz zmiany nazwy grupy — **jedno źródło, dwa miejsca** (okno modalne i ścieżka bez
+    JavaScriptu), dokładnie jak `grupa-nowa-form.twig`. Wzorzec „Nowej grupy" jest tu celem,
+    nie przypadkiem: to jedyna część ekranu grup, do której Krzysztof nie miał zastrzeżeń
+    (zlecenie 10.10 §4), więc „Zmień nazwę" dochodzi do niej, a nie buduje trzeciego wzoru.
+
+    ⚠ Pole jest **wypełnione dotychczasową nazwą**: zmiana nazwy zaczyna się od tego, co jest,
+    a nie od pustego pola, w którym trzeba sobie przypomnieć poprzednią wersję.
+
+    Zmienne: grupa, spolka, wroc ('lista' albo 'grupa' — gdzie wrócić po zapisie). -#}
+<form class="pick__adres" method="post" action="{{ url('/admin/grupy/' ~ grupa.id ~ '/nazwa') }}">
+    {% include 'partials/csrf.twig' %}
+    <input type="hidden" name="spolka" value="{{ spolka.id }}">
+    {#- ⚠ Biała lista dwóch wartości czytana przez kontroler, nie `Referer` (CLAUDE.md §11):
+        nazwę zmienia się z listy grup i z ekranu grupy, a wracać trzeba tam, skąd przyszło. -#}
+    <input type="hidden" name="wroc" value="{{ wroc|default('lista') }}">
+    <label class="field">
+        <span class="field__label">Nazwa grupy</span>
+        <input class="input" type="text" name="nazwa" maxlength="100" value="{{ grupa.nazwa }}"
+               aria-label="Nowa nazwa grupy {{ grupa.nazwa }}" required>
+    </label>
+    <button type="submit" class="btn btn--primary btn--sm">Zapisz nazwę</button>
+</form>

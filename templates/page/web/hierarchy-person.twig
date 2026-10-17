@@ -1,0 +1,23 @@
+{% extends 'layout/web.twig' %}
+
+{% block nazwa_ekranu %}{{ osoba ? osoba.osoba : '—' }}{% endblock %}
+
+{% block okruchy %}
+    <span>Administracja</span>
+    <span class="crumbs__sep">/</span>
+    <a href="{{ url('/admin/hierarchia') }}">Hierarchia</a>
+    <span class="crumbs__sep">/</span>
+{% endblock %}
+
+{% block content %}
+    <div class="page__head">
+        <div class="page__title">
+            <p class="page__sub">{{ spolka.nazwa }} · ta sama operacja co przeciąganie karty, bez myszki. Zapis następuje od razu po wybraniu.</p>
+        </div>
+    </div>
+
+    {#- ⚠ Lista niesie TE SAME blokady co plansza i **mówi dlaczego** przy każdej odrzuconej
+        pozycji. Wygaszona pozycja bez powodu jest tym samym co przycisk, który nic nie robi:
+        człowiek nie wie, czy to usterka, czy jego decyzja jest niedopuszczalna. -#}
+    {% include 'fragments/hierarchy-person.twig' %}
+{% endblock %}

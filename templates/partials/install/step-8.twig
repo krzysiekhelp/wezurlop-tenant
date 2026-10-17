@@ -1,0 +1,4 @@
+<p class="field__hint">Tworzenie tabel kontem migracyjnym. Migracje wykonują się porcjami — jeśli nie zmieszczą się w jednym żądaniu, kliknij ponownie.</p>
+{% if migrations is not null %}
+    <p class="notice" role="status">Wykonane w ostatniej porcji: {{ migrations.applied }}, pozostało: {{ migrations.pending }}.</p>
+{% endif %}

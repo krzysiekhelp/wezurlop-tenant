@@ -1,0 +1,43 @@
+{#- Tabela nieobecności z kadr — **jedno miejsce** dla pulpitu i dla kalendarza „Tylko ja”.
+
+    ⚠ Wyciągnięta z pulpitu 07.10.2026 razem z osią czasu (`partials/os-czasu.twig`): ten sam
+    wykaz na dwóch ekranach, pisany dwa razy, rozjechałby się przy pierwszej zmianie kolumn.
+
+    Zmienne: `wiersze` (rodzaj, kiedy, dni, wpis, wpisow, poza_oknem), `pusto` (zdanie
+    dla zera wierszy).
+
+    ⚠ `table--rekordy` WŁĄCZA układ dwuliniowy na wąskim ekranie (§11.4) i jest konieczny,
+    nie ozdobny: bramka zmierzyła na powłoce mobilnej przewijanie w bok 340 / 513 px.
+    Administrator tenanta tego nie widział, bo nie ma zatrudnienia — usterkę odsłonił dopiero
+    przebieg bramki na koncie PRACOWNIKA.
+    ⚠ Jawne `role`: `display: block` kasuje rolę tabeli w części czytników ekranu.
+
+    ⚠ `table--kolumny-prawe` zbiera **dwie ostatnie kolumny** („Dni robocze", „Skąd") do prawej
+    krawędzi karty (zlecenie 11.10 §1e). To modyfikator na TEJ tabeli, nie zmiana rodziny:
+    na `/wnioski` ostatnia kolumna to plakietka stanu, a w styleguide przycisk — tam prawe
+    wyrównanie odciągnęłoby treść od danych, do których należy. -#}
+<div class="table-scroll">
+    <table class="table table--rekordy table--zebra table--kolumny-prawe" role="table">
+        <thead role="rowgroup">
+            <tr role="row"><th role="columnheader">Rodzaj</th><th role="columnheader">Kiedy</th><th role="columnheader" class="table__num">Dni robocze</th><th role="columnheader">Skąd</th></tr>
+        </thead>
+        <tbody role="rowgroup">
+        {% for n in wiersze %}
+            <tr role="row">
+                <td role="cell" class="table__lead">
+                    {{ n.rodzaj }}
+                    {#- Wpis sklejony z kilku pozycji kadrowych mówi o tym wprost:
+                        inaczej liczba dni nie zgadzałaby się z żadnym pojedynczym wpisem. -#}
+                    {% if n.wpisow > 1 %}<span class="table__note">jeden ciąg, {{ n.wpisow }} wpisy w kadrach</span>{% endif %}
+                    {% if n.poza_oknem %} <span class="chip">poza oknem</span>{% endif %}
+                </td>
+                <td role="cell" class="table__mute">{{ n.kiedy }}</td>
+                <td role="cell" class="table__num">{{ n.dni is null ? '—' : n.dni ~ ' ' ~ (n.dni == 1 ? 'dzień' : 'dni') }}</td>
+                <td role="cell" class="table__mute">{{ n.wpis }}</td>
+            </tr>
+        {% else %}
+            <tr role="row"><td role="cell" colspan="4" class="empty-state">{{ pusto }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>

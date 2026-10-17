@@ -1,0 +1,21 @@
+{% extends layout_auth %}
+
+{% block title %}Reset hasła — wezurlop{% endblock %}
+
+{% block content %}
+    <p class="eyebrow">Reset hasła</p>
+    <h1>Nie pamiętasz hasła?</h1>
+    <p>Podaj adres e-mail konta. Wyślemy link do ustawienia nowego hasła.</p>
+    {% if sent %}
+        <p class="notice" role="status">Jeśli konto istnieje, wysłaliśmy wiadomość z linkiem do ustawienia nowego hasła. Link jest ważny 30 minut.</p>
+    {% endif %}
+    <form method="post" action="{{ url('/haslo/reset') }}" class="stack">
+        {% include 'partials/csrf.twig' %}
+        <div class="field">
+            <label for="reset-email">Adres e-mail konta</label>
+            <input class="input" id="reset-email" name="email" type="email" maxlength="254" autocomplete="username" required>
+        </div>
+        <button type="submit" class="btn btn--primary">Wyślij link</button>
+    </form>
+    <p><a href="{{ url('/logowanie') }}">Powrót do logowania</a></p>
+{% endblock %}

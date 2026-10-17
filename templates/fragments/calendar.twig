@@ -1,0 +1,41 @@
+{#- „Mój kalendarz" jako FRAGMENT — nagłówek z liczbą osób, nawigacja, przełącznik widoków
+    i karta z siatką. Ten sam plik jest treścią pełnej strony (`page/web/calendar.twig` opakowuje
+    go w `<div id="kalendarz">`) i odpowiedzią na żądanie htmx.
+
+    ⚠ **Jeden plik, dwie formy odpowiedzi.** Nie wycinamy kawałka pełnego widoku (CLAUDE.md §5):
+    pełna strona renderuje dokładnie ten fragment, więc nie ma dwóch układów, które mogłyby się
+    rozjechać po pierwszej zmianie.
+
+    ⚠ **Odnośniki ZOSTAJĄ odnośnikami, a formularz formularzem.** `href` i `action` działają bez
+    JavaScriptu i przy otwarciu w nowej karcie; htmx tylko przechwytuje kliknięcie i wymienia
+    jedną kartę. `hx-push-url` utrzymuje adres, więc `?widok=zespol&miesiac=2026-08` nadal da się
+    wkleić, zakładkować i cofnąć przyciskiem przeglądarki — wymiana fragmentu, która to psuje,
+    zamienia przeładowanie na zepsuty przycisk „wstecz".
+
+    ⚠ Cel wymiany (`#kalendarz`) istnieje wyłącznie w wariancie webowym, dlatego atrybuty `hx-*`
+    w szablonie wspólnym są warunkowe (`htmx`). Powłoka mobilna dostaje ten sam widok bez htmx —
+    wariantu mobilnego w tej turze nie projektujemy. -#}
+{#- ⚠ **Pasek akcji nad kartą ZNIKNĄŁ 11.10.2026** (zlecenie
+    `2026-10-11-trzy-bloki-nawigacja-w-naglowku.md` §2). Nawigacja okresu i oba przełączniki
+    stały poza kartą, a dotyczą tego, co jest w karcie — więc weszły do pierwszego bloku ekranu
+    (`partials/nawigacja-kalendarza.twig`). Razem z nimi zniknęło `.page__actions` z tego ekranu
+    i zdanie o podglądzie cudzej firmy, które w pasku akcji nie miało czego robić: stoi teraz
+    przy pozostałych zdaniach o pochodzeniu firmy, w bloku objaśnień.
+
+    ⚠ `.page__head` zostaje **wyłącznie dla konta bez zatrudnienia i bez nadanego podglądu** —
+    to jedyny stan, w którym ten ekran ma własny podtytuł. Opakowanie bez treści to odstęp
+    bez treści, dlatego cały blok jest pod warunkiem. -#}
+{% if spolka is null %}
+    <div class="page__head">
+        <div class="page__title">
+            <p class="page__sub">Urlopy i zwolnienia pracownika tak, jak zapisały je kadry.</p>
+            {% if brak_podgladu|default(false) %}
+                {#- ⚠ Znacznik w belce pokazuje firmę (rola tenantowa widzi wszystkie), ale
+                    kalendarz wymaga etatu albo nadanego poziomu widoczności. Bez tego zdania
+                    przełączanie znacznika na tym ekranie wygląda na zepsute. -#}
+                <p class="page__sub">Przełączanie firmy w belce nie zmienia tu nic, bo w żadnej z nich nie masz etatu ani nadanego podglądu kalendarza. Podgląd nadaje się na <strong>Konta → Dostęp</strong>, osobno dla każdej firmy.</p>
+            {% endif %}
+        </div>
+    </div>
+{% endif %}
+{% include 'partials/page/calendar.twig' with {'htmx': true} %}

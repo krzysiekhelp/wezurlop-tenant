@@ -1,0 +1,49 @@
+<p class="field__hint">Wymagane jest konto z prawem zmiany schematu (bez niego nie ma migracji). Drugie, ograniczone konto
+    aplikacyjne (tylko SELECT, INSERT, UPDATE, DELETE) jest <strong>zalecane</strong>; bez niego instalacja przejdzie
+    w tryb jednego konta, zapisany jawnie w konfiguracji i widoczny na stronie diagnostyki.</p>
+<div class="form-grid">
+    <div class="field">
+        <label for="db-host">Serwer bazy</label>
+        <input class="input" id="db-host" name="db_host" value="localhost" maxlength="255" required>
+    </div>
+    <div class="field">
+        <label for="db-port">Port</label>
+        <input class="input" id="db-port" name="db_port" inputmode="numeric" value="3306" maxlength="5">
+    </div>
+    <div class="field">
+        <label for="db-name">Nazwa bazy</label>
+        <input class="input" id="db-name" name="db_name" maxlength="64" autocomplete="off" required>
+    </div>
+    <div class="field">
+        <label for="db-ssl-ca">Plik CA serwera bazy (opcjonalnie)</label>
+        <input class="input" id="db-ssl-ca" name="db_ssl_ca" maxlength="255" autocomplete="off">
+        <span class="field__hint">Z plikiem CA certyfikat bazy jest weryfikowany; bez niego połączenie zdalne jest szyfrowane bez weryfikacji.</span>
+    </div>
+</div>
+<h2>Konto migracyjne (wymagane)</h2>
+<div class="form-grid">
+    <div class="field">
+        <label for="db-mig-user">Użytkownik z prawem zmiany schematu</label>
+        <input class="input" id="db-mig-user" name="db_mig_user" maxlength="64" autocomplete="off" required>
+    </div>
+    <div class="field">
+        <label for="db-mig-pass">Hasło</label>
+        <input class="input" id="db-mig-pass" name="db_mig_pass" type="password" maxlength="255" autocomplete="new-password" required>
+    </div>
+</div>
+<h2>Konto aplikacyjne (zalecane)</h2>
+<div class="form-grid">
+    <div class="field">
+        <label for="db-user">Użytkownik bez prawa zmiany schematu</label>
+        <input class="input" id="db-user" name="db_user" maxlength="64" autocomplete="off">
+        <span class="field__hint">Zostaw puste, jeśli hosting pozwala na jednego użytkownika bazy.</span>
+    </div>
+    <div class="field">
+        <label for="db-pass">Hasło</label>
+        <input class="input" id="db-pass" name="db_pass" type="password" maxlength="255" autocomplete="new-password">
+    </div>
+</div>
+<div class="field field--check">
+    <input id="db-allow-plain" name="db_allow_plain" type="checkbox" value="1">
+    <label for="db-allow-plain">Połącz bez szyfrowania, jeśli zdalny serwer bazy nie obsługuje TLS (niezalecane — dane kadrowe popłyną jawnym tekstem).</label>
+</div>

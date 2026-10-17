@@ -1,0 +1,9 @@
+{#- Układ wersji TEKSTOWEJ — ta sama rola co `mail/layout.twig`, ta sama stopka w jednym miejscu.
+    ⚠ Bez escapowania (patrz Service/Mail/MailRenderer): w tekście nie ma kontekstu HTML,
+    a escapowanie psułoby treść. Bloki takie same jak w wersji HTML. -#}
+{% block naglowek %}{% endblock %}
+{{ "\n" }}
+{% block tresc %}{% endblock %}
+--
+{% block stopka %}{% endblock %}
+Wiadomość wysłana automatycznie {% if firma %}z systemu urlopowego firmy {{ firma }}{% else %}z systemu urlopowego{% endif %} — nie odpowiadaj na ten adres.

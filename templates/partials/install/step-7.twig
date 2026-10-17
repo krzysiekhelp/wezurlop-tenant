@@ -1,0 +1,22 @@
+<p class="field__hint">Instalator próbuje pobrać przez HTTP pliki, które nie mogą być dostępne z internetu. Każda odpowiedź z treścią blokuje instalację.</p>
+{% if deploy_files is not empty %}
+    <div class="table-scroll">
+        <table class="table">
+            <thead><tr><th>Plik wdrożenia</th><th>Stan</th></tr></thead>
+            <tbody>
+            {% for f in deploy_files %}
+                <tr><td><code>{{ f.file }}</code></td><td>{{ f.status }}{% if f.status == 'do skopiowania ręcznie' %} — wzór: <code>{{ f.source }}</code>{% endif %}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endif %}
+{% include 'partials/diagnostics-table.twig' with {groups: checks} only %}
+{% if blocking %}
+    <p class="notice notice--danger" role="alert">Pliki spoza public/ są dostępne. Ustaw katalog domeny na public/ albo przenieś aplikację powyżej katalogu domeny.</p>
+{% elseif unresolved %}
+    <div class="field field--check">
+        <input id="confirm-unresolved" name="confirm_unresolved" type="checkbox" value="1">
+        <label for="confirm-unresolved">Sprawdziłem ręcznie, że te pliki nie są dostępne z internetu. Potwierdzenie zostanie zapisane w logu.</label>
+    </div>
+{% endif %}

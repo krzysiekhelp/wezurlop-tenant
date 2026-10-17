@@ -1,0 +1,8 @@
+{% extends 'layout/mobile.twig' %}
+
+{% block nazwa_ekranu %}Pulpit{% endblock %}
+
+{% block content %}
+    {% if notice is defined and notice is not null %}<p class="notice" role="status">{{ notice }}</p>{% endif %}
+    {% include 'partials/page/dashboard.twig' %}
+{% endblock %}

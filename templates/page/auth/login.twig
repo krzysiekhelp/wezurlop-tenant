@@ -1,0 +1,48 @@
+{% extends layout_auth %}
+
+{% block title %}Logowanie — wezurlop{% endblock %}
+
+{% import 'partials/ikony.twig' as ikona %}
+
+{% block content %}
+    <p class="eyebrow">Logowanie</p>
+    <h1>Zaloguj się</h1>
+    <p>Użyj konta w wezurlop albo konta Google lub Apple.</p>
+
+    {% if notice is not null %}
+        <p class="notice" role="status">{{ notice }}</p>
+    {% endif %}
+    {% if error is not null %}
+        <p class="notice notice--danger" role="alert">{{ error }}</p>
+    {% endif %}
+
+    <form method="post" action="{{ url('/logowanie') }}" class="stack">
+        {% include 'partials/csrf.twig' %}
+        <div class="field">
+            <label for="login-email">Adres e-mail</label>
+            <input class="input" id="login-email" name="email" type="email" value="{{ email }}" maxlength="254" autocomplete="username" required>
+        </div>
+        <div class="field">
+            <label for="login-password">Hasło</label>
+            {# ⚠ Kontrolka W ŚRODKU pola (§4a): przycisk obok zabierał polu hasła szerokość,
+               więc nie stało w pionie z polem loginu. Ikona, nie napis — zmieniający się napis
+               przesuwałby wcięcie pola przy każdym kliknięciu. #}
+            <div class="input-group">
+                <input class="input" id="login-password" name="password" type="password" autocomplete="current-password" required>
+                <button class="input-group__action" type="button" data-toggle-password="login-password"
+                        aria-controls="login-password" aria-pressed="false" aria-label="Pokaż hasło" hidden>{{ ikona.oko() }}{{ ikona.oko_przekreslone() }}</button>
+            </div>
+        </div>
+        {# ⚠ `btn--block` w KLASIE, nie regułą „przycisk w formularzu jest blokowy" — taka reguła
+           uderzyłaby w paski filtrów, gdzie przyciski stoją obok kontrolek. #}
+        <button type="submit" class="btn btn--primary btn--block">Zaloguj się</button>
+        <a class="form-link" href="{{ url('/haslo/reset') }}">Nie pamiętasz hasła?</a>
+    </form>
+
+    <div class="divider">lub</div>
+    {# ⚠ Kolorów marek nie odtwarzamy — przycisk jest nasz, ze znakiem dostawcy (docs §4a). #}
+    <div class="stack">
+        <a class="btn btn--google btn--block" href="{{ url('/logowanie/zewnetrzne/google') }}">{{ ikona.google() }} Kontynuuj z Google</a>
+        <a class="btn btn--apple btn--block" href="{{ url('/logowanie/zewnetrzne/apple') }}">{{ ikona.apple() }} Kontynuuj z Apple</a>
+    </div>
+{% endblock %}

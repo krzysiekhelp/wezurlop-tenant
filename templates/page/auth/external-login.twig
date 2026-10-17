@@ -1,0 +1,10 @@
+{% extends layout_auth %}
+
+{% block title %}Logowanie zewnętrzne — wezurlop{% endblock %}
+
+{% block content %}
+    <p class="eyebrow">auth.wezurlop.pl</p>
+    <h1>Logowanie przez {{ provider ?? 'dostawcę zewnętrznego' }}</h1>
+    <p class="notice">Logowanie przez Google i Apple jest w przygotowaniu. Użyj adresu e-mail i hasła.</p>
+    <p><a class="btn btn--ghost" href="{{ url('/logowanie') }}">Wróć do logowania</a></p>
+{% endblock %}

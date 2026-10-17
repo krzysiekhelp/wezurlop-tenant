@@ -1,0 +1,408 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Wezurlop\Controller\App;
+
+use DateTimeImmutable;
+use Wezurlop\Entity\CurrentUser;
+use Wezurlop\Http\Middleware\Authenticate;
+use Wezurlop\Http\Request;
+use Wezurlop\Http\Response;
+use Wezurlop\Repository\DataViewRepository;
+use Wezurlop\Service\Sync\SyncService;
+use Wezurlop\Repository\SyncDomainRepository;
+use Wezurlop\Repository\ApiKeyRepository;
+use Wezurlop\Repository\PermissionRepository;
+use Wezurlop\Support\ErrorHandler;
+use Wezurlop\Support\View;
+
+/**
+ * `/dane` — podgląd tego, co przyszło z programu kadrowego: firmy, pracownicy, karta pracownika,
+ * kalendarz i stan synchronizacji (docs/przebieg-1-integracja.md, etapy A3–A7).
+ *
+ * ⚠ **Wyłącznie odczyt.** Program kadrowy jest źródłem prawdy; pole edytowalne u nas byłoby
+ * gwarantowanym rozjazdem przy najbliższym cyklu. Żadnej akcji POST na tych trasach nie ma.
+ *
+ * ⚠ Zakres firm liczy się **w zapytaniu**, nie warunkiem po pobraniu (CLAUDE.md §10): konto
+ * z przypisaniem do jednej firmy nie zobaczy pracownika drugiej, nawet wpisując jego identyfikator.
+ */
+final class DataController
+{
+    private const PAGE = 25;
+    private const ABSENCES_PAGE = 20;
+    /** Wartość przełącznika „wszystkie” — jedyna nieliczbowa na białej liście zakresu. */
+    private const ZAKRES_WSZYSTKIE = 'wszystkie';
+    /** ⚠ Limit długości musi zmieścić najdłuższą wartość z białej listy. */
+    private const ZAKRES_MAX = 16;
+    /** Najwyżej tyle pozycji przy „wszystkie” — z informacją w stopce, gdy lista jest dłuższa. */
+    private const WSZYSTKIE_MAX = 200;
+    private const RUNS = 30;
+    private const RUN_RECORDS_PAGE = 50;
+    private const CONFLICTS = 50;
+
+    public function __construct(
+        private readonly View $view,
+        private readonly DataViewRepository $data,
+        private readonly PermissionRepository $permissions,
+        private readonly ApiKeyRepository $apiKeys,
+        private readonly SyncDomainRepository $domain,
+        private readonly ErrorHandler $errors,
+    ) {
+    }
+
+    /** @param array<string, string> $params */
+    public function companies(Request $request, array $params): Response
+    {
+        return $this->view->render('data-companies.twig', [
+            'firmy' => $this->data->companies($this->scope($request)),
+            // ⚠ Językiem kadrowej, nie technicznym: ona ma wiedzieć, co z tego wynika dla danych,
+            // a nie co to jest odcisk tożsamości. Szczegóły techniczne zostają na ekranie integracji.
+            'podwojne_osoby' => $this->rozjazdOsob(),
+        ]);
+    }
+
+    /**
+     * Czy któryś klucz obsługuje firmy z dwóch instalacji connectora — wtedy ta sama osoba
+     * zatrudniona w takich firmach jest u nas widziana jako dwie.
+     *
+     * @return array{osob: int}|null
+     */
+    private function rozjazdOsob(): ?array
+    {
+        foreach ($this->apiKeys->all() as $key) {
+            if ($key['status'] === 'active' && SyncService::identitySplit($this->domain->companiesForKey($key['id'])) !== null) {
+                return ['osob' => $this->domain->peopleInManyCompanies()];
+            }
+        }
+
+        return null;
+    }
+
+    /** @param array<string, string> $params */
+    public function employees(Request $request, array $params): Response
+    {
+        $scope = $this->scope($request);
+        $company = $this->data->company(self::id($params), $scope);
+        if ($company === null) {
+            return $this->errors->errorPage(404, null, $request->isHtmx());
+        }
+        $search = trim($request->queryString('szukaj', 100));
+        $sort = in_array($request->queryString('sortuj', 20), ['nazwisko', 'zatrudnienie', 'etat'], true)
+            ? $request->queryString('sortuj', 20)
+            : 'nazwisko';
+        $asc = $request->queryString('kierunek', 4) !== 'desc';
+        $total = $this->data->countEmployees($company['id'], $search);
+        $page = self::page($request, $total, self::PAGE);
+        $rok = (int) (new DateTimeImmutable('today'))->format('Y');
+
+        return $this->view->render('data-employees.twig', [
+            'firma' => $company,
+            'pracownicy' => $this->data->employees($company['id'], $search, $sort, $asc, self::PAGE, $page['offset'], $rok),
+            'rok' => $rok,
+            'szukaj' => $search,
+            'sortuj' => $sort,
+            'kierunek' => $asc ? 'asc' : 'desc',
+            'strona' => $page,
+        ]);
+    }
+
+    /**
+     * Nieobecności jako fragment (docs/system-wizualny.md §5.8): przełącznik lat i stronicowanie
+     * wymieniają jedną kartę, zamiast przeładowywać dokument i przerzucać widok na górę strony.
+     *
+     * ⚠ Pełnoprawny endpoint: zalogowanie sprawdza middleware, uprawnienie `data.view` — trasa,
+     * a przynależność osoby do firm użytkownika — `scope()` poniżej, dokładnie tak samo jak
+     * w akcji pełnego ekranu (CLAUDE.md §5: nie ma „endpointów wewnętrznych, bo używa ich htmx”).
+     *
+     * @param array<string, string> $params
+     */
+    public function absences(Request $request, array $params): Response
+    {
+        $scope = $this->scope($request);
+        $person = $this->data->person(self::id($params), $scope);
+        if ($person === null) {
+            return $this->errors->errorPage(404, null, $request->isHtmx());
+        }
+
+        return $this->view->render('fragments/employee-absences.twig', $this->absenceCard($request, $person, $scope));
+    }
+
+    /**
+     * Dane karty nieobecności — jedno źródło dla pełnego ekranu i dla fragmentu.
+     *
+     * @param array<string, mixed> $person
+     * @param list<int>|null $scope
+     * @return array<string, mixed>
+     */
+    private function absenceCard(Request $request, array $person, ?array $scope): array
+    {
+        $employments = $this->data->employments($person['id'], $scope);
+        $ids = array_map(static fn (array $e): int => $e['id'], $employments);
+        // ⚠ Lata biorą się z DANYCH tej osoby, nie z kalendarza: osoba z historią 2023–2026 dostaje
+        // cztery przyciski, osoba z jednym rokiem — jeden. Sztywne „bieżący i poprzedni” było
+        // założeniem o danych, przez które nieobecności z 2024 i starsze były niedostępne z ekranu.
+        $lata = $this->data->absenceYears($ids);
+        // ⚠ Długość 16, nie 8: wartość „wszystkie” ma dziewięć znaków i przy limicie 8 nigdy nie
+        // mogła się dopasować do białej listy — przycisk oddawał to samo co rok bieżący.
+        $surowy = $request->queryString('rok', self::ZAKRES_MAX);
+        // Wartość spoza białej listy wraca do domyślnej (CLAUDE.md §11) — a domyślną jest NAJNOWSZY
+        // rok z danymi tej osoby, nie rok bieżący: karta pracownika, który ostatnią nieobecność miał
+        // w 2024, nie ma się otwierać na pustej tabeli.
+        $domyslny = $lata === [] ? (int) (new DateTimeImmutable('today'))->format('Y') : $lata[0];
+        $wybrany = filter_var($surowy, FILTER_VALIDATE_INT);
+        $zakres = $surowy === self::ZAKRES_WSZYSTKIE
+            ? null
+            : (in_array($wybrany, $lata, true) ? $wybrany : $domyslny);
+        $podsumowanie = $this->data->absenceSummary($ids, $zakres);
+        // ⚠ Przy „wszystkie” pokazujemy najwyżej 200 najnowszych pozycji i mówimy o tym w stopce.
+        // Ciche ucięcie listy w systemie kadrowym jest niedopuszczalne, a osoba z dwudziestoletnim
+        // stażem potrafi mieć kilkaset wierszy.
+        // ⚠ Stronicowanie liczy się po **wszystkich** wierszach, także wycofanych — bo tabela
+        // je pokazuje (z plakietką). Licznik obowiązujących stał tu do 10.10.2026 i przy osobie
+        // z samymi wycofanymi dałby **zero stron** nad niepustą tabelą.
+        $limit = $zakres === null
+            ? min($podsumowanie['wszystkich'], self::WSZYSTKIE_MAX)
+            : $podsumowanie['wszystkich'];
+        $page = self::page($request, $limit, self::ABSENCES_PAGE);
+
+        return [
+            'osoba' => $person,
+            'nieobecnosci' => $this->data->absences($ids, self::ABSENCES_PAGE, $page['offset'], $zakres),
+            'podsumowanie_nieobecnosci' => $podsumowanie,
+            'lata' => $lata,
+            'zakres' => $zakres,
+            'strona' => $page,
+            // Ile pozycji pokazujemy naprawdę i czy lista została przycięta.
+            'pokazano_najwyzej' => $limit,
+            'przyciete' => $zakres === null && $podsumowanie['liczba'] > self::WSZYSTKIE_MAX,
+        ];
+    }
+
+    /** @param array<string, string> $params */
+    public function employee(Request $request, array $params): Response
+    {
+        $scope = $this->scope($request);
+        $person = $this->data->person(self::id($params), $scope);
+        if ($person === null) {
+            return $this->errors->errorPage(404, null, $request->isHtmx());
+        }
+        $employments = $this->data->employments($person['id'], $scope);
+        $ids = array_map(static fn (array $e): int => $e['id'], $employments);
+        $rokBiezacy = (int) (new DateTimeImmutable('today'))->format('Y');
+        $karta = $this->absenceCard($request, $person, $scope);
+
+        // ⚠ Dzielnik minut na dni to **480, tak samo jak na pulpicie pracownika** (rozstrzygnięcie
+        // Marcina 22.09.2026). Wcześniej ten ekran dzielił przez `normaUrlopowaMin` kalendarza,
+        // więc przy dniówce innej niż 8 h pracownik i kadrowa czytali z tych samych minut DWIE
+        // RÓŻNE liczby dni — bez sposobu rozstrzygnięcia, która jest ważna. Cała ta warstwa
+        // istnieje po to, żeby pokazywać tę samą liczbę co program kadrowy, a `ksztalt-danych-r2.md`
+        // (rekord `limit`) mówi „zawsze 480”. Jedna formuła, jedno miejsce: `WorkTime`.
+        // ⚠ Pytanie o dniówkę 12 h (co pokazuje R2 przy `normaUrlopowaMin = 720`) jest w `docs/audyt.md`
+        // jako pytanie do autora connectora — do odpowiedzi obowiązuje 480.
+        $limity = $this->data->balances($ids);
+
+        return $this->view->render('data-employee.twig', array_merge($karta, [
+            'zatrudnienia' => $employments,
+            'limity' => $limity,
+            'podsumowanie_limitow' => self::summarise($limity, $employments),
+            'rok' => $rokBiezacy,
+            'miesiac' => (new DateTimeImmutable('today'))->format('Y-m'),
+        ]));
+    }
+
+    /**
+     * Widok miesięczny: nieobecności i dni wolne z kalendarza R2.
+     *
+     * @param array<string, string> $params
+     */
+    public function calendar(Request $request, array $params): Response
+    {
+        $scope = $this->scope($request);
+        $person = $this->data->person(self::id($params), $scope);
+        if ($person === null) {
+            return $this->errors->errorPage(404, null, $request->isHtmx());
+        }
+        $employments = $this->data->employments($person['id'], $scope);
+        $month = self::month($request->queryString('miesiac', 7));
+        $first = $month->modify('first day of this month');
+        $last = $month->modify('last day of this month');
+        $absences = $this->data->absencesInRange(
+            array_map(static fn (array $e): int => $e['id'], $employments),
+            $first->format('Y-m-d'),
+            $last->format('Y-m-d'),
+        );
+        $free = [];
+        foreach ($employments as $employment) {
+            foreach ($this->data->nonWorkingDays($employment['company_id'], $employment['calendar'], (int) $month->format('Y')) as $day) {
+                $free[$day] = true;
+            }
+        }
+
+        return $this->view->render('data-calendar.twig', [
+            'osoba' => $person,
+            'miesiac' => $month->format('Y-m'),
+            'nazwa_miesiaca' => self::MONTHS[(int) $month->format('n')] . ' ' . $month->format('Y'),
+            'poprzedni' => $month->modify('-1 month')->format('Y-m'),
+            'nastepny' => $month->modify('+1 month')->format('Y-m'),
+            'dni' => self::calendarDays($first, $last, $absences, $free),
+            'legenda' => $absences,
+        ]);
+    }
+
+    /** @param array<string, string> $params */
+    public function runs(Request $request, array $params): Response
+    {
+        return $this->view->render('data-sync.twig', ['przebiegi' => $this->data->runs($this->scope($request), self::RUNS)]);
+    }
+
+    /** @param array<string, string> $params */
+    public function run(Request $request, array $params): Response
+    {
+        $run = $this->data->run(self::id($params), $this->scope($request));
+        if ($run === null) {
+            return $this->errors->errorPage(404, null, $request->isHtmx());
+        }
+        $counts = $this->data->runRecordCounts($run['id'], $run['company_id']);
+        $page = self::page($request, $counts['razem'], self::RUN_RECORDS_PAGE);
+
+        return $this->view->render('data-sync-run.twig', [
+            'przebieg' => $run,
+            'liczby' => $counts,
+            'rekordy' => $this->data->runRecords($run['id'], $run['company_id'], self::RUN_RECORDS_PAGE, $page['offset']),
+            'konflikty' => $this->data->conflicts($run['id'], $run['company_id'], self::CONFLICTS),
+            'strona' => $page,
+        ]);
+    }
+
+    /**
+     * Podsumowanie limitów: po jednym wierszu na zatrudnienie i rodzaj, z wartościami **roku
+     * najnowszego** — bo to on obowiązuje.
+     *
+     * ⚠ Lat NIE sumujemy i jest to świadome: urlop zaległy z poprzedniego roku program kadrowy
+     * ma już wliczony w pozycję „zaległy” roku bieżącego, więc dodanie obu policzyłoby te same dni
+     * dwa razy. Zamiast liczby, której nie da się obronić, pokazujemy rok obowiązujący i listę lat,
+     * które przyszły z kadr.
+     *
+     * @param list<array<string, mixed>> $balances
+     * @param list<array<string, mixed>> $employments
+     * @return list<array<string, mixed>>
+     */
+    private static function summarise(array $balances, array $employments): array
+    {
+        $companies = [];
+        foreach ($employments as $employment) {
+            $companies[$employment['id']] = $employment['company'];
+        }
+        $rows = [];
+        foreach ($balances as $b) {
+            $key = $b['employment_id'] . '|' . $b['kind'];
+            $known = $rows[$key] ?? null;
+            $lata = $known === null ? [] : $known['lata'];
+            $lata[] = $b['year'];
+            // Wiersze przychodzą posortowane rokiem malejąco, więc pierwszy trafiony rok jest najnowszy.
+            $rows[$key] = $known !== null
+                ? ['lata' => $lata] + $known
+                : [
+                    'lata' => $lata,
+                    'firma' => $companies[$b['employment_id']] ?? '—',
+                    'employment_id' => $b['employment_id'],
+                    'kind' => $b['kind'],
+                    'rok' => $b['year'],
+                    'accrued' => $b['accrued'],
+                    'available_start_min' => $b['available_start_min'],
+                    'used_min' => $b['used_min'],
+                    'remaining_min' => $b['remaining_min'],
+                    'on_demand_days' => $b['on_demand_days'],
+                ];
+            $rows[$key]['lata'] = $lata;
+        }
+        foreach ($rows as $key => $row) {
+            rsort($row['lata']);
+            $rows[$key] = $row;
+        }
+
+        return array_values($rows);
+    }
+
+    /** Polskie nazwy miesięcy — kalendarz opisuje okres słowami, nie numerem. */
+    private const MONTHS = [1 => 'styczeń', 'luty', 'marzec', 'kwiecień', 'maj', 'czerwiec', 'lipiec',
+        'sierpień', 'wrzesień', 'październik', 'listopad', 'grudzień'];
+
+    /**
+     * Zakres firm konta: `null` = przypisanie na całego tenanta (widzi wszystko), lista — tylko te firmy,
+     * `[]` — konto bez aktywnego zatrudnienia i bez roli tenanta (nie widzi niczego).
+     *
+     * @return list<int>|null
+     */
+    private function scope(Request $request): ?array
+    {
+        $user = $request->attribute(Authenticate::USER);
+        if (!$user instanceof CurrentUser) {
+            return [];
+        }
+        if ($this->permissions->hasTenantWideRole($user->accountId())) {
+            return null;
+        }
+        $companyId = $user->activeEmployment()?->companyId;
+
+        return $companyId === null ? [] : [$companyId];
+    }
+
+    /**
+     * @return array{numer: int, stron: int, offset: int, razem: int}
+     */
+    private static function page(Request $request, int $total, int $size): array
+    {
+        $pages = max(1, (int) ceil($total / $size));
+        $number = filter_var($request->query('strona'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => $pages]]);
+        $number = $number === false ? 1 : $number;
+
+        return ['numer' => $number, 'stron' => $pages, 'offset' => ($number - 1) * $size, 'razem' => $total];
+    }
+
+    private static function id(array $params): int
+    {
+        return (int) ($params['id'] ?? 0);
+    }
+
+    /** Miesiąc z adresu (`RRRR-MM`) albo bieżący — wartość spoza formatu nie jest błędem, tylko „dziś”. */
+    private static function month(string $value): DateTimeImmutable
+    {
+        if (preg_match('/^\d{4}-\d{2}$/', $value) === 1) {
+            $parsed = DateTimeImmutable::createFromFormat('Y-m-d', $value . '-01');
+            if ($parsed !== false) {
+                return $parsed->modify('first day of this month');
+            }
+        }
+
+        return (new DateTimeImmutable('today'))->modify('first day of this month');
+    }
+
+    /**
+     * Siatka miesiąca od poniedziałku: dzień, czy wolny z kalendarza R2, lista nieobecności.
+     *
+     * @param list<array<string, mixed>> $absences
+     * @param array<string, bool> $free
+     * @return list<array{data: ?string, dzien: int, wolny: bool, nieobecnosci: list<array<string, mixed>>}>
+     */
+    private static function calendarDays(DateTimeImmutable $first, DateTimeImmutable $last, array $absences, array $free): array
+    {
+        $cells = [];
+        for ($i = 1; $i < (int) $first->format('N'); $i++) {
+            $cells[] = ['data' => null, 'dzien' => 0, 'wolny' => false, 'nieobecnosci' => []];
+        }
+        for ($day = $first; $day <= $last; $day = $day->modify('+1 day')) {
+            $date = $day->format('Y-m-d');
+            $onDay = array_values(array_filter($absences, static fn (array $a): bool => $a['from'] <= $date && $a['to'] >= $date));
+            $cells[] = [
+                'data' => $date,
+                'dzien' => (int) $day->format('j'),
+                'wolny' => isset($free[$date]) || (int) $day->format('N') >= 6,
+                'nieobecnosci' => $onDay,
+            ];
+        }
+
+        return $cells;
+    }
+}

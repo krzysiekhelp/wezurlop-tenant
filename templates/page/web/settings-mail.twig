@@ -1,0 +1,283 @@
+{% extends 'layout/web.twig' %}
+
+{% block nazwa_ekranu %}Poczta{% endblock %}
+
+{% block okruchy %}
+    <a href="{{ url('/ustawienia') }}">Ustawienia</a>
+    <span class="crumbs__sep">/</span>
+{% endblock %}
+
+{#- ⚠ Ekran istnieje z jednego powodu: dopóki poczta nie wychodzi, zaproszenia i resety haseł
+    nie docierają do nikogo, a aplikacja wygląda na działającą. Ustawienia są w bazie, nie
+    w `.env`, bo serwer SMTP klienta zmienia się po instalacji. -#}
+{% block content %}
+    <div class="page__head">
+        <div class="page__title">
+            <p class="page__sub">Tą drogą wychodzą zaproszenia, linki do ustawienia hasła i alerty. Wysyłka idzie kolejką zadań — ekran służy do konfiguracji i sprawdzenia.</p>
+        </div>
+    </div>
+
+    {% if notice is not null %}<p class="notice" role="status">{{ notice }}</p>{% endif %}
+    {% if error is not null %}<p class="notice notice--danger" role="alert">{{ error }}</p>{% endif %}
+
+    <section class="card">
+        <div class="card__head">
+            <h2 class="card__title">Stan</h2>
+            <span class="card__meta">co się dzieje dziś z wysyłką</span>
+        </div>
+        <div class="card__body">
+            <div class="defs">
+                <div>
+                    <div class="defs__term">Wysyłka</div>
+                    <div class="defs__value">
+                        {%- if rodzaj == 'smtp' %}<span class="chip">SMTP — {{ host }}:{{ port }}</span>
+                        {#- ⚠ Bez znacznika wewnątrz plakietki: `.chip` jest `inline-flex`, więc
+                            odstęp między dwoma dziećmi ZNIKA — wychodziło „zrzut do plikówvar/mail".
+                            Ta sama pułapka co `.notice { display: flex }` rozbijające zdanie
+                            na kolumny. Plakietka to etykieta, nie układ. -#}
+                        {%- elseif rodzaj == 'plik' %}<span class="chip chip--warn">zrzut do plików var/mail</span>
+                        {%- else %}<span class="chip chip--danger">nieskonfigurowana</span>{% endif %}
+                    </div>
+                </div>
+                <div>
+                    <div class="defs__term">Ostatnia udana wysyłka</div>
+                    {#- Czas bezwzględny z sekundami I nazwą strefy — forma do zestawiania
+                        z logiem i z tym, co klient mówi przez telefon. -#}
+                    <div class="defs__value">{{ ostatnia_wysylka ? czas_pelny(ostatnia_wysylka) : 'jeszcze nic nie wyszło' }}</div>
+                </div>
+                <div>
+                    <div class="defs__term">Skrzynka na alerty</div>
+                    <div class="defs__value">{{ alert_email ?: '—' }}</div>
+                </div>
+            </div>
+            {#- ⚠ Kolorujemy wyłącznie to, co wymaga reakcji (system-wizualny §3.1).
+                Nazwa nadawcy odziedziczona po nas albo pusta jest właśnie takim stanem. -#}
+            {% if nazwa_nadawcy_uwaga %}
+                <p class="notice notice--warn" role="status">
+                    Nadawca nazywa się <strong>{{ nazwa_nadawcy ?: '(bez nazwy)' }}</strong>.
+                    Pracownik dostaje wiadomość o swoim urlopie i powinien zobaczyć w skrzynce
+                    <strong>nazwę swojej firmy</strong>{% if nazwa_nadawcy_sugestia %} (np. „{{ nazwa_nadawcy_sugestia }}"){% endif %} —
+                    inaczej nieznany nadawca z linkiem do ustawienia hasła wygląda jak próba oszustwa.
+                    Zmienisz to niżej, w polu „Nazwa nadawcy".
+                </p>
+            {% endif %}
+            {% if rodzaj == 'plik' %}
+                {#- ⚠ Ten stan istnieje TYLKO przy APP_ENV=dev. W produkcji brak konfiguracji
+                    jest błędem, a zadanie kończy się niepowodzeniem i ponowieniem. -#}
+                <p class="notice notice--warn" role="status">Poczta nie jest skonfigurowana, a instalacja pracuje w trybie deweloperskim — wiadomości lądują w plikach <span class="mono">var/mail/*.eml</span> i nie wychodzą w świat. U klienta ten stan jest błędem instalacji.</p>
+            {% elseif rodzaj == 'brak' %}
+                <p class="notice notice--danger" role="alert">Wiadomości nie wychodzą i nie są nigdzie zapisywane — zadania kolejki kończą się niepowodzeniem i są ponawiane. Zaproszenia oraz linki do ustawienia hasła nie docierają do nikogo.</p>
+            {% endif %}
+        </div>
+    </section>
+    {#- Widok kolejki (zlecenie `kolejka-widoczna-i-kiedy-wyjdzie` §4).
+
+        ⚠ **LICZBY, nigdy treść wiadomości i nigdy adresaci.** Ten ekran odpowiada na pytanie
+        „czy wysyłka ruszyła", a nie „komu co poszło" — to drugie jest w dzienniku zdarzeń,
+        za osobnym uprawnieniem. Kolejka z podglądem adresatów byłaby listą adresów
+        pracowników dostępną każdemu z `admin.settings`.
+
+        ⚠ Typy zadań są widoczne, bo nazwa typu (`mail.invitation`) mówi, CO stoi, i nie mówi
+        nic o tym, KOGO dotyczy.
+
+        ⚠ Stoi PRZED kartami konfiguracji, bo przy „nie przyszło" najpierw się pyta, czy coś
+        w ogóle czeka — a nie jaki jest port SMTP. -#}
+    <section class="card">
+        <div class="card__head">
+            <h2 class="card__title">Kolejka</h2>
+            <span class="card__meta">ile czeka, ile się nie udało, kiedy przebiegło</span>
+        </div>
+        <div class="card__body">
+            <div class="defs">
+                <div>
+                    <div class="defs__term">Czeka zadań</div>
+                    <div class="defs__value">{{ kolejka.czeka }}{% if kolejka.czeka_poczta > 0 %} <span class="table__mute">(w tym poczty: {{ kolejka.czeka_poczta }})</span>{% endif %}</div>
+                    {#- ⚠ Zadania cykliczne czekają na SWÓJ termin, nie na crona — bez tego
+                        rozróżnienia „czeka 4" wygląda jak zator, którego nie ma. -#}
+                    <div class="field__hint">gotowych do wykonania teraz: {{ kolejka.czeka_gotowe }}</div>
+                </div>
+                <div>
+                    <div class="defs__term">Nieudanych</div>
+                    <div class="defs__value">
+                        {%- if kolejka.nieudane == 0 %}0
+                        {%- else %}<span class="chip chip--danger">{{ kolejka.nieudane }}</span>{% endif %}
+                    </div>
+                </div>
+                <div>
+                    <div class="defs__term">Ostatni przebieg</div>
+                    <div class="defs__value">
+                        {%- if cron.nigdy %}<span class="chip chip--danger">nigdy</span>
+                        {%- else %}{{ cron.wiek }} min temu{% endif %}
+                    </div>
+                    {% if not cron.nigdy %}<div class="field__hint">{{ czas_pelny(cron.ostatni_utc) }}</div>{% endif %}
+                </div>
+                {#- ⚠ `not cron.awaria`: przy martwym cronie „najbliższy spodziewany" wypada
+                    W PRZESZŁOŚCI (zmierzone: „około 12:13" o 12:48) — a ekran, który obiecuje
+                    przebieg sprzed pół godziny, jest gorszy niż ekran, który milczy. -#}
+                {% if cron.najblizszy_utc is not null and not cron.awaria %}
+                    <div>
+                        <div class="defs__term">Najbliższy spodziewany</div>
+                        {#- ⚠ Prognoza BEZ sekund — to wyliczenie z zadeklarowanej częstotliwości,
+                            nie pomiar (reguła przyjęta 22.09.2026). -#}
+                        <div class="defs__value">około {{ czas_prognoza(cron.najblizszy_utc) }}</div>
+                        <div class="field__hint">cron co {{ cron.minuty }} min</div>
+                    </div>
+                {% endif %}
+                {% if kolejka.najstarsze_utc is not null %}
+                    <div>
+                        <div class="defs__term">Najdłużej zaległe</div>
+                        <div class="defs__value">{{ czas_wzgledny(kolejka.najstarsze_utc) }}</div>
+                        <div class="field__hint">{{ czas_pelny(kolejka.najstarsze_utc) }}</div>
+                    </div>
+                {% endif %}
+            </div>
+
+            {% if cron.awaria %}
+                <p class="notice notice--danger" role="alert">
+                    {%- if cron.nigdy %}Cron nigdy jeszcze nie przebiegł.
+                    {%- else %}Cron nie przebiegł od {{ cron.wiek }} min, ostatni raz {{ czas_pelny(cron.ostatni_utc) }}.{% endif %}
+                    {# ⚠ Drugi wyzwalacz kolejki domyka POJEDYNCZE pilne zadania po odpowiedzi
+                        na zwykłe żądanie, więc „nic nie wyjdzie" byłoby nieprawdą — zmierzone.
+                        Eskalacje, sprzątanie sesji i sprawdzenia kluczy i tak stoją. #}
+                    {% if cron.zapasowy_czynny %}Pilna poczta wychodzi wyzwalaczem zapasowym po zwykłych żądaniach, ale pozostałe zadania stoją.
+                    {% else %}Nic z tej kolejki nie wyjdzie, dopóki to nie ruszy.{% endif %}
+                    Polecenie do wklejenia jest w <a href="{{ url('/ustawienia') }}">Ustawieniach, w sekcji Cron</a>.
+                </p>
+            {% elseif kolejka.nieudane > 0 %}
+                {#- ⚠ Nieudane zadania są ponawiane, więc to nie jest od razu awaria — ale liczba
+                    większa od zera ma być widoczna, a nie przemilczana. -#}
+                <p class="notice notice--warn" role="status">
+                    Zadania nieudane są ponawiane; ostatni błąd {{ kolejka.ostatni_blad_utc is null ? 'bez znacznika czasu' : czas_pelny(kolejka.ostatni_blad_utc) }}.
+                    Treść błędu jest w logu (<span class="mono">storage/logs</span>), nie na tym ekranie.
+                </p>
+            {% endif %}
+
+            {% if kolejka.typy is not empty %}
+                <ul class="settings-list">
+                    {% for wpis in kolejka.typy %}
+                        <li class="settings-list__row">
+                            <span class="settings-list__copy mono">{{ wpis.typ }}</span>
+                            <span class="chip">{{ wpis.ile }}</span>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="empty-state">Kolejka jest pusta — nic nie czeka na wysyłkę.</p>
+            {% endif %}
+        </div>
+    </section>
+
+
+    <section class="card">
+        <div class="card__head">
+            <h2 class="card__title">Serwer SMTP</h2>
+            <span class="card__meta">dane ze skrzynki, z której ma wychodzić poczta</span>
+        </div>
+        <div class="card__body">
+            <form method="post" action="{{ url('/ustawienia/poczta') }}" id="poczta-smtp">
+                {% include 'partials/csrf.twig' %}
+                <div class="form-grid">
+                    <label class="field">
+                        <span class="field__label">Serwer (host)</span>
+                        <input class="input" type="text" name="host" value="{{ host }}" maxlength="253" placeholder="np. smtp.firma.pl" required>
+                    </label>
+                    <label class="field">
+                        <span class="field__label">Port</span>
+                        <input class="input" type="text" name="port" value="{{ port }}" maxlength="5" inputmode="numeric">
+                        <span class="field__hint">587 dla TLS, 465 dla SSL</span>
+                    </label>
+                    <label class="field">
+                        <span class="field__label">Szyfrowanie</span>
+                        <select class="select" name="szyfrowanie">
+                            {% for s in szyfrowania %}
+                                <option value="{{ s }}"{{ szyfrowanie == s ? ' selected' : '' }}>{{ {'tls': 'TLS (STARTTLS)', 'ssl': 'SSL', 'none': 'bez szyfrowania'}[s] }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label class="field">
+                        <span class="field__label">Użytkownik</span>
+                        <input class="input" type="text" name="uzytkownik" value="{{ uzytkownik }}" maxlength="254" autocomplete="off">
+                        <span class="field__hint">zwykle pełny adres skrzynki; puste = bez uwierzytelnienia</span>
+                    </label>
+                    <label class="field">
+                        <span class="field__label">Hasło</span>
+                        {#- ⚠ Pole jest ZAWSZE puste: hasła nie oddajemy do przeglądarki. Puste przy
+                            zapisie znaczy „nie zmieniaj", a nie „wyczyść" (CLAUDE.md §9). -#}
+                        <input class="input" type="password" name="haslo" value="" maxlength="254" autocomplete="new-password"
+                               placeholder="{{ ma_haslo ? 'ustawione — wpisz nowe, żeby zmienić' : 'nie ustawione' }}">
+                        <span class="field__hint">{{ ma_haslo ? 'W bazie zapisane jako szyfrogram (klucz z pliku .env). Puste pole zostawia je bez zmian.' : 'Zapisujemy zaszyfrowane kluczem z pliku .env.' }}</span>
+                    </label>
+                    <label class="field">
+                        <span class="field__label">Adres nadawcy</span>
+                        <input class="input" type="email" name="nadawca" value="{{ nadawca }}" maxlength="254" placeholder="urlopy@firma.pl" required>
+                    </label>
+                    <label class="field">
+                        <span class="field__label">Nazwa nadawcy</span>
+                        <input class="input" type="text" name="nazwa_nadawcy" value="{{ nazwa_nadawcy }}" maxlength="100"
+                               placeholder="{{ nazwa_nadawcy_sugestia ?: 'nazwa Twojej firmy' }}">
+                        {#- ⚠ To jest nazwa, którą pracownik zobaczy w skrzynce obok tematu.
+                            Zmierzone na doręczonej wiadomości: nadawca „wezurlop" u pracownika
+                            klienta wygląda jak phishing — a wiadomość ma go skłonić do ustawienia
+                            hasła (docs/wymagania-hostingu.md §1a). -#}
+                        <span class="field__hint">
+                            Nazwa firmy, którą pracownik zobaczy w skrzynce. Adres zostaje ten
+                            powyżej — to tylko nazwa wyświetlana. Puste pole znaczy „wyślij bez nazwy".
+                        </span>
+                    </label>
+                </div>
+            </form>
+        </div>
+        <div class="card__foot">
+            <span class="field__hint">Zapis nie sprawdza serwera — do tego służy wiadomość próbna niżej.</span>
+            <button type="submit" form="poczta-smtp" class="btn btn--primary" data-zapisz>Zapisz ustawienia</button>
+        </div>
+    </section>
+
+    {% if ma_haslo %}
+        <section class="card">
+            <div class="card__head"><h2 class="card__title">Hasło SMTP</h2></div>
+            <div class="card__body">
+                <p class="field__hint">Skrzynka bez uwierzytelnienia albo zmiana dostawcy — wtedy hasło trzeba wyczyścić świadomie, bo pusty formularz go nie usuwa.</p>
+            </div>
+            <div class="card__foot">
+                <span class="field__hint">Serwer wymagający uwierzytelnienia odrzuci po tym wysyłkę.</span>
+                <form method="post" action="{{ url('/ustawienia/poczta') }}">
+                    {% include 'partials/csrf.twig' %}
+                    <input type="hidden" name="host" value="{{ host }}">
+                    <input type="hidden" name="port" value="{{ port }}">
+                    <input type="hidden" name="szyfrowanie" value="{{ szyfrowanie }}">
+                    <input type="hidden" name="uzytkownik" value="{{ uzytkownik }}">
+                    <input type="hidden" name="nadawca" value="{{ nadawca }}">
+                    <input type="hidden" name="nazwa_nadawcy" value="{{ nazwa_nadawcy }}">
+                    <input type="hidden" name="wyczysc_haslo" value="1">
+                    <button type="submit" class="btn btn--ghost">Wyczyść hasło</button>
+                </form>
+            </div>
+        </section>
+    {% endif %}
+
+    <section class="card">
+        <div class="card__head">
+            <h2 class="card__title">Wiadomość próbna</h2>
+            <span class="card__meta">wysyłana od razu, nie kolejką — żeby błąd serwera było widać teraz</span>
+        </div>
+        <div class="card__body">
+            {% if proba is not null %}
+                {#- ⚠ Komunikat serwera SMTP pokazujemy WPROST: bez niego „nie udało się wysłać"
+                    nie mówi, czy problem jest w haśle, porcie, czy w certyfikacie. -#}
+                <p class="notice {{ proba.ok ? '' : 'notice--danger' }}" role="{{ proba.ok ? 'status' : 'alert' }}">{{ proba.tekst }}</p>
+            {% endif %}
+            <form method="post" action="{{ url('/ustawienia/poczta/proba') }}" id="poczta-proba">
+                {% include 'partials/csrf.twig' %}
+                <label class="field">
+                    <span class="field__label">Adres do wiadomości próbnej</span>
+                    <input class="input" type="email" name="adres" value="{{ alert_email }}" maxlength="254" required>
+                </label>
+            </form>
+        </div>
+        <div class="card__foot">
+            <span class="field__hint">Jedna wiadomość, limit czasu 10 s.</span>
+            <button type="submit" form="poczta-proba" class="btn btn--ghost">Wyślij wiadomość próbną</button>
+        </div>
+    </section>
+{% endblock %}

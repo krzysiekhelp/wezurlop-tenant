@@ -1,0 +1,34 @@
+{% extends 'layout/web.twig' %}
+
+{% block nazwa_ekranu %}Licencja{% endblock %}
+
+{% block content %}
+    <div class="page__head">
+        <div class="page__title">
+            <p class="page__sub">Stan licencji tej instalacji.</p>
+        </div>
+    </div>
+    <section class="card">
+        <div class="card__body">
+            {% if mode == 'limited' %}
+                <p class="notice notice--warn">Instalacja działa w trybie ograniczonym. Odnów licencję w panelu wezurlop lub skontaktuj się z opiekunem wdrożenia.</p>
+            {% elseif mode == 'grace' %}
+                <p class="notice notice--warn">Licencja wygasła — trwa okres karencji. Odnów ją, zanim aplikacja przejdzie w tryb ograniczony.</p>
+            {% endif %}
+            {% if updates_expired and mode != 'limited' %}
+                <p class="notice">Okres aktualizacji minął. Aplikacja działa dalej bez ograniczeń — nowe wersje wymagają odnowienia pakietu aktualizacji.</p>
+            {% endif %}
+            {#- Pary etykieta/wartość na `.defs` — patrz komentarz w `partials/page/settings.twig`. -#}
+            <div class="defs">
+                <div><div class="defs__term">Stan</div><div class="defs__value">{{ mode_label }}</div></div>
+                <div><div class="defs__term">Kod stanu</div><div class="defs__value"><code>{{ reason }}</code></div></div>
+                <div><div class="defs__term">Identyfikator licencji</div><div class="defs__value">{{ license_id ?? '—' }}</div></div>
+                <div><div class="defs__term">Ważna do</div><div class="defs__value">{{ expires_at ?? 'bezterminowo' }}</div></div>
+                <div><div class="defs__term">Aktualizacje do</div><div class="defs__value">{{ updates_until ?? '—' }}</div></div>
+                {% for key, value in limits %}
+                    <div><div class="defs__term">Limit: {{ key == 'accounts' ? 'dostępów do spółek' : key }}</div><div class="defs__value">{{ value }}</div></div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+{% endblock %}

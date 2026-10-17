@@ -1,0 +1,144 @@
+{% extends 'layout/web.twig' %}
+
+{% block nazwa_ekranu %}{{ osoba.name }}{% endblock %}
+
+{% block okruchy %}
+    <a href="{{ url('/dane') }}">Dane z kadr</a>
+    {% if zatrudnienia|length > 0 %}
+        <span class="crumbs__sep">/</span>
+        <a href="{{ url('/dane/firma/' ~ zatrudnienia[0].company_id) }}">{{ zatrudnienia[0].company }}</a>
+    {% endif %}
+    <span class="crumbs__sep">/</span>
+{% endblock %}
+
+{% block content %}
+    {% set z0 = zatrudnienia|length > 0 ? zatrudnienia[0] : null %}
+    <div class="page__head">
+        <div class="page__title">
+            {# ⚠ Nazwisko w formie źródłowej z R2 (§3.2). Skrót hmac zszedł do szczegółów technicznych (§5.2). #}
+            <p class="page__sub">
+                {%- if z0 is not null %}{{ z0.company }} · {% endif -%}
+                nr kadrowy {{ osoba.identyfikator ?? '—' }}
+                {%- if z0 is not null and z0.hired_at is not null %} · zatrudniony od {{ z0.hired_at }}{% endif -%}
+            </p>
+        </div>
+        <div class="page__actions">
+            <a class="btn btn--ghost" href="{{ url('/dane/pracownik/' ~ osoba.id ~ '/kalendarz') }}?miesiac={{ miesiac }}">Pokaż w kalendarzu</a>
+        </div>
+    </div>
+
+    {# Cztery liczby w JEDNEJ karcie, rozdzielone cienką linią — nie cztery osobne kafelki (§5.2). #}
+    <section class="card stats">
+        <div class="stats__item">
+            <span class="stats__key">Wymiar etatu</span>
+            <span class="stats__value">{{ z0 is null ? '—' : etat(z0.fte) }}</span>
+        </div>
+        <div class="stats__item">
+            <span class="stats__key">Norma dobowa</span>
+            <span class="stats__value">{{ z0 is null ? '—' : norma_dnia(z0.leave_norm_min ?? 480) }}{% if z0 is not null and z0.leave_norm_min is null %} <small>wartość zapasowa</small>{% endif %}</span>
+        </div>
+        <div class="stats__item">
+            <span class="stats__key">Rozkład czasu pracy</span>
+            <span class="stats__value">{{ z0 is null ? '—' : (z0.calendar_name ?? z0.calendar ?? '—') }}</span>
+        </div>
+        <div class="stats__item">
+            <span class="stats__key">Nieobecności w {{ rok }}</span>
+            {#- ⚠ Ta sama liczba co na liście `/dane/firma/{id}` i policzona tym samym wzorem:
+                **wycofane się nie liczą**. Do 10.10.2026 lista dawała tu 0 dni, a ta karta 44 —
+                bo karta liczyła też wycofane. -#}
+            <span class="stats__value">{{ podsumowanie_nieobecnosci.dni }} dni{% if podsumowanie_nieobecnosci.wycofanych > 0 %} <small>(wycofanych: {{ podsumowanie_nieobecnosci.wycofanych }})</small>{% endif %}</span>
+        </div>
+    </section>
+
+    {% for z in zatrudnienia %}
+        <section class="card">
+            <div class="card__head">
+                <h2 class="card__title">Zatrudnienie{% if zatrudnienia|length > 1 %} — {{ z.company }}{% endif %}</h2>
+                <span class="card__meta">aktualizowane z R2 Płatnik</span>
+            </div>
+            <div class="card__body">
+                <div class="defs">
+                    <div><div class="defs__term">Firma</div><div class="defs__value"><a href="{{ url('/dane/firma/' ~ z.company_id) }}">{{ z.company }}</a></div></div>
+                    <div><div class="defs__term">Numer kadrowy</div><div class="defs__value mono">{{ osoba.identyfikator ?? '—' }}</div></div>
+                    <div><div class="defs__term">Wymiar etatu</div><div class="defs__value">{{ etat(z.fte) }}</div></div>
+                    <div><div class="defs__term">Rozkład czasu pracy</div><div class="defs__value">{{ z.calendar_name ?? z.calendar ?? '—' }}</div></div>
+                    <div><div class="defs__term">Rodzaj umowy</div><div class="defs__value">{{ z.umowy is empty ? '—' : z.umowy|join(', ') }}</div></div>
+                    <div><div class="defs__term">Zatrudniony od</div><div class="defs__value">{{ z.hired_at ?? '—' }}</div></div>
+                    {#- ⚠ **Dwa pola, dwa różne fakty — i do 10.10.2026 ekran udawał, że jeden.**
+                        Zmierzone na zatrudnieniu #88: „Stan: zakończone" i jednocześnie
+                        „Zatrudniony do: — (bez terminu)". Nic w tym sprzecznego, tylko oba napisy
+                        milczały o źródle:
+                          • `terminated_at` bierze się WYŁĄCZNIE z daty zwolnienia na rekordzie
+                            **pracownika** z R2 (`zwolniony` + `dataZwolnienia`) — tutaj R2
+                            przysłało `dataZwolnienia: null`, więc terminu nie ma,
+                          • `is_active` to **osobne pole**, które my zerujemy, kiedy R2 **przestaje
+                            przysyłać** rekord zatrudnienia (`sync_record.state = 'deleted'`,
+                            wpis `employment.deactivated_by_sync`, data w `deactivated_at`).
+                        Czyli: „zakończone" znaczy „R2 już tego zatrudnienia nie przysyła", a nie
+                        „pracownik ma datę końca". Oba napisy mówią to teraz wprost. -#}
+                    <div><div class="defs__term">Zatrudniony do</div><div class="defs__value">{{ z.terminated_at ?? '— (R2 nie przysłało daty zwolnienia)' }}</div></div>
+                    <div><div class="defs__term">Norma urlopowa</div><div class="defs__value">{{ norma_dnia(z.leave_norm_min ?? 480) }} za dzień</div></div>
+                    <div><div class="defs__term">Stan</div><div class="defs__value">
+                        <span class="status"><span class="status__dot{% if not z.active %} dot--err{% endif %}"></span>{{ z.active ? 'aktywne' : 'zakończone' }}</span>
+                        {%- if not z.active %} <small>— R2 przestało przysyłać to zatrudnienie{% if z.deactivated_at %} {{ z.deactivated_at|slice(0, 10) }}{% endif %}</small>{% endif %}
+                    </div></div>
+                </div>
+            </div>
+        </section>
+    {% endfor %}
+
+    <section class="card">
+        <div class="card__head">
+            <h2 class="card__title">Limity z kadr</h2>
+            <span class="card__meta">rok obowiązujący; lat nie sumujemy — zaległy jest już w roku bieżącym</span>
+        </div>
+        <div class="table-scroll">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th class="table__grow">Rodzaj</th>
+                        {% if zatrudnienia|length > 1 %}<th>Firma</th>{% endif %}
+                        <th>Rok</th>
+                        <th class="table__num">Dostępne na start</th>
+                        <th class="table__num">Wykorzystane</th>
+                        <th class="table__num">Pozostało</th>
+                        <th>Stan</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for p in podsumowanie_limitow %}
+                    <tr>
+                        <td class="table__grow">{{ p.kind }}</td>
+                        {% if zatrudnienia|length > 1 %}<td class="table__mute">{{ p.firma }}</td>{% endif %}
+                        <td class="table__mute">{{ p.rok }}{% if p.lata|length > 1 %} <span class="table__mute">(w kadrach: {{ p.lata|join(', ') }})</span>{% endif %}</td>
+                        <td class="table__num" title="{{ czas_minuty(p.available_start_min) }}">{{ czas_pracy(p.available_start_min) }}</td>
+                        <td class="table__num" title="{{ czas_minuty(p.used_min) }}">{{ czas_pracy(p.used_min) }}</td>
+                        <td class="table__num" title="{{ czas_minuty(p.remaining_min) }}">{{ czas_pracy(p.remaining_min) }}</td>
+                        <td>{% if not p.accrued %}<span class="chip chip--warn">nienaliczony</span>{% endif %}</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="7" class="table__empty">Program kadrowy nie przysłał jeszcze limitów tej osoby.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    {% include 'fragments/employee-absences.twig' %}
+
+    {# Dane techniczne schodzą z widoku głównego pod zwijany pasek, domyślnie zamknięty (§3.4, §5.2). #}
+    <details class="disclosure">
+        <summary>Szczegóły techniczne <span class="mono">identyfikator osoby, klucze synchronizacji</span></summary>
+        <div class="disclosure__body">
+            <div class="defs">
+                <div><div class="defs__term">Identyfikator osoby (skrót)</div><div class="defs__value mono">{{ osoba.external ? osoba.external ~ '…' : 'brak' }}</div></div>
+                {% for z in zatrudnienia %}
+                    <div><div class="defs__term">Klucz synchronizacji — {{ z.company }}</div><div class="defs__value mono">{{ z.ref }}</div></div>
+                    <div><div class="defs__term">Ostatnia zmiana z kadr — {{ z.company }}</div>
+                        <div class="defs__value" title="{{ z.updated_at ? czas_ze_strefa(z.updated_at) : '' }}">{{ czas_wzgledny(z.updated_at) }}</div></div>
+                {% endfor %}
+            </div>
+            <p class="field__hint">Identyfikator osoby to skrót HMAC liczony po stronie klienta — PESEL nie opuszcza serwera kadrowego. Kluczem synchronizacji nieobecności i limity wskazują zatrudnienie.</p>
+        </div>
+    </details>
+{% endblock %}

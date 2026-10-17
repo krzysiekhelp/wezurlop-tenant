@@ -1,0 +1,43 @@
+{% extends 'layout/web.twig' %}
+
+{% block nazwa_ekranu %}Pulpit{% endblock %}
+
+{% block okruchy %}
+{% endblock %}
+
+{% block content %}
+    {#- ⚠ **Nagłówek strony POWSTAJE TYLKO WTEDY, GDY MA CO POKAZAĆ** (decyzja Krzysztofa
+        z 17.10.2026). Przy zatrudnieniu stał tu podtytuł „<firma> · etat … · dane z programu
+        kadrowego, stan na …". Nazwę firmy niesie znacznik w belce, etat schodzi z pulpitu
+        świadomie, a stan synchronizacji zszedł na dół ekranu, do `stopka-danych` we wspólnym
+        partialu. Po tej zmianie `page__title` nie ma treści — i wtedy **cały blok się nie
+        renderuje**, zamiast zostawiać 36 px pustej wyściółki nad kafelkami.
+        ⚠ Przełącznik spółek stoi W TYM SAMYM bloku i **nie znika razem z podtytułem**: to
+        jedyna droga zmiany kontekstu na tym ekranie dla kogoś z dwoma etatami. Dlatego warunek
+        jest sumą dwóch powodów, a nie jednym; bez tytułu pasek dostaje `--akcja`, żeby
+        `space-between` z jednym dzieckiem nie wyrzuciło go na lewą krawędź. -#}
+    {% set ma_tytul = zatrudnienie is null %}
+    {% if ma_tytul or spolki|length > 1 %}
+        <div class="page__head{{ ma_tytul ? '' : ' page__head--akcja' }}">
+            {% if ma_tytul %}
+                <div class="page__title">
+                    <p class="page__sub">Urlopy i nieobecności pracownika.</p>
+                </div>
+            {% endif %}
+            {#- ⚠ Przełącznik spółek to ISTNIEJĄCA droga zmiany kontekstu (`POST /kontekst/{id}`),
+                a nie druga, równoległa. Limit i nieobecności wiszą przy zatrudnieniu, więc jedno
+                aktywne zatrudnienie = jeden zestaw liczb i nie ma czego sumować. -#}
+            {% if spolki|length > 1 %}
+                <form class="segmented" method="post" action="{{ url('/kontekst') }}">
+                    {% include 'partials/csrf.twig' %}
+                    {% for s in spolki %}
+                        <button type="submit" formaction="{{ url('/kontekst/' ~ s.id) }}"
+                                class="segmented__item{{ s.biezaca ? ' segmented__item--on' : '' }}">{{ s.nazwa }} · etat {{ s.etat }}</button>
+                    {% endfor %}
+                </form>
+            {% endif %}
+        </div>
+    {% endif %}
+    {% if notice is not null %}<p class="notice" role="status">{{ notice }}</p>{% endif %}
+    {% include 'partials/page/dashboard.twig' %}
+{% endblock %}

@@ -1,0 +1,76 @@
+{% extends 'layout/web.twig' %}
+
+{% block nazwa_ekranu %}{{ osoba.name }} — kalendarz{% endblock %}
+
+{% block content %}
+    <div class="page__head">
+        <div class="page__title">
+            <p class="page__sub">Nieobecności z kadr i dni wolne z kalendarza R2. Widok tylko do odczytu.</p>
+        </div>
+        <div class="page__actions">
+            <a class="btn btn--ghost btn--sm" href="{{ url('/dane/pracownik/' ~ osoba.id ~ '/kalendarz') }}?miesiac={{ poprzedni }}">‹ Poprzedni</a>
+            <a class="btn btn--ghost btn--sm" href="{{ url('/dane/pracownik/' ~ osoba.id ~ '/kalendarz') }}?miesiac={{ nastepny }}">Następny ›</a>
+            <a class="btn btn--ghost" href="{{ url('/dane/pracownik/' ~ osoba.id) }}">Karta pracownika</a>
+        </div>
+    </div>
+
+    <section class="card">
+        {#- ⚠ **Nagłówek karty z miesiącem — dołożony 11.10.2026 razem ze zdjęciem `h1`**
+            (zlecenie §2). Dawny `h1` brzmiał „{{ '{{ osoba.name }}' }} — {{ '{{ nazwa_miesiaca }}' }}", więc razem
+            z nim zniknąłby z ekranu **miesiąc**, czyli jedyna informacja o tym, co właściwie
+            pokazuje siatka. Nazwa ekranu (nazwisko) stoi w belce, a miesiąc jest treścią karty —
+            to ta sama zasada, co nagłówek „Październik 2026" na `/kalendarz`: nagłówek karty
+            powtarzający nazwę ekranu jest nadmiarowy, mówiący coś innego jest treścią. -#}
+        <div class="card__head"><h2 class="card__title">{{ nazwa_miesiaca }}</h2></div>
+        <div class="card__body">
+            <div class="table-scroll">
+                <table class="table month-grid">
+                    <thead><tr><th>pon</th><th>wt</th><th>śr</th><th>czw</th><th>pt</th><th>sob</th><th>niedz</th></tr></thead>
+                    <tbody>
+                        <tr>
+                        {% for d in dni %}
+                            {% if loop.index0 > 0 and loop.index0 % 7 == 0 %}</tr><tr>{% endif %}
+                            {% if d.data is null %}
+                                <td class="month-grid__cell month-grid__cell--empty"></td>
+                            {% else %}
+                                <td class="month-grid__cell{% if d.wolny %} month-grid__cell--free{% endif %}{% if d.nieobecnosci|length > 0 %} month-grid__cell--absence{% endif %}">
+                                    <span class="month-grid__day">{{ d.dzien }}</span>
+                                    {% for n in d.nieobecnosci %}
+                                        <span class="month-grid__mark" title="{{ n.type }} · {{ czas_pracy(n.minutes) }} ({{ czas_minuty(n.minutes) }})">{{ n.type }}{% if n.type_source == 'kadrowe' %} (0 dni){% endif %}</span>
+                                    {% endfor %}
+                                </td>
+                            {% endif %}
+                        {% endfor %}
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="card__meta">⚠ Nieobecność ze źródła <strong>kadrowe</strong> (urlop bezpłatny, wychowawczy, nieusprawiedliwiona) zajmuje dni w kalendarzu, ale program kadrowy liczy dla niej <strong>zero dni</strong> — to reguła programu kadrowego, nie brak danych.</p>
+        </div>
+    </section>
+
+    <section class="card">
+        <div class="card__head"><h2>Nieobecności w tym miesiącu</h2></div>
+        <div class="card__body">
+            <div class="table-scroll">
+                <table class="table">
+                    <thead><tr><th>Rodzaj</th><th>Od</th><th>Do</th><th>Dni z kadr</th><th>Wymiar</th><th>Wpis</th></tr></thead>
+                    <tbody>
+                    {% for n in legenda %}
+                        <tr>
+                            <td>{{ n.type }}</td>
+                            <td>{{ n.from }}</td>
+                            <td>{{ n.to }}</td>
+                            <td>{{ n.days is null ? '—' : n.days }}{% if n.type_source == 'kadrowe' %} <span class="chip">liczy 0</span>{% endif %}</td>
+                            <td title="{{ czas_minuty(n.minutes) }}">{{ czas_pracy(n.minutes) }}</td>
+                            <td>{{ n.source }}</td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="6" class="empty-state">W tym miesiącu nie ma żadnej nieobecności.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+{% endblock %}

@@ -1,0 +1,338 @@
+{#- „Mój kalendarz" — wspólny fragment wariantu webowego i mobilnego.
+    Zmienne: zatrudnienie, spolka, okres, widok, ma_zespol, ma_firme, poziom, ja, zespol,
+    osoby, osob_w_liscie, wybrane, szukaj, ukryci, obciete, w_zasiegu, zasieg_opis.
+    Opcjonalnie `htmx` (domyślnie false) — wariant webowy wymienia kartę bez przeładowania,
+    powłoka mobilna wysyła zwykły formularz. ⚠ Warunek jest tu dlatego, że cel wymiany
+    (`#kalendarz`) istnieje tylko w wariancie webowym; htmx bez istniejącego celu nie zrobiłby
+    NIC i kliknięcie ginęłoby po cichu.
+
+    ⚠ Zero logiki. Siatka, dni wolne, kolor krawędzi i nazwy rodzajów przychodzą gotowe
+    z `KalendarzPracownika`; szablon wybiera klasę odpowiadającą stanowi komórki.
+    ⚠ Rodzaj nieobecności w widoku „Zespół" jest OGÓLNY dla wszystkich, łącznie z samym sobą —
+    kod ze słownika to dana o zdrowiu i nie wychodzi z widoku „Tylko ja". -#}
+{#- ⚠ **Zdanie zamiast ciszy, gdy widok jest inny od żądanego** (zlecenie 08.10 §3). Stoi tutaj,
+    a nie w `fragments/calendar.twig`, bo powłoka mobilna dołącza ten partial, a nie fragment —
+    zdanie w samym fragmencie nie dotarłoby do połowy ekranów.
+    ⚠ Nie jest to błąd i nie wygląda jak błąd: adres bywa po prostu stary. 404 na poprawnym
+    koncie wyglądałby jak awaria systemu i wygenerowałby zgłoszenie, zamiast je zamknąć. -#}
+{% if widok_odmowa is not null %}
+    <p class="notice" role="status">
+        {%- if widok_odmowa == 'brak_zatrudnienia' -%}
+            To konto nie ma zatrudnienia, więc nie ma zespołu do pokazania. Widok „Zespół” należy do pracownika, pod którym ktoś stoi w hierarchii.
+        {%- elseif widok_odmowa == 'brak_podwladnych' -%}
+            Nie masz podwładnych, więc pokazuję Twój kalendarz. Widok „Zespół” pojawia się u osób, pod którymi ktoś jest w hierarchii.
+        {%- else -%}
+            Nie masz nadanego podglądu kalendarza firmy, więc pokazuję Twój kalendarz. Taki podgląd nadaje administrator tenanta.
+        {%- endif -%}
+    </p>
+{% endif %}
+{% if spolka is null %}
+    <section class="card">
+        <div class="card__body">
+            {#- ⚠ Zdanie zostaje dla konta bez zatrudnienia **i bez nadanego poziomu widoczności**.
+                Z poziomem 1 lub 2 to konto wchodzi wprost na „Firma" (zlecenie §3). -#}
+            <p class="empty-state">To konto nie ma zatrudnienia ani nadanego podglądu kalendarzy — kalendarz pokazuje urlopy i zwolnienia pracownika z programu kadrowego.</p>
+        </div>
+    </section>
+{% elseif widok != 'ja' %}
+    {#- ⚠ **TRZY BLOKI, nie jedna karta** (zlecenie `2026-10-11-trzy-bloki-nawigacja-w-naglowku.md`
+        §1, prototyp zatwierdzony w przeglądarce): nagłówek · kalendarz · objaśnienia. Dawna karta
+        zbiorcza przestała rysować tło i ramkę — jest pojemnikiem `.bloki`, a ramkę rysuje każdy
+        blok osobno. ⚠ To **nie nowy komponent**: blok to zwyczajna `.card`, ta sama co wszędzie.
+        ⚠ Blok z siatką ma `card--os`, czyli **nie obcina treści** — `overflow: hidden` dla
+        zaokrąglenia rogów czyni element kontenerem przewijanym, a wtedy przyklejony nagłówek dni
+        przykleja się do niego i zjeżdża pod pierwsze nazwisko (zmierzone na prototypie). -#}
+    <div class="bloki">
+        {#- ⚠ **Nazwa okresu i zdanie o nieobecnościach są w JEDNYM BLOKU TYTUŁU** — od 13.10.2026
+            dosłownie w jednym pudełku (`kal-nav__tytul`), a nie w dwóch pojemnikach jeden pod drugim
+            (zlecenie `2026-10-13-kalendarz-naglowek-i-ksztalt-miesiaca.md` §1). Zdanie jedzie do wiersza
+            nawigacji jako `podtytul`, a `card__head` z tej gałęzi **zniknęło**: po przeniesieniu treści
+            zostawał pusty pojemnik z samą wyściółką (28 px zmierzone na `widok=ja`). ⚠ `:empty` go nie
+            łapie, bo zawiera biały znak — więc pojemnik ma się NIE RENDEROWAĆ, a nie być ukrywany
+            arkuszem: ukrycie regułą wróciłoby przy pierwszej zmianie szablonu.
+            ⚠ Ten sam blok w tej samej kolejności w KAŻDEJ gałęzi ekranu (Miesiąc, Rok, Lista,
+            Zespół, Firma): dwa układy zależne od skali to ta sama niespójność, którą rozpad
+            na bloki miał usunąć.
+            ⚠ `card--panel` **tylko w tej gałęzi**, bo tylko tutaj stoi kontrolka wyboru osób,
+            z której wysuwa się panel wychodzący za dolną krawędź bloku. Po rozpadzie na bloki
+            panel był obcinany przez `overflow: hidden` i przykrywany siatką z następnego bloku
+            (zmierzone — uzasadnienie przy regule w `30-components.css`). -#}
+        {#- ⚠ Bez dopisku „— cała firma" / „— zespół": o tym, czyje nieobecności widać,
+            mówią już przełącznik widoku, znacznik firmy w belce i zdanie pod siatką.
+            ⚠ Nazwy okresu tu NIE MA — stoi raz, w bloku tytułu nad tym zdaniem.
+            ⚠ **Liczba nieobecności W POKAZANYM ZAKRESIE** (§4a.2 zlecenia z 08.10). Bez niej
+            administrator z pytaniem „kto wypada w tym miesiącu" musiał przewinąć trzydzieści
+            pustych wierszy, żeby znaleźć jedyną nieobecność w 29. wierszu. „Brak nieobecności"
+            mówimy wprost — pusto, bo nikogo nie ma, nie może wyglądać tak samo jak pusto,
+            bo nie doszedłem do wiersza z danymi. -#}
+        {% set podtytul %}{% if zespol.nieobecnosci == 0 %}Brak nieobecności w tym miesiącu u {{ zespol.osob_pokazanych }} {{ odmiana_osob_d(zespol.osob_pokazanych) }} na liście.{% else %}{{ zespol.nieobecnosci }} {{ odmiana_nieobecnosci(zespol.nieobecnosci) }} w tym miesiącu u {{ zespol.osob_z_nieobecnoscia }} {{ odmiana_osob_d(zespol.osob_z_nieobecnoscia) }} z {{ zespol.osob_pokazanych }} pokazanych.{% endif %}{% endset %}
+        <section class="card card--panel">
+            {% include 'partials/nawigacja-kalendarza.twig' with {'podtytul': podtytul} %}
+            {#- ⚠ `card__body--tight` zdejmuje GÓRNĄ wyściółkę, bo wiersz nawigacji ma już własną
+                — z `card__head` zostałoby 48 px między tytułem a kontrolką wyboru osób. -#}
+            <div class="card__body card__body--tight">
+                {#- Kontrolka wyboru osób: natywne `<details>`, więc działa bez JavaScriptu.
+                    ⚠ Lista zawiera WYŁĄCZNIE osoby, które wolno oglądać — powstaje po stronie
+                    serwera z hierarchii. Zaznaczenie to filtr, nie uprawnienie: serwer sprawdza
+                    zakres przy każdym żądaniu, więc podmieniona wartość niczego nie doda. -#}
+                <details class="menu menu--wybor">
+                    <summary class="menu__trigger menu__trigger--tekst">{% if ukryci > 0 or obciete > 0 %}Widać {{ wybrane|length }} z {{ w_zasiegu }} {{ odmiana_osob_d(w_zasiegu) }}{% else %}Wszystkie osoby: {{ w_zasiegu }}{% endif %}</summary>
+                    {% include 'fragments/calendar-picker.twig' with {'htmx': htmx|default(false)} %}
+                </details>
+                {#- ⚠ **TRZY POWODY NIEPEŁNEJ LISTY = TRZY RÓŻNE ZDANIA** (zlecenie §4.4). Jedno
+                    zdanie na trzy przypadki to ten sam błąd co „pusto z filtra i pusto z braku
+                    danych wyglądają tak samo": człowiek nie wie, czy czegoś nie widzi, bo sam to
+                    odznaczył, bo lista jest przycięta, czy bo dalej nie sięga. -#}
+                {% if obciete > 0 %}
+                    <p class="notice" role="status">Pokazuję {{ wybrane|length }} z {{ w_zasiegu }} {{ odmiana_osob_d(w_zasiegu) }} — zawęź wybór w kontrolce powyżej. To limit wyświetlania, nie filtr: nikogo nie ukryto na stałe.</p>
+                {% endif %}
+                {% if ukryci > 0 %}
+                    <p class="notice" role="status">Filtr ukrył {{ ukryci }} z {{ w_zasiegu }} {{ odmiana_osob_d(w_zasiegu) }} w Twoim zasięgu. Zaznacz je w kontrolce powyżej, żeby wróciły na kalendarz.</p>
+                {% endif %}
+            </div>
+        </section>
+        {% if zespol.wiersze is empty %}
+            {#- Siatka z nagłówkiem kolumn i bez ani jednego wiersza wygląda jak usterka układu,
+                a nie jak skutek odznaczenia wszystkich. Zdanie zamiast siatki. -#}
+            <section class="card">
+                <div class="card__body">
+                    <p class="empty-state">Nie ma kogo pokazać: wszystkie osoby z Twojego zasięgu są odznaczone.</p>
+                </div>
+            </section>
+        {% else %}
+            <section class="card card--os">
+                {#- ⚠ **Legenda stoi NAD SIATKĄ, w jej bloku** (zlecenie 13.10 §1, prototyp:
+                    „rzecz stoi przy tym, czego dotyczy"). Dwa poprzednie miejsca były gorsze
+                    i oba z pomiaru: w prawym kącie nagłówka cztery próbki konkurowały
+                    z przełącznikami o to samo miejsce i rozpychały wiersz, a w dolnej części
+                    bloku nagłówka opisywały siatkę **z innego pudełka**. Wyrównana do prawej
+                    krawędzi siatki, bo to podpis, a nie nagłówek. -#}
+                <div class="siatka-legenda">
+                    <div class="legend">
+                        <span class="legend__item"><span class="legend__mark legend__mark--urlop" aria-hidden="true"></span>urlop</span>
+                        <span class="legend__item"><span class="legend__mark legend__mark--zasilek" aria-hidden="true"></span>zwolnienie</span>
+                        <span class="legend__item"><span class="legend__mark legend__mark--kadrowe" aria-hidden="true"></span>inna nieobecność</span>
+                        <span class="legend__item"><span class="legend__mark legend__mark--free" aria-hidden="true"></span>dzień wolny od pracy</span>
+                    </div>
+                </div>
+                {% include 'partials/os-czasu.twig' with {'os': zespol} only %}
+            </section>
+        {% endif %}
+        {#- ⚠ **Objaśnienia BEZ RAMKI I BEZ TŁA** (zlecenie
+        `2026-10-13-kalendarz-naglowek-i-ksztalt-miesiaca.md` §3). Do 13.10.2026 stały we własnej
+        `.card`, czyli z tą samą ramką i tą samą wagą, co kalendarz nad nimi — a to **komentarz,
+        nie dana**. Zwykły tekst na tle strony, z wierszem ograniczonym do czytelnej miary
+        (`--measure`, 72 znaki) — robi to już `.card__meta`.
+        ⚠ To samo w KAŻDEJ gałęzi ekranu: jeden widok z ramką i drugi bez niej to ta sama
+        niespójność, którą §3 zlecenia każe usunąć. -#}
+        <div class="objasnienia">
+                {#- ⚠ Zdanie o POCHODZENIU firmy stoi tu, przy pozostałych zdaniach o zasięgu, a NIE
+                    w pasku akcji i nie w podtytule strony. Zmierzone 10.10.2026, obie drogi naraz:
+                    jako `page__sub` zapaliło `prawda_kalendarza` (podtytuł z liczbą osób na tym
+                    ekranie nie istnieje świadomie), a w `.page__actions` **przesunęło nawigację
+                    miesiąca o 584 px** i zasłoniło przycisk „Pokaż" w kontrolce wyboru osób.
+                    ⚠ Od 11.10.2026 paska akcji nie ma wcale, ale zdanie zostaje tutaj: blok
+                    objaśnień jest jego miejscem z treści, nie z braku innego. -#}
+                {% if spolka is not null and spolka.z_adresu|default(false) %}
+                    <p class="card__meta">Kalendarz firmy <strong>{{ spolka.nazwa }}</strong> pochodzi z adresu — na jedno wyświetlenie; znacznik w belce nadal pokazuje Twój wybór.</p>
+                {% elseif spolka is not null and spolka.poza_zakresem|default(false) %}
+                    <p class="card__meta">Firma wybrana w belce nie ma dla Ciebie podglądu kalendarza, więc pokazujemy <strong>{{ spolka.nazwa }}</strong>.</p>
+                {% endif %}
+                {#- ⚠ Przeniesione tu z `.page__actions` razem ze zniknięciem paska (§2). To NIE
+                    jest łata o rozjeździe (ta zniknęła razem z wariantem C), tylko zdanie o stanie
+                    trwałym i poprawnym: firma, w której nie mam etatu, a którą wolno mi oglądać
+                    z nadanego podglądu. -#}
+                {% if kontekst_podglad is not null %}
+                    <p class="card__meta">Oglądasz kalendarz firmy <strong>{{ spolka.nazwa }}</strong> z nadanego podglądu — nie masz w niej etatu. Twoja firma pracy to <strong>{{ kontekst_podglad }}</strong> i tam liczą się limity oraz wnioski.</p>
+                {% endif %}
+                {% if zasieg_opis is not null %}<p class="card__meta">{{ zasieg_opis }}</p>{% endif %}
+                {% if poziom >= 2 %}
+                    <p class="card__meta">Widzisz <strong>nazwy rodzajów</strong> nieobecności całej firmy — w tym rodzaje zwolnień. To nadane uprawnienie, nie domyślny stan konta.</p>
+                {% else %}
+                    <p class="card__meta">Widzisz <strong>rodzaj ogólny</strong> nieobecności — „urlop" albo „zwolnienie" — nigdy jej przyczyny ani kodu z kadr. Szczegóły własnych nieobecności są w widoku „Tylko ja”.</p>
+                {% endif %}
+                {#- ⚠ **Trzy powody wygaszenia dnia = trzy zdania** (§2.2 zlecenia). Zdanie
+                    „Dni wolne są brane z Twojego rozkładu czasu pracy" stało tu także na koncie
+                    BEZ ZATRUDNIENIA — które rozkładu nie ma, a mimo to widziało wygaszone komórki
+                    i nie dowiadywało się skąd. Rozstrzyga `zespol.zrodlo_wolnych`, policzone
+                    w jednym miejscu (`KalendarzPracownika`). -#}
+                {% if zespol.zrodlo_wolnych == 'brak_zatrudnienia' %}
+                    <p class="card__meta">Wygaszone są <strong>tylko weekendy</strong> — to konto nie ma zatrudnienia, więc nie ma rozkładu czasu pracy, z którego można wziąć dni wolne. Święta i dni wolne z rozkładów poszczególnych osób nie są tu zaznaczone.</p>
+                {% elseif zespol.zrodlo_wolnych == 'brak_rozkladu' %}
+                    <p class="card__meta">Wygaszone są <strong>tylko weekendy</strong> — Twoje zatrudnienie nie ma przysłanego rozkładu czasu pracy, więc nie ma skąd wziąć świąt.</p>
+                {% else %}
+                    <p class="card__meta">Dni wolne są brane z Twojego rozkładu czasu pracy („{{ zespol.rozklad }}”) — u osób z rozkładem indywidualnym mogą się różnić.</p>
+                {% endif %}
+        </div>
+    </div>
+{% else %}
+    {#- ⚠ **„Tylko ja" rysuje TĘ SAMĄ oś czasu co „Zespół" i „Firma"** (zgłoszenie z 07.10.2026).
+        Wcześniej miał własną siatkę miesiąca i to był realny problem, nie kwestia gustu: zwykły
+        pracownik widzi WYŁĄCZNIE ten widok, więc każda poprawka wyglądu nieobecności omijała
+        wszystkich poza kontami z podwładnymi albo z nadanym poziomem.
+        ⚠ Pod siatką lista własnych nieobecności — z tego samego partiala co tabela na pulpicie.
+        Niesie to, czego na pasku nie zmieścisz: rodzaj, liczbę dni roboczych i źródło wpisu. -#}
+    {#- ⚠ **Trzy skale czasu, jeden ekran** (zlecenie 11.10.2026 §1, po zniesieniu kwartału).
+        Skala jest **stanem widoku** (`?skala=`), a nie osobnym ekranem — dlatego stoi w tej samej
+        karcie, pod tym samym nagłówkiem okresu, i przełącza się tym samym `.segmented`, co widok.
+        ⚠ Nagłówek karty nazywa **okres**, nie ekran (zlecenie §2d): „sierpień 2026", „Rok 2026" —
+        nazwa ekranu stoi raz, w górnej belce.
+        ⚠ Skala `kwartal` **zniknęła 11.10.2026**: Rok pokazuje teraz dwanaście tych samych siatek
+        miesięcznych, więc kwartał odpowiadał na to samo pytanie trzema zamiast dwunastoma. Stary
+        adres `?skala=kwartal` wypada z białej listy w `KalendarzPracownika::skala()` i cicho
+        wraca do Miesiąca — nie jest błędem, bo adres bywa po prostu stary. -#}
+    {% if skala == 'rok' %}
+        {#- ⚠ **TRZY BLOKI, nie jedna karta** (zlecenie 11.10 wieczorem §1): nagłówek · kalendarz
+            · objaśnienia. Blok to zwyczajna `.card` — nie nowy komponent; pojemnik `.bloki` nie
+            rysuje już ani tła, ani ramki. -#}
+        <div class="bloki">
+        {#- ⚠ **Nazwa okresu i zdanie o nieobecnościach są w JEDNYM BLOKU TYTUŁU** — od 13.10.2026
+            dosłownie w jednym pudełku (`kal-nav__tytul`), a nie w dwóch pojemnikach jeden pod
+            drugim (zlecenie `2026-10-13-kalendarz-naglowek-i-ksztalt-miesiaca.md` §1). Zdanie
+            jedzie do wiersza nawigacji jako `podtytul`, a `card__head` z tej gałęzi **zniknęło**:
+            po przeniesieniu treści zostawał pusty pojemnik z samą wyściółką (28 px zmierzone).
+            ⚠ `:empty` go nie łapie, bo zawiera biały znak — więc pojemnik ma się NIE RENDEROWAĆ,
+            a nie być ukrywany arkuszem: ukrycie regułą wróciłoby przy pierwszej zmianie szablonu.
+            ⚠ Ten sam blok w tej samej kolejności w KAŻDEJ gałęzi ekranu (Miesiąc, Rok, Lista,
+            Zespół, Firma): dwa układy zależne od skali to ta sama niespójność, którą rozpad
+            na bloki miał usunąć. -#}
+        {#- ⚠ Nazwy okresu („Rok 2026") w tym zdaniu NIE MA — stoi raz, w tytule nad nim. -#}
+        {% set podtytul %}{% if rok.nieobecnosci == 0 %}Nie masz nieobecności w tym roku.{% else %}{{ rok.nieobecnosci }} {{ odmiana_nieobecnosci(rok.nieobecnosci) }} w tym roku · {{ rok.dni_robocze }} {{ rok.dni_robocze == 1 ? 'dzień roboczy' : 'dni roboczych' }}.{% endif %}{% endset %}
+        <section class="card">
+            {% include 'partials/nawigacja-kalendarza.twig' with {'podtytul': podtytul} %}
+            {#- ⚠ **Legenda ZOSTAJE W BLOKU NAGŁÓWKA — tylko tu, w skali Roku.** Na „Zespole"
+                wyszła 13.10.2026 nad siatkę, bo tam opisuje jedną siatkę pod spodem; tutaj
+                siatek jest dwanaście i legenda dotyczy wszystkich. ⚠ Nie ruszam jej także
+                dlatego, że §4a zlecenia z 13.10 jest w tej sprawie dosłowny: „nie zmieniaj
+                kalendarza w wersji rok bo jest dobry". `card__body--tight` zdejmuje górną
+                wyściółkę, bo odstęp dał już wiersz nawigacji. -#}
+            <div class="card__body card__body--tight">
+                <div class="legend">
+                    <span class="legend__item"><span class="legend__mark legend__mark--urlop" aria-hidden="true"></span>urlop</span>
+                    <span class="legend__item"><span class="legend__mark legend__mark--zasilek" aria-hidden="true"></span>zwolnienie</span>
+                    <span class="legend__item"><span class="legend__mark legend__mark--kadrowe" aria-hidden="true"></span>inna nieobecność</span>
+                    <span class="legend__item"><span class="legend__mark legend__mark--free" aria-hidden="true"></span>dzień wolny od pracy</span>
+                </div>
+            </div>
+        </section>
+        {#- ⚠ `card--os` także tutaj: dwanaście pudełek nie przewija się samo, ale zakaz
+            `overflow: hidden` obowiązuje w całej rodzinie bloków kalendarza — jeden wyjątek
+            w jednej gałęzi i następna osoba szuka, czym te dwa bloki się różnią. -#}
+        <section class="card card--os">
+            {% include 'partials/skala-roku.twig' with {'rok': rok} only %}
+        </section>
+        {#- ⚠ **Objaśnienia BEZ RAMKI I BEZ TŁA** (zlecenie
+        `2026-10-13-kalendarz-naglowek-i-ksztalt-miesiaca.md` §3). Do 13.10.2026 stały we własnej
+        `.card`, czyli z tą samą ramką i tą samą wagą, co kalendarz nad nimi — a to **komentarz,
+        nie dana**. Zwykły tekst na tle strony, z wierszem ograniczonym do czytelnej miary
+        (`--measure`, 72 znaki) — robi to już `.card__meta`.
+        ⚠ To samo w KAŻDEJ gałęzi ekranu: jeden widok z ramką i drugi bez niej to ta sama
+        niespójność, którą §3 zlecenia każe usunąć. -#}
+        <div class="objasnienia">
+                {#- ⚠ Zdanie o świętach jest tu OBOWIĄZKOWE, a nie przezorne: R2 ich nie przysyła,
+                    więc w skali roku 1 maja i 11 listopada wyglądają na dni robocze (zlecenie
+                    §1d.4). Własnej listy świąt nie dopisujemy — to byłoby liczenie za kadry. -#}
+                <p class="card__meta">Dni wolne od pracy pochodzą z Twojego rozkładu czasu pracy{% if rok.zrodlo_wolnych == 'rozklad' %} („{{ rok.rozklad }}”){% endif %}. <strong>Świąt nie ma na tej siatce</strong> — program kadrowy ich nie przysyła, więc 1 maja czy 11 listopada wyglądają tu jak dni robocze.</p>
+                <p class="card__meta">Liczba przy nazwie miesiąca to <strong>dni robocze z programu kadrowego</strong>, przypisane do miesiąca, w którym nieobecność się zaczyna — ta sama liczba, którą pokazuje kolumna „Dni robocze" na Liście. ⚠ Wpis ze źródła <strong>kadrowe</strong> (urlop bezpłatny, wychowawczy, nieusprawiedliwiona) zajmuje dni w kalendarzu, ale kadry liczą dla niego <strong>zero dni</strong> — pokolorowane kratki są wtedy w siatce, a suma ich nie obejmuje.{% if rok.dni_nieznane > 0 %} Przy {{ rok.dni_nieznane }} {{ rok.dni_nieznane == 1 ? 'wpisie' : 'wpisach' }} kadry nie podały liczby dni.{% endif %}</p>
+        </div>
+        </div>
+    {% elseif skala == 'lista' %}
+        {#- ⚠ **TA SAMA tabela, co w widoku miesiąca** — nie nowy komponent (zlecenie §1c).
+            Pierwsza wersja prototypu została odrzucona właśnie za wymyślanie własnych
+            plakietek, kolorowych szyn i wielkich liczb: „ta lista nie jest spójna z resztą
+            systemu". Te same klasy, te same cztery kolumny, ten sam format daty, ten sam
+            partial — różnicą jest **wyłącznie zakres**. -#}
+        {#- ⚠ **Ten sam wzorzec bloków, co na „Zespole"** — zgłoszenie Krzysztofa z 11.10.2026
+            wieczorem („dla »Tylko ja« zastosuj ten sam wzorzec co dla »Zespołu«"). Pierwsze
+            wykonanie zostawiło Miesiąc i Listę jedną kartą, bo zlecenie wymieniało Zespół i Rok;
+            skutek był taki, że **jeden ekran miał dwa układy zależne od skali**. -#}
+        <div class="bloki">
+        {#- ⚠ **Nazwa okresu i zdanie o nieobecnościach są w JEDNYM BLOKU TYTUŁU** — od 13.10.2026
+            dosłownie w jednym pudełku (`kal-nav__tytul`), a nie w dwóch pojemnikach jeden pod
+            drugim (zlecenie `2026-10-13-kalendarz-naglowek-i-ksztalt-miesiaca.md` §1). Zdanie
+            jedzie do wiersza nawigacji jako `podtytul`, a `card__head` z tej gałęzi **zniknęło**:
+            po przeniesieniu treści zostawał pusty pojemnik z samą wyściółką (28 px zmierzone).
+            ⚠ `:empty` go nie łapie, bo zawiera biały znak — więc pojemnik ma się NIE RENDEROWAĆ,
+            a nie być ukrywany arkuszem: ukrycie regułą wróciłoby przy pierwszej zmianie szablonu.
+            ⚠ Ten sam blok w tej samej kolejności w KAŻDEJ gałęzi ekranu (Miesiąc, Rok, Lista,
+            Zespół, Firma): dwa układy zależne od skali to ta sama niespójność, którą rozpad
+            na bloki miał usunąć. -#}
+        {% set podtytul %}{% if lista_roku.nieobecnosci == 0 %}Nie masz nieobecności w tym roku.{% else %}{{ lista_roku.nieobecnosci }} {{ odmiana_nieobecnosci(lista_roku.nieobecnosci) }} w tym roku · {{ lista_roku.dni_robocze }} {{ lista_roku.dni_robocze == 1 ? 'dzień roboczy' : 'dni roboczych' }}.{% endif %}{% endset %}
+        <section class="card">
+            {% include 'partials/nawigacja-kalendarza.twig' with {'podtytul': podtytul} %}
+        </section>
+        {#- ⚠ Blok z tabelą **obcina treść** (zwyczajna `.card`, bez `card--os`): tabela dochodzi
+            do krawędzi bloku, więc jej narożniki muszą być przycięte promieniem. Wyjątek
+            `card--os` należy wyłącznie do bloku z siatką, gdzie nagłówek dni się przykleja. -#}
+        <section class="card">
+            {% include 'partials/lista-nieobecnosci.twig' with {
+                'wiersze': lista_roku.wiersze,
+                'pusto': 'W tym roku kadry nie zapisały żadnej Twojej nieobecności.'
+            } only %}
+        </section>
+        {#- ⚠ **Objaśnienia BEZ RAMKI I BEZ TŁA** (zlecenie
+        `2026-10-13-kalendarz-naglowek-i-ksztalt-miesiaca.md` §3). Do 13.10.2026 stały we własnej
+        `.card`, czyli z tą samą ramką i tą samą wagą, co kalendarz nad nimi — a to **komentarz,
+        nie dana**. Zwykły tekst na tle strony, z wierszem ograniczonym do czytelnej miary
+        (`--measure`, 72 znaki) — robi to już `.card__meta`.
+        ⚠ To samo w KAŻDEJ gałęzi ekranu: jeden widok z ramką i drugi bez niej to ta sama
+        niespójność, którą §3 zlecenia każe usunąć. -#}
+        <div class="objasnienia">
+            <p class="card__meta">Pokazujemy to, co zapisały kadry — wpisy wycofane i rozliczenia płacowe (ekwiwalenty) nie są nieobecnością i nie zajmują dni w kalendarzu.{% if lista_roku.dni_nieznane > 0 %} Przy {{ lista_roku.dni_nieznane }} {{ lista_roku.dni_nieznane == 1 ? 'wpisie' : 'wpisach' }} kadry nie podały liczby dni — taki wpis nie wchodzi do sumy.{% endif %}</p>
+        </div>
+        </div>
+    {% else %}
+    {#- ⚠ **Ten sam wzorzec bloków, co na „Zespole"** (zgłoszenie z 11.10.2026 wieczorem):
+        nagłówek · kalendarz · objaśnienia.
+        ⚠ **Bloków jest TRZY, nie cztery — od 13.10.2026.** Lista własnych nieobecności miała
+        do tego dnia własny blok pod siatką (tabela `table--rekordy`); teraz stoi **obok siatki**,
+        w tym samym pudełku, i to nie jest złamanie wzorca „jeden blok = jedna rzecz", tylko
+        skutek tego, że rzecz jest jedna: kratka znaczy dzień samym wypełnieniem, więc zakres
+        dat i liczbę dni roboczych musi nieść lista stojąca przy niej. Rozdzielone na dwa
+        pudełka były jedną informacją w dwóch miejscach (zlecenie 13.10 §2). -#}
+    <div class="bloki">
+    {#- ⚠ **Nazwa okresu i zdanie o nieobecnościach są w JEDNYM BLOKU TYTUŁU** — od 13.10.2026
+        dosłownie w jednym pudełku (`kal-nav__tytul`), a nie w dwóch pojemnikach jeden pod
+        drugim (zlecenie `2026-10-13-kalendarz-naglowek-i-ksztalt-miesiaca.md` §1). Zdanie
+        jedzie do wiersza nawigacji jako `podtytul`, a `card__head` z tej gałęzi **zniknęło**:
+        po przeniesieniu treści zostawał pusty pojemnik z samą wyściółką (28 px zmierzone).
+        ⚠ `:empty` go nie łapie, bo zawiera biały znak — więc pojemnik ma się NIE RENDEROWAĆ,
+        a nie być ukrywany arkuszem: ukrycie regułą wróciłoby przy pierwszej zmianie szablonu.
+        ⚠ Ten sam blok w tej samej kolejności w KAŻDEJ gałęzi ekranu (Miesiąc, Rok, Lista,
+        Zespół, Firma): dwa układy zależne od skali to ta sama niespójność, którą rozpad
+        na bloki miał usunąć. -#}
+    {% set podtytul %}{% if ja.nieobecnosci == 0 %}Nie masz nieobecności w tym miesiącu.{% else %}{{ ja.nieobecnosci }} {{ odmiana_nieobecnosci(ja.nieobecnosci) }} w tym miesiącu.{% endif %}{% endset %}
+    {#- ⚠ Blok nagłówka to tutaj **sam wiersz nawigacji**: legenda zeszła pod listę wpisów, bo
+        tam stoi rzecz, którą opisuje, a pojemnik na nią zostałby pusty (24 px zmierzone)
+        — patrz §1a zlecenia z 13.10. -#}
+    <section class="card">
+        {% include 'partials/nawigacja-kalendarza.twig' with {'podtytul': podtytul} %}
+    </section>
+    {#- ⚠ **Zwyczajna `.card`, BEZ `card--os`.** Wyjątek `card--os` (brak `overflow: hidden`)
+        należy do bloku z OSIĄ CZASU, gdzie nagłówek dni się przykleja i gdzie przycięcie
+        przepełnienia czyni blok kontenerem przewijanym. Siatka miesiąca nie przykleja niczego
+        i nie przewija się, a jej narożniki mają być przycięte promieniem karty. -#}
+    <section class="card">
+        {% include 'partials/miesiac-ja.twig' with {
+            'mies': ja,
+            'pusto': 'W tym miesiącu kadry nie zapisały żadnej Twojej nieobecności.'
+        } only %}
+    </section>
+    {#- ⚠ **Objaśnienia BEZ RAMKI I BEZ TŁA** (zlecenie
+    `2026-10-13-kalendarz-naglowek-i-ksztalt-miesiaca.md` §3). Do 13.10.2026 stały we własnej
+    `.card`, czyli z tą samą ramką i tą samą wagą, co kalendarz nad nimi — a to **komentarz,
+    nie dana**. Zwykły tekst na tle strony, z wierszem ograniczonym do czytelnej miary
+    (`--measure`, 72 znaki) — robi to już `.card__meta`.
+    ⚠ To samo w KAŻDEJ gałęzi ekranu: jeden widok z ramką i drugi bez niej to ta sama
+    niespójność, którą §3 zlecenia każe usunąć. -#}
+    <div class="objasnienia">
+        <p class="card__meta">Pokazujemy to, co zapisały kadry — wpisy wycofane i rozliczenia płacowe (ekwiwalenty) nie są nieobecnością i nie zajmują dni w kalendarzu.</p>
+        {% if ja.zrodlo_wolnych == 'brak_rozkladu' %}
+            <p class="card__meta">Wygaszone są <strong>tylko weekendy</strong> — Twoje zatrudnienie nie ma przysłanego rozkładu czasu pracy, więc nie ma skąd wziąć świąt.</p>
+        {% else %}
+            <p class="card__meta">Dni wolne od pracy są brane z Twojego rozkładu czasu pracy („{{ ja.rozklad }}”). Przy rozkładzie indywidualnym mogą się różnić od kalendarza firmowego.</p>
+        {% endif %}
+    </div>
+    </div>
+    {% endif %}
+{% endif %}

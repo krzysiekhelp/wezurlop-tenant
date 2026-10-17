@@ -1,0 +1,16 @@
+/.env
+/vendor/
+/var/
+/build/
+/storage/logs/*
+!/storage/logs/.gitkeep
+/storage/uploads/*
+!/storage/uploads/.gitkeep
+/design/
+/storage/canary-*.txt
+
+# ⚠ Skompilowany bajtkod Pythona bramki ekranowej. Był ZACOMMITOWANY do 08.10.2026 i brudził
+# drzewo przy każdym przebiegu bramki — a w dwóch commitach z 07.10 musiałem go świadomie
+# przywracać, żeby nie wszedł jako binarny szum. Plik generowany nie ma czego szukać w repo.
+/dev/__pycache__/
+*.pyc

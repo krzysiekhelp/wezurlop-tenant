@@ -1,0 +1,15 @@
+{% extends layout_auth %}
+
+{% block title %}Link nieważny — wezurlop{% endblock %}
+
+{% block content %}
+    <p class="eyebrow">{{ kind == 'reset' ? 'Reset hasła' : 'Zaproszenie' }}</p>
+    <h1>Link jest nieważny</h1>
+    <p class="notice notice--warn">Link został już użyty, wygasł albo jest niepełny.</p>
+    {% if kind == 'reset' %}
+        <p><a class="btn btn--primary" href="{{ url('/haslo/reset') }}">Poproś o nowy link</a></p>
+    {% else %}
+        <p>Poproś administratora o ponowne wysłanie zaproszenia.</p>
+    {% endif %}
+    <p><a href="{{ url('/logowanie') }}">Przejdź do logowania</a></p>
+{% endblock %}

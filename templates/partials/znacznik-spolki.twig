@@ -1,0 +1,95 @@
+{#- **Znacznik spółki w górnej belce — jedna kontrolka wyboru spółki na cały program**
+    (zlecenie `2026-10-10-globalny-wybor-spolki.md` §1, wygląd zatwierdzony na prototypie).
+
+    ⚠ **Zastępuje trzy różne rzeczy naraz**, i to jest cel, nie efekt uboczny: `.combo` w nagłówku
+    strony (Kalendarz, Grupy, Hierarchia), zwykły `<select name="spolka">` (Konta) i **ciszę**
+    na dziewięciu pozostałych ekranach, gdzie kontekstu nie było widać wcale. Dwie kontrolki
+    do jednego wyboru rozjadą się przy pierwszej zmianie; brak kontrolki jest gorszy — człowiek
+    nie wie, czyje dane widzi.
+
+    ⚠ **Zakres pochodzi z definicji trasy** (`Route::ZAKRESY`), nie z listy ścieżek w szablonie.
+    Na ekranie o zakresie `tenant` znacznik stoi, ale **nie rozwija się** i mówi „Wszystkie
+    firmy" (napis ustalony 11.10.2026 — tak samo jak przycisk „Wszystkie firmy" na ekranach
+    danych; „spółki" zostaje w kodzie i w nazwach klas, nie w napisach dla człowieka) — bez tego
+    znacznik kłamałby na Licencji i Integracji, sugerując dane jednej spółki.
+
+    ⚠ **Dwa rodzaje pozycji muszą być widoczne jako dwa rodzaje** (rozstrzygnięcie 07.10, §3):
+      • spółka, w której konto ma etat → `POST /kontekst/{employmentId}` — zmienia **kontekst
+        pracy** (pulpit, limity, wnioski),
+      • spółka tylko do podglądu → `POST /kontekst/spolka/{companyId}` — zmienia **widok**.
+    Oba to `POST` z tokenem CSRF (§3 i §7 reguł), oba przez `ContextController`, oba z wpisem
+    `context.switched`. Nagłówki sekcji pokazujemy wyłącznie wtedy, gdy są oba rodzaje.
+
+    ⚠ `<details>`, nie `<select>`: panel rozwija się **bez JavaScriptu**, a pozycje są
+    formularzami, więc przełączenie działa bez skryptów. `select` z `onchange` wymagałby JS
+    i łamał §6.
+
+    ⚠ **Nazwa ekranu powrotu idzie w `z.ekran`**, z jednej białej listy (`Support\EkranyBelki`),
+    a nie ze zmiennej layoutu. Tak było przez pół dnia i nic tej zmiennej nie ustawiało, więc
+    każde przełączenie z belki wracało na pulpit — wyglądało to jak zepsuta kontrolka.
+
+    Zmienne: brak — wszystko z funkcji globalnej `znacznik_spolki()`, liczonej raz na żądanie. -#}
+{% import 'partials/ikony.twig' as ikony %}
+{%- set z = znacznik_spolki() -%}
+{% if z is not null %}
+    {% if not z.przelaczalny %}
+        {#- ⚠ Nierozwijalny: ekran całego tenanta albo jedna dostępna spółka. Przerywana ramka
+            i wyszarzenie mówią „to nie jest kontrolka", zamiast udawać wybór, którego nie ma. -#}
+        <span class="spolka spolka--staly" data-spolka="{{ z.biezaca_id ?? '' }}" title="{{ z.zakres == 'tenant' ? 'ten ekran dotyczy całego tenanta' : 'masz dostęp do jednej firmy' }}">
+            {#- ⚠ **Bez etykiety „Spółka"** (prośba Krzysztofa 11.10.2026): kontrolka ma wyglądać
+                dokładnie tak, jak wyglądała w nagłówkach zakładek — sama nazwa i strzałka.
+                Pełna nazwa stoi w `title`, bo przy stałej szerokości dłuższa jest ucięta. -#}
+            <span class="spolka__nazwa">{{ z.nazwa }}</span>
+            {% include 'partials/spolka-uwaga.twig' with {'fallback': z.fallback} only %}
+        </span>
+    {% else %}
+        {#- ⚠ `data-spolka` to **identyfikator spółki ekranu podany danymi**, nie przez skrypt
+            (CLAUDE.md §6). Dotąd tę informację dawał `?spolka=` w odnośnikach — a odkąd adresy
+            jej nie noszą, nie było po czym poznać, w jakiej spółce stoi ekran: ani w JS,
+            ani w pomiarze. -#}
+        <details class="spolka spolka--wybor" data-spolka="{{ z.biezaca_id }}">
+            <summary class="spolka__trigger">
+                <span class="spolka__nazwa" title="{{ z.nazwa }}">{{ z.nazwa }}</span>
+                {#- ⚠ Ta sama strzałka co w dawnej kontrolce `.combo` — ikona z `ikony.twig`,
+                    obracana w arkuszu przy `[open]`, nie znak „▾" wpisany w szablon. -#}
+                <span class="spolka__strzalka">{{ ikony.strzalka() }}</span>
+                {% include 'partials/spolka-uwaga.twig' with {'fallback': z.fallback} only %}
+            </summary>
+            <div class="spolka__panel">
+                {%- set z_etatem = z.spolki|filter(s => s.zatrudnienie_id is not null) -%}
+                {%- set do_podgladu = z.spolki|filter(s => s.zatrudnienie_id is null) -%}
+                {%- set dwa_rodzaje = z_etatem is not empty and do_podgladu is not empty -%}
+                {% if dwa_rodzaje %}<p class="spolka__grupa">Moje firmy</p>{% endif %}
+                {% for s in z_etatem %}
+                    <form method="post" action="{{ url('/kontekst/' ~ s.zatrudnienie_id) }}">
+                        {% include 'partials/csrf.twig' %}
+                        <input type="hidden" name="powrot" value="{{ z.ekran }}">
+                        {#- ⚠ Widok i miesiąc kalendarza: bez nich przełączenie spółki wracało
+                            na miesiąc bieżący i wyglądało, jakby kontrolka gubiła stan.
+                            Wartości sprawdza serwer — tu są tylko przenoszone. -#}
+                        {% for pole, wartosc in z.stan %}
+                            {% if wartosc != '' %}<input type="hidden" name="{{ pole }}" value="{{ wartosc }}">{% endif %}
+                        {% endfor %}
+                        <button type="submit" class="spolka__pozycja{{ s.id == z.biezaca_id ? ' spolka__pozycja--on' : '' }}"
+                                {%- if s.id == z.biezaca_id %} aria-current="true"{% endif %}>{{ s.nazwa }}</button>
+                    </form>
+                {% endfor %}
+                {% if dwa_rodzaje %}<p class="spolka__grupa">Tylko podgląd</p>{% endif %}
+                {% for s in do_podgladu %}
+                    <form method="post" action="{{ url('/kontekst/spolka/' ~ s.id) }}">
+                        {% include 'partials/csrf.twig' %}
+                        <input type="hidden" name="ekran" value="{{ z.ekran }}">
+                        {% for pole, wartosc in z.stan %}
+                            {% if wartosc != '' %}<input type="hidden" name="{{ pole }}" value="{{ wartosc }}">{% endif %}
+                        {% endfor %}
+                        <button type="submit" class="spolka__pozycja{{ s.id == z.biezaca_id ? ' spolka__pozycja--on' : '' }}"
+                                {%- if s.id == z.biezaca_id %} aria-current="true"{% endif %}>{{ s.nazwa }}</button>
+                    </form>
+                {% endfor %}
+                {% if dwa_rodzaje %}
+                    <p class="spolka__stopka">„Moje firmy” przełączają też firmę pracy — limity i wnioski. „Tylko podgląd” zmienia sam widok.</p>
+                {% endif %}
+            </div>
+        </details>
+    {% endif %}
+{% endif %}

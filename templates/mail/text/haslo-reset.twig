@@ -1,0 +1,17 @@
+{% extends 'layout.twig' %}
+
+{% block naglowek %}Ustawienie nowego hasła{% endblock %}
+
+{% block tresc %}Ktoś poprosił o ustawienie nowego hasła do konta {{ login }}.
+Jeśli to Ty, otwórz ten adres:
+
+{{ link }}
+
+Link jest ważny {{ waznosc }} i działa jeden raz. Ustawienie nowego hasła
+kończy wszystkie Twoje sesje na innych urządzeniach.
+
+Jeśli to nie Ty prosiłeś o zmianę — nie klikaj i powiedz o tym administratorowi.
+Dopóki nie klikniesz, Twoje hasło się nie zmienia.
+{% endblock %}
+
+{% block stopka %}{% endblock %}

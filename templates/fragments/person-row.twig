@@ -1,0 +1,149 @@
+{#- Jeden wiersz listy osób.
+
+    ⚠ Ten sam plik renderuje wiersz w tabeli i odpowiedź htmx po zapisie adresu albo dostępu.
+    Gdyby wiersz istniał w dwóch miejscach, po zapisie wyglądałby inaczej niż przed nim — i zauważył
+    by to dopiero użytkownik.
+
+    ⚠ Kolumny „Spółki" i „Dostęp" są POŁĄCZONE w jedną (zlecenie `konta-lista-dostep` §1): rozwinięta
+    kontrolka pokazuje wszystkie spółki tenanta, więc osobna kolumna zatrudnienia powtarzała to,
+    co jest jedno kliknięcie dalej. Szerokości kolumn są stałe (`<colgroup>` + `table-layout: fixed`),
+    bo tabela liczona z treści dawała inne szerokości na każdej stronie i przewijanie w bok. -#}
+{#- ⚠ Jedno pojęcie na cały wiersz: `przed_zaproszeniem` znaczy „nie ma konta ALBO konto jest
+    w stanie `niezaproszone`". Trzy kontrolki w tym wierszu pytają o to samo, więc pytają raz —
+    inaczej po wprowadzeniu stanu `niezaproszone` (§4) trzeba by pamiętać o trzech warunkach. -#}
+{% set przed_zaproszeniem = o.account_id is null or o.account_status == 'niezaproszone' %}
+<tr id="osoba-{{ o.person_id }}">
+    {#- ⚠ Komórka z samą kontrolką NIE ucina wielokropkiem (`cell--kontrolka`). Zmierzone:
+        przy `text-overflow: ellipsis` na tej komórce przeglądarka liczyła `scrollWidth` 63
+        przy `clientWidth` 43 — od białych znaków między znacznikami — i rysowała kropki obok
+        pola wyboru. Kropki nie były niczyją treścią, tylko artefaktem ucinania. -#}
+    {#- ⚠ JEDEN KSZTAŁT W KOLUMNIE: ten sam element i ta sama klasa w obu przypadkach, różnica
+        wyłącznie w `disabled`. Zmierzone przed poprawką: pole wyłączone traciło klasę `pick__box`,
+        więc przeglądarka rysowała surowy formant 13×13 bez koloru akcentu obok włączonego 16×16 —
+        nie „wyszarzone", tylko INNY element.
+
+        ⚠ Żadnych białych znaków między `<td>` i `<input>`. Zmierzone: jeden węzeł tekstowy
+        ze spacją dawał `scrollWidth` 47 przy `clientWidth` 43 — a przy `text-overflow: ellipsis`
+        (które ta komórka miała) właśnie z tego brały się kropki obok pola wyboru. -#}
+    <td class="cell--kontrolka"><input type="checkbox" class="pick__box"
+        {%- if przed_zaproszeniem %} form="konta-partia" name="osoby[]" value="{{ o.person_id }}"
+            data-ma-adres="{{ o.email is null ? '0' : '1' }}"
+            data-brak-dostepu="{{ o.etat_spolki - o.dostepy }}"
+            aria-label="Zaznacz {{ o.name }}"
+        {%- else %} disabled aria-label="{{ o.name }} — {{ o.account_status == 'active' ? 'konto jest już aktywne' : 'konto jest już zaproszone' }}"
+            {#- ⚠ Powód dopasowany do STANU: konto aktywne nie jest „już zaproszone", tylko już używane.
+                Jeden tekst na dwa różne stany mówiłby administratorowi rzecz nieprawdziwą. -#}
+            title="{{ o.account_status == 'active' ? 'Konto jest już aktywne — użytkownik ustawił hasło'
+                : (o.account_status == 'blocked' or o.account_status == 'do_odblokowania'
+                    ? 'Konto jest zablokowane — zaproszenia nie wysyła się ponownie'
+                    : 'Konto jest już zaproszone — zaproszenia nie wysyła się drugi raz') }}"
+        {%- endif %}></td>
+    <td class="cell--osoba" title="{{ o.name }}">
+        {#- Nazwisko jest wejściem do panelu osoby. ⚠ Zwykły odnośnik, nie przycisk: bez
+            JavaScriptu prowadzi na pełny ekran panelu, a z JS `ui.js` otwiera szufladę
+            i htmx dociąga do niej tę samą treść. -#}
+        <a class="table__name" href="{{ url('/admin/konta/osoba/' ~ o.person_id) }}"
+           data-modal-open="osoba-panel"
+           hx-get="{{ url('/admin/konta/osoba/' ~ o.person_id) }}"
+           hx-target="#osoba-tresc" hx-swap="innerHTML">{{ o.name }}</a>
+        {%- if o.account_id == current_id %} <span class="chip">Ty</span>{% endif %}
+        {#- ⚠ „Zwolniony" przeniósł się TUTAJ z kolumny „Spółka", która zniknęła. Bez tego stan
+            „osoba bez etatu" byłby widoczny tylko pośrednio, przez kontrolkę dostępu. -#}
+        {%- if o.employments_total > 0 and o.employments_active == 0 %}
+            <span class="cell__sub">· zwolniony</span>
+        {%- endif %}
+        {#- ⚠ „Spoza kadr" z KOLUMNY, nie z braku wiązania. Gdy osoba ma i jedno, i drugie
+            (dodana ręcznie, potem dopasowana do R2), wiązanie wygrywa i dopisku nie ma. -#}
+        {%- if o.spoza_kadr and not o.z_kadr %}
+            <span class="cell__sub">· spoza kadr</span>
+        {%- endif %}
+    </td>
+    <td class="cell--kontrolka">
+        {#- ⚠ Jeden kształt w kolumnie: pole i przycisk stoją w każdym wierszu, a po zaproszeniu
+            są WYŁĄCZONE. Reguła się nie zmienia — adres jest edytowalny, dopóki konto nie zostało
+            zaproszone (§6 zlecenia); po zaproszeniu adres jest loginem i zmiana idzie panelem
+            osoby. `disabled` to podpowiedź, nie zabezpieczenie: serwer odrzuca zmianę od nowa. -#}
+        <span class="pick__adres">
+            <input class="input" type="email" name="adres" maxlength="254" value="{{ o.email }}"
+                   {% if przed_zaproszeniem %}
+                       aria-label="Adres e-mail dla {{ o.name }}" placeholder="adres e-mail"
+                   {% else %}
+                       disabled aria-label="Adres e-mail — {{ o.name }}"
+                       title="Adres jest loginem konta — zmiana z panelu osoby"
+                   {% endif %}>
+            <button type="button" class="btn btn--ghost btn--sm" data-zapisz
+                    {% if przed_zaproszeniem %}
+                        hx-post="{{ url('/admin/konta/osoba/' ~ o.person_id ~ '/adres') }}"
+                        hx-include="closest .pick__adres"
+                        hx-target="closest tr"
+                        hx-swap="outerHTML"
+                    {% else %}
+                        disabled title="Adres jest loginem konta — zmiana z panelu osoby"
+                    {% endif %}>Zapisz</button>
+        </span>
+    </td>
+    {#- ⚠ Jeden kształt w kolumnie także tutaj: kontrolka stoi w KAŻDYM wierszu, a tam, gdzie
+        nie da się jej użyć, jest wyłączona z podanym powodem. Zmierzone przed poprawką: `<span>`
+        o wysokości 17–18 px sąsiadował z przyciskiem 32 px, więc kolumna zmieniała rytm co kilka
+        wierszy. ⚠ Komórka nie ucina wielokropkiem — obcięłaby własny panel kontrolki. -#}
+    <td class="cell--kontrolka">
+        {% if o.caly_tenant %}
+            {#- ⚠ Administrator: kontrolka WYŁĄCZONA, nie tekst (dopisek §1.4). Powód, dla którego
+                nie dostaje działających pól wyboru, zostaje: jego zakres to `company_id = 0`, czyli
+                cały tenant WRAZ ze spółkami, które dopiero powstaną, a odznaczenie jednej z nich
+                nie ma reprezentacji w modelu. Wyłączona kontrolka mówi obie rzeczy naraz:
+                tu jest dostęp i tego nie edytujesz stąd. -#}
+            <button type="button" class="access access--btn" disabled aria-haspopup="true" aria-expanded="false"
+                    title="Administrator tenanta — wszystkie firmy, także przyszłe">
+                <span class="access__licznik">wszystkie firmy</span>
+                <svg class="ico ico--sm access__strzalka" viewBox="0 0 20 20" aria-hidden="true"><path d="M6 8l4 4 4-4"/></svg>
+            </button>
+        {% elseif o.etat_spolki == 0 %}
+            {#- Zero aktywnych zatrudnień: nie ma do czego nadawać dostępu. Jeśli mimo to dostęp
+                istnieje (dane starsze od reguły), to jest odchylenie — i dostaje kolor. -#}
+            {% set bezEtatu = o.dostepy > 0 ? o.dostepy ~ ' bez etatu' : 'bez etatu' %}
+            <button type="button" class="access access--btn" disabled aria-haspopup="true" aria-expanded="false"
+                    title="{{ o.dostepy > 0 ? 'Dostęp: ' ~ o.dostep_nazwy|join(' · ') ~ '. Bez aktywnego etatu — dostęp nic nie daje.' : 'Brak aktywnego zatrudnienia — nie ma do czego nadać dostępu.' }}">
+                <span class="access__licznik{{ o.dostepy > 0 ? ' access--odchylenie' : ' access--poczatek' }}">{{ bezEtatu }}</span>
+                <svg class="ico ico--sm access__strzalka" viewBox="0 0 20 20" aria-hidden="true"><path d="M6 8l4 4 4-4"/></svg>
+            </button>
+        {% else %}
+            {#- Kolor dostaje wyłącznie odchylenie. Stan początkowy — osoba bez konta i bez
+                dostępu — jest szary, bo to punkt wyjścia, nie awaria. -#}
+            {% set stan = o.dostepy < o.etat_spolki and o.account_id is not null ? 'access--odchylenie'
+                : (o.account_id is null ? 'access--poczatek' : '') %}
+            {% set podpis = o.dostepy ~ ' z ' ~ o.etat_spolki ~ (o.etat_spolki == 1 ? ' firmy' : ' firm') %}
+            {% set tytul = (o.dostepy > 0 ? 'Dostęp: ' ~ o.dostep_nazwy|join(' · ') : 'Bez dostępu')
+                ~ '. Etat: ' ~ o.etat_nazwy|join(' · ') %}
+            {#- ⚠ Kontrolka działa TAKŻE w wierszu bez konta (§4): pierwsze zaznaczenie spółki
+                zakłada konto w stanie `niezaproszone`. Rozgałęzienie „bez konta" zniknęło —
+                zostało jedno wejście dla wszystkich wierszy poza administratorem. -#}
+            <button type="button" class="access access--btn" aria-haspopup="true" aria-expanded="false"
+                    data-dostep="{{ o.person_id }}" title="{{ tytul }}"
+                    hx-get="{{ url('/admin/konta/osoba/' ~ o.person_id ~ '/dostep') }}"
+                    hx-target="#dostep-panel" hx-swap="innerHTML">
+                <span class="access__licznik {{ stan }}">{{ podpis }}</span>
+                <svg class="ico ico--sm access__strzalka" viewBox="0 0 20 20" aria-hidden="true"><path d="M6 8l4 4 4-4"/></svg>
+            </button>
+        {% endif %}
+    </td>
+    {#- ⚠ Żaden stan konta nie jest zielony: „aktywne" to stan normalny (§2 systemu wizualnego).
+        Kolor mają tylko dwa, oba znaczące odstępstwo. -#}
+    <td>
+        {% if o.account_status == 'do_odblokowania' %}
+            <span class="chip chip--warn">do odblokowania</span>
+        {% elseif o.account_status == 'blocked' %}
+            <span class="chip chip--danger">zablokowane</span>
+        {% elseif o.account_status == 'niezaproszone' %}
+            {#- ⚠ Stan `niezaproszone`: konto istnieje, żeby dostęp miał na czym stanąć, ale nie da
+                się nim zalogować ani odzyskać hasła. Zajmuje licencję jak każde inne (§4.3). -#}
+            <span class="chip">niezaproszone</span>
+        {% elseif o.account_status == 'invited' %}
+            <span class="chip">zaproszony</span>
+        {% elseif o.account_status == 'active' %}
+            <span class="chip">aktywne</span>
+        {% else %}
+            <span class="chip">brak konta</span>
+        {% endif %}
+    </td>
+</tr>

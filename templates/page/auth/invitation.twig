@@ -1,0 +1,17 @@
+{% extends layout_auth %}
+
+{% block title %}Aktywacja konta — wezurlop{% endblock %}
+
+{% block content %}
+    <p class="eyebrow">Zaproszenie</p>
+    <h1>Ustaw pierwsze hasło</h1>
+    <p>Hasło będzie potrzebne przy każdym logowaniu do wezurlop.</p>
+    {% if error is not null %}
+        <p class="notice notice--danger" role="alert">{{ error }}</p>
+    {% endif %}
+    <form method="post" action="{{ url('/zaproszenie') }}" class="stack">
+        {% include 'partials/csrf.twig' %}
+        {% include 'partials/new-password.twig' %}
+        <button type="submit" class="btn btn--primary">Aktywuj konto</button>
+    </form>
+{% endblock %}

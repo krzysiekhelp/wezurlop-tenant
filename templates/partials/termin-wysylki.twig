@@ -1,0 +1,34 @@
+{#- Jedno zdanie „kiedy to wyjdzie" — wołane z ekranu wyniku wysyłki partii, z komunikatu
+    po „Wyślij ponownie" i z panelu osoby (zlecenie `kolejka-widoczna-i-kiedy-wyjdzie` §2).
+
+    ⚠ Jedno miejsce, bo trzy kopie tego zdania rozejdą się przy pierwszej zmianie progu —
+    tak jak rozeszły się dwie nazwy nagłówka strony i dwa paski komunikatu.
+
+    ⚠ Czas bezwzględny idzie przez `czas_pelny()` (data, sekundy, nazwa strefy), a PROGNOZA
+    przez `czas_prognoza()` — **bez sekund**, bo to wyliczenie z zadeklarowanej częstotliwości,
+    nie pomiar. Liczba ma nieść tyle pewności, ile jej naprawdę za nią stoi.
+
+    ⚠ `co` jest podmiotem zdania w liczbie POJEDYNCZEJ („Zaproszenie", „Poczta", „Wiadomość") —
+    przy „Zaproszenia wyjdzie" widać, że zdanie składa maszyna.
+
+    Wymaga: `termin` (Service\TerminWysylki::stan()) i `co` (np. „Zaproszenie"). -#}
+{%- if termin.stan == 'awaria' -%}
+    {{ co }} czeka w kolejce, a
+    {%- if termin.ostatni_utc is null %} cron nigdy jeszcze nie przebiegł
+    {#- Bez nawiasu wokół czasu: `czas_pelny()` sam kończy się nazwą strefy w nawiasie,
+        więc wychodziło „12:10:59 (Europe/Warsaw))". #}
+    {%- else %} cron nie przebiegł od {{ termin.wiek }} min, ostatni raz {{ czas_pelny(termin.ostatni_utc) }}
+    {%- endif -%}
+    {#- ⚠ Przy włączonym drugim wyzwalaczu kolejki pilna poczta wychodzi PO ODPOWIEDZI na zwykłe
+        żądanie, więc „nie wyjdzie" byłoby nieprawdą — zmierzone: wiadomość wyszła sekundę po
+        komunikacie, który to wykluczał. Reszta kolejki i tak stoi, i to mówimy osobno. #}
+    {%- if termin.zapasowy %}. Pilną pocztę domknie wyzwalacz zapasowy przy najbliższym żądaniu, ale reszta zadań stoi — cron trzeba naprawić (Ustawienia → Cron).
+    {%- else %} — poczta nie wyjdzie, dopóki to nie ruszy (Ustawienia → Cron).
+    {%- endif -%}
+{%- elseif termin.stan == 'minuty' -%}
+    {{ co }} wyjdzie w ciągu około {{ termin.minuty }} {{ termin.minuty == 1 ? 'minuty' : 'minut' }}.
+{%- elseif termin.stan == 'godzina' -%}
+    {{ co }} wyjdzie przy najbliższym przebiegu zadania w tle, około {{ czas_prognoza(termin.najblizszy_utc) }} (cron co {{ termin.minuty }} min).
+{%- else -%}
+    {{ co }} czeka w kolejce. Wyjdzie przy najbliższym przebiegu zadania cyklicznego — jego częstotliwości nie znamy (Ustawienia → Cron).
+{%- endif -%}

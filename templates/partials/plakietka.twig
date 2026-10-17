@@ -1,0 +1,30 @@
+{#- Plakietka stanu — JEDNO miejsce, w którym nazwa stanu z danych zamienia się w modyfikator CSS.
+
+    ⚠ Powód, dla którego to jest makro, a nie `chip--{{ r.status }}` w szablonie: modyfikator
+    budowany z danych kontrolera daje klasy, których w systemie NIE MA. Przed tą zmianą szablony
+    generowały `badge--approved`, `badge--ok`, `badge--fail` — a `§4` zna tylko `.chip`,
+    `.chip--warn` i `.chip--danger`. Klasa bez reguły nie zgłasza błędu, po prostu nic nie robi,
+    więc taki błąd wychodzi dopiero na ekranie u klienta.
+
+    ⚠ Stan normalny NIE DOSTAJE KOLORU (§2): `ok` i `approved` to gołe `.chip`. Zieleń u nas
+    znaczy akcję i nic więcej — plakietka „Zaakceptowany" nie jest przyciskiem. To ta sama
+    reguła, przez którą kreator podłączenia przestał świecić czterema zielonymi prostokątami.
+
+    ⚠ Biała lista, nie czarna (CLAUDE.md §11): stan nieznany dostaje wygląd obojętny, a nie
+    doklejoną nazwę klasy z danych.
+
+    Użycie:
+      {% import 'partials/plakietka.twig' as plakietka %}
+      {{ plakietka.stan(r.status, r.label) }}
+-#}
+{% macro stan(status, tekst) %}
+{%- set warn   = ['warn', 'pending', 'ostrzezenie', 'oczekuje'] -%}
+{%- set danger = ['fail', 'danger', 'blad', 'odrzucony'] -%}
+{%- if status in warn -%}
+<span class="chip chip--warn">{{ tekst }}</span>
+{%- elseif status in danger -%}
+<span class="chip chip--danger">{{ tekst }}</span>
+{%- else -%}
+<span class="chip">{{ tekst }}</span>
+{%- endif -%}
+{% endmacro %}

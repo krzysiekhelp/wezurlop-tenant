@@ -1,0 +1,251 @@
+{#- Styleguide (tylko dev). Zmienne: swatches, rows, codes. Stany hover/focus: najedź lub przejdź klawiszem Tab. -#}
+{% import 'partials/plakietka.twig' as plakietka %}
+<section class="card sg-section">
+    <div class="card__body">
+        <h2>Kolory</h2>
+        <p class="field__hint">Tokeny z 00-tokens.css.</p>
+        <div class="sg-swatches">
+            {% for name in swatches %}
+                <div class="sg-swatch sg-swatch--{{ name }}"><span></span><code>--{{ name }}</code></div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<section class="card sg-section">
+    <div class="card__body">
+        <p class="eyebrow">Etykieta sekcji</p>
+        {#- ⚠ **Próbka stopnia pierwszego NIE jest `h1`** (zlecenie 11.10.2026 §2): od tej tury
+            nazwa ekranu występuje raz i to ona jest `h1`, w górnej belce. Styleguide pokazuje
+            WYGLĄD stopnia, więc bierze klasę `sg-h1` z tymi samymi wartościami; drugi `h1`
+            na stronie zabrałby czytnikowi jednoznaczny punkt wejścia. -#}
+        <p class="sg-h1">Nagłówek pierwszego stopnia</p>
+        <h2>Nagłówek drugiego stopnia</h2>
+        <h3>Nagłówek trzeciego stopnia</h3>
+        <p>Zwykły akapit z <a href="{{ url('/styleguide') }}">odnośnikiem</a> i <span>wyróżnieniem</span>.</p>
+        <p class="field__hint">Tekst pomocniczy pod polem albo sekcją.</p>
+        <p class="card__meta">Tekst wyciszony (--c-text-3).</p>
+        <p><code>kod_w_tekście</code> · <code class="secret">JBSWY3DPEHPK3PXP</code> · <span class="chip mono">Identyfikator zdarzenia: 3f9a1c2b7d4e5f60</span></p>
+    </div>
+</section>
+
+<section class="card sg-section">
+    <div class="card__body">
+        <h2>Przyciski</h2>
+        <p class="field__hint">Najedź kursorem (hover) albo przejdź klawiszem Tab (focus).</p>
+        <div class="sg-row">
+            <button type="button" class="btn btn--primary">Główny</button>
+            <button type="button" class="btn btn--ghost">Drugorzędny</button>
+            <button type="button" class="btn btn--ghost">Ghost</button>
+            <button type="button" class="btn btn--danger">Niebezpieczny</button>
+            <button type="button" class="btn btn--google">G · Kontynuuj z Google</button>
+            <button type="button" class="btn btn--apple">Kontynuuj z Apple</button>
+        </div>
+        <div class="sg-row">
+            <button type="button" class="btn btn--primary btn--sm">Mały główny</button>
+            <button type="button" class="btn btn--ghost btn--sm">Mały drugorzędny</button>
+            <button type="button" class="btn btn--danger btn--sm">Mały niebezpieczny</button>
+            <button type="button" class="btn btn--quiet">Przycisk-odnośnik</button>
+            <a class="btn btn--ghost btn--sm" href="{{ url('/styleguide') }}">Odnośnik jako przycisk</a>
+        </div>
+        <div class="sg-row">
+            <button type="button" class="btn btn--primary" disabled>Wyłączony</button>
+            <button type="button" class="btn btn--ghost" disabled>Wyłączony</button>
+            <button type="button" class="btn btn--primary htmx-request">Wysyłanie <span class="spinner htmx-indicator" aria-hidden="true"></span></button>
+        </div>
+        <div class="sg-row">
+            <button type="button" class="btn btn--primary btn--block">Na całą szerokość</button>
+        </div>
+    </div>
+</section>
+
+<section class="card sg-section">
+    <div class="card__body">
+        <h2>Formularze</h2>
+        <div class="form-grid">
+            <div class="field">
+                <label for="sg-text">Pole tekstowe</label>
+                <input class="input" id="sg-text" name="sg_text" value="Wartość">
+                <span class="field__hint">Tekst pomocniczy.</span>
+            </div>
+            <div class="field field--error">
+                <label for="sg-error">Pole z błędem</label>
+                <input class="input" id="sg-error" name="sg_error" type="email" value="to-nie-jest-adres" aria-invalid="true" aria-describedby="sg-error-msg">
+                <span class="field__hint" id="sg-error-msg">Podaj poprawny adres e-mail.</span>
+            </div>
+            <div class="field">
+                <label for="sg-password">Hasło</label>
+                <div class="input-group">
+                    <input class="input" id="sg-password" name="sg_password" type="password" value="przykładowe-hasło" autocomplete="off">
+                    <button class="btn btn--quiet" type="button" data-toggle-password="sg-password" hidden>Pokaż</button>
+                </div>
+            </div>
+            <div class="field">
+                <label for="sg-disabled">Pole wyłączone</label>
+                <input class="input" id="sg-disabled" name="sg_disabled" value="Nie do edycji" disabled>
+            </div>
+            <div class="field">
+                <label for="sg-select">Lista wyboru</label>
+                <select class="select" id="sg-select" name="sg_select">
+                    <option>Urlop wypoczynkowy</option>
+                    <option>Urlop na żądanie</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="sg-code">Kod 2FA</label>
+                <input class="input input--code" id="sg-code" name="sg_code" inputmode="numeric" maxlength="6" value="123456">
+            </div>
+            <div class="field">
+                <label for="sg-backup">Kod zapasowy</label>
+                <input class="input mono" id="sg-backup" name="sg_backup" value="XXXX-XXXX">
+            </div>
+            <div class="field">
+                <label for="sg-textarea">Pole wielowierszowe</label>
+                <textarea class="input input--area" id="sg-textarea" name="sg_textarea" rows="3">Uzasadnienie wniosku.</textarea>
+            </div>
+        </div>
+        <div class="field field--check">
+            <input id="sg-check" name="sg_check" type="checkbox" value="1" checked>
+            <label for="sg-check">Pole wyboru z etykietą</label>
+        </div>
+        <p class="notice notice--danger" role="alert">Komunikat błędu formularza (np. „Nieprawidłowy login lub hasło”).</p>
+    </div>
+</section>
+
+<section class="card sg-section">
+    <div class="card__body">
+        <h2>Komunikaty</h2>
+        <div class="stack">
+            <p class="notice">Powiadomienie (notice) — operacja się udała.</p>
+            <p class="notice notice--warn">Ostrzeżenie (notice--warn).</p>
+            <p class="notice notice--dev">Informacja deweloperska (notice--dev).</p>
+            <p class="notice">Informacja ().</p>
+            <p class="notice">Sukces ().</p>
+            <p class="notice notice--warn">Ostrzeżenie (notice--warn).</p>
+            <p class="notice notice--danger">Błąd (notice--danger).</p>
+        </div>
+        <h3>Pasek #flash</h3>
+        <div class="stack">
+            <p class="flash notice sg-flash-demo">Pasek sukcesu (podgląd statyczny).</p>
+            <p class="flash notice notice--danger sg-flash-demo">Wystąpił błąd serwera. Spróbuj ponownie za chwilę.</p>
+        </div>
+        <div class="sg-row">
+            <button type="button" class="btn btn--ghost btn--sm" hx-get="{{ url('/styleguide/brak') }}" hx-swap="none">Pokaż prawdziwy pasek (żądanie htmx → 404)</button>
+        </div>
+    </div>
+</section>
+
+<section class="card sg-section">
+    <div class="card__body">
+        <h2>Badge</h2>
+        <div class="sg-row">
+            <span class="chip">OK</span>
+            <span class="chip">Zaakceptowany</span>
+            <span class="chip">To urządzenie</span>
+            <span class="chip chip--warn">Oczekuje</span>
+            <span class="chip chip--warn">Uwaga</span>
+            <span class="chip chip--danger">Odrzucony</span>
+            <span class="chip chip--danger">Błąd</span>
+            <span class="chip">Informacja</span>
+        </div>
+    </div>
+</section>
+
+<section class="sg-section">
+    <div class="card stats">
+        <div class="stats__item"><span class="stats__key">Pozostało dni</span><span class="stats__value">18 <small>z 26 w tym roku</small></span></div>
+        <div class="stats__item"><span class="stats__key">Oczekujące</span><span class="stats__value">3 <small>wnioski do decyzji</small></span></div>
+        <div class="stats__item"><span class="stats__key">Dziś nieobecni</span><span class="stats__value">2 <small>w Twoim zespole</small></span></div>
+    </div>
+</section>
+
+<section class="card sg-section">
+    <div class="card__head"><h2>Karta z nagłówkiem</h2><a class="btn btn--ghost btn--sm" href="{{ url('/styleguide') }}">Akcja</a></div>
+        <div class="table-scroll">
+            <table class="table table--rekordy" role="table">
+                <thead role="rowgroup"><tr role="row"><th role="columnheader">Osoba</th><th role="columnheader">Rodzaj</th><th role="columnheader">Dni</th><th role="columnheader">Stan</th><th role="columnheader"></th></tr></thead>
+                <tbody role="rowgroup">
+                {% for r in rows %}
+                    <tr role="row">
+                        <td role="cell" class="table__lead">{{ r.name }}</td>
+                        <td role="cell">{{ r.type }}</td>
+                        <td role="cell">{{ r.days }} {{ r.days == 1 ? 'dzień' : 'dni' }}</td>
+                        <td role="cell" class="table__state">{{ plakietka.stan(r.status, r.label) }}</td>
+                        <td role="cell" class="btn-row"><button type="button" class="btn btn--ghost btn--sm">Szczegóły</button></td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+</section>
+
+<section class="card sg-section">
+    <div class="card__body">
+        <h2>Stan pusty</h2>
+        <div class="empty-state">Brak wniosków w wybranym okresie.</div>
+    </div>
+</section>
+
+<section class="card sg-section">
+    <div class="card__body">
+        <h2>Postęp</h2>
+        <div class="stack">
+            <label class="field__hint" for="sg-progress-1">Wykorzystany urlop: 25%</label>
+            <progress class="progress" id="sg-progress-1" max="100" value="25">25%</progress>
+            <label class="field__hint" for="sg-progress-2">Zbliża się limit: 85%</label>
+            <progress class="progress progress--warning" id="sg-progress-2" max="100" value="85">85%</progress>
+            <p class="field__hint">Postęp nieokreślony:</p>
+            <div class="progress-line" role="progressbar" aria-label="Trwa weryfikacja"><span></span></div>
+        </div>
+        <ol class="stepper sg-row" aria-label="Kroki">
+            <li class="step-dot step-dot--done"></li>
+            <li class="step-dot step-dot--active"></li>
+            <li class="step-dot"></li>
+            <li class="step-dot"></li>
+        </ol>
+        <div class="sg-row"><span class="spinner" aria-hidden="true"></span><span class="field__hint">Wskaźnik ładowania</span></div>
+    </div>
+</section>
+
+<section class="card sg-section">
+    <div class="card__body">
+        <h2>Kody zapasowe i urządzenia</h2>
+        <ol class="backup-grid">
+            {% for code in codes %}<li class="backup-code">{{ code }}</li>{% endfor %}
+        </ol>
+        {#- ⚠ Trzy rodzaje wiersza tej samej listy, w jednym miejscu — bo różni je SPOSÓB KLIKANIA,
+            a nie wygląd, i bez zestawienia obok siebie ktoś zrobi z tego trzy komponenty.
+            Wiersz-przycisk (wybór firmy) renderuje się na dev tylko przy koncie z kilkoma
+            zatrudnieniami, więc bez tej pozycji nie dałoby się go zmierzyć. -#}
+        <ul class="settings-list">
+            <li>
+                <a class="settings-list__row" href="{{ url('/styleguide') }}">Wiersz-odnośnik (cały wiersz jest celem) <span aria-hidden="true">›</span></a>
+            </li>
+            <li>
+                <button type="button" class="settings-list__row">
+                    <span class="company-mark" aria-hidden="true">W</span>
+                    <span class="settings-list__copy"><strong>Wiersz-przycisk</strong><small>etat 1,0</small></span>
+                    <span class="chip">wybierz</span>
+                </button>
+            </li>
+            <li>
+                <div class="settings-list__row">
+                    <span class="settings-list__copy">
+                        <strong>Aplikacja Android 1.0.3</strong>
+                        <small>zalogowano 2026-09-17 08:00 UTC · sieć 192.0.2.0/24</small>
+                    </span>
+                    <span class="chip">To urządzenie</span>
+                </div>
+            </li>
+            <li>
+                <div class="settings-list__row">
+                    <span class="settings-list__copy">
+                        <strong>Firefox · Windows</strong>
+                        <small>zalogowano 2026-09-16 14:12 UTC · ostatnia aktywność 2026-09-17 07:40 UTC</small>
+                    </span>
+                    <button type="button" class="btn btn--ghost btn--sm">Zakończ sesję</button>
+                </div>
+            </li>
+        </ul>
+    </div>
+</section>

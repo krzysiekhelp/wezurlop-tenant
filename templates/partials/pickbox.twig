@@ -1,0 +1,82 @@
+{#- **Kontrolka wyboru osób — SZKIELET WIZUALNY I ZACHOWANIE, bez znaczenia zapisu.**
+
+    ⚠ Powstała 08.10.2026 z `fragments/calendar-picker.twig`, kiedy ta sama kontrolka była
+    potrzebna do przypisywania osób do grup (zlecenie `grupy-dzialy` §2a). Druga kontrolka
+    znaczyłaby przejście jeszcze raz **trzech tur poprawek**, które ta przeszła: stała wysokość
+    niezależna od przewijania, przewijanie wyłącznie listy, szukanie po stronie serwera, liczby
+    w etykietach działań, odtworzenie pola szukania po `htmx:afterSwap`.
+
+    ⚠ **GRANICA: tutaj wygląd i zachowanie, w bloku — znaczenie.** Na kalendarzu zapisujemy
+    **wyłączenia** (domyślnie widać wszystkich, kontrolka zawęża), w grupach **przynależność**
+    (domyślnie nikt nie jest w grupie, kontrolka dodaje) — znaczenie jest **odwrotne**, więc
+    wspólny jest komponent i jego reguły, a nie logika zapisu. Każdy ekran wypełnia bloki
+    `naglowek`, `szukaj_stan`, `zapis_stan`, `lista`, `akcje`, `stopka_uwaga` własną treścią.
+
+    ⚠ **Trzy strefy i przewija się WYŁĄCZNIE lista** — nazwany wyjątek od reguły „zero
+    przewijania w kontenerach" (`system-wizualny.md` 12). Powód jest zmierzony, nie estetyczny:
+    przy zasięgu 53 osób panel miał **1364 px wysokości w oknie 855 px**, a jego własny przycisk
+    zapisu kończył się na **1639 px** — czyli poza ekranem.
+
+    ⚠ **Dwa formularze, nie jeden.** GET szuka, POST zapisuje (CLAUDE.md §3), a zagnieżdżenie
+    formularzy jest w HTML niedozwolone i przeglądarka po cichu zjadłaby jedno z nich.
+    ⚠ **Formularz zapisu jest kolumną elastyczną**, nie samo pudełko: lista i stopka siedzą
+    w nim, więc ograniczenie wysokości nałożone tylko na panel nie wystarcza.
+
+    ⚠ `data-pickbox`, `osoby[]`, `data-pick`, `data-pick-licznik` to **umowa z modułem JS**
+    (`public/assets/js/modules/kalendarz-wybor.js`): licznik, działania masowe i odtworzenie
+    kursora w szukajce. Nazwy pól są tu świadomie takie same na obu ekranach — inaczej trzeba
+    by drugiego modułu JS, czyli drugiej drogi do tych samych trzech tur poprawek.
+
+    Zmienne: `id`, `lista_id`, `szukaj_akcja`, `zapis_akcja`, `zapis_etykieta`, `pokazanych`,
+    `zaznaczonych`, `szukaj`, `szukaj_podpowiedz`, oraz opcjonalne `htmx`, `hx_get_listy`,
+    `hx_include`, `hx_cel_zapisu`, `hx_swap_zapisu`, `hx_push_zapisu`. -#}
+<div class="pickbox" id="{{ id }}" data-pickbox>
+    <div class="pickbox__head">
+        {% block naglowek %}{% endblock %}
+        {#- ⚠ **Szukanie niesie STAN KONTROLKI** (`hx-include`): bez tego serwer renderuje listę
+            ze stanu ZAPISANEGO i kasuje niezapisane decyzje człowieka. Zmierzone na kalendarzu:
+            „Zaznaczono 31 z 36" przed szukaniem, „9 z 9" po.
+            ⚠ `hx-include` celuje w **listę**, nie w cały formularz — w formularzu jest token
+            CSRF, a sekret w adresie trafia do logów serwera i proxy (CLAUDE.md §13). -#}
+        <form class="pickbox__szukaj" method="get" action="{{ szukaj_akcja }}"
+              {% if htmx|default(false) %}hx-get="{{ hx_get_listy }}" hx-target="#{{ id }}"
+              hx-swap="outerHTML" hx-include="{{ hx_include }}"
+              hx-trigger="submit, input from:find input[name=szukaj] delay:300ms"{% endif %}>
+            {% block szukaj_stan %}{% endblock %}
+            <label class="field">
+                <span class="field__label">Szukaj osoby</span>
+                <input class="input" type="search" name="szukaj" value="{{ szukaj }}" maxlength="100"
+                       autocomplete="off" placeholder="{{ szukaj_podpowiedz|default('nazwisko lub imię') }}">
+            </label>
+            <noscript><button type="submit" class="btn btn--sm">Szukaj</button></noscript>
+        </form>
+    </div>
+
+    <form class="pickbox__form" method="post" action="{{ zapis_akcja }}"
+          {% if htmx|default(false) and hx_cel_zapisu|default(null) is not null %}hx-post="{{ zapis_akcja }}" hx-target="{{ hx_cel_zapisu }}"
+          hx-swap="{{ hx_swap_zapisu|default('innerHTML show:none') }}"
+          {% if hx_push_zapisu|default(null) is not null %}hx-push-url="{{ hx_push_zapisu }}"{% endif %}{% endif %}>
+        {% include 'partials/csrf.twig' %}
+        {% block zapis_stan %}{% endblock %}
+        <div class="pickbox__list" id="{{ lista_id }}">
+            {% block lista %}{% endblock %}
+        </div>
+        {#- ⚠ **Stopka w DWÓCH rzędach.** W jednym się nie mieści: licznik, dwa działania
+            i przycisk przy szerokości panelu 340 px obcinały przycisk zapisu.
+            ⚠ Licznik stoi w OSOBNYM wierszu, a działania obok siebie w jednym — razem
+            zawijały się w różnych miejscach, bo etykiety niosą liczby, które zmieniają się
+            przy każdym kliknięciu; kontrolka skakała pod kursorem. -#}
+        <div class="pickbox__foot">
+            <span class="pickbox__licznik" data-pick-licznik
+                  data-pick-pokazanych="{{ pokazanych }}">Zaznaczono {{ zaznaczonych }} z {{ pokazanych }}</span>
+            <div class="pickbox__row">
+                {% block akcje %}{% endblock %}
+            </div>
+            {#- ⚠ **Działania masowe PRZESTAWIAJĄ POLA WYBORU, a NIE ZAPISUJĄ.** Zapisuje dopiero
+                ten przycisk — jedna rzecz zapisuje stan tego panelu. Wcześniej każde działanie
+                wysyłało formularz samo, czyli panel zamykał się po kliknięciu. -#}
+            <button type="submit" class="btn btn--primary btn--sm btn--block">{{ zapis_etykieta }}</button>
+            {% block stopka_uwaga %}{% endblock %}
+        </div>
+    </form>
+</div>

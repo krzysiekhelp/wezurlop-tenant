@@ -1,0 +1,16 @@
+{% if prefix is not null %}
+    <p class="notice" role="status">Adresy aplikacji: prefiks zasobów <code>{{ prefix.base ?: '(brak)' }}</code>, front controller <code>{{ prefix.front ?: '(przepisywanie adresów działa)' }}</code>.</p>
+    {% if authorization_header %}
+        <p class="field__hint">Nagłówek Authorization dociera do aplikacji.</p>
+    {% else %}
+        <p class="notice notice--warn">Serwer nie przekazuje nagłówka Authorization. Integracje użyją nagłówka X-Api-Key — to nie blokuje instalacji.</p>
+    {% endif %}
+{% endif %}
+{% if server is not null %}
+    <p class="field__hint">Profil serwera: <code>{{ server.profile }}</code>{% if server.software != '' %} (serwer przedstawia się jako <code>{{ server.software }}</code>){% endif %}. Profil wybiera zestaw plików .htaccess i mechanizm crona — o ochronie rozstrzyga weryfikacja HTTP w kroku 7.</p>
+{% endif %}
+<p class="field__hint">Token instalacyjny wydaje panel wezurlop. Bez niego instalacja nie jest możliwa.</p>
+<div class="field">
+    <label for="install-token">Token instalacyjny</label>
+    <input class="input" id="install-token" name="token" type="password" maxlength="200" autocomplete="off" required>
+</div>

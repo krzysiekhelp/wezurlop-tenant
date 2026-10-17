@@ -1,0 +1,32 @@
+{# Potwierdzenie operacji nieodwracalnej (docs/system-wizualny.md §5.6).
+   ⚠ Ten sam fragment idzie do okna modalnego (htmx) i na pełny ekran `page/web/confirm.twig`
+   — dzięki temu potwierdzenie działa tak samo z JavaScriptem i bez niego.
+   ⚠ Przycisk wykonujący jest `.btn--danger` i NIE jest ustawiony jako ognisko: domyślne ognisko
+   na przycisku nieodwracalnej operacji zamienia Enter w przypadkowe kliknięcie. #}
+<div class="confirm">
+    {# Konkretne pytanie stoi w treści, a nie w pasku okna: w oknie pasek mówi „Potwierdzenie",
+       a na pełnym ekranie nagłówek strony — tekst nie powtarza się w żadnym z tych dwóch miejsc. #}
+    <h3 class="confirm__title">{{ tytul }}</h3>
+    <p class="confirm__lead measure">{{ wstep }}</p>
+
+    <div class="defs">
+        {% for wiersz in szczegoly %}
+            <div><div class="defs__term">{{ wiersz[0] }}</div><div class="defs__value">{{ wiersz[1] }}</div></div>
+        {% endfor %}
+    </div>
+
+    <ul class="confirm__list measure">
+        {% for skutek in skutki %}
+            <li>{{ skutek }}</li>
+        {% endfor %}
+    </ul>
+
+    <form method="post" action="{{ akcja }}" class="confirm__actions">
+        {% include 'partials/csrf.twig' %}
+        {% for nazwa, wartosc in pola %}
+            <input type="hidden" name="{{ nazwa }}" value="{{ wartosc }}">
+        {% endfor %}
+        <a class="btn btn--ghost" href="{{ powrot }}" data-modal-close="potwierdzenie-modal">Anuluj</a>
+        <button type="submit" class="btn btn--danger">{{ przycisk }}</button>
+    </form>
+</div>

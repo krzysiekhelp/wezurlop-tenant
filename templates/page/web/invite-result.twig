@@ -1,0 +1,29 @@
+{% extends 'layout/web.twig' %}
+
+{% block nazwa_ekranu %}Wynik wysyłki{% endblock %}
+
+{% block okruchy %}
+    <span>Administracja</span>
+    <span class="crumbs__sep">/</span>
+    <a href="{{ powrot }}">Osoby i konta</a>
+    <span class="crumbs__sep">/</span>
+{% endblock %}
+
+{% block content %}
+    {# Ekran zapasowy: to samo, co w oknie modalnym, gdy JavaScript nie działa. Treść jest jedna —
+       fragment niżej renderuje się też w oknie nad listą osób. #}
+    <div class="page__head">
+        <div class="page__title">
+            <p class="page__sub">Zaproszenie daje możliwość zalogowania się. Dostęp do spółek to osobna rzecz i liczy się do licencji.</p>
+        </div>
+    </div>
+
+    <section class="card">
+        <div class="card__body">
+            {% include 'fragments/invite-result.twig' %}
+        </div>
+        <div class="card__foot">
+            <a class="btn btn--primary" href="{{ powrot }}">Wróć do listy</a>
+        </div>
+    </section>
+{% endblock %}

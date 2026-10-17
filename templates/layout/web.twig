@@ -1,0 +1,90 @@
+{#- Powłoka aplikacji (web) wg docs/system-wizualny.md §3.3 i §3.5: pasek boczny w trzech sekcjach,
+    górny pasek ze ścieżką po lewej i menu użytkownika po prawej, treść ograniczona do --page-max.
+    Zero JS i CSS w szablonie (CLAUDE.md §6).
+
+    ⚠ **Nazwa ekranu ma JEDNO źródło: blok `nazwa_ekranu`** (zlecenie 11.10.2026 §2b). Z niego
+    powstaje `<title>` dokumentu **i** `h1` w belce — a nie dwa napisy obok siebie. Powód jest
+    zmierzony: `/kalendarz` mówił „Kalendarz" dwa razy, 60 px od siebie, a cztery ekrany konta
+    pracownika (`/zespol`, `/wnioski`, `/wniosek/nowy`, `/konto`) miały belkę **pustą** — więc
+    samo skasowanie `h1` zabrałoby im nazwę w ogóle.
+
+    ⚠ **Bieżąca pozycja okruchów JEST `h1`**, nie `span` obok ukrytego `h1`: strona bez `h1`
+    to regres dostępności (czytnik traci punkt wejścia, konspekt zaczyna się od `h2`), a dwa
+    źródła tej samej nazwy rozjadą się po cichu przy pierwszej zmianie.
+
+    Ekran podaje ścieżkę nadrzędną blokiem `okruchy` (same odnośniki i separatory, **bez**
+    bieżącej pozycji) oraz nazwę blokiem `nazwa_ekranu`. -#}
+{%- set me = current_user() -%}
+<!doctype html>
+<html lang="pl">
+<head>
+    {% include 'partials/head.twig' %}
+    {#- ⚠ Tytuł dokumentu składany z TEJ SAMEJ nazwy, co `h1` w belce. Blok `title` zniknął
+        z ekranów: dwa napisy o jednym ekranie to dwa miejsca do rozjechania się. -#}
+    {#- ⚠ `is defined` jest tu warunkiem działania, nie przezornością: `strict_variables`
+        przewraca `block()` na bloku, którego ekran nie podał (np. szablon błędu). -#}
+    {%- set nazwa = block('nazwa_ekranu') is defined ? block('nazwa_ekranu')|trim : '' -%}
+    <title>{{ nazwa != '' ? nazwa ~ ' — wezurlop' : 'wezurlop' }}</title>
+</head>
+<body hx-headers='{"X-CSRF-Token": "{{ csrf_token() }}"}'>
+<div class="app">
+    <aside class="sidebar" id="sidebar">
+        <a class="sidebar__brand" href="{{ url('/') }}"><img src="{{ asset('img/logo.png') }}" alt="wezurlop" width="248" height="48"></a>
+        {% include 'partials/nav-web.twig' %}
+    </aside>
+    <div class="main">
+        <header class="topbar">
+            <nav class="crumbs" aria-label="Ścieżka">
+                {% block okruchy %}{% endblock %}
+                {#- ⚠ `h1` stoi TUTAJ i nigdzie więcej. Klasa `crumbs__now` zostaje, bo wygląd
+                    bieżącej pozycji się nie zmienia — zmienia się znacznik, który go nosi. -#}
+                {% if nazwa != '' %}<h1 class="crumbs__now">{{ nazwa }}</h1>{% endif %}
+            </nav>
+            {#- ⚠ **Znacznik spółki — NA ŚRODKU belki, na KAŻDYM ekranie** (prośba Krzysztofa
+                11.10.2026; wcześniej stał po lewej, zaraz za okruchami). Stoi w layoucie,
+                bo inaczej dziewięć ekranów znowu milczałoby o kontekście, a cztery miałyby
+                własną kontrolkę.
+                ⚠ Belka ma więc TRZY gniazda, a nie rozpychacz: lewe i prawe rosną po równo
+                (`flex: 1 1 0`), więc środkowe stoi w geometrycznym środku paska niezależnie
+                od długości okruchów i nazwiska w menu konta. Z jednym rozpychaczem środek
+                wędrowałby za każdą dłuższą ścieżką. -#}
+            <div class="topbar__srodek">{% include 'partials/znacznik-spolki.twig' only %}</div>
+            <div class="topbar__prawa">
+            {% if me is not null %}
+                {#- Natywny <details>: menu działa bez JavaScriptu, a „Wyloguj” nie zajmuje miejsca
+                    w pasku jako akcja pierwszego rzędu (§3.5). -#}
+                <details class="user-menu">
+                    <summary class="user-menu__button">
+                        <span class="user-menu__avatar" aria-hidden="true">{{ me.name|split(' ')|map(p => p|first)|join|upper|slice(0, 2) }}</span>
+                        <span>{{ me.name }}</span>
+                    </summary>
+                    <div class="user-menu__panel">
+                        <div class="user-menu__name">
+                            <strong>{{ me.name }}</strong>
+                            {% if me.company is not null %}<span>{{ me.company }}</span>{% endif %}
+                        </div>
+                        <a class="user-menu__item" href="{{ url('/konto') }}">Moje konto</a>
+                        {% if me.employment_count > 1 %}
+                            <a class="user-menu__item" href="{{ url('/kontekst') }}">Zmień firmę</a>
+                        {% endif %}
+                        <form method="post" action="{{ url('/wyloguj') }}">
+                            {% include 'partials/csrf.twig' %}
+                            <button type="submit" class="user-menu__item">Wyloguj</button>
+                        </form>
+                    </div>
+                </details>
+            {% endif %}
+            </div>
+        </header>
+        <main class="page" id="main">
+            {#- ⚠ Pasek komunikatu stoi W UKŁADZIE, nie obok niego. Wcześniej był rodzeństwem
+                `.app`, więc dokładał 24 px POD kontenerem siatki i pasek boczny `sticky`
+                odklejał się na końcu przewijania (zlecenie `menu-ucieka…` §2.2). -#}
+            {% include 'partials/flash.twig' %}
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+</div>
+{% include 'partials/scripts.twig' with {'hierarchia': hierarchia ?? false, 'kalendarz': kalendarz_js ?? false, 'grupy': grupy_js ?? false} %}
+</body>
+</html>

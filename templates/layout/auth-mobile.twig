@@ -1,0 +1,17 @@
+{#- Ekrany logowania, resetu, zaproszenia i 2FA (mobile). -#}
+<!doctype html>
+<html lang="pl">
+<head>
+    {% include 'partials/head.twig' %}
+    <title>{% block title %}wezurlop{% endblock %}</title>
+</head>
+<body hx-headers='{"X-CSRF-Token": "{{ csrf_token() }}"}'>
+<main class="m-auth" id="main">
+    <img class="m-auth__logo" src="{{ asset('img/logo.png') }}" alt="wezurlop" width="220" height="42">
+    <p class="m-auth__tag">URLOPY BEZ PAPIERÓW</p>
+    {% include 'partials/flash.twig' %}
+    {% block content %}{% endblock %}
+</main>
+{% include 'partials/scripts.twig' with {'htmx': false} %}
+</body>
+</html>

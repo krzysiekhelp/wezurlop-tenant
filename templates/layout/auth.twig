@@ -1,0 +1,28 @@
+{#- Ekrany logowania, resetu, zaproszenia i 2FA (web): hero + karta formularza. -#}
+<!doctype html>
+<html lang="pl">
+<head>
+    {% include 'partials/head.twig' %}
+    <title>{% block title %}wezurlop{% endblock %}</title>
+</head>
+<body hx-headers='{"X-CSRF-Token": "{{ csrf_token() }}"}'>
+<div class="auth-shell">
+    <header class="auth-top">
+        <a href="{{ url('/logowanie') }}"><img src="{{ asset('img/logo.png') }}" alt="wezurlop" width="228" height="44"></a>
+    </header>
+    <div class="auth-grid">
+        <section class="card hero-panel" aria-hidden="true">
+            <p class="eyebrow">wezurlop</p>
+            <h2>Bezpieczny dostęp.<br>Prosty interfejs.</h2>
+            <p>Po zalogowaniu pracujesz w kontekście wybranej firmy i konkretnego zatrudnienia.</p>
+            <img src="{{ asset('img/mascot.png') }}" alt="" width="300" height="281">
+        </section>
+        <main class="card form-card" id="main">
+            {% include 'partials/flash.twig' %}
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+</div>
+{% include 'partials/scripts.twig' with {'htmx': false} %}
+</body>
+</html>

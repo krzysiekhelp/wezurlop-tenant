@@ -1,0 +1,40 @@
+{% extends 'layout/web.twig' %}
+
+{% block nazwa_ekranu %}Diagnostyka{% endblock %}
+
+{% block content %}
+    <div class="page__head">
+        <div class="page__title">
+            <p class="page__sub">Te same sprawdzenia co w pierwszym kroku instalatora i w <code>bin/diagnose.php</code>.</p>
+        </div>
+    </div>
+    <p>
+        <span class="chip">OK: {{ counts.ok }}</span>
+        <span class="chip chip--warn">Ostrzeżenia: {{ counts.warn }}</span>
+        <span class="chip chip--danger">Błędy: {{ counts.fail }}</span>
+    </p>
+    {% include 'partials/diagnostics-table.twig' %}
+
+    {% if dev %}
+        {# Sekcja istnieje WYŁĄCZNIE przy APP_ENV=dev — u klienta nie ma jej ani tu, ani w routingu. #}
+        {#- ⚠ Sekcja BYŁA jednocześnie `card` i `notice`, czyli kartą i paskiem komunikatu naraz.
+            To się zemściło: `.notice` jest `display: flex`, więc `.card__body` stał się elementem
+            zgięcia, a `container-type: inline-size` (§11.4) włącza zawieranie rozmiaru w osi
+            poziomej — zmierzone `clientWidth 48 px` przy `scrollWidth 284 px`, czyli treść
+            wystająca z pudełka o zerowej szerokości. Wyłapała to nowa bramka od przewijania
+            w kontenerach, przy szerokim oknie.
+            Rozdzielone: karta zostaje kartą, a ostrzeżenie jest paskiem W ŚRODKU niej. -#}
+        <section class="card" aria-labelledby="reset-title">
+            <div class="card__body">
+                <h2 id="reset-title">Tryb deweloperski: reset instalacji</h2>
+                <p class="notice notice--warn">Operacja jest nieodwracalna i usuwa dane wszystkich firm w tej instalacji.</p>
+                <p>Przywraca instalację do stanu <strong>jak po instalacji</strong>: znikają firmy, osoby, zatrudnienia, limity, nieobecności, kalendarze, kursory, przebiegi, zadania, wnioski, zgłoszenia firm, <strong>wszystkie klucze API</strong>, sesje i dziennik zdarzeń — razem {{ reset_tabele }} tabel.</p>
+                <p>Zostaje schemat bazy, uprawnienia, role, ustawienia w wartościach domyślnych, konta administratorów i zawartość <code>.env</code> (w tym klucz identyfikatorów — po ponownym imporcie te same osoby dostaną te same identyfikatory). W dzienniku zdarzeń zostaje jeden wpis: kto, kiedy i ile rekordów usunął.</p>
+                <form method="post" action="{{ url('/diagnostyka/reset') }}" class="inline-form">
+                    {% include 'partials/csrf.twig' %}
+                    <button type="submit" class="btn btn--danger">Wyczyść instalację i zacznij od zera</button>
+                </form>
+            </div>
+        </section>
+    {% endif %}
+{% endblock %}

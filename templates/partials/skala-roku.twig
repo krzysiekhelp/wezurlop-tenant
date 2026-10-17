@@ -1,0 +1,58 @@
+{#- **Skala ROKU: dwanaście zwykłych siatek miesięcznych w ramkach, cztery w rzędzie**
+    (zlecenie `2026-10-11-rok-jako-dwanascie-miesiecy.md`, prototyp zatwierdzony w przeglądarce).
+
+    ⚠ **To NIE jest nowy komponent.** Pudełko miesiąca, jego siatka, kratki, weekendy, kolory
+    rodzaju i suma dni roboczych przyszły tu wprost ze zniesionej skali kwartału — zmieniła się
+    tylko nazwa rodziny klas (`kwartal__*` → `msiatka__*`, bo „kwartał" na widoku roku nie
+    znaczył już nic) i liczba pudełek: dwanaście zamiast trzech.
+
+    ⚠ Dawny pasek 12 × 31 odpowiadał na pytanie „kiedy w tym roku mnie nie było" jednym rzutem
+    oka, ale jego kolumnami były **numery dni** — a dnia tygodnia z niego nie dało się odczytać.
+    To jedyne, po co człowiek patrzy na kalendarz przed złożeniem wniosku, więc pasek zniknął.
+
+    ⚠ **Przewijanie strony jest tu WYBRANE, nie przeoczone.** Krzysztof widział wariant gęstszy
+    (sześć kolumn, cały rok na jednym ekranie) i wybrał cztery: ten widok ma być czytelny,
+    a nie „wszystko naraz".
+
+    ⚠ Kratka niesie rodzaj **wyłącznie kolorem**, a tego kanału nie ma w odcieniach szarości
+    (achromatopsja, wydruk, tryb wysokiego kontrastu) — stąd `title` z rodzajem i datą na każdej
+    kratce nieobecności oraz nazwa miesiąca jako TEKST, a nie skrót w podpowiedzi.
+
+    ⚠ Dzień **spoza miesiąca** jest **pusty, nie szary**: brak dnia to nie dzień wolny, a dwa
+    różne stany w jednym kolorze to pierwszy krok do nieprawdziwej liczby obok.
+
+    ⚠ Dzień dzisiejszy to **plakietka na numerze** (`.dzien-dzis`), ta sama co w nagłówku osi
+    czasu — nie obwódka wokół kratki. Obwódka zniknęła 11.10.2026 wieczorem razem z tą z osi
+    czasu: jeden znacznik ma mieć jedną formę w całym programie.
+
+    Zmienne: `rok` (model z `KalendarzPracownika::widokRoku()`). -#}
+<div class="card__body">
+    {#- ⚠ Opakowanie `rok-pole` **zniknęło 11.10.2026 wieczorem**: istniało wyłącznie po to, żeby
+        trzy progi kolumn miały o co pytać (element nie może pytać siebie), a progi zastąpiła
+        jedna reguła `auto-fit` z sufitem pudełka. Nazwany kontener bez ani jednego zapytania
+        byłby martwym kodem w dwóch plikach naraz. -#}
+    <div class="rok">
+        {% for m in rok.miesiace %}
+            <section class="msiatka">
+                <h3 class="msiatka__nazwa">{{ m.nazwa }}{% if m.dni_robocze is not null %} <span class="msiatka__suma">{{ m.dni_robocze }} {{ m.dni_robocze == 1 ? 'dzień' : 'dni' }}</span>{% endif %}</h3>
+                <div class="msiatka__siatka">
+                    {% for d in rok.dni_tygodnia %}
+                        <div class="msiatka__dzien-tygodnia">{{ d }}</div>
+                    {% endfor %}
+                    {% for tydzien in m.tygodnie %}
+                        {% for d in tydzien %}
+                            {% if d is null %}
+                                <div class="msiatka__kratka msiatka__kratka--poza" aria-hidden="true"></div>
+                            {% elseif d.pasek is not null %}
+                                <div class="msiatka__kratka msiatka__kratka--{{ d.pasek.zrodlo }}"
+                                     title="{{ d.pasek.nazwa }} · {{ d.pasek.data }}">{% if d.dzis %}<span class="dzien-dzis">{{ d.numer }}</span>{% else %}{{ d.numer }}{% endif %}</div>
+                            {% else %}
+                                <div class="msiatka__kratka{{ d.wolny ? ' msiatka__kratka--wolny' : '' }}">{% if d.dzis %}<span class="dzien-dzis">{{ d.numer }}</span>{% else %}{{ d.numer }}{% endif %}</div>
+                            {% endif %}
+                        {% endfor %}
+                    {% endfor %}
+                </div>
+            </section>
+        {% endfor %}
+    </div>
+</div>

@@ -1,0 +1,18 @@
+{% extends 'layout/web.twig' %}
+
+{% set kalendarz_js = true %}
+
+{#- ⚠ Tytuł dokumentu i okruchy z TEJ SAMEJ wartości co `h1` (§2.1 zlecenia):
+    trzy miejsca mówiące o jednym ekranie nie mogą mówić trzech różnych rzeczy. -#}
+{% block nazwa_ekranu %}{{ tytul }}{% endblock %}
+
+{% block okruchy %}
+{% endblock %}
+
+{% block content %}
+    {#- ⚠ Cała zmienna część ekranu siedzi w JEDNYM opakowaniu i jest renderowana z tego samego
+        fragmentu, którym endpoint odpowiada na żądanie htmx. Dzięki temu nie ma dwóch układów
+        do utrzymania: pełna strona to ten fragment plus powłoka (CLAUDE.md §5 — fragmentów
+        nie renderujemy przez wycinanie kawałków pełnego widoku). -#}
+    <div id="kalendarz">{% include 'fragments/calendar.twig' %}</div>
+{% endblock %}

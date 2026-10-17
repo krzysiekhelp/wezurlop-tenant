@@ -1,0 +1,3155 @@
+/* Komponenty: karta, tabela, przyciski, pola, plakietki, statystyki, definicje, przełącznik.
+   Nazwy i zakres: docs/system-wizualny.md §4. Wartości wyłącznie z 00-tokens.css. */
+
+/* ——— ikona ————————————————————————————————————————————————————————————
+   ⚠ PRZENIESIONE z `20-layout.css` przy migracji wariantu mobilnego (§11.2). Ikona nie jest
+   powłoką — używają jej przyciski, kreator i nawigacja, czyli warstwa komponentów. Dopóki reguła
+   bazowa siedziała w arkuszu powłoki komputerowej, telefon dostawał `<svg>` bez `fill: none`
+   i bez `stroke`, czyli czarną plamę zamiast konturu. Objaw wyszedłby dopiero na ekranie. */
+
+.ico { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.ico--sm { width: 16px; height: 16px; }
+
+/* ——— karta ——————————————————————————————————————————————————————————— */
+
+.card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+.card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+  padding: var(--s-5) var(--s-5) var(--s-4);
+}
+.card__title { font-size: var(--t-h2); font-weight: var(--w-semibold); color: var(--c-text); }
+/* ⚠ `.card__head-text` **zniknęło 13.10.2026** razem z `.card__head` z ekranu kalendarza: było
+   to opakowanie tytułu i zdania pod nim, a jedynym jego użytkownikiem był ten ekran. Teraz tytuł
+   i zdanie stoją w `.kal-nav__tytul`, czyli wewnątrz wiersza nawigacji. Reguła bez ani jednego
+   użytkownika jest martwa i następny czytający szuka w niej lekarstwa — tak samo zniknęło
+   `.rok-pole` 11.10.2026. */
+
+/* ⚠ **Karta osi czasu NIE obcina treści** — i to jest warunek przyklejenia nagłówka dni,
+   nie upodobanie. `overflow: hidden` czyni element KONTENEREM PRZEWIJANYM, a `position: sticky`
+   odnosi się do najbliższego takiego przodka; przyklejony nagłówek przyklejał się więc do karty,
+   która nigdy nie przewija, czyli nie przyklejał się wcale (zmierzone: po przewinięciu o jeden
+   ekran `top = -430 px` przy `position: sticky` w stylu obliczonym).
+   ⚠ Obcinanie w `.card` jest potrzebne tam, gdzie treść dochodzi do zaokrąglonego narożnika
+   (tabela na całą szerokość karty). Tutaj siatka jest W ŚRODKU karty — pod nią są jeszcze dwie
+   sekcje — więc nie ma czego obcinać. Modyfikator jest nazwany i wąski: jedna karta, jeden powód.
+   ⚠ Zdanie o „pożądanym skutku ubocznym" (panel kontrolki wyboru przestaje być przycinany)
+   **przestało być prawdą 11.10.2026**, kiedy ekran rozpadł się na bloki: kontrolka stoi teraz
+   w bloku nagłówka, a nie w tej karcie, więc panel potrzebuje własnego modyfikatora
+   (`.card--panel` niżej). Zostawiam to zapisane, bo nieaktualne uzasadnienie jest gorsze
+   niż jego brak — następny czytający szukałby lekarstwa w tej regule. */
+.card--os { overflow: visible; }
+
+/* ⚠ **Blok, Z KTÓREGO WYSUWA SIĘ PANEL kontrolki** (wybór osób na „Zespole" i „Firmie").
+   Dwie deklaracje i obie są konieczne — zmierzone 11.10.2026 na `?widok=firma`, okno 1440 × 855,
+   po zgłoszeniu Krzysztofa „model wyboru pracowników jest przykryty i go nie widać":
+   - **obcięcie**: blok nagłówka kończy się na 317 px, a panel ma 513 px wysokości (257 → 770),
+     więc `overflow: hidden` z `.card` ucinał go dwie trzecie wysokości niżej,
+   - **przykrycie**: nawet bez obcięcia panel leżał POD następnym blokiem. `.card__body` jest
+     kontenerem zapytań (`container-type: inline-size`), czyli **kontekstem układania**, więc
+     `z-index: 20` z `.pickbox` nie wychodzi poza ten blok i nie ma czym przebić siatki z bloku
+     obok. Zmierzone: `elementFromPoint` w środku panelu zwracał `team-grid__bar`, a nad
+     przyciskiem „Pokaż wybrane" stała komórka siatki.
+   ⚠ `z-index: 4`, nie `1`: przyklejony nagłówek dni ma 2, a jego narożnik 3 (patrz
+   `.team-grid__head`) i **nie są** zamknięte we własnym kontekście, więc leżą w tej samej
+   warstwie co bloki. I nie więcej niż 4: pasek komunikatów ma 9, belka górna 10 — panel ma się
+   wsuwać pod nie, a nie na nie. */
+.card--panel { overflow: visible; position: relative; z-index: 4; }
+.card__sub { font-size: var(--t-small); color: var(--c-text-3); }
+/* Nagłówek karty BEZ tytułu — została sama akcja, więc staje po prawej, tam gdzie stała wcześniej.
+   ⚠ `space-between` z jednym dzieckiem wyrzuciłby przycisk na lewą krawędź (§4d: jeden tytuł
+   na ekran — karta z jedyną tabelą nie ma własnego nagłówka, ale bywa, że ma akcję). */
+.card__head--akcja { justify-content: flex-end; }
+.card__meta { font-size: var(--t-small); color: var(--c-text-3); max-width: var(--measure); }
+/* ⚠ KONTENER ZAPYTAŃ. Karta jest miejscem, w którym mierzy się dostępną szerokość — nie okno.
+   Zmierzone: wariant mobilny otwarty w przeglądarce na komputerze ma okno 1920 px i kartę 486 px,
+   więc każdy warunek oparty na oknie mija się z rzeczywistością dokładnie tam, gdzie patrzymy.
+   ⚠ `container-type: inline-size` ustanawia nowy blok zawierający dla potomków `absolute`/`fixed`.
+   Sprawdzone, że nic tu nie wisi na takiej pozycji bez własnego `position: relative`:
+   `.input-group__action` czepia się `.input-group`, `.table__state` czepia się wiersza,
+   `dialog.modal` stoi POZA kartą (i tak w warstwie wierzchniej), `.flash` leży w powłoce. */
+.card__body {
+  container-type: inline-size;
+  container-name: karta;
+  padding: var(--s-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+.card__body--tight { padding-top: 0; }
+
+.card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+  padding: var(--s-4) var(--s-5);
+  background: var(--c-surface-mute);
+  border-top: 1px solid var(--c-line);
+  font-size: var(--t-small);
+  color: var(--c-text-3);
+}
+
+/* ——— tabela: 80% tej aplikacji (§3.4) ————————————————————————————————— */
+
+.table { width: 100%; border-collapse: collapse; }
+
+/* Nagłówek kolumny ma być CISZEJ niż dane — to podpis, nie treść. */
+/* ⚠ Górny odstęp jest obowiązkowy: bez niego tekst nagłówka leży na krawędzi karty i jest
+   przycinany przez overflow: hidden i zaokrąglenie (§3.4). */
+.table th {
+  padding: var(--s-4) var(--s-4) 10px;
+  font-size: var(--t-label);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  /* ⚠ 1.4: nagłówek kolumny na --c-text-4 dawał 3,21:1 — poniżej normy 4,5:1 (§3.7). */
+  color: var(--c-text-3);
+  text-align: left;
+  border-bottom: 1px solid var(--c-line);
+  white-space: nowrap;
+}
+
+/* Nagłówek kolumny liczbowej stoi NAD liczbami, nie obok nich (§3.4). */
+.table th.table__num { text-align: right; }
+
+.table td {
+  height: var(--row-h);
+  padding: 0 var(--s-4);
+  font-size: var(--t-body);
+  color: var(--c-text-2);
+  border-bottom: 1px solid var(--c-line-soft);
+}
+
+/* Treść trzyma się krawędzi karty, a nie wisi w niej. */
+.table th:first-child, .table td:first-child { padding-left: var(--s-5); }
+.table th:last-child,  .table td:last-child  { padding-right: var(--s-5); }
+
+/* Bez linii pionowych; ostatni wiersz bez linii. */
+.table tbody tr:last-child td { border-bottom: 0; }
+
+/* ——— zebra i podświetlenie wiersza (zlecenie `etap6-przyjety-i-zebra` §4, wariant C) ———
+
+   ⚠ MODYFIKATOR, nie domyślny wygląd `.table`. Zmierzone 22.09 przed zmianą: tabelę ma
+   11 z 33 ekranów (23 tabele), a sama `/diagnostyka` dziesięć — po kilka wierszy każda,
+   gdzie zebra dokłada szumu tam, gdzie informację niesie kolor odchylenia. Zebra jest po to,
+   żeby przewieść wzrokiem DŁUGI wiersz: na liście osób między nazwiskiem a kolumną „Konto"
+   jest 1200 px. Podświetlenie idzie tym samym modyfikatorem, bo na tabeli trzywierszowej
+   sugerowałoby klikalność, której tam nie ma. */
+.table--zebra tbody tr:nth-child(even) td { background: var(--c-surface-mute); }
+@media (hover: hover) {
+  .table--zebra tbody tr:hover td { background: var(--c-surface-hover); }
+}
+
+/* ⚠ Zaznaczenie wiersza dostaje WŁASNY wygląd, nie cichsze tło: przy zebrze tło `--c-surface-mute`
+   ma już co drugi wiersz, więc zaznaczenie musi mówić coś, czego zebra nie mówi. Tło
+   `--c-accent-soft` plus pasek przy lewej krawędzi — i **pasek jest ważniejszy niż tło**,
+   bo zostaje przy każdej zmianie tonu.
+
+   ⚠ To jedyny przypadek w tym systemie, w którym zieleń oznacza STAN, a nie akcję
+   (system-wizualny.md §3.1, wyjątek nazwany): zaznaczenie jest decyzją użytkownika,
+   a nie cechą danych, i prowadzi wprost do zielonego „Wyślij zaproszenia" nad tabelą.
+
+   ⚠ Reguła jest w `.table`, nie w modyfikatorze — wyzwala ją obecność zaznaczonego
+   `.pick__box`, więc na tabelach bez zaznaczania nie robi nic.
+   ⚠ Bez obsługi `:has()` (przeglądarki starsze niż 2023) zaznaczony wiersz nie zmienia
+   wyglądu — pole wyboru jest zaznaczone, licznik w pasku liczy, wysyłka działa. Degradacja
+   jest cicha i nic nie traci poza wyróżnieniem.
+   ⚠ Specyficzność liczona celowo: (0,3,3) bije zebrę i podświetlenie (0,2,3), więc zaznaczony
+   wiersz zostaje zaznaczony także pod kursorem. */
+.table tbody tr:has(.pick__box:checked) td { background: var(--c-accent-soft); }
+.table tbody tr:has(.pick__box:checked) td:first-child { box-shadow: inset 3px 0 0 var(--c-accent); }
+
+/* ⚠ Nadmiar szerokości idzie w JEDNĄ kolumnę, wskazywaną per tabela — inaczej przeglądarka
+   rozdziela zapas równo i liczba odsuwa się od swojego nagłówka (§3.4). */
+.table__grow { width: 100%; white-space: normal; }
+.table td, .table th { white-space: nowrap; }
+
+.table__num { text-align: right; font-variant-numeric: tabular-nums; }
+.table__mute { color: var(--c-text-3); }
+.table__name { color: var(--c-text); font-weight: var(--w-medium); text-decoration: none; }
+@media (hover: hover) {
+  .table__name:hover { text-decoration: underline; }
+}
+
+.table__group td {
+  height: 34px;
+  background: var(--c-surface-mute);
+  font-size: var(--t-label);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--c-text-3);
+}
+
+.table__empty { color: var(--c-text-3); }
+
+/* Wąski kontener: przewijamy tabelę, nie łamiemy układu strony.
+   ⚠ Zarazem KONTENER ZAPYTAŃ dla §11.4 — tabela rekordów pyta o szerokość tego opakowania,
+   bo to ono wyznacza jej miejsce. */
+/* ——— tabela o stałych szerokościach (zlecenie konta-lista-dostep §1) ————————
+
+   ⚠ Powód jest zmierzony, nie estetyczny. Tabela bez `table-layout: fixed` liczy szerokości
+   z treści TEJ strony, więc każda strona listy wygląda inaczej: zmierzone na `/admin/konta`
+   przy kontenerze 1078 px — strona 2 dała tabelę 1272 px (kolumna „Osoba" 183, „Dostęp" 78),
+   a strona 3 aż 1796 px („Osoba" 179, „Dostęp" 603). Obie przewijały się w bok.
+   Przy stałych procentach tabela nie może być szersza od kontenera, więc przewijanie znika
+   z definicji, a nie przez pilnowanie treści. */
+
+.table--stale { table-layout: fixed; }
+/* Ucinanie wielokropkiem dotyczy kolumn Z TEKSTEM. */
+.table--stale th, .table--stale td { overflow: hidden; text-overflow: ellipsis; }
+/* ⚠ Komórka, która trzyma wyłącznie kontrolkę, NIE ucina. Dwa zmierzone powody: `overflow: hidden`
+   obcina panel kontrolki dostępu, a `text-overflow: ellipsis` rysuje kropki obok pola wyboru,
+   bo białe znaki między znacznikami dają `scrollWidth` 63 przy `clientWidth` 43.
+   ⚠ Selektor musi być `td.cell--kontrolka`, nie `.cell--kontrolka`: reguła wyżej ma
+   specyficzność (0,1,1) i sama klasa (0,1,0) by z nią przegrała — ta sama pułapka kaskady,
+   która w tym projekcie kosztowała już cztery poprawki. */
+.table--stale td.cell--kontrolka, .table--stale th.cell--kontrolka { overflow: visible; text-overflow: clip; }
+.col--pick   { width: 4%; }
+.col--osoba  { width: 26%; }
+.col--email  { width: 30%; }
+.col--dostep { width: 24%; }
+.col--konto  { width: 16%; }
+/* ⚠ Dziennik zdarzeń: rozdanie zmierzone, nie wymyślone. Bez `colgroup` przeglądarka liczyła
+   z treści i dała „Zdarzeniu" 874 px (potrzebuje ~300: plakietka plus kod), a „Kto" 141 px
+   i „Czego dotyczy" 257 px — czyli ucinały się dwie kolumny, na które się patrzy.
+   Nowy podział oddaje tę nadwyżkę tam, gdzie stoi treść zmienna: nazwiska i szczegóły. */
+/* ⚠ „Kiedy" 14%, nie 12%: przy 12% (154 px) data z sekundami ucinała się na „22.09.2026, 08:…",
+   co na ekranie audytowym jest utratą treści, a nie skróceniem. Zmierzone w przeglądarce
+   po pierwszym rozdaniu — sama suma procentów tego nie pokazuje. */
+.col--kiedy     { width: 14%; }
+/* ⚠ „Zdarzenie" 32%: przy 26% (334 px) ucinało się pięć komórek na pierwszej stronie —
+   najdłuższa para to „Odblokowanie konta (powrót do pracy)" + `account.unblocked_by_sync`.
+   Nadwyżka idzie z „Czego dotyczy", gdzie druga linia i tak ma pełną treść w `title`. */
+.col--zdarzenie { width: 32%; }
+.col--kto       { width: 17%; }
+.col--podmiot   { width: 25%; }
+.col--spolka    { width: 12%; }
+/* Ekran „Ustawienia → Spółki": nazwa z R2 jest długa, nasza krótka, liczba osób wąska. */
+.col--nazwa-r2    { width: 46%; }
+.col--nazwa-nasza { width: 42%; }
+.col--osoby       { width: 12%; }
+.cell--osoba { color: var(--c-text); font-weight: var(--w-medium); }
+/* Dopisek przy nazwisku („zwolniony") — ciszej niż nazwa, bo to stan, nie imię. */
+.cell__sub { color: var(--c-text-3); font-size: var(--t-caption); font-weight: var(--w-regular); }
+/* Druga linia w komórce (NIP pod nazwą spółki): własny wiersz, ciszej niż nazwa.
+   ⚠ Komórka z dwiema liniami nie może mieć `white-space: nowrap` z `.table td` — dlatego
+   `display: block`, a nie `<br>` w szablonie. */
+.cell__druga { display: block; color: var(--c-text-3); font-size: var(--t-caption); font-weight: var(--w-regular); }
+
+/* ——— kontrolka dostępu do spółek (zlecenie konta-lista-dostep §2, §3) ————————
+
+   Zamknięta kontrolka pokazuje LICZBĘ, nie nazwy: nazwa spółki ucina się i znowu robi się
+   nierówno, a liczba ma stałą szerokość. Mianownik to liczba aktywnych spółek z R2, licznik
+   to nadane dostępy — jedna liczba niesie obie informacje, które wcześniej zajmowały dwie kolumny. */
+
+.access { font-size: var(--t-small); color: var(--c-text-2); }
+/* ⚠ Kolor dostaje WYŁĄCZNIE odchylenie (system wizualny §2): dostęp węższy niż etat przy
+   istniejącym koncie. Stan normalny i stan początkowy (bez konta) koloru nie mają — i nie ma
+   tu zieleni, bo zieleń w tym systemie znaczy akcję, a nie „dobrze". */
+.access--odchylenie { color: var(--c-warn-text); }
+.access--poczatek   { color: var(--c-text-3); }
+.access--btn {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  width: 100%;
+  height: var(--control-h-sm);
+  padding: 0 var(--s-3);
+  /* ⚠ Ramka KONTROLKI (`--c-line-strong`), nie obrys karty (`--c-line`): przy polu adresu
+     i przycisku „Zapisz" w tym samym wierszu różnica była widoczna jako „inna kontrolka",
+     a nie jako inny stan. Kontrolka nosi ramkę kontrolki. */
+  border: 1px solid var(--c-line-strong);
+  border-radius: var(--radius);
+  background: var(--c-surface);
+  font: inherit;
+  font-size: var(--t-small);
+  text-align: left;
+  cursor: pointer;
+}
+/* ⚠ Skoro ramka jest już mocna, kursor sygnalizuje tłem — dokładnie jak `.btn--ghost:hover`,
+   czyli tą samą mową co przycisk stojący obok w tym samym wierszu. */
+@media (hover: hover) {
+  .access--btn:hover:not(:disabled) { background: var(--c-line-soft); }
+}
+/* Kontrolka wyłączona: ten sam kształt, wyszarzona treść, brak reakcji na kursor. */
+.access--btn:disabled { background: var(--c-surface-mute); color: var(--c-text-3); cursor: not-allowed; }
+.access--btn:disabled .access__strzalka { opacity: .45; }
+.access--btn[aria-expanded="true"] { border-color: var(--c-accent); }
+.access__licznik { flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.access__strzalka { flex: none; color: var(--c-text-3); }
+.access--btn[aria-expanded="true"] .access__strzalka { transform: rotate(180deg); color: var(--c-accent); }
+
+/* Panel kontrolki. ⚠ `position: fixed` i warstwa POZA kartą: `.card` ma `overflow: hidden`,
+   więc panel otwarty w ostatnim wierszu zostałby przycięty na krawędzi karty. Pozycję ustawia JS
+   względem klikniętego przycisku. */
+.dropdown {
+  position: fixed;
+  z-index: 40;
+  width: 300px;
+  max-width: calc(100vw - 2 * var(--s-4));
+  background: var(--c-surface);
+  border: 1px solid var(--c-line-strong);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-pop);
+}
+.dropdown[hidden] { display: none; }
+.dropdown__form { display: flex; flex-direction: column; }
+.dropdown__head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  padding: var(--s-3) var(--s-4);
+  border-bottom: 1px solid var(--c-line-soft);
+}
+.dropdown__title { font-size: var(--t-small); font-weight: var(--w-medium); color: var(--c-text); }
+.dropdown__sub { font-size: var(--t-caption); color: var(--c-text-3); }
+.dropdown__list { padding: var(--s-2) 0; max-height: 40vh; overflow-y: auto; }
+/* Cały wiersz jest celem kliknięcia, nie sam kwadracik — tak jak `.checklist__item`. */
+.dropdown__item {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-height: var(--control-h);
+  padding: 0 var(--s-4);
+  font-size: var(--t-small);
+  color: var(--c-text);
+  cursor: pointer;
+}
+.dropdown__item input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--c-accent); flex: none; }
+/* Spółka bez etatu: wygaszona i NIE do kliknięcia — kursor mówi to samo, co `disabled`. */
+.dropdown__item--off { color: var(--c-text-3); cursor: not-allowed; }
+.dropdown__name { flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dropdown__tag { flex: none; font-size: var(--t-caption); color: var(--c-text-3); }
+.dropdown__foot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  border-top: 1px solid var(--c-line-soft);
+  background: var(--c-surface-mute);
+  border-radius: 0 0 var(--radius-card) var(--radius-card);
+}
+.dropdown__licencja { font-size: var(--t-caption); color: var(--c-text-3); }
+.dropdown__akcje { justify-content: flex-end; }
+
+/* ——— pasek zaznaczania i wybór wierszy (zlecenie konta-budowa-2 §1) ————————— */
+
+/* Pasek stoi MIĘDZY nagłówkiem karty a tabelą, na tle stopki: ma być widać, że dotyczy
+   listy pod nim, a nie całego ekranu. Zawijanie jest obowiązkowe — napis przełącznika jest
+   dłuższy niż kolumna treści na wąskim oknie (ta sama pułapka co `.btn-row`). */
+.selectbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-5);
+  background: var(--c-surface-mute);
+  border-bottom: 1px solid var(--c-line);
+}
+.selectbar__count { font-size: var(--t-small); color: var(--c-text-2); margin-right: auto; }
+/* Cały napis jest celem kliknięcia, nie sam kwadracik — tak samo jak `.checklist__item`. */
+.selectbar__opt {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-height: var(--control-h-sm);
+  font-size: var(--t-small);
+  color: var(--c-text-2);
+  cursor: pointer;
+}
+.selectbar__opt input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--c-accent); flex: none; }
+
+/* ⚠ Kolumna wyboru NIE ma tu szerokości. Pierwsza wersja miała `width: 1px`, a nagłówek nazwiska
+   `.table__grow { width: 100% }` — zmierzone: przy `table-layout: fixed` te dwie reguły biją
+   `<colgroup>` i zamiast 4/26/30/24/16 wychodziło 2/57/17/14/9. Szerokość kolumny stoi w jednym
+   miejscu: w `<colgroup>`. */
+/* ⚠ `margin: 0` jest tu konieczne, nie ozdobne: przeglądarka daje polu wyboru własny margines
+   (Chrome 3px/3px/3px/4px), co przy kolumnie 4% (43 px) dawało treść 47 px, czyli `scrollWidth`
+   większy od `clientWidth` — a przy ucinaniu wielokropkiem właśnie z tego brały się kropki. */
+.pick__box { width: 16px; height: 16px; margin: 0; accent-color: var(--c-accent); }
+/* ⚠ Wyłączone pole wyboru ma być wyszarzone CELOWO. Zmierzone przed poprawką: pole bez tej klasy
+   przeglądarka rysowała jako surowy formant 13×13 bez koloru akcentu — różnica wyglądu brała się
+   z BRAKU KLASY, nie z decyzji. */
+.pick__box:disabled { accent-color: var(--c-line-strong); opacity: .5; cursor: not-allowed; }
+/* Pole adresu wprost w wierszu: pole i przycisk w jednej linii, pole nie rozpycha tabeli. */
+/* ⚠ Pole wyłączone musi być wyszarzone naszą regułą, nie domyślnym wyglądem przeglądarki:
+   `input:disabled` bez reguły wygląda w Chrome i Safari inaczej, a w kolumnie obok stoją pola
+   włączone — różnica ma znaczyć „tego nie edytujesz", a nie „inna przeglądarka". */
+.input:disabled, .select:disabled {
+  background: var(--c-surface-mute);
+  color: var(--c-text-3);
+  cursor: not-allowed;
+}
+.pick__adres { display: flex; align-items: center; gap: var(--s-2); }
+.pick__adres .input { width: 15rem; max-width: 100%; }
+
+/* ——— jedna wysokość kontrolki w wierszu tabeli (zlecenie `wiersz-listy-dwie-wysokosci`) ———
+
+   ⚠ Zmierzone na `/admin/konta`: pole adresu 38 px, przycisk „Zapisz" 32, kontrolka dostępu 32 —
+   trzy kontrolki obok siebie w jednym wierszu, dwie wysokości.
+
+   ⚠ To reguła KONTEKSTOWA, nie nowy rozmiar komponentu: `.input` zostaje 38 px wszędzie indziej,
+   a wiersz tabeli jest kontekstem, który narzuca jedną wysokość wszystkiemu, co w nim stoi
+   (system-wizualny.md §4: kontekst zmienia szerokość, nigdy wysokość — więc wysokość ustala
+   kontekst raz, a nie każdy komponent osobno). Nowy `.input--sm` dałby drugi rozmiar pola
+   do pilnowania w każdym następnym szablonie. */
+.table td .input,
+.table td .select,
+.table td .btn { height: var(--control-h-sm); min-height: var(--control-h-sm); }
+
+.table-scroll {
+  overflow-x: auto;
+  container-type: inline-size;
+  container-name: tabela;
+}
+
+/* ——— przyciski ————————————————————————————————————————————————————————— */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  height: var(--control-h);
+  min-height: var(--control-h);
+  padding: 0 var(--s-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  font-size: var(--t-body);
+  font-weight: var(--w-medium);
+  line-height: 1;
+  color: var(--c-text-2);
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+@media (hover: hover) {
+  .btn:hover { text-decoration: none; }
+}
+
+.btn--primary { background: var(--c-accent); color: var(--c-surface); }
+@media (hover: hover) {
+  .btn--primary:hover { background: var(--c-accent-hover); }
+}
+
+.btn--ghost { background: var(--c-surface); color: var(--c-text-2); border-color: var(--c-line-strong); }
+@media (hover: hover) {
+  .btn--ghost:hover { background: var(--c-line-soft); }
+}
+
+.btn--quiet { color: var(--c-text-3); }
+@media (hover: hover) {
+  .btn--quiet:hover { background: var(--c-line-soft); color: var(--c-text-2); }
+}
+
+.btn--danger { background: var(--c-danger); color: var(--c-surface); }
+
+.btn--sm { height: var(--control-h-sm); min-height: var(--control-h-sm); padding: 0 var(--s-3); font-size: var(--t-small); }
+
+.btn[disabled] { opacity: .5; cursor: not-allowed; }
+
+/* ⚠ `flex-wrap: wrap` jest obowiązkowe, nie kosmetyczne. Stary `devices__actions` je miał,
+   a przemianowanie na `.btn-row` je zgubiło — bramka zmierzyła `.card__body` 340 / 389 px
+   na `/m/ustawienia/urzadzenia`, bo `.btn` ma `white-space: nowrap`, a napis „Wyloguj wszystkie
+   pozostałe urządzenia" jest dłuższy niż karta telefonu. Rząd przycisków o nieznanej z góry
+   szerokości musi się zawijać. */
+.btn-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
+
+/* Rząd działań w komórce tabeli: dociśnięty do PRAWEJ krawędzi, bo „Działanie" to ostatnia
+   kolumna i czyta się ją od strony, z której się po te przyciski sięga. Lewa krawędź i tak
+   skakała razem z długością napisów, bo kolumna jest szersza niż przyciski.
+
+   ⚠ **`flex-wrap: nowrap` USUNIĘTE, i to jest wniosek z dowodu przez łamanie, nie przeoczenie.**
+   Najpierw je tu postawiłem i uzasadniłem tak: „jeśli napisy przestaną się mieścić, ma to być
+   widać od razu". Dowód pokazał odwrotnie — z `nowrap` rząd **wychodzi poza komórkę**, czyli
+   usterka robi się cicha, a bez niego **zawija się** i widać ją natychmiast (łapie to kryterium
+   „jedna linia" w bramce). Jedną linię daje tu SZEROKOŚĆ KOLUMNY, a nie zakaz zawijania;
+   `nowrap` tylko zamieniał głośną awarię na cichą.
+   ⚠ `white-space: nowrap` na samych przyciskach zostaje — to inna rzecz: pilnuje, żeby
+   dwuwyrazowy napis nie łamał się W ŚRODKU przycisku. */
+.btn-row--jedna-linia { justify-content: flex-end; }
+.btn-row--jedna-linia .btn { white-space: nowrap; }
+
+/* ——— pola ————————————————————————————————————————————————————————————— */
+
+.field { display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; }
+/* ⚠ Stary arkusz daje `.field label` wagę 800 i kolor akcentu — wyglądały na akcję, którą nie są. */
+.field label { font-size: var(--t-body); font-weight: var(--w-regular); color: var(--c-text-2); display: flex; align-items: center; gap: var(--s-2); }
+.field__label { font-size: var(--t-caption); color: var(--c-text-3); }
+/* ⚠ Podpis leżący POZA kartą stoi na --c-bg, gdzie --c-text-3 daje 4,47:1 — tuż pod progiem (§3.7).
+   Tokenu nie ruszamy; ciemniejszy jest tylko ten jeden przypadek: etykiety w pasku filtrów. */
+.toolbar .field__label { color: var(--c-text-2); }
+.field__hint { font-size: var(--t-caption); color: var(--c-text-3); max-width: var(--measure); }
+
+/* ⚠ Wysokość WPISANA, razem z min-height: stary base.css ma `.select { min-height: 56px }`,
+   a min-height wygrywa z height (§4a). */
+.input, .select {
+  height: var(--control-h);
+  min-height: var(--control-h);
+  padding: 0 var(--s-3);
+  border: 1px solid var(--c-line-strong);
+  border-radius: var(--radius);
+  background: var(--c-surface);
+  color: var(--c-text-2);
+  font-size: var(--t-body);
+}
+.input::placeholder { color: var(--c-text-3); }
+
+/* ⚠ Pole wielolinijkowe NIE MOŻE być `.input`: `.input` ma `height: var(--control-h)` wpisaną
+   wprost (§4a), więc `<textarea class="input">` dostałby 38 px wysokości. Dlatego wariant,
+   a nie osobny komponent — obrys, promień i odstępy są te same, różni je tylko wysokość.
+   `min-height` liczona z wiersza tekstu: trzy wiersze `--lh-body` plus odstępy pola. */
+.input--area {
+  height: auto;
+  min-height: calc(3 * 1em * var(--lh-body) + 2 * var(--s-2));
+  padding: var(--s-2) var(--s-3);
+  resize: vertical;
+}
+
+/* ——— plakietki i stany ————————————————————————————————————————————————— */
+
+/* ⚠ Stan normalny NIE dostaje koloru: szara kropka i słowo (§3.1). Kolorem świeci odstępstwo. */
+.status { display: inline-flex; align-items: center; gap: var(--s-2); font-size: var(--t-small); color: var(--c-text-3); }
+.status__dot { width: 7px; height: 7px; border-radius: 50%; background: var(--c-dot); flex: none; }
+.dot--ok   { background: var(--c-accent); }
+.dot--warn { background: var(--c-warn); }
+.dot--err  { background: var(--c-danger); }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 var(--s-2);
+  border-radius: 6px;
+  background: var(--c-neutral-soft);
+  color: var(--c-text-3);
+  font-size: var(--t-caption);
+  font-weight: var(--w-medium);
+  white-space: nowrap;
+}
+.chip--warn   { background: var(--c-warn-soft); color: var(--c-warn-text); }
+.chip--danger { background: var(--c-danger-soft); color: var(--c-danger-text); }
+.chip--accent { background: var(--c-accent-soft); color: var(--c-accent-text); }
+
+/* ——— statystyki w jednej karcie (§5.2) ————————————————————————————————— */
+
+.stats { display: flex; flex-wrap: wrap; align-items: stretch; }
+.stats__item { display: flex; flex-direction: column; gap: var(--s-1); padding: var(--s-5); min-width: 180px; flex: 1 1 0; }
+.stats__item + .stats__item { border-left: 1px solid var(--c-line-soft); }
+.stats__key { font-size: var(--t-caption); color: var(--c-text-3); }
+.stats__value { font-size: var(--t-lead); font-weight: var(--w-medium); color: var(--c-text); }
+.stats__value small { font-size: var(--t-small); font-weight: var(--w-regular); color: var(--c-text-3); }
+/* ⚠ Odchylenie znaczymy KOLOREM WARTOŚCI, nie plakietką. Plakietka jest etykietą stanu,
+   a nie sposobem pisania liczby: `.chip--warn` ma 12 px, więc jedyna liczba, na której nam
+   zależy, wychodziła MNIEJSZA od pozostałych i w kształcie odznaki. Ta sama nazwa
+   modyfikatora co przy `.access--odchylenie`. */
+.stats__value--odchylenie { color: var(--c-warn-text); }
+
+/* ⚠ Wartość, która NIE jest liczbą („—", „limit nie jest jeszcze założony"): ciszej i bez
+   pogrubienia, bo pogrubiona cyfra obok pogrubionego zdania czyta się jak dwie liczby.
+   To ta sama zasada co w `.stats__value--odchylenie`: kolor i waga mówią o STANIE wartości. */
+.stats__value--brak { color: var(--c-text-3); font-weight: var(--w-regular); }
+
+/* Podpis pod wartością w osobnym wierszu — przy dwóch małych napisach w jednej linii
+   („10 dni 2 godz. z 34 dni") nie da się odczytać, co jest wartością, a co objaśnieniem. */
+.stats__note { display: block; }
+
+
+/* ——— pary etykieta/wartość ————————————————————————————————————————————— */
+
+.defs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s-5) var(--s-4); }
+.defs__term { font-size: var(--t-caption); color: var(--c-text-3); }
+.defs__value { font-size: var(--t-body); color: var(--c-text); }
+
+/* ⚠ Liczba par w rzędzie zależy od szerokości KARTY, nie okna — ta sama poprawka co przy §11.4.
+   Poprzednio stało tu `@media (max-width: 1024px)` plus nadpisanie `.m-content .defs` w powłoce
+   mobilnej; oba były przybliżeniami. Ekran licencji i krok 5 instalatora **nie leżą**
+   w `.m-content`, więc nadpisanie powłoki ich nie obejmowało — para zostawałaby czterokolumnowa
+   na telefonie.
+
+   Progi z rachunku: para potrzebuje ~200 px, żeby najdłuższa etykieta
+   („Próg ciszy connectora (klucz w użyciu milczy)", 44 znaki) zmieściła się w dwóch liniach.
+   Cztery pary: 4 × 200 + 3 × 16 + 2 × 24 = **896**. Jedna para w rzędzie od **520 px**, czyli
+   od szerokości kolumny wariantu mobilnego (`.app-shell`, `max-width: 520px`) — żeby mobilny
+   wyglądał tak samo niezależnie od okna przeglądarki, a nie raz tak, raz inaczej. */
+@container karta (max-width: 896px) { .defs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@container karta (max-width: 520px) { .defs { grid-template-columns: minmax(0, 1fr); } }
+
+/* ——— komponenty zbudowane z systemu (etap 3.3) ————————————————————————————
+   ⚠ Żaden z nich nie jest zaprojektowany „od siebie": wszystkie powstały ze złożenia tokenów
+   i istniejących rodzin. Gdzie stara reguła miała kolor na stanie normalnym — kolor znika (§2). */
+
+/* Dwie kolumny pól formularza. ⚠ `.form-column` tym NIE JEST — układa jedno pod drugim.
+   Warunek na KONTENERZE, nie na oknie: instalator ma własną powłokę i szerokie okno przy
+   wąskiej karcie to dokładnie ten przypadek, na którym przejechaliśmy się przy §11.4.
+   Próg 560 px: dwie kolumny po 240 px (najdłuższa etykieta pola w dwóch wierszach) + odstęp
+   + wyściółka karty. */
+/* Dwie karty obok siebie (pulpit: nieobecności + limit).
+   ⚠ Warunek szerokości jest `@media`, nie `@container`, bo `.page` NIE jest kontenerem —
+   rozstrzygnięcie z 22.09.2026 (nie dokładamy kontenera na `.page`). Pozycja dopisana
+   do wykazu zapytań szerokościowych w raporcie. */
+.card-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-4); align-items: start; }
+@media (max-width: 1100px) { .card-grid { grid-template-columns: minmax(0, 1fr); } }
+
+.form-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: var(--s-5); align-items: start; }
+@container karta (max-width: 560px) { .form-grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* Pole wyboru: etykieta OBOK kontrolki, nie nad nią. */
+.field--check { flex-direction: row; align-items: center; gap: var(--s-2); }
+
+/* Pole z błędem — ⚠ czerwień na OBRYSIE, nie na tle: tło robiłoby z pola komunikat,
+   a komunikat jest osobnym elementem (`.notice--danger`). */
+.field--error .input, .field--error .select { border-color: var(--c-danger); }
+
+/* Znacznik firmy w wierszu wyboru: inicjał w kwadracie.
+   ⚠ Stara reguła miała niebieski gradient i białą literę — kolor na stanie normalnym. */
+.company-mark {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius);
+  background: var(--c-neutral-soft);
+  color: var(--c-text-2);
+  font-weight: var(--w-semibold);
+}
+
+/* Kod QR do parowania 2FA.
+   ⚠ 210 px to wymiar FUNKCJONALNY, nie estetyczny: kod musi dać się zeskanować, a biała ramka
+   wokół to strefa cicha wymagana przez standard, nie ozdoba. `min()` chroni przed wyjściem
+   poza wąską kartę — na telefonie kod zwęża się razem z nią, zamiast rozpychać ekran. */
+.qr-card { display: flex; gap: var(--s-5); align-items: center; flex-wrap: wrap; }
+.qr-card img {
+  width: min(210px, 100%);
+  height: auto;
+  background: var(--c-surface);
+  border: 12px solid var(--c-surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+}
+
+/* Kody zapasowe: siatka i pojedynczy kod. Krój bez zmian — `.mono` to cyfry tabelaryczne
+   i lekki odstęp, a nie drugi krój pisma (§4). */
+.backup-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-2); margin: 0; padding: 0; list-style: none; }
+@container karta (max-width: 420px) { .backup-grid { grid-template-columns: minmax(0, 1fr); } }
+.backup-code {
+  padding: var(--s-3);
+  border: 1px dashed var(--c-line-strong);
+  border-radius: var(--radius);
+  background: var(--c-surface-mute);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .06em;
+  text-align: center;
+}
+
+/* Wskaźnik kroku instalatora.
+   ⚠ Kropki są ELASTYCZNE, bo kroków jest dziesięć: przy stałych 26 px zajmowały 320 px
+   i nie mieściły się w karcie telefonu (308 px). Teraz dzielą dostępną szerokość między siebie.
+   ⚠ Krok zrobiony NIE JEST ZIELONY — pozycję pokazuje jasność, nie barwa: czeka `--c-line`,
+   zrobiony `--c-line-strong`, bieżący `--c-text-2`. To ta sama reguła, przez którą kreator
+   podłączenia przestał świecić czterema zielonymi prostokątami. */
+.stepper { display: flex; gap: var(--s-1); list-style: none; margin: 0; padding: 0; flex: 1 1 auto; max-width: 320px; }
+.step-dot { flex: 1 1 0; min-width: 8px; height: 8px; border-radius: 999px; background: var(--c-line); }
+.step-dot--done { background: var(--c-line-strong); }
+.step-dot--active { background: var(--c-text-2); }
+
+/* Pasek postępu (natywny `<progress>`, wartość w atrybucie — bez `style=` w szablonie, §6).
+   ⚠ Wypełnienie NEUTRALNE. Postęp jest daną, nie akcją; bursztyn zostaje dla stanu,
+   który wymaga uwagi. */
+.progress { appearance: none; -webkit-appearance: none; display: block; width: 100%; height: 10px; border: 0; border-radius: 999px; background: var(--c-neutral-soft); overflow: hidden; }
+.progress::-webkit-progress-bar { background: var(--c-neutral-soft); border-radius: 999px; }
+.progress::-webkit-progress-value { background: var(--c-text-4); border-radius: 999px; }
+.progress::-moz-progress-bar { background: var(--c-text-4); border-radius: 999px; }
+.progress--warning::-webkit-progress-value { background: var(--c-warn); }
+.progress--warning::-moz-progress-bar { background: var(--c-warn); }
+
+/* Pasek nieokreślonego postępu („coś trwa, nie wiadomo ile"). */
+@keyframes progress { 50% { width: 82%; } }
+.progress-line { width: 100%; max-width: 420px; height: 8px; border-radius: 999px; background: var(--c-neutral-soft); overflow: hidden; }
+.progress-line span { display: block; height: 100%; width: 45%; background: var(--c-text-4); animation: progress 1.5s ease-in-out infinite; }
+
+/* ——— stronicowanie ————————————————————————————————————————————————————————
+   ⚠ To NIE jest przeniesienie, tylko brakujący komponent: stronicowanie będzie potrzebne
+   wszędzie, gdzie lista rośnie, a dotąd istniało jako reguła jednego ekranu. */
+
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-3);
+}
+
+/* „Strona 2 z 7" — metryka, nie treść, więc ciszej i cyframi tabelarycznymi, żeby licznik
+   nie skakał przy przejściu z 9 na 10. */
+.pager__info { font-size: var(--t-small); color: var(--c-text-3); font-variant-numeric: tabular-nums; }
+
+/* ——— siatka miesiąca z danymi (/dane/kalendarze) ——————————————————————————
+   ⚠ To wariant `.table`, nie osobny komponent — w szablonie stoi `class="table month-grid"`.
+   ⚠ **To NIE jest druga wizualizacja nieobecności**, mimo że też jest siatką miesiąca: pokazuje
+   rozkład czasu pracy przysłany przez connector (dni pracujące i wolne spółki), a nie urlopy.
+   Nieobecności w kalendarzu rysuje wyłącznie `partials/os-czasu.twig` (07.10.2026). */
+
+/* ——— tabela rozbicia limitu (pulpit) ——————————————————————————————————————
+   Dwie kolumny: nazwa pozycji i wartość. To wariant `.table`, nie nowy komponent. */
+.table--limit { table-layout: fixed; }
+.table--limit td:last-child { width: 40%; }
+/* Wiersz sumujący: linia NAD nim i mocniejsza waga — „dostępne na start" i „pozostało"
+   są wynikiem pozycji powyżej, a nie kolejną pozycją listy. */
+.table__sum td { border-top: 1px solid var(--c-line); font-weight: var(--w-medium); color: var(--c-text); }
+/* Druga linia w komórce — objaśnienie danej, nie druga dana. */
+.table__note { display: block; font-size: var(--t-caption); color: var(--c-text-3); }
+/* ⚠ Liczba ujemna świeci kolorem OSTRZEŻENIA, a nie błędu: to nie awaria aplikacji,
+   tylko stan danych z kadr do sprawdzenia. Ta sama barwa co `.stats__value--odchylenie`. */
+.table__num--odchylenie { color: var(--c-warn-text); }
+
+/* Sekcja karty bez wyściółki: siatka z własnymi krawędziami dotyka obrysu karty,
+   dokładnie jak tabela w `.table-scroll`. */
+.card__body--flush { padding: 0; }
+
+.month-grid { table-layout: fixed; }
+.month-grid__cell { vertical-align: top; height: 84px; padding: var(--s-2); }
+
+/* ⚠ Dzień spoza miesiąca i dzień wolny różnią się siłą wyciszenia, a nie barwą. */
+.month-grid__cell--empty { background: var(--c-surface-mute); }
+.month-grid__cell--free { background: var(--c-neutral-soft); }
+
+/* ⚠ Dzień z nieobecnością: krawędź po lewej, nie zielone tło. To ten sam sposób oznaczania,
+   którego używa `.notice` — „ta pozycja jest warta uwagi" bez sięgania po barwę. Skanowanie
+   miesiąca jest przez to słabsze niż przy pełnym tle i mówię o tym wprost: jeśli kadry
+   potrzebują mocniejszego wyróżnienia, to decyzja o wyróżnianiu DANYCH, a nie o kolorze. */
+.month-grid__cell--absence { border-left: 3px solid var(--c-line-strong); }
+
+/* ⚠ Komórka z nieobecnością NIE MA tła. Stara reguła dawała `--green-soft`, czyli kolor akcji
+   na danych — ta sama pomyłka co `badge--approved`. Informację niesie wpis w komórce,
+   a nie podkład pod nim (§2). Zgłoszone w raporcie jako świadoma strata: skanowanie miesiąca
+   wzrokiem jest przez to trudniejsze i jeśli kadry tego potrzebują, to jest decyzja
+   o wyróżnieniu danych, a nie o kolorze tła. */
+
+.month-grid__day { display: block; font-weight: var(--w-medium); color: var(--c-text); }
+.month-grid__mark { display: block; margin-top: var(--s-1); font-size: var(--t-caption); color: var(--c-text-2); }
+
+/* ——— wskaźnik ładowania ————————————————————————————————————————————————— */
+
+/* ⚠ Klatki kluczowe muszą przyjechać razem z regułą — zostały w starym arkuszu, a bez nich
+   `animation: spin` nie robi nic i wskaźnik stoi nieruchomo. Cicha usterka: kółko jest, nie kręci się. */
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border: 4px solid var(--c-line);
+  border-top-color: var(--c-accent);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+
+/* ——— diagnostyka: pierwsza kolumna trzyma plakietkę stanu ————————————————— */
+
+.diag-group td:first-child { width: 110px; }
+
+/* ——— styleguide (ekran deweloperski) ——————————————————————————————————————
+   ⚠ Zostaje, bo styleguide jest jedynym miejscem, gdzie komponenty widać obok siebie —
+   a to właśnie ono powstrzymuje przed zrobieniem drugiego paska komunikatu. */
+
+/* ⚠ Próbka stopnia pierwszego w styleguide: **ten sam wygląd, inny znacznik** (`p.sg-h1`).
+   Od 11.10.2026 `h1` na stronie jest dokładnie jeden i stoi w belce jako nazwa ekranu — próbka
+   typografii nie może być drugim. Wartości przepisane z reguły `h1` w `10-base.css`; gdyby tam
+   się zmieniły, ta próbka przestanie je pokazywać i trzeba ją zrównać. */
+.sg-h1 {
+  font-size: var(--t-h1);
+  font-weight: var(--w-semibold);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--ls-tight);
+  color: var(--c-text);
+}
+
+.sg-section { margin-bottom: var(--s-5); }
+.sg-row { display: flex; flex-wrap: wrap; gap: var(--s-3); align-items: center; margin-top: var(--s-3); }
+.sg-row--top { align-items: flex-start; }
+.sg-swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: var(--s-3); margin-top: var(--s-3); }
+.sg-swatch { border: 1px solid var(--c-line); border-radius: var(--radius); overflow: hidden; font-size: var(--t-caption); background: var(--c-surface); }
+.sg-swatch span { display: block; height: 48px; }
+.sg-swatch code { display: block; padding: var(--s-2) var(--s-3); }
+
+/* ⚠ Próbki pokazują paletę NOWEGO systemu. Stare (`--navy`, `--blue`, `--pink`) znikają razem
+   z `tokens.css` — styleguide pokazujący nieistniejące kolory jest gorszy niż jego brak. */
+.sg-swatch--c-bg span           { background: var(--c-bg); }
+.sg-swatch--c-surface span      { background: var(--c-surface); }
+.sg-swatch--c-surface-mute span { background: var(--c-surface-mute); }
+.sg-swatch--c-line span         { background: var(--c-line); }
+.sg-swatch--c-line-strong span  { background: var(--c-line-strong); }
+.sg-swatch--c-text span         { background: var(--c-text); }
+.sg-swatch--c-text-3 span       { background: var(--c-text-3); }
+.sg-swatch--c-accent span       { background: var(--c-accent); }
+.sg-swatch--c-accent-soft span  { background: var(--c-accent-soft); }
+.sg-swatch--c-warn span         { background: var(--c-warn); }
+.sg-swatch--c-warn-soft span    { background: var(--c-warn-soft); }
+.sg-swatch--c-danger span       { background: var(--c-danger); }
+.sg-swatch--c-danger-soft span  { background: var(--c-danger-soft); }
+.sg-swatch--c-neutral-soft span { background: var(--c-neutral-soft); }
+
+.sg-flash-demo { position: static; transform: none; width: auto; box-shadow: none; }
+
+/* ——— powłoki ekranów systemowych: instalator i ekran błędu ————————————————
+   ⚠ Dlaczego w KOMPONENTACH, a nie w arkuszu powłoki: oba ekrany renderują się w OBU wariantach
+   (instalator u wdrażającego, ekran błędu pod każdym adresem, także `/m/…`), a arkusze powłoki
+   są rozłączne — `20-layout.css` nie dociera do wariantu mobilnego i odwrotnie. Reguła
+   w jednym z nich znikałaby w drugim; ta sama pomyłka co nadpisanie `.m-content .defs`.
+   ⚠ Sama karta instalatora to `.card` + `__head`/`__body`/`__foot` — nie budujemy drugiej karty.
+   Tu zostaje wyłącznie to, czego w systemie nie ma: rama strony i pasek z logo. */
+
+.installer-shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: calc(var(--s-6) + var(--safe-top)) var(--s-4) var(--s-6);
+  background: var(--c-bg);
+}
+
+.installer-frame { max-width: 980px; margin-inline: auto; }
+
+.installer-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  margin-bottom: var(--s-5);
+}
+
+.installer-brand img { height: 42px; width: auto; }
+.installer-brand strong { font-weight: var(--w-semibold); color: var(--c-text-2); }
+
+/* Ekran błędu: karta wyśrodkowana na stronie, bez powłoki aplikacji. */
+.status-layout { max-width: 840px; margin: var(--s-7) auto; padding-inline: var(--s-4); }
+
+.status-card { text-align: center; }
+.status-card h1 { font-size: var(--t-h1); }
+.status-card p { color: var(--c-text-3); max-width: var(--measure); margin-inline: auto; }
+.status-brand { height: 44px; width: auto; margin-inline: auto; }
+
+/* ⚠ Numer błędu jest WYLICZONY ze skali, nie wpisany: dwukrotność największego stopnia.
+   Stary arkusz miał 84 px i wagę 900 — liczba krzyczała głośniej niż zdanie, które wyjaśnia,
+   co się stało. Kolor `--c-text-4`, bo to metryka techniczna, a nie treść (§3.1). */
+/* ⚠ Selektor dociążony do `.status-card .status-code` (0-2-0), bo dopóki stary arkusz jeszcze
+   się wczytuje na komputerze, jego `.status-card p { font-size: 17px }` (0-1-1) bije samo
+   `.status-code` (0-1-0). Zmierzone: numer błędu miał na komputerze 17 px zamiast 60.
+   Po skasowaniu starych arkuszy (etap 4) dociążenie przestaje być potrzebne, ale nie szkodzi. */
+.status-card .status-code {
+  font-size: calc(2 * var(--t-h1));
+  line-height: 1;
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--ls-tight);
+  color: var(--c-text-4);
+}
+
+/* ——— przełącznik zakresu ———————————————————————————————————————————————— */
+
+.segmented { display: inline-flex; padding: 2px; gap: 2px; background: var(--c-line-soft); border-radius: var(--radius); }
+.segmented__item {
+  height: var(--control-h-sm);
+  padding: 0 var(--s-3);
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--c-text-3);
+  font-size: var(--t-small);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .segmented__item:hover { color: var(--c-text-2); text-decoration: none; }
+}
+.segmented__item--on { background: var(--c-surface); color: var(--c-text); font-weight: var(--w-medium); box-shadow: var(--shadow-card); }
+
+/* ——— zwijany blok (szczegóły techniczne) ——————————————————————————————— */
+
+.disclosure { border: 1px solid var(--c-line); border-radius: var(--radius-card); background: var(--c-surface); }
+.disclosure > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-4) var(--s-5);
+  font-size: var(--t-small);
+  color: var(--c-text-3);
+  cursor: pointer;
+  list-style: none;
+}
+.disclosure > summary::-webkit-details-marker { display: none; }
+@media (hover: hover) {
+  .disclosure > summary:hover { color: var(--c-text-2); }
+}
+.disclosure[open] > summary { border-bottom: 1px solid var(--c-line); color: var(--c-text-2); }
+.disclosure__body { padding: var(--s-5); display: flex; flex-direction: column; gap: var(--s-4); }
+
+/* ——— komunikaty ————————————————————————————————————————————————————————— */
+
+/* ⚠ `.note` USUNIĘTE, nie zostawione „na wszelki wypadek". Był drugim paskiem komunikatu
+   obok `.notice` — pełne obramowanie i tło `--c-surface` kontra krawędź po lewej — i to właśnie
+   stan, którego zakazuje §4b. Zastany, nie nowy: `.note` był w arkuszu PRZED `.notice`, a wyszedł
+   dopiero z policzenia spisu, bo osobno każdy wyglądał sensownie. Pasek komunikatu ma jedną nazwę
+   i jest nią `.notice` — nie udaje karty i nie konkuruje z `.card` stojącą w tym samym miejscu. */
+
+/* ——— htmx ——————————————————————————————————————————————————————————————— */
+
+/* ⚠ Reguły wskaźnika trzymamy TU, a htmx ma wyłączone wstrzykiwanie własnego <style> przez
+   <meta name="htmx-config"> — inaczej łamie CSP style-src 'self' na każdym ekranie (§3.8). */
+.htmx-indicator { opacity: 0; transition: opacity .15s ease-in; }
+.htmx-request .htmx-indicator, .htmx-request.htmx-indicator { opacity: 1; }
+
+/* ——— okno modalne (§5.5) ————————————————————————————————————————————————
+   Otwierane przez `showModal()`, więc Esc zamyka je bez linii JS. Wyśrodkowane, z jednym
+   obszarem przewijanym — inaczej okno dostaje własny pasek przewijania na całej wysokości. */
+
+.modal {
+  width: min(720px, calc(100vw - 2 * var(--s-6)));
+  max-height: calc(100vh - 2 * var(--s-7));
+  max-height: calc(100dvh - 2 * var(--s-7));
+  margin: auto;                       /* wyśrodkowanie w warstwie górnej */
+  padding: 0;
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-pop);
+  background: var(--c-surface);
+  color: var(--c-text-2);
+  overflow: hidden;
+}
+/* ⚠ display ustawiamy TYLKO przy [open]: reguła bez tego warunku pokonuje `display: none`
+   przeglądarki i zamknięte okno zostaje na ekranie. */
+.modal[open] { display: flex; flex-direction: column; }
+
+/* ⚠ **Okno z dwiema kolumnami musi być szersze niż formularz** (aneks §1): dwie kolumny
+   po 300 px minimum plus odstęp i wyściółka nie zmieszczą się w 720 px, a ściśnięte do 300 px
+   przestają pokazywać nazwiska. `min()` trzyma je w oknie przeglądarki. */
+.modal--assign { width: min(1040px, calc(100vw - 2 * var(--s-6))); }
+
+/* Opakowanie wymienianego fragmentu — **ogniwo kolumny elastycznej** między `dialog`
+   a `.modal__body`, więc `min-height: 0` jest obowiązkowe (ta sama reguła co w `.assign__col`). */
+.modal__wrap { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+
+.modal::backdrop { background: var(--c-overlay); }
+
+/* ——— szuflada (panel osoby, zlecenie konta-budowa-2 etap 3) ————————————————
+
+   ⚠ To `dialog.modal` z innym ułożeniem, a nie nowy mechanizm: tło, `Escape` i wspólna obsługa
+   otwierania (`data-modal-open`) są już zrobione dla okna modalnego, a panel osoby różni się
+   wyłącznie tym, gdzie stoi. Osobny komponent znaczyłby drugie miejsce z tą samą logiką. */
+.drawer {
+  /* ⚠ 600 px, a nie 460: przy węższej szufladzie kontener wpada pod próg
+     `@container karta (max-width: 520px)` i `.defs` schodzi do JEDNEJ kolumny, więc panel rośnie
+     w pionie i dane z kadr przestają dać się objąć wzrokiem. ⚠ Próg liczy się od TREŚCI
+     kontenera, nie od ramki: przy 560 px treść ma 512 px (minus dwa odstępy po 24) i nadal jest
+     pod progiem — zmierzone. Szerokość dobrana do progu, który już istnieje, zamiast dokładania
+     osobnego progu dla szuflady. */
+  width: min(600px, 100vw);
+  max-width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
+  /* `margin: auto` z `.modal` wyśrodkowuje — tu panel ma stać przy prawej krawędzi. */
+  margin: 0 0 0 auto;
+  border-radius: 0;
+  border-width: 0 0 0 1px;
+}
+/* ⚠ KORZEŃ FRAGMENTU JEST CZĘŚCIĄ UKŁADU. Zmierzone przed poprawką: htmx wstawiał treść
+   do bezklasowego `<div>` w `display: block`, który rozciągał się do wysokości treści
+   (1101 px przy dialogu 855), więc `.drawer__body` nigdy nie dostawał ograniczonej wysokości
+   i jego `overflow-y: auto` nie miał czego przewijać — `scrollTop` zostawał 0, a dialog obcinał
+   resztę swoim `overflow: hidden`. Ostatni przycisk panelu („Zakończ sesje") kończył się
+   na 1077 px przy oknie 855 i był nieosiągalny.
+
+   ⚠ `min-height: 0` na KAŻDYM ogniwie: domyślne `min-height: auto` dziecka flexa znaczy
+   „nie kurcz mnie poniżej treści" i to jest cała przyczyna.
+   ⚠ Selektor zaczyna się od `.drawer >`, bo ten sam fragment renderuje się też na pełnym
+   ekranie zapasowym (w `.card`) — tam ma zostać zwykłym blokiem, który przewija się stroną. */
+.drawer > .drawer__shell {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.drawer__head {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-4);
+  padding: var(--s-5) var(--s-5) var(--s-4);
+  border-bottom: 1px solid var(--c-line-soft);
+}
+.drawer__title { display: flex; align-items: center; gap: var(--s-3); flex-wrap: wrap; }
+.drawer__title h2 { font-size: var(--t-h2); font-weight: var(--w-semibold); color: var(--c-text); }
+.drawer__sub { font-size: var(--t-small); color: var(--c-text-3); }
+/* ⚠ Szuflada jest KONTENEREM o nazwie `karta` — tą samą, na którą patrzą reguły `.defs`,
+   `.form-grid` i `.backup-grid`. Bez tego `.defs` zostawało przy czterech kolumnach w panelu
+   szerokim na 460 px i NIP łamał się na dwie linie w środku liczby. Dokładanie osobnych
+   nadpisań „dla szuflady" znaczyłoby drugi zestaw progów dla tych samych komponentów. */
+.drawer__body {
+  container-type: inline-size;
+  container-name: karta;
+  /* ⚠ To ON przewija: `flex: 1 1 auto` bierze resztę wysokości, `min-height: 0` pozwala
+     skurczyć się poniżej treści, a nagłówek i stopka zostają na swoich miejscach. */
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: var(--s-5);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-6);
+}
+/* ⚠ Stopka jest PRZYKLEJONA do dołu szuflady, nie płynie z treścią: przy dłuższej liście
+   spółek znowu uciekłaby poniżej okna. `flex: none` zatrzymuje ją na miejscu. */
+.drawer__foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--s-2);
+  padding: var(--s-4) var(--s-5);
+  border-top: 1px solid var(--c-line);
+  background: var(--c-surface-mute);
+}
+/* Sekcja panelu: nagłówek z prawym dopiskiem („tylko do odczytu") i treść pod nim. */
+.pane { display: flex; flex-direction: column; gap: var(--s-3); }
+.pane__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-3); }
+.pane__title { font-size: var(--t-caption); letter-spacing: .04em; text-transform: uppercase; color: var(--c-text-3); }
+.pane__meta { font-size: var(--t-caption); color: var(--c-text-3); }
+
+/* Tło nie przewija się pod otwartym oknem — bez JS, samym selektorem. */
+body:has(dialog.modal[open]) { overflow: hidden; }
+
+.modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+  padding: var(--s-5) var(--s-5) var(--s-4);
+  border-bottom: 1px solid var(--c-line);
+  flex: none;
+}
+.modal__head h3 { font-size: var(--t-h2); font-weight: var(--w-semibold); color: var(--c-text); }
+
+.modal__close {
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--c-text-3);
+  font-size: var(--t-lead);
+  line-height: 1;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .modal__close:hover { background: var(--c-line-soft); color: var(--c-text-2); }
+}
+
+/* Jedyne miejsce z własnym przewijaniem. */
+/* ⚠ `flex: 1 1 auto` i `min-height: 0` są tu WARUNKIEM przewijania, nie ozdobą. Bez nich
+   treść wyższa od okna nie przewija się, tylko **wychodzi poza nie** — `overflow-y: auto`
+   nie ma czego przewijać, bo element rośnie do treści (`min-height: auto`), a dialog ma
+   `max-height` i nie obcina.
+   ⚠ Usterka była tu od początku i nie dawała objawu: wszystkie dotychczasowe okna miały krótką
+   treść (potwierdzenia, wynik wysyłki). Odsłoniła ją pierwsza długa lista — 35 kandydatów
+   na przełożonego — i to bramka nakładek ją zmierzyła: `scrollHeight == clientHeight` przy
+   ostatniej pozycji („Wróć do struktury") na wysokości 2729 px w oknie wysokim na 529 px.
+   To ta sama rodzina co „dół szuflady nieosiągalny", dla której to sprawdzenie powstało. */
+.modal__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: var(--s-5);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+}
+/* Karta wstawiona do okna nie narzuca własnej wysokości — przewija okno, nie karta. */
+.modal__body > .card { flex: 0 0 auto; }
+
+.modal__foot {
+  flex: none;
+  padding: var(--s-4) var(--s-5);
+  border-top: 1px solid var(--c-line);
+  background: var(--c-surface-mute);
+  font-size: var(--t-small);
+  color: var(--c-text-3);
+}
+
+/* ——— kreator: kroki ————————————————————————————————————————————————————
+   ⚠ Krok zrobiony jest CICHY: szara linia, zielony znacznik, tytuł. Kolor zostaje dla kroku,
+   który czeka albo się nie udał (§5.5) — cztery zielone prostokąty to nie informacja. */
+
+.wizard { list-style: none; display: flex; flex-direction: column; gap: var(--s-4); }
+
+.wizard__step {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--s-2) var(--s-3);
+  padding-bottom: var(--s-4);
+  border-bottom: 1px solid var(--c-line-soft);
+}
+.wizard__step:last-child { padding-bottom: 0; border-bottom: 0; }
+
+.wizard__mark {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--c-neutral-soft);
+  color: var(--c-text-3);
+  font-size: var(--t-caption);
+  font-weight: var(--w-semibold);
+}
+.wizard__step--zrobione .wizard__mark { background: var(--c-accent); color: var(--c-surface); }
+.wizard__step--biezacy  .wizard__mark { background: var(--c-warn-soft); color: var(--c-warn-text); }
+
+.wizard__name  { font-size: var(--t-body); font-weight: var(--w-medium); color: var(--c-text); }
+.wizard__state { font-size: var(--t-caption); color: var(--c-text-3); }
+
+.wizard__next, .wizard__hint { grid-column: 2 / -1; font-size: var(--t-small); color: var(--c-text-3); max-width: var(--measure); }
+
+.wizard__form { grid-column: 2 / -1; display: flex; flex-direction: column; align-items: flex-start; gap: var(--s-3); }
+.wizard__field { display: flex; flex-direction: column; gap: var(--s-1); width: min(380px, 100%); }
+.wizard__field > span { font-size: var(--t-caption); color: var(--c-text-3); }
+.wizard__mark .ico { width: 13px; height: 13px; stroke-width: 2.2; }
+
+/* ——— potwierdzenie operacji nieodwracalnej (§5.6) ——————————————————————— */
+
+.confirm { display: flex; flex-direction: column; gap: var(--s-5); }
+.confirm__title { font-size: var(--t-h2); font-weight: var(--w-semibold); color: var(--c-text); }
+.confirm__lead { font-size: var(--t-body); color: var(--c-text-2); }
+
+/* Konsekwencje wypunktowane: to jest treść potwierdzenia, nie ozdoba. */
+.confirm__list { display: flex; flex-direction: column; gap: var(--s-2); padding-left: var(--s-5); color: var(--c-text-2); font-size: var(--t-small); }
+.confirm__list li { list-style: disc; }
+
+/* Wykonanie po prawej, wyjście po lewej — kolejność ta sama co w oknie i na ekranie. */
+.confirm__actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--s-2); }
+
+/* ——— lista pól wyboru (zakres kluczy, §3 zlecenia 21.09) ——————————————— */
+
+.checklist { display: flex; flex-direction: column; gap: var(--s-2); }
+.checklist__label { font-size: var(--t-caption); color: var(--c-text-3); margin-bottom: var(--s-2); }
+
+/* Cały wiersz jest celem kliknięcia, nie sam kwadracik 13 px. */
+.checklist__item {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-height: var(--control-h-sm);
+  font-size: var(--t-body);
+  font-weight: var(--w-regular);
+  color: var(--c-text-2);
+  cursor: pointer;
+}
+.checklist__item input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--c-accent); flex: none; }
+
+/* Formularz jako kolumna: przycisk nie klei się do ostatniej pozycji listy. */
+.form-column { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s-4); }
+
+/* ——— sekret pokazywany raz (§5.7) ——————————————————————————————————————— */
+
+.secret { display: flex; flex-direction: column; gap: var(--s-2); }
+.secret__row { display: flex; align-items: center; gap: var(--s-2); flex-wrap: wrap; }
+.secret__value {
+  flex: 1 1 320px;
+  min-width: 0;
+  height: var(--control-h);
+  min-height: var(--control-h);
+  padding: 0 var(--s-3);
+  border: 1px solid var(--c-line-strong);
+  border-radius: var(--radius);
+  background: var(--c-surface);
+  color: var(--c-text);
+  font-family: var(--f-mono, inherit);
+  font-size: var(--t-body);
+  font-variant-numeric: tabular-nums;
+}
+/* Potwierdzenie kopiowania zmianą klasy — nigdy alert() (§5.7). */
+.secret__done { font-size: var(--t-small); color: var(--c-accent-text); }
+.secret__done[hidden] { display: none; }
+
+/* ——— pola formularzy uwierzytelnienia (§5.9) ————————————————————————————
+   ⚠ Pola na ekranie logowania zostały w starym języku: 56 px, promień 16 px i niebieska poświata
+   przy `:focus`, czyli także po kliknięciu myszą. Ekran widzi każdy użytkownik przy każdym wejściu,
+   więc pola wchodzą przed drugim rzutem — układ (`.auth-shell`, `.hero-panel`) zostaje na później. */
+
+/* ——— pole z kontrolką w środku (§4a) ————————————————————————————————————
+   ⚠ Zmierzone na `/logowanie`: pole loginu zajmowało całą szerokość, a pole hasła leżało
+   w pasku flex razem z przyciskiem „Pokaż” i DZIELIŁO z nim szerokość — dwa pola tego samego
+   formularza nie ustawiały się w pionie. Kontrolka wchodzi więc DO ŚRODKA pola.
+   Komponent jest ogólny: tak samo obsłuży ikonę wyszukiwania i jednostkę przy liczbie. */
+
+.input-group { position: relative; }
+.input-group .input { width: 100%; padding-right: calc(var(--s-2) + 34px); }
+.input-group__action {
+  position: absolute;
+  right: var(--s-1);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--c-text-3);
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .input-group__action:hover { background: var(--c-line-soft); color: var(--c-text-2); }
+}
+.input-group__action[aria-pressed="true"] { color: var(--c-accent-text); }
+/* Druga ikona (oko przekreślone) czeka ukryta — JS przełącza `hidden`, bez zmiany szerokości. */
+.input-group__action svg + svg { display: none; }
+.input-group__action[aria-pressed="true"] svg:first-child { display: none; }
+.input-group__action[aria-pressed="true"] svg + svg { display: inline-block; }
+
+/* ⚠ Bez tego Edge dokłada WŁASNY znak oka obok naszego — dwie ikony w jednym polu. */
+.input-group .input::-ms-reveal,
+.input-group .input::-ms-clear { display: none; }
+
+/* Kod jednorazowy i kod zapasowy: cyfry o stałej szerokości, reszta jak każde pole. */
+.input--code { font-variant-numeric: tabular-nums; letter-spacing: .18em; text-align: center; }
+
+/* ⚠ Stary arkusz stosuje `.control:focus` (także po kliknięciu myszą) — nasze pola używają
+   `.input`, więc tamta reguła ich nie dotyczy; obwódka ogniska idzie z 10-base.css. */
+
+/* ——— przyciski dostawców tożsamości (§4a) ——————————————————————————————
+   ⚠ To są warianty systemu, nie relikty. Ich reguły zostały w starym `base.css`, a nasz `.btn`
+   ładuje się później i przy tej samej wadze selektora wygrywał — przez co oba przyciski miały
+   przezroczyste tło i przezroczysty obrys, czyli były praktycznie niewidoczne na ekranie,
+   który widzi każdy użytkownik przy każdym wejściu.
+   Kolorów marek nie odtwarzamy: przycisk jest nasz, ze znakiem dostawcy. */
+
+.btn--google, .btn--apple {
+  background: var(--c-surface);
+  color: var(--c-text-2);
+  border-color: var(--c-line-strong);
+}
+@media (hover: hover) {
+  .btn--google:hover, .btn--apple:hover { background: var(--c-line-soft); }
+}
+.btn--google .ico, .btn--apple .ico { fill: currentColor; stroke: none; }
+
+/* Na ekranie logowania przyciski stoją w kolumnie, więc biorą całą jej szerokość. */
+.btn--block { width: 100%; }
+
+/* ——— pasek komunikatu (`.notice`) ——————————————————————————————————————
+   Jeden komponent na komunikat w treści strony. `.flash` (pasek pływający) używa TEGO wyglądu,
+   a w arkuszach powłoki ma wyłącznie pozycjonowanie — inaczej za pół roku mielibyśmy trzy paski
+   o trzech wyglądach.
+
+   ⚠ NIE jest przeniesiony jeden do jednego. Stara reguła dawała `.notice` tło `#ebf9f1`
+   i obramowanie `#d7efe2`, czyli ZIELONE — a „Sesja wygasła" nie jest sukcesem. Zieleń u nas
+   znaczy akcję i nic więcej (§2). Dlatego stan obojętny jest neutralny, a wariantu zielonego
+   (`box--success`) nie ma wcale. */
+
+/* ⚠ `display: block`, nie `flex`. Zmierzone na ekranie konta administracyjnego: przy `display: flex`
+   każdy węzeł tekstowy i każde `<strong>` stają się osobnym elementem elastycznym, więc zdanie
+   z wytłuszczeniem rozpadało się na trzy kolumny („Dla osoby, która" | „nie jest w programie
+   kadrowym" | resztę). ⚠ Żadne z 72 dzisiejszych użyć `.notice` nie ma ikony, więc `flex` nie
+   służył niczemu poza tą pułapką — a pasek komunikatu to akapit tekstu, nie rząd elementów. */
+.notice {
+  display: block;
+  padding: var(--s-3) var(--s-4);
+  border-radius: var(--radius);
+  /* Lewa krawędź zamiast pełnego obramowania: odróżnia pasek od karty, nie robiąc drugiej ramki. */
+  border-left: 3px solid var(--c-line-strong);
+  background: var(--c-neutral-soft);
+  color: var(--c-text-2);
+  font-size: var(--t-small);
+  line-height: var(--lh-body);
+}
+
+.notice--warn   { border-left-color: var(--c-warn);   background: var(--c-warn-soft);   color: var(--c-warn-text); }
+.notice--danger { border-left-color: var(--c-danger); background: var(--c-danger-soft); color: var(--c-danger-text); }
+
+/* Informacja robocza („dane pojawią się w Etapie 3") — obojętna, ale odróżnialna od treści. */
+/* ⚠ Krawędź CIĄGŁA, nie kreskowana. Kreska czyta się jako „element tymczasowy, zaraz zniknie",
+   a to pasek komunikatu — informacja o stanie aplikacji, nie rusztowanie. Odmianę roboczą
+   odróżnia przezroczyste tło i cichszy tekst, czyli mniej uwagi, a nie inny rodzaj krawędzi. */
+.notice--dev {
+  background: transparent;
+  color: var(--c-text-3);
+}
+
+.notice p { margin: 0; }
+.notice p + p { margin-top: var(--s-2); }
+
+/* Nadtytuł nad nagłówkiem („Logowanie" nad „Zaloguj się").
+   ⚠ Reguła POZA listą zatwierdzoną, ale zamówiona w §3.1 punkt 4 („przenieś, jeśli są w użyciu") —
+   jest w użyciu na 8 szablonach, w tym na `/logowanie`. Bez niej czyta się jak zabłąkany odnośnik.
+   ⚠ NIE przeniesiona jeden do jednego: stara reguła dawała `color: var(--green)`, czyli nadtytuł
+   świecił kolorem akcji. Tu bierze typografię etykiety (§3) i kolor drugorzędny. */
+.eyebrow {
+  margin: 0;
+  font-size: var(--t-label);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--c-text-3);
+}
+
+/* Pomocniczy odnośnik pod przyciskiem formularza („Nie pamiętasz hasła?").
+   ⚠ Reguła POZA listą zatwierdzoną — dopisuję ją, bo polecenie „odnośnik schodzi pod przycisk,
+   wyśrodkowany" nie da się spełnić żadną istniejącą klasą: `.stack` wyrównuje do szerokości,
+   a wyśrodkowania nie ma w systemie ani jako utility, ani jako modyfikator. Jedna reguła
+   zamiast utility `text-align`, żeby nie otwierać drogi do klas pomocniczych. */
+.form-link { align-self: center; font-size: var(--t-small); }
+
+/* ——— separator z wyrazem („lub") ——————————————————————————————————————— */
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  font-size: var(--t-caption);
+  color: var(--c-text-3);
+}
+
+.divider::before,
+.divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--c-line);
+}
+
+/* ——— rytm pionowy ——————————————————————————————————————————————————————
+   ⚠ Odstęp daje KONTENER, nie marginesy dzieci. Przy marginesach odstęp zależy od tego, co
+   akurat stoi w środku, więc dwa formularze o tej samej budowie wyglądają inaczej. */
+
+.stack { display: flex; flex-direction: column; gap: var(--s-4); }
+.stack--sm { gap: var(--s-2); }
+.stack--lg { gap: var(--s-5); }
+
+/* ——— pusty stan ————————————————————————————————————————————————————————— */
+
+.empty-state {
+  margin: 0;
+  padding: var(--s-6) var(--s-4);
+  border: 1px dashed var(--c-line-strong);
+  border-radius: var(--radius);
+  text-align: center;
+  color: var(--c-text-3);
+  font-size: var(--t-small);
+}
+
+/* ——— formularz w jednej linii z tekstem ——————————————————————————————————
+   Jeden przycisk w wierszu tabeli albo w zdaniu; `<form>` nie ma tu łamać linii. */
+
+.inline-form { display: inline; margin: 0; }
+
+/* ——— lista odnośników ustawień ——————————————————————————————————————————
+   ⚠ Nie było czego przenosić: `.settings-list` nie miała reguł w ŻADNYM arkuszu, ani nowym,
+   ani starym — czyli ekran `/konto` był nieostylowany także na komputerze. Napisane od zera,
+   wiersz wysokości celu dotykowego, bez własnych kolorów. */
+
+/* ⚠ JEDEN komponent na trzy listy, które robiły to samo trzema nazwami: ustawienia konta
+   (`settings-list`), wybór firmy (`context-*`) i lista urządzeń (`devices__*`). Wszystkie trzy
+   to lista wierszy z treścią i czymś na końcu — różni je tylko to, czym jest wiersz:
+     `<a class="settings-list__row">`      — cały wiersz jest celem (ustawienia),
+     `<button class="settings-list__row">` — cały wiersz jest celem i wysyła formularz (wybór firmy),
+     `<div class="settings-list__row">`    — wiersz NIE jest celem, akcja stoi w nim (urządzenia).
+   ⚠ To była decyzja do uzasadnienia, nie oczywistość: różnica jest w SPOSOBIE KLIKANIA, nie
+   w wyglądzie. Gdyby wymagała różnych odstępów albo różnych krawędzi, byłyby to dwa komponenty.
+
+   ⚠ Stan „bieżąca/to urządzenie" NIE dostaje koloru. Stare reguły dawały zieloną krawędź
+   i zielone tło (`#9dddbd`, `#f0fbf5`), czyli kolor akcji na stanie normalnym — ta sama pomyłka
+   co `badge--approved`. Który wiersz jest bieżący, mówi plakietka, i to wystarcza (§2). */
+
+.settings-list { list-style: none; margin: 0; padding: 0; }
+
+.settings-list li + li { border-top: 1px solid var(--c-line-soft); }
+
+.settings-list__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  width: 100%;
+  min-height: var(--control-h-touch);
+  padding: var(--s-3) 0;
+  border: 0;
+  background: transparent;
+  color: var(--c-text-2);
+  font-family: inherit;
+  font-size: var(--t-body);
+  font-weight: var(--w-regular);
+  text-align: left;
+  text-decoration: none;
+}
+
+/* Cały wiersz jako przycisk ma wyglądać jak wiersz, nie jak przycisk — kursor mówi, że da się
+   kliknąć, a rysunku nie dokładamy. */
+.settings-list__row:is(a, button) { cursor: pointer; }
+
+/* Treść wiersza: nazwa nad metryką. Dwie linie, ciszej w drugiej — jak w liście wniosków. */
+.settings-list__copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.settings-list__copy strong { font-weight: var(--w-medium); color: var(--c-text); }
+.settings-list__copy small { font-size: var(--t-caption); color: var(--c-text-3); }
+
+.settings-list__row > span:last-child { color: var(--c-text-4); }
+
+@media (hover: hover) {
+  .settings-list__row:is(a, button):hover { color: var(--c-text); text-decoration: none; }
+  .settings-list__row:is(a, button):hover > span:last-child { color: var(--c-text-3); }
+}
+
+/* ——— kalendarz miesięczny: USUNIĘTY 07.10.2026 ————————————————————————————
+   Siatka miesiąca (`.calendar-grid`, `.day-cell`, `.day-entry`) obsługiwała widok „Tylko ja”
+   i była DRUGĄ wizualizacją tej samej rzeczy — nieobecności w miesiącu. Od 07.10 wszystkie trzy
+   widoki kalendarza rysuje `partials/os-czasu.twig` (`.team-grid`), więc te reguły przestały
+   dotyczyć czegokolwiek.
+   ⚠ Zostawienie ich byłoby pułapką dokładnie tego rodzaju, który tę zmianę wywołał: ktoś
+   poprawia wygląd dnia w `.day-cell`, nic się nie zmienia, i szuka przyczyny w danych.
+   Historia reguł jest w gicie. */
+
+/* ——— legenda kalendarza —————————————————————————————————————————————————
+   Kolor paska bez legendy jest ozdobą; legenda robi z niego daną.
+
+   ⚠ **Próbka wygląda jak MINIATURA PASKA, nie jak kreska** (zlecenie
+   `2026-10-11-paski-nieobecnosci.md` §3). Do 11.10.2026 legenda pokazywała kreskę w kolorze
+   **obrysu** (`--c-accent` / `--c-warn` / `--c-text-4`), bo rodzaj niósł wtedy obrys. Odkąd
+   rodzaj niesie **wypełnienie**, kreska w kolorze obrysu opisywałaby kolor, którego na ekranie
+   już nie ma — czyli legenda i rzecz, którą opisuje, miałyby inny kolor. Te same tokeny
+   po obu stronach są więc warunkiem, nie porządkiem. */
+.legend { display: flex; flex-wrap: wrap; gap: var(--s-3); font-size: var(--t-caption); color: var(--c-text-3); }
+.legend__item { display: inline-flex; align-items: center; gap: var(--s-1); }
+/* Miniatura paska: ta sama „pigułka" co w siatce, tylko mniejsza — 18 × 10 px zamiast 3 × 14. */
+.legend__mark { width: 18px; height: 10px; border-radius: 999px; background: var(--c-pasek-kadrowe-tlo); }
+.legend__mark--urlop   { background: var(--c-pasek-urlop-tlo); }
+.legend__mark--zasilek { background: var(--c-pasek-zwolnienie-tlo); }
+.legend__mark--kadrowe { background: var(--c-pasek-kadrowe-tlo); }
+/* ⚠ Dzień wolny NIE jest paskiem — to tło kolumny, więc próbka zostaje prostokątem z obrysem.
+   Gdyby i ona była pigułką, legenda mówiłaby, że dzień wolny jest nieobecnością. */
+.legend__mark--free    { width: 14px; height: 14px; border-radius: 2px; background: var(--c-surface-hover); border: 1px solid var(--c-line); }
+
+/* ——— ekran kalendarza: trzy bloki i wiersz nawigacji ————————————————————————
+   (zlecenie `2026-10-11-trzy-bloki-nawigacja-w-naglowku.md` §1 i §2, prototyp zatwierdzony
+   przez Krzysztofa w przeglądarce)
+
+   ⚠ **`.bloki` to pojemnik, nie komponent.** Jedna karta na cały ekran kalendarza rozpadła się
+   na trzy — nagłówek, kalendarz, objaśnienia — a każdy z nich jest **zwyczajną `.card`**, tą
+   samą co wszędzie w systemie. Dlatego tu nie ma ani tła, ani ramki, ani promienia: pojemnik
+   tylko ustawia bloki w kolumnie i trzyma między nimi odstęp. Gdyby rysował cokolwiek, byłaby
+   to czwarta ramka wokół trzech ramek.
+   ⚠ **Blok z siatką NIE dostaje `overflow: hidden`** (ma `card--os`). Zmierzone na prototypie:
+   `overflow: hidden` dołożony dla zaokrąglenia rogów czyni element kontenerem przewijanym,
+   a `position: sticky` odnosi się do najbliższego takiego przodka — przyklejony nagłówek dni
+   zjechał wtedy pod pierwsze nazwisko. Cena: prostokątna siatka dochodzi do zaokrąglonego
+   narożnika bloku. Przyklejony nagłówek jest ważniejszy niż 8 px promienia. */
+.bloki { display: flex; flex-direction: column; gap: var(--s-4); }
+
+/* ⚠ **Wiersz nawigacji stoi W BLOKU, nie nad kartą.** `.page__actions` z tego ekranu zniknęło:
+   strzałki miesiąca i oba przełączniki dotyczą tego, co jest w karcie, a stały poza nią.
+   ⚠ Strzałki są **przy nazwie okresu**, bo jej dotyczą — nie w prawym kącie razem
+   z przełącznikami, które dotyczą czego innego.
+   ⚠ **Wiersz stoi na górze bloku nagłówka, nie we własnym bloku** (zgłoszenie Krzysztofa
+   z 11.10.2026, późny wieczór: „zbij w jeden box tam, gdzie jest »Maj 2026« i »1 nieobecność
+   w tym miesiącu«"). Osobny blok na sam pasek sterowania robił szóstą ramkę na ekranie,
+   a nazwa okresu i zdanie o tym okresie mówią o tej samej rzeczy.
+   ⚠ **Wyściółka PEŁNA, także od dołu — od 13.10.2026.** Dotąd kończyła się na zerze, bo odstęp
+   pod spodem dawał `.card__head` ze zdaniem o nieobecnościach. Zdanie weszło do bloku tytułu
+   (`.kal-nav__tytul`), więc `card__head` z tego ekranu zniknęło — a wraz z nim jedyne źródło
+   dolnego odstępu. Blok nagłówka „Tylko ja" i „Lista" to teraz **sam ten wiersz**.
+   ⚠ **24 px, nie 22 px z prototypu.** Odstępy w tym projekcie pochodzą wyłącznie z tokenów
+   (`system-wizualny.md` §1, reguła blokująca), a 22 px nie jest żadnym z nich; `--s-5` to
+   dokładnie ta kolumna, w której stoi treść niżej. Różnica 2 px, cena — zero. */
+.kal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  /* Prototyp dawał 40 px; to NAJMNIEJSZY odstęp obu grup, a nie ich odległość — przy
+     `space-between` prawdziwy odstęp jest resztą szerokości karty. `--s-6` (32 px) to
+     najbliższy token. */
+  gap: var(--s-6);
+  flex-wrap: wrap;
+  padding: var(--s-5);
+}
+.kal-nav__okres { display: flex; align-items: center; gap: var(--s-3); min-width: 0; }
+/* ⚠ **Nazwa okresu i zdanie o nim to JEDEN blok** (zlecenie 13.10 §1): tytuł 20 px / 600,
+   a pod nim podpis 13 px. Przed zmianą zdanie stało w osobnym pojemniku pod całym wierszem
+   i miało tę samą wagę, co kontrolki po prawej — ekran nie miał tematu.
+   ⚠ **20 px (`--t-h2`), nie 22 px z prototypu**: 22 px nie jest tokenem typografii (§3.2 ma
+   30 / 20 / 16 / 14 / 13 / 12 / 11), a `.card__title` jest komponentem całej aplikacji — zmiana
+   jego rozmiaru dla jednego ekranu przestawiłaby nagłówki wszystkich kart. Hierarchia, o którą
+   szło w prototypie (tytuł nad podpisem, waga 600), wychodzi z układu, nie z dwóch pikseli. */
+.kal-nav__tytul { display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; }
+/* ⚠ **Strzałki są PARĄ, nie dwoma przyciskami po dwóch stronach napisu** (to samo zgłoszenie).
+   Rozdzielone nazwą okresu przestawały być jedną kontrolką o dwóch kierunkach — a przeskok
+   o okres w tył i w przód to jedna czynność. Odstęp 4 px, czyli mniejszy niż odstęp pary
+   od nazwy (12 px): o tym, co jest z czym, mówi bliskość, nie ramka. */
+.kal-nav__strzalki { display: inline-flex; align-items: center; gap: var(--s-1); }
+/* ⚠ **Dwa przełączniki to DWIE OSIE, nie jeden pasek o pięciu pozycjach** (zlecenie 13.10 §1).
+   Dzieliło je 8 px (zmierzone: 1648 → 1656) i czytały się jako jedna kontrolka, w której dwie
+   pozycje są białe — a to skala czasu i to, czyj kalendarz widać. Stąd odstęp `--s-5` (24 px;
+   prototyp miał 22) i włosowa kreska w połowie tego odstępu.
+   ⚠ Odstęp niesie znaczenie, więc kreska liczy się Z NIEGO (`calc(var(--s-5) / -2)`), a nie
+   z wpisanej liczby: dwie kopie tej samej wartości rozjechałyby się przy pierwszej zmianie. */
+.kal-nav__kontrolki { display: flex; align-items: center; gap: var(--s-5); flex-wrap: wrap; justify-content: flex-end; }
+.kal-nav__kontrolki > .segmented + .segmented { position: relative; }
+.kal-nav__kontrolki > .segmented + .segmented::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--s-5) / -2);
+  top: var(--s-1);
+  bottom: var(--s-1);
+  width: 1px;
+  background: var(--c-line);
+}
+
+/* ⚠ **Legenda stoi NAD SIATKĄ, w jej bloku** (zlecenie 13.10 §1, prototyp: „rzecz stoi przy tym,
+   czego dotyczy"). Wyrównana do PRAWEJ krawędzi siatki, bo jest podpisem, a nie nagłówkiem —
+   po lewej konkurowałaby z nazwiskiem w pierwszej kolumnie. Wyściółka daje jednocześnie górny
+   odstęp bloku z siatką: `os-czasu.twig` ma `card__body--flush`, czyli zero wyściółki, bo siatka
+   dochodzi do krawędzi. */
+.siatka-legenda { display: flex; justify-content: flex-end; padding: var(--s-3) var(--s-5) var(--s-1); }
+
+/* ⚠ **Objaśnienia pod kalendarzem NIE SĄ KARTĄ** (zlecenie 13.10 §3). Do 13.10.2026 stały we
+   własnej `.card`, z tą samą ramką i tą samą wagą, co kalendarz nad nimi — a to komentarz,
+   nie dana. Zwykły tekst na tle strony; długość wiersza ogranicza `.card__meta` (`--measure`).
+   ⚠ Bez wyściółki po bokach: tekst bez ramki należy do kolumny strony, więc jego lewa krawędź
+   stoi tam, gdzie krawędzie bloków nad nim, a nie 24 px w głębi nieistniejącego pudełka. */
+.objasnienia { display: flex; flex-direction: column; gap: var(--s-2); }
+
+/* ⚠ Przycisk z samą ikoną. Wysokość z `--control-h-sm` (32 px), czyli **tej samej co
+   `.segmented`** — inaczej wiersz nawigacji miałby dwie różne wysokości kontrolek obok siebie.
+   ⚠ `aria-label` i `title` są w szablonie **obowiązkowe**: przycisk bez tekstu i bez etykiety
+   jest dla czytnika ekranu pustym odnośnikiem. Treść etykiety zależy od skali („Poprzedni rok"
+   kontra „Poprzedni miesiąc") — tego nie widać na obrazku, więc rozstrzyga to szablon. */
+.ikona-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius);
+  background: var(--c-surface);
+  color: var(--c-text-2);
+  text-decoration: none;
+  cursor: pointer;
+}
+.ikona-btn:hover { background: var(--c-surface-hover); color: var(--c-text); }
+
+/* ⚠ Ikona OBOK podpisu w przełączniku, nie zamiast niego: w 16 px sylwetka jednej osoby i grupy
+   są bardzo podobne, a pomyłka znaczy, że człowiek patrzy na inne dane, niż myśli.
+   ⚠ 6 px to odstęp ikony od podpisu **wewnątrz kontrolki**, nie odstęp układu — ta sama klasa
+   wartości co `border-radius: 6px` dwie reguły wyżej w tym samym komponencie. */
+.segmented__item { gap: 6px; }
+.segmented__item .ico { width: 16px; height: 16px; }
+
+/* ——— kalendarz zespołu: wiersze to osoby, kolumny to dni ————————————————————
+   ⚠ Dlaczego nie kilka siatek miesiąca obok siebie: przy planowaniu urlopów pytanie brzmi
+   „kto i kiedy wypada z zespołu", a tego z pięciu osobnych miesięcy nie da się odczytać.
+
+   ⚠ Poziome przewijanie jest TUTAJ zamierzone i ograniczone do własnego opakowania, żeby
+   `.card__body` nie przewijał się nigdy (bramka ekranowa pilnuje tych kontenerów). Trzydzieści
+   jedna kolumna nie zmieści się na 374 px przy żadnej typografii — więc przy wąskim ekranie
+   siatka jedzie w bok, a nie kruszy treść do nieczytelności. Bramka mierzy za to szerokość
+   kolumny dnia i kolumny osoby. */
+/* ⚠ **Opakowanie siatki przewija się ZAWSZE i w obu osiach — to jest układ arkusza**
+   (zlecenie `2026-10-11-waskie-ekrany-i-dni-tygodnia.md` §1): zamrożony pierwszy wiersz
+   (nagłówek dni) i zamrożona pierwsza kolumna (nazwiska).
+
+   ⚠ **Co było źle do 11.10.2026 i dlaczego nie dało się tego mieć „tylko czasem":**
+   stało tu `@media (max-width: 1320px) { .team-scroll { overflow-x: auto } }`, z komentarzem,
+   że powyżej progu opakowanie „nie przewija niczego", więc nagłówek dni przyklei się do OKNA.
+   Pierwsza połowa zdania jest nieprawdziwa: **ustawienie przycinania w jednej osi sprawia, że
+   druga przestaje być `visible` i wylicza się na `auto`** — nikt tego nie pisze, robi to
+   przeglądarka. Opakowanie stawało się więc kontenerem przewijania, a kontener przewijania jest
+   blokiem odniesienia dla `position: sticky`: `top: var(--topbar-h)` liczyło się od góry siatki,
+   nie od belki strony. Zmierzone przy kontenerze 700 px: góra siatki 338, pierwszy wiersz osoby
+   374, **nagłówek dni 402** — czyli wiersz `OSOBA · 1 · 2 · 3 …` lądował POD pierwszym
+   nazwiskiem, przesunięty o dokładnie 64 px. Dotyczyło to każdego okna węższego niż 1320 px,
+   czyli zwykłego niezmaksymalizowanego okna na laptopie.
+   ⚠ To ta sama rodzina co `overflow: hidden` psujące przyklejenie w `.card`: **zmiana
+   przycinania w jednej osi zmienia zachowanie przyklejania w drugiej.** Reguła, nie dwa
+   przypadki.
+
+   ⚠ **`max-height` jest WYLICZONE, nie przepisane z prototypu** (prototyp proponował
+   `calc(100vh - 260px)`). Warunek, który ma spełniać, da się zapisać dokładnie: ma istnieć
+   takie przewinięcie strony, przy którym całe opakowanie jest widoczne, a jego góra stoi POD
+   belką. Góra opakowania w dokumencie to `nad`, wysokość `H`, okno `vh`; żeby dół był w kadrze,
+   trzeba przewinąć o `nad + H - vh`, a żeby góra została pod belką, przewinięcie nie może
+   przekroczyć `nad - topbar`. Z obu nierówności `nad` się skraca i zostaje **`H ≤ vh - topbar`**
+   — czyli warunek NIE ZALEŻY od tego, co stoi nad siatką (zdanie, legenda, komunikaty).
+   Stąd `100vh - --topbar-h`, minus jeden odstęp strony, żeby ramka nie siedziała na krawędzi.
+   Zmierzone: okno 900 → opakowanie **812 px**, okno 700 → **612 px** (prototyp dałby 640 i 440),
+   czyli o trzy do czterech wierszy więcej przy tym samym zachowaniu nagłówka.
+   ⚠ Sama liczba siedzi w **`--kadr-h`, w warstwie powłoki**, bo odpowiedź jest inna na telefonie
+   (belka górna plus dolna nawigacja plus pasek gestów). Komponent pyta o kadr i nie wie, w czym
+   stoi.
+   ⚠ Czego to NIE załatwia: gdy strona zostanie przewinięta **poniżej** bloku z siatką, całe
+   opakowanie wyjeżdża w górę razem z nią i zamrożony nagłówek znika z kadru (zmierzone:
+   przy przewinięciu 400 px góra opakowania ma -66). Wraca po przewinięciu strony z powrotem.
+   Pełną widoczność daje przedział przewinięcia strony, który przy oknie 900 ma 24 px
+   (246–270) — wąski, bo opakowanie jest tak wysokie, jak się da.
+   ⚠ `overscroll-behavior-x: contain` **nie jest ozdobą**: bez niego przewinięcie siatki do końca
+   przechodzi na stronę i na gładziku potrafi cofnąć przeglądarkę. */
+.team-scroll {
+  max-width: 100%;
+  overflow: auto;
+  max-height: var(--kadr-h);
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--c-line-strong) transparent;
+}
+
+/* Szerokości w tokenach, bo wchodzą w trzy reguły (siatka, minimalna szerokość, przewijanie). */
+.team-grid { --team-person-w: 200px; --team-day-w: 26px; }
+.team-grid--days-31 { --team-days: 31; }
+.team-grid--days-30 { --team-days: 30; }
+.team-grid--days-29 { --team-days: 29; }
+.team-grid--days-28 { --team-days: 28; }
+/* ⚠ **Próg siedzi na KONTENERZE, nie na oknie** (zlecenie §2, `system-wizualny.md`: „miejsce
+   mierzy się tam, gdzie rzecz stoi"). Przewijanie dzieje się w bloku z siatką, a blok bywa
+   węższy od okna — przy układzie dwukolumnowym albo panelu bocznym próg od okna nie zadziała
+   wcale. Wartość **980 px** jest zmierzona: tam kolumna dnia dobija do podłogi `--team-day-w`
+   (przy 1000 px cały miesiąc mieści się bez przewijania, przy 820 px brakuje 161 px), czyli
+   dokładnie w tym punkcie zaczyna się ciasnota, na którą ten próg odpowiada. Zastąpił próg
+   `@media (max-width: 900px)` — liczbę zmieniam świadomie, bo stara była od okna i pilnowała
+   czego innego. */
+@container karta (max-width: 980px) { .team-grid { --team-person-w: 140px; } }
+/* Przeglądarka bez zapytań kontenerowych dostaje próg od okna — gorzej dobrany, ale nigdy
+   kolumna nazwisk na 56 % wąskiego ekranu. */
+@supports not (container-type: inline-size) {
+  @media (max-width: 900px) { .team-grid { --team-person-w: 140px; } }
+}
+
+.team-grid {
+  display: grid;
+  grid-template-columns: var(--team-person-w) repeat(var(--team-days), minmax(var(--team-day-w), 1fr));
+  border-top: 1px solid var(--c-line);
+  border-left: 1px solid var(--c-line);
+  min-width: calc(var(--team-person-w) + var(--team-days) * var(--team-day-w));
+}
+
+/* ⚠ **Dwa wiersze w nagłówku kolumny: skrót dnia tygodnia nad numerem** (zlecenie
+   `2026-10-11-waskie-ekrany-i-dni-tygodnia.md` §4). Dlatego kolumna, a nie `text-align`:
+   dwie dane jedna pod drugą, z własną interlinią.
+
+   ⚠ **Wiersz skrótów jest WYRÓWNANY DO GÓRY, a nie wyśrodkowany** — zgłoszenie Krzysztofa
+   z 13.10.2026: „zaznaczenie dnia bieżącego wygląda źle, może daj wyżej napis z dniem
+   tygodnia". Przyczyna była zmierzona: każda komórka centrowała SWOJĄ treść, a plakietka
+   „dziś" ma 26 px wobec 13 px zwykłego numeru, więc komórka z dzisiejszym dniem była wyższa
+   i jej skrót stał **6 px powyżej** wszystkich pozostałych (zmierzone: `dow_y` 275 wobec 281).
+   Jeden wiersz nagłówka miał więc dwa poziomy napisów.
+   ⚠ Samo wyrównanie do góry nie wystarcza — wtedy rozjeżdżają się NUMERY. Dlatego numer siedzi
+   w pudełku o **stałej wysokości plakietki** (`.team-grid__numer`, 26 px): zwykły numer jest
+   w nim wyśrodkowany, plakietka wypełnia je dokładnie, a oba poziomy — skrótów i numerów —
+   są te same we wszystkich kolumnach, także w miesiącu, w którym „dziś" nie wypada. */
+.team-grid__head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 1px;
+  line-height: 1.1;
+  padding: var(--s-1) 0;
+  font-size: var(--t-caption);
+  color: var(--c-text-3);
+  border-right: 1px solid var(--c-line);
+  border-bottom: 1px solid var(--c-line);
+  background: var(--c-surface-mute);
+  font-variant-numeric: tabular-nums;
+  /* ⚠ Każda komórka nagłówka jest własnym KONTENEREM ZAPYTANIA — patrz `.team-grid__dow`. */
+  container-type: inline-size;
+}
+
+.team-grid__numer { display: inline-flex; align-items: center; justify-content: center; min-height: 26px; }
+
+/* ⚠ **Te same skróty, co w siatce Roku** (`pon wt śr czw pt sob niedz`) — zgłoszenie Krzysztofa
+   z 13.10.2026. Do 13.10 oś czasu miała własne, dwuliterowe, bo mieszczą się w kolumnie
+   o podłodze 26 px; dwa zestawy nazw tej samej rzeczy w dwóch widokach jednego kalendarza
+   to jednak dwa różne programy, a nie oszczędność miejsca.
+   ⚠ `--t-label` (11 px), bo token jest opisany dokładnie jako „NAGŁÓWEK KOLUMNY, etykieta" —
+   a skrót dnia tygodnia jest etykietą kolumny, nie daną. Numer zostaje na `--t-caption`,
+   czyli dalej jest mocniejszy.
+
+   ⚠ **Skrót znika, kiedy przestaje się mieścić — i decyduje o tym KOLUMNA, nie okno.**
+   Zmierzone szerokości napisów przy 11 px: `śr` 12, `pt` 13, `wt` 16, `sob` 23, `pon` 24,
+   `czw` 25, **`niedz` 35**. Komórka nie ma odstępu bocznego, więc poniżej ~34 px najdłuższy
+   skrót wyszedłby na sąsiednią kolumnę. Zamiast tego **cała kolejka skrótów gaśnie** i zostają
+   same numery: nagłówek ucięty do `nied` kłamałby, a przycięty wyglądałby na usterkę.
+   ⚠ Mechanizm to zapytanie o **własną komórkę** (`.team-grid__head` ma `container-type`), a nie
+   próg na karcie. Powód: szerokość kolumny zależy od długości miesiąca, szerokości kolumny
+   nazwisk i szerokości bloku — czyli próg na karcie trzeba by policzyć osobno dla 28, 29, 30
+   i 31 dni i poprawiać przy każdej zmianie. Komórka zna swoją szerokość sama.
+   ⚠ **Podłoga `--team-day-w` zostaje 26 px.** Podniesienie jej do 38 px (tyle potrzebuje `niedz`
+   z odstępem) byłoby prostsze, ale wyliczone: 31 dni × 38 + 200 = 1378 px, czyli cały miesiąc
+   przestałby się mieścić nawet w karcie 1286 px na oknie 1600 — pasek przewijania pojawiłby się
+   na pełnym ekranie, żeby zmieścić słowo „niedz". */
+.team-grid__dow { font-size: var(--t-label); color: var(--c-text-4); }
+@container (max-width: 33px) { .team-grid__dow { display: none; } }
+
+.team-grid__head--person {
+  align-items: flex-start;
+  justify-content: center;
+  text-align: left;
+  padding-left: var(--s-3);
+  font-size: var(--t-label);
+  font-weight: var(--w-medium);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+}
+
+.team-grid__head--free { color: var(--c-text-5); }
+
+/* ⚠ **Nagłówek z numerami dni zostaje na ekranie przy przewijaniu strony** (§4a.1 zlecenia).
+   Powód jest zmierzony: siatka 30 wierszy daje dokument 2322 px w oknie 855 px, a po jednym
+   ekranie w dół wiersz z numerami dni miał `top = -454 px` — czyli znikał. Oś czasu bez
+   widocznej osi przestaje być osią czasu; przy sześciu wierszach problemu nie było, bo
+   nagłówek był zawsze w kadrze.
+   ⚠ To przyklejenie przy przewijaniu STRONY, nie pudełko z własnym paskiem — zakaz przewijania
+   w kontenerach obowiązuje bez zmian.
+   ⚠ `z-index` jest konieczny: paski nieobecności są `position: absolute` w komórkach, więc bez
+   warstwy przejechałyby po nagłówku.
+
+   ⚠ **`top: 0`, a nie wysokość belki — i to jest zmiana z 11.10.2026 wieczorem.** Historia tej
+   jednej liczby jest pouczająca, więc zostaje zapisana w całości:
+     • do 10.10 stało `top: 0` i nagłówek przyklejał się dokładnie tam, gdzie `.topbar`
+       (też `sticky; top: 0`, ale `z-index: 10`) — czyli chował się pod belką i nie było widać
+       ani jednego numeru dnia. Prostokąt się zgadzał, więc kryterium liczone z prostokąta
+       świeciło zielono; wykrył to hit-test (`elementFromPoint` zwracał `HEADER.topbar`),
+     • 10.10 weszło `top: var(--topbar-h)` i było poprawne **dopóki odniesieniem było okno**,
+     • od 11.10 odniesieniem jest **opakowanie siatki**, bo przewija się zawsze (patrz
+       `.team-scroll`). 64 px liczyłoby się więc od góry siatki i wpychało nagłówek pod pierwsze
+       nazwisko — dokładnie usterka, którą naprawia ta tura. Przy `top: 0` nagłówek stoi
+       na górnej krawędzi opakowania, a belki nie dotyka, bo opakowanie nigdy pod nią nie wchodzi
+       (patrz rachunek `max-height`).
+   ⚠ Sens tego ciągu: **`top` przyklejenia zależy od tego, KTO jest kontenerem przewijania.**
+   Zmiana `overflow` gdziekolwiek wyżej unieważnia tę liczbę, choć nikt jej nie dotknął. */
+.team-grid__head { position: sticky; top: 0; z-index: 2; }
+
+/* Narożnik: przyklejony w obu osiach, więc warstwa wyżej niż jedna i druga krawędź. */
+.team-grid__head--person { left: 0; z-index: 3; }
+
+/* ⚠ Kolumna z nazwiskiem przykleja się przy przewijaniu W BOK — od 11.10.2026 **zawsze**,
+   bo opakowanie jest kontenerem przewijanym na każdej szerokości (patrz `.team-scroll`);
+   wcześniej działo się to tylko poniżej 1320 px. Przy szerokim bloku nie ma czego przewijać,
+   więc przyklejenie nic nie zmienia — i o to chodzi: jedno zachowanie zamiast dwóch.
+   Tło jest obowiązkowe: bez niego komórki dni przejeżdżałyby pod nazwiskiem. */
+.team-grid__person {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--c-surface);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 44px;
+  padding: var(--s-2) var(--s-3);
+  border-right: 1px solid var(--c-line);
+  border-bottom: 1px solid var(--c-line);
+  font-size: var(--t-small);
+  color: var(--c-text);
+}
+
+/* ⚠ Nazwa osoby NIE jest ucinana — ucięciu podlega wyłącznie nazwa rodzaju na pasku,
+   którą niesie też kolor krawędzi i legenda (zlecenie §5). */
+.team-grid__person small { font-size: var(--t-caption); color: var(--c-text-3); }
+
+.team-grid__cell {
+  position: relative;
+  min-height: 44px;
+  border-right: 1px solid var(--c-line-soft);
+  border-bottom: 1px solid var(--c-line);
+}
+
+/* ⚠ **Ostatnia kolumna nie rysuje własnej prawej krawędzi** (zlecenie
+   `2026-10-11-trzy-bloki-nawigacja-w-naglowku.md` §4). Zmierzone: komórka dnia 31 kończyła
+   krawędź (1 px `--c-line-soft`) na 1855, a ramka bloku stała na 1856–1857 (1 px `--c-line`) —
+   **dwie kreski w dwóch szarościach, 1 px od siebie**. Krzysztof: „przy «31» od prawej widać
+   jakby 2 linie". Krawędź zewnętrzną rysuje pojemnik, więc kolumna swojej mieć nie może.
+
+   ⚠ **Pierwszy mechanizm był BŁĘDNY i zdążył narobić szkody — zostawiam to zapisane.**
+   Stało tu `nth-child` po liczbie kolumn (`--days-30 > *:nth-child(31n)`) z uzasadnieniem
+   „co `1 + dni` dzieci wypada koniec wiersza". To zdanie jest **nieprawdziwe**: pasek
+   nieobecności to JEDNA komórka z `grid-column: span N`, więc wiersz z nieobecnością ma
+   **mniej dzieci niż kolumn**. Licznik `31n` rozjeżdża się od pierwszego paska i dalej trafia
+   w środek wierszy. Zmierzone na `?miesiac=2026-06`, spółka 3: wiersze mają kolejno
+   **31, 27, 31, 27, 30, 31, 20, 31** dzieci, a z 50 komórek pozbawionych prawej krawędzi
+   **48 leżało w środku wiersza** i tylko 2 na jego końcu. Przy innym układzie nieobecności
+   licznik trafia w `.team-grid__person` — i wtedy nazwisko **zlewa się z pierwszym dniem
+   miesiąca** w jedno pole, bo znika jedyna kreska między nimi. Tak to zgłosił Krzysztof.
+
+   ⚠ Teraz ostatnią komórkę wskazuje **szablon** (`loop.last`), bo tylko on wie, gdzie kończy
+   się wiersz: komórki pokrywają wszystkie dni miesiąca, więc ostatnia z nich **zawsze** stoi
+   w ostatniej kolumnie, niezależnie od tego, ile ich jest. Przy okazji znikają cztery reguły
+   zależne od długości miesiąca — nowy miesiąc nie wymaga już niczego w arkuszu.
+   ⚠ Nauka ogólniejsza: `nth-child` liczy **dzieci**, a nie **kolumny**. W siatce ze scalaniem
+   te dwie liczby nie są tą samą liczbą. */
+.team-grid__head--ostatni,
+.team-grid__cell--ostatnia { border-right: 0; }
+
+/* ⚠ Dzień wolny w OSI CZASU jest słabszy niż w siatce miesiąca i to jest celowe: tu konkuruje
+   z paskiem nieobecności, który niesie treść tego ekranu. Zmierzone przed poprawką: weekend miał
+   kontrast 1,12 do wiersza, a pasek 1,03 — czyli tło dni, w których nic się nie dzieje, było
+   CZTEROKROTNIE mocniej odznaczone niż sama nieobecność (system wizualny 1.14, nazwany wyjątek
+   osi czasu). Po poprawce: weekend 1,06, pasek 1,23. Siatka miesiąca zostaje na `--c-neutral-soft`. */
+.team-grid__cell--free { background: var(--c-surface-hover); }
+/* ⚠ **Znacznik „dziś": OBWÓDKA wokół całej kratki, jedna nazwa, jeden kształt w trzech
+   widokach** (zlecenie `2026-10-11-poprawki-skale-i-znacznik-dzis.md` §1 i §1a).
+
+   Co było i dlaczego to usterka, a nie gust:
+     • `inset 1px 0 0 var(--c-line-strong)` — **lewa krawędź**, czyli element na granicy dwóch
+       kolumn. Taki znak należy wzrokowo do obu i czyta się jako **przegroda**: Krzysztof zobaczył
+       „dziwną linię między 10 a 11", a nie „to jest dzisiaj",
+     • **1,430 kontrastu** do tła wiersza przy pasku nieobecności 1,191 i siatce 1,122 — czyli
+       wskazówka nawigacyjna była **najmocniejszym znakiem na ekranie o nieobecnościach**,
+     • znacznik był **tylko w komórkach wierszy** (7 elementów), więc linia zaczynała się pod
+       numerami dni; nagłówek kolumny `11` nie miał nic,
+     • `--today` w osi czasu kontra `--dzis` w Kwartale i Roku: **dwie nazwy jednej rzeczy
+       i dwa kształty** — to się rozjeżdża cicho, jak dwa źródła nazwy ekranu.
+
+   ⚠ **Druga poprawka, tego samego dnia wieczorem** (zlecenie
+   `2026-10-11-trzy-bloki-nawigacja-w-naglowku.md` §3): zamknięta obwódka `--c-dzis` też wypadła.
+   Powód znowu zmierzony wzrokiem, nie liczbą: obwódka siedziała na **każdej komórce kolumny
+   osobno**, więc siedem oddzielnych prostokątów jeden pod drugim oko składa w **przerywaną
+   ramkę** — Krzysztof nazwał to „dziwną linią". Liczba (1,152) była dobra, kształt nie.
+   Token `--c-dzis` zniknął razem z regułami, bo nie miał już ani jednego użycia.
+
+   Zostaje **jeden** znacznik: `.dzien-dzis`, okrągła plakietka na numerze dnia, wyłącznie
+   w nagłówku kolumny (oś czasu) albo na kratce (siatka miesięczna w Roku). **Obszar danych jest
+   nietknięty** — reguła „znacznik słabszy od paska nieobecności" dotyczy tego, co stoi
+   w komórkach, a plakietka tam nie stoi i niczego nie zasłania.
+
+   ⚠ Para `--c-accent-soft` + `--c-accent-text` **nie jest wyjątkiem od „zieleń = akcja"**
+   (`system-wizualny.md` §3.1): mocną `--c-accent` Krzysztof odrzucił właśnie z tego powodu.
+   Ta para ma w tym systemie ustalone, inne znaczenie — **„tu teraz jesteś"**, tak wygląda aktywna
+   pozycja menu (`.nav-item--on`). Dzień dzisiejszy mówi to samo w osi czasu, więc to **to samo
+   użycie**, nie nowe. Kontrast numeru na plakietce: **5,61**.
+
+   ⚠ **Obwódka plakietki dołożona 11.10.2026 w nocy** — zgłoszenie Krzysztofa: „w widoku »rok«
+   oznaczenie dnia dzisiejszego ma wyglądać tak samo jak na kalendarzu miesięcznym". Klasa była
+   ta sama w obu widokach i mimo to znacznik był tam niewidoczny, bo plakietka ma **tylko
+   wypełnienie**, a wypełnienie czyta się wyłącznie względem tego, co ją otacza. Zmierzone
+   kontrasty `--c-accent-soft` do możliwych teł:
+
+     nagłówek osi czasu (biel karty)   1,130      kratka Roku, dzień roboczy   1,102
+     nagłówek, dzień wolny             1,102      kratka Roku, DZIEŃ WOLNY     1,008
+     kratka Roku, urlop                1,054      kratka Roku, zwolnienie      1,033
+     kratka Roku, kadrowe              1,067
+
+   W osi czasu plakietka leży zawsze na bieli nagłówka, więc widać ją (ledwo). W Roku leży
+   **na danych** i ma pod sobą jedno z pięciu teł — przy dniu wolnym kontrast **1,008**, czyli
+   nie widać jej wcale, a 11.10.2026 wypada w niedzielę i dokładnie tak to wyglądało.
+   ⚠ Dlatego granicę plakietki niesie teraz **obwódka, nie różnica wypełnień**: 1 px
+   `--c-accent-text` daje 5,25 – 6,34 na każdym z tych teł, czyli znacznik istnieje niezależnie
+   od tego, co jest pod nim. Obwódka jest w **obu** widokach — gdyby była tylko w Roku,
+   zgłoszenie wróciłoby odwrócone.
+   ⚠ To NIE jest powrót skasowanej obwódki `--c-dzis`: tamta obrysowywała **każdą komórkę
+   kolumny osobno** (siedem prostokątów = przerywana ramka). Ta obrysowuje **jedną plakietkę
+   na jednym numerze** i dlatego nie ma jak złożyć się w linię. */
+.dzien-dzis {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--c-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--c-accent-text);
+  color: var(--c-accent-text);
+  font-weight: var(--w-semibold);
+}
+
+/* Nagłówek kolumny dnia dzisiejszego: sam numer dalej mocniejszy. Tekst wolno wyróżnić wagą
+   i kolorem — warunek liczbowy dotyczy znacznika jako znaku na tle, a nie czytelności cyfry. */
+.team-grid__head--dzis { color: var(--c-text); }
+
+/* ⚠ **Pasek w osi czasu ma WYPEŁNIENIE W KOLORZE RODZAJU** — zlecenie
+   `2026-10-11-paski-nieobecnosci.md` §1, wzór zatwierdzony przez Krzysztofa na żywo
+   w przeglądarce. To zmiana nazwanego wyjątku 1.14 (`docs/system-wizualny.md`), nie tylko
+   arkusza: do 11.10.2026 wypełnienie było NEUTRALNE, a rodzaj niósł **obrys** i grubą lewą
+   krawędź. Teraz jest odwrotnie — **kolor niesie wypełnienie, obrysu nie ma wcale**.
+
+   ⚠ Co to robi z regułą „zieleń = akcja i nic więcej" (§3.1): pastel urlopu jest zielony
+   i stoi na danej, nie na akcji. To świadome odstępstwo właściciela dokumentu, zgłoszone
+   w raporcie — nie moja decyzja i nie precedens dla innych komponentów.
+
+   ⚠ Co tracimy, żeby było zapisane: **gruba lewa krawędź znaczyła POCZĄTEK nieobecności**,
+   a pełne zaokrąglenie (999px) rozmywa oba końce. Przy wypełnieniu w kolorze rodzaju początek
+   i koniec niosą same końce owalu, a dokładną datę — napis na pasku, `title` i `aria-label`.
+
+   Zmierzone kontrasty (tekst na pasku · pasek do tła wiersza · pasek na dniu wolnym):
+     urlop      5,32 · 1,19 · 1,12
+     zwolnienie 5,08 · 1,17 · 1,10
+     kadrowe    6,60 · 1,21 · 1,14             dzień wolny do wiersza: 1,06
+   ⚠ Pasek do tła wiersza jest o 0,02–0,06 SŁABSZY niż poprzednie 1,227 — zgłoszone Krzysztofowi
+   liczbami (zlecenie §1 pkt 2). Warunek z 1.14 („pasek mocniejszy od dnia wolnego") trzyma
+   z zapasem: 1,17–1,21 wobec 1,06. */
+.team-grid__bar {
+  position: absolute;
+  /* ⚠ Wysokość BEZ ZMIAN (zlecenie §1: „Krzysztof wybrał ten wariant, nie węższy"). `inset`
+     w pionie zostawia 6 px tła komórki nad paskiem i pod nim — i to jest dziś jedyne miejsce,
+     w którym widać wygaszenie dnia wolnego pod nieobecnością, bo wypełnienie jest już
+     nieprzezroczyste. */
+  inset: 6px 2px;
+  display: flex;
+  align-items: center;
+  /* Napis na środku paska: na wielodniowym zakres dat, na jednodniowym numer dnia. */
+  justify-content: center;
+  padding: 0;
+  /* ⚠ `tabular-nums` nie jest ozdobą: w siatce do ZESTAWIANIA cyfry w kolejnych wierszach mają
+     mieć tę samą szerokość, inaczej „11" i „28" rozjeżdżają się w kolumnie (zlecenie §2). */
+  font-variant-numeric: tabular-nums;
+  /* ⚠ **Bez obrysu** — rodzaj niesie wypełnienie. Obrys w kolorze rodzaju NA pastelu tego samego
+     rodzaju byłby niewidoczny, a w innym kolorze robiłby z paska dwie informacje o jednej rzeczy. */
+  border: 0;
+  /* ⚠ **Pełne zaokrąglenie** — wzór Krzysztofa. Pasek przestaje być odcinkiem z narożnikami,
+     a staje się „pigułką"; przy pasku jednodniowym (39 px) owal zjada końce, dlatego napis to
+     teraz sam numer dnia, a nie data z kropką. */
+  border-radius: 999px;
+  font-size: var(--t-label);
+  /* ⚠ Napis POGRUBIONY i w ciemnym odcieniu koloru rodzaju (zlecenie §1): na pastelu `--c-text-2`
+     dawał plamę o jednym ciężarze, a numer dnia na jednodniowym pasku ma być czytelny w 39 px. */
+  font-weight: var(--w-semibold);
+  white-space: nowrap;
+  overflow: hidden;
+  /* ⚠ Rodzaj bez własnej reguły (nowe źródło słownika z R2) dostaje pastel kadrowy, a nie
+     przezroczystość: pasek bez wypełnienia byłby paskiem bez rodzaju. Dlatego para
+     tło + tekst stoi już w regule bazowej, a warianty ją nadpisują. */
+  background: var(--c-pasek-kadrowe-tlo);
+  color: var(--c-pasek-kadrowe-tekst);
+}
+
+/* ⚠ Wypełnienie i kolor napisu idą PARĄ, z tokenów (`00-tokens.css`) — w komponencie nie ma
+   ani jednego `#rrggbb` (reguła z nagłówka `00-tokens.css`). */
+.team-grid__bar--urlop {
+  background: var(--c-pasek-urlop-tlo);
+  color: var(--c-pasek-urlop-tekst);
+}
+.team-grid__bar--zasilek {
+  background: var(--c-pasek-zwolnienie-tlo);
+  color: var(--c-pasek-zwolnienie-tekst);
+}
+.team-grid__bar--kadrowe {
+  background: var(--c-pasek-kadrowe-tlo);
+  color: var(--c-pasek-kadrowe-tekst);
+}
+
+/* ⚠ Pasek JEDNODNIOWY niesie sam numer dnia (zlecenie 11.10 §2) i jest najwęższym paskiem
+   na ekranie: zmierzone 25 px przy oknie 1440 i 21 px przy 374. Przy pełnym zaokrągleniu owal
+   zjada narożniki, więc numer dostaje 1 px oddechu z każdej strony — bez tego „30" dotyka
+   krzywej. Zmierzone po dołożeniu: numer nadal nieucięty, zero przewijania strony na `/m/*`.
+   ⚠ Klasa jest też **uchwytem pomiaru**: bramka wybiera po niej paski jednodniowe i sprawdza,
+   czy numer zgadza się z kolumną. Rozpiętości nie da się odczytać z samego paska — `--span-N`
+   siedzi na komórce, nie na nim. */
+.team-grid__bar--jeden { padding: 0 1px; }
+
+/* ⚠ Rozpiętość paska na kilka dni jest KLASĄ, nie atrybutem `style` w szablonie (CLAUDE.md §6):
+   stan wizualny zmieniamy klasą. Miesiąc ma najwyżej 31 dni, więc lista jest skończona
+   i wypisana w całości — generowanie jej w locie wymagałoby stylu w znaczniku. */
+.team-grid__cell--span-2 { grid-column: span 2; }
+.team-grid__cell--span-3 { grid-column: span 3; }
+.team-grid__cell--span-4 { grid-column: span 4; }
+.team-grid__cell--span-5 { grid-column: span 5; }
+.team-grid__cell--span-6 { grid-column: span 6; }
+.team-grid__cell--span-7 { grid-column: span 7; }
+.team-grid__cell--span-8 { grid-column: span 8; }
+.team-grid__cell--span-9 { grid-column: span 9; }
+.team-grid__cell--span-10 { grid-column: span 10; }
+.team-grid__cell--span-11 { grid-column: span 11; }
+.team-grid__cell--span-12 { grid-column: span 12; }
+.team-grid__cell--span-13 { grid-column: span 13; }
+.team-grid__cell--span-14 { grid-column: span 14; }
+.team-grid__cell--span-15 { grid-column: span 15; }
+.team-grid__cell--span-16 { grid-column: span 16; }
+.team-grid__cell--span-17 { grid-column: span 17; }
+.team-grid__cell--span-18 { grid-column: span 18; }
+.team-grid__cell--span-19 { grid-column: span 19; }
+.team-grid__cell--span-20 { grid-column: span 20; }
+.team-grid__cell--span-21 { grid-column: span 21; }
+.team-grid__cell--span-22 { grid-column: span 22; }
+.team-grid__cell--span-23 { grid-column: span 23; }
+.team-grid__cell--span-24 { grid-column: span 24; }
+.team-grid__cell--span-25 { grid-column: span 25; }
+.team-grid__cell--span-26 { grid-column: span 26; }
+.team-grid__cell--span-27 { grid-column: span 27; }
+.team-grid__cell--span-28 { grid-column: span 28; }
+.team-grid__cell--span-29 { grid-column: span 29; }
+.team-grid__cell--span-30 { grid-column: span 30; }
+.team-grid__cell--span-31 { grid-column: span 31; }
+
+
+}
+
+/* ——— wskaźnik zgrubny: kontrolki pod palec (docs/system-wizualny.md §11.3) ——————————
+   ⚠ MUSI być na końcu tego arkusza, nie w `10-base.css`. Zapytanie medialne nie podnosi
+   swoistości, a ten plik wczytuje się później — więc `.input` stąd wygrywał z identycznym
+   `.input` z bazy i reguła dotykowa nie robiła NIC. Zmierzone przed przeniesieniem:
+   `matchMedia('(pointer: coarse)')` = true, a pole logowania nadal 14 px / 38 px.
+   ⚠ Dotyczy też laptopa z ekranem dotykowym i tabletu, nie tylko telefonu — dlatego warunkiem
+   jest rodzaj wskaźnika, a nie szerokość ekranu ani wariant. Przy myszy nic się nie zmienia. */
+
+@media (pointer: coarse) {
+  /* ⚠ 16 px to nie estetyka: iOS przy mniejszej czcionce SAM przybliża stronę w chwili dotknięcia
+     pola i już jej nie oddala. 14 px kosztowało nas przybliżenie na każdym wejściu w pole. */
+  .input,
+  .select {
+    font-size: 16px;
+    height: var(--control-h-touch);
+    min-height: var(--control-h-touch);
+  }
+
+  /* ⚠ Pole wielolinijkowe MUSI być wyjątkiem, i to jest czwarty raz, kiedy ta sama kaskada
+     gryzie w innym miejscu: `.input--area` stoi wyżej w pliku, więc `.input { height: 44px }`
+     z tego bloku wygrywa i textarea zwija się do JEDNEGO wiersza. Zmierzone: 44 px przy dotyku
+     zamiast 81 px na trzy wiersze. Wysokość zostaje automatyczna, rośnie tylko czcionka. */
+  .input--area {
+    height: auto;
+    min-height: calc(3 * 1em * var(--lh-body) + 2 * var(--s-2));
+  }
+
+  /* Cel dotykowy 44 px. ⚠ Nazywam to wprost: przy `height` mniejszym od `min-height` rośnie
+     RYSUNEK przycisku, nie tylko jego pole dotyku. Osobne, niewidoczne pole dotyku dałoby się
+     zrobić pseudoelementem, ale przycisk 38 px z niewidocznym obszarem 44 px nachodziłby
+     na sąsiada w rzędzie przycisków — a nakładające się cele dotykowe są gorsze niż mały cel,
+     bo klik trafia nie w to, co widać. Dlatego kontrolka po prostu rośnie do 44 px. */
+  .btn,
+  .segmented__item {
+    min-height: var(--control-h-touch);
+  }
+
+  /* Grupa z przyciskiem podglądu hasła rośnie razem z polem, inaczej obrys się rozjeżdża. */
+  .input-group,
+  .input-group .input {
+    height: var(--control-h-touch);
+    min-height: var(--control-h-touch);
+  }
+
+  /* ⚠ `.btn--sm` też rośnie do 44 px — i to jest skutek, nie przeoczenie: reguła `.btn` wyżej
+     wczytuje się po `.btn--sm` (`min-height: 32px`), więc wygrywa. Świadomie tego nie cofam,
+     bo mały przycisk w wierszu tabeli jest dokładnie tym celem, w który palec nie trafia.
+     Konsekwencja do decyzji przy makiecie (§11.4): wiersze tabel z przyciskiem są na dotyku
+     wyższe niż `--row-h`. */
+}
+
+/* ——— tabela rekordów na telefonie staje się listą (docs/system-wizualny.md §11.4) ————
+   ⚠ MUSI stać na końcu arkusza, za regułami `.table`. Zapytanie medialne nie podnosi
+   swoistości, więc reguła postawiona wyżej zostałaby nadpisana przez `.table td` i nie robiłaby
+   nic — przejechałem się na tym przy bloku dotykowym kontrolek.
+
+   ⚠ Reguła jest WŁĄCZANA znacznikiem `.table--rekordy`, nie wyłączana wyjątkiem. Powód jest
+   w trybie awarii, nie w estetyce: kto zapomni dodać znacznik, dostaje przewijanie w bok —
+   brzydkie, widoczne, natychmiast zgłoszone. Kto zapomniałby WYŁĄCZYĆ regułę na tabeli par
+   etykieta/wartość, dostaje odwrócony akcent: „Administrator tenanta" głośno, „wymagana" ciszej.
+   To wygląda dobrze i jest nieprawdziwe, więc nikt tego nie zgłosi.
+
+   ⚠ Warunkiem jest szerokość KONTENERA (§11.4 w 1.7). Powodem zamiany jest brak miejsca —
+   i miejsce mierzy się tam, gdzie rzecz stoi, a nie w oknie. Moje dwie poprzednie wersje
+   (`pointer: coarse`, potem `+ max-width: 700px`) były błędne z tego samego powodu: zmierzone
+   na `/m/wnioski` przy oknie **1920 px** — wskaźnik precyzyjny, `max-width: 700px` nie obowiązuje,
+   a opakowanie tabeli ma **454 px** przy tabeli **478 px**. Znacznik był na miejscu, reguła
+   nie miała prawa zadziałać.
+
+   Próg **665 px** to zmierzona naturalna szerokość NAJSZERSZEJ oznaczonej tabeli rekordów
+   (styleguide, pięć kolumn z przyciskiem; `/m/wnioski` ma 501 px). Musi pokrywać najszerszą,
+   bo inaczej przy opakowaniu 500–665 px ta szersza dalej przewijałaby się w bok.
+   ⚠ Skutek do wiadomości: opakowanie z przedziału 501–665 px pokaże węższą tabelę jako listę,
+   choć by się zmieściła. Wybieram to świadomie — brak paska jest wart tej nadwyżki, a wariant
+   odwrotny oznacza pasek przewijania, czyli usterkę.
+   ⚠ Ta liczba była 642 px i wzrosła do 665 px, bo dopisanie jednostki do kolumny liczbowej
+   („5" → „5 dni", §11.4) rozszerzyło tabelę o 23 px. Wyłapał to NIEZMIENNIK W BRAMCE
+   (`dev/bramka-ekranowa.py`), tego samego dnia, w którym powstał — i to jest dokładnie ten
+   scenariusz, dla którego powstał: bez niego tabela przestałaby zamieniać się w listę po cichu,
+   bo dalej wyglądałaby jak tabela, tylko z paskiem. Zmiana progu MUSI iść razem z pomiarem.
+
+   ⚠ `pointer: coarse` zostaje osobno tam, gdzie jest prawdziwym powodem: cele dotykowe
+   i wielkość pól (§11.3). Palec to argument o dotykaniu, nie o szerokości. */
+
+/* ——— wyrównanie dwóch ostatnich kolumn do prawej krawędzi karty (zlecenie 11.10 §1e) ————————
+   ⚠ **MODYFIKATOR na tej tabeli, nie zmiana rodziny `.table--rekordy`** — i to jest warunek
+   ze zlecenia, nie ostrożność. Przejrzane wszystkie trzy ekrany z tą rodziną:
+     • `partials/lista-nieobecnosci.twig` (kalendarz „Tylko ja" i pulpit) — ostatnie kolumny to
+       **liczba dni** i **źródło wpisu**: krótkie, więc prawe wyrównanie je zbiera przy krawędzi,
+     • `partials/page/requests.twig` (`/wnioski`) — ostatnia kolumna to **plakietka stanu**,
+       czyli treść; prawe wyrównanie przesunęłoby ją od danych, do których należy,
+     • `partials/page/styleguide.twig` — ostatnia kolumna to **przycisk**.
+   Dlatego modyfikator stoi na pierwszej z nich i nigdzie więcej.
+
+   Zmierzone na prototypie przed zmianą: Rodzaj 516 px, Kiedy 481, Dni robocze 334, Skąd 227 —
+   treść ostatniej kolumny wisiała 230 px od krawędzi karty. Mechanizm: `width: 1%` plus
+   `nowrap` oddaje całe wolne miejsce dwóm pierwszym kolumnom. */
+.table--kolumny-prawe th:nth-child(3),
+.table--kolumny-prawe td:nth-child(3),
+.table--kolumny-prawe th:nth-child(4),
+.table--kolumny-prawe td:nth-child(4) {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+}
+
+@container tabela (max-width: 665px) {
+  /* ⚠ Opakowanie ZOSTAJE z `overflow-x: auto` i to jest celowe. Zapytanie kontenera nie może
+     stylować samego kontenera — a `.table-scroll` jest tu kontenerem, więc reguła `overflow-x`
+     postawiona w tym bloku nie zadziałałaby wcale (wyłapane przed pomiarem, przy pisaniu).
+     Drugiego progu na karcie też nie dokładam: przy `auto` pasek pojawia się tylko wtedy, gdy
+     treść nie mieści się w opakowaniu, a lista mieści się zawsze. Sprawdzone pomiarem
+     `scrollWidth == clientWidth`, nie założone. Sprzężenie dwóch progów byłoby groźniejsze niż
+     brak: przy niezgodności o kilka pikseli tabela zostałaby tabelą z `overflow: visible`,
+     czyli wystawałaby z karty i NIE dałaby się przewinąć. */
+
+  .table--rekordy,
+  .table--rekordy tbody,
+  .table--rekordy tr,
+  .table--rekordy td { display: block; }
+
+  /* Nagłówki kolumn znikają — ich rolę przejmuje kolejność i kontekst. Etykieta „Rodzaj:"
+     powtórzona przy każdej pozycji to ten sam napis trzy razy na ekranie. */
+  .table--rekordy thead { display: none; }
+
+  /* ⚠ Pozycja rośnie do treści. `--row-h` dotyczy tabeli, nie listy — w pionie i tak się przewija. */
+  .table--rekordy tr {
+    position: relative;
+    padding: var(--s-3) 0;
+    border-bottom: 1px solid var(--c-line-soft);
+  }
+  .table--rekordy tbody tr:last-child { border-bottom: none; }
+
+  /* ⚠ `height` i `white-space` MUSZĄ być wyzerowane jawnie. Reguła bazowa `.table td` daje
+     `height: var(--row-h)` (48 px) i `white-space: nowrap` — na komórce zamienionej w blok
+     pierwsza zrobiłaby z każdego pola pasek 48 px, a druga nie pozwoliłaby zawinąć linii drugiej
+     i przewijanie w bok wróciłoby tą samą drogą, którą je wyrzucamy. */
+  .table--rekordy td {
+    height: auto;
+    padding: 0;
+    border: none;
+    white-space: normal;
+  }
+
+  /* ⚠ Odstępy skrajnych komórek trzeba zerować OSOBNO: `.table td:first-child` ma swoistość
+     0-2-1 i bije `.table--rekordy td` (0-1-1), więc linia pierwsza była wcięta o 24 px
+     względem drugiej. Zmierzone na zrzucie, nie wydedukowane. Stoi PRZED regułą komórki
+     wiodącej, żeby jej `padding-right` wygrał kolejnością. */
+  .table--rekordy td:first-child,
+  .table--rekordy td:last-child { padding-left: 0; padding-right: 0; }
+
+  /* ⚠ **Modyfikator kolumn prawych trzeba tu WYZEROWAĆ** (zlecenie 11.10 §1e). `width: 1%`
+     na komórce zamienionej w blok nie jest już szerokością kolumny, tylko szerokością bloku —
+     czyli jednym procentem karty. Zmierzone na pulpicie przed poprawką: ostatnia komórka
+     kończyła się **373 px przed** prawą krawędzią karty, a tekst spadał do pionu.
+     Prawe wyrównanie też odpada: w układzie dwuliniowym nie ma kolumn, do których można
+     by je odnieść. */
+  .table--kolumny-prawe td:nth-child(3),
+  .table--kolumny-prawe td:nth-child(4) { width: auto; text-align: left; }
+
+  /* Linia pierwsza, lewa: dana wiodąca. Odstęp z prawej rezerwuje miejsce na plakietkę
+     (zmierzona na 102 px), żeby długi termin nie wszedł pod nią. */
+  .table--rekordy td.table__lead {
+    padding-right: 116px;
+    font-size: var(--t-body);
+    font-weight: var(--w-medium);
+    color: var(--c-text);
+  }
+
+  /* Linia pierwsza, prawa: stan. Wyjęty z układu, więc linia druga ma całą szerokość. */
+  .table--rekordy td.table__state {
+    position: absolute;
+    top: var(--s-3);
+    right: 0;
+  }
+
+  /* Linia druga: pozostałe pola jednym ciągiem, ciszej. */
+  .table--rekordy td:not(.table__lead):not(.table__state) {
+    display: inline;
+    font-size: var(--t-caption);
+    color: var(--c-text-3);
+  }
+
+  .table--rekordy td:not(.table__lead):not(.table__state)::before {
+    content: " · ";
+    color: var(--c-line-strong);
+  }
+
+  /* Rozdzielnik nie stoi na początku linii — ani po komórce wiodącej, ani po stanie
+     (stan jest wyjęty z układu, więc wizualnie też otwiera linię drugą), ani jako pierwsza
+     komórka wiersza w tabeli bez komórki wiodącej. */
+  /* ⚠ Wygaszenie MUSI mieć swoistość nie mniejszą niż reguła ustawiająca. Pierwsza wersja
+     (`.table__lead + td::before`, 0-2-2) przegrywała z `td:not(.table__lead):not(.table__state)`
+     (0-3-2) i rozdzielnik stał na początku linii drugiej. Zmierzone: `::before` obu komórek
+     zwracało `" · "`. Dlatego każdy selektor niżej ma trzeci lub czwarty człon klasowy. */
+  .table--rekordy .table__lead + td:not(.table__state)::before,
+  .table--rekordy .table__state + td:not(.table__lead)::before,
+  .table--rekordy td:not(.table__lead):not(.table__state):first-child::before { content: none; }
+
+  /* ⚠ Wiersz rozpięty na wszystkie kolumny (grupowanie po roku, „Brak wniosków") zostaje
+     blokiem. Bez tego pusty stan wpadałby w linię drugą jako cichy tekst obok danych. */
+  .table--rekordy td[colspan] { display: block; }
+  .table--rekordy td[colspan]::before { content: none; }
+}
+
+/* ——— menu „⋯" na karcie (zlecenie hierarchia §8) ———————————————————————————————
+   `<details>`, bo ta droga MUSI działać bez JavaScriptu: przeciąganie nie działa
+   z klawiatury ani przy czytniku ekranu, więc menu jest ścieżką równoważną, nie ozdobą. */
+.menu { position: relative; }
+.menu__trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 24px;
+  border-radius: var(--radius);
+  color: var(--c-text-4);
+  cursor: pointer;
+  list-style: none;
+}
+.menu__trigger::-webkit-details-marker { display: none; }
+
+/* ⚠ Wyzwalacz z tekstem, nie z ikoną: `.menu__trigger` ma stałe 28 × 24 px (jest pudełkiem
+   na trzy kropki przy karcie hierarchii), więc napis „Osoby na kalendarzu: 4 z 4" łamał się
+   w nim na trzy wiersze i wyglądał jak podpis, a nie jak przycisk do kliknięcia. Wariant
+   dostaje wymiary kontrolki i obrys — ten sam co `.btn--sm`. */
+.menu__trigger--tekst {
+  width: auto;
+  height: var(--control-h-sm);
+  gap: var(--s-2);
+  padding: 0 var(--s-3);
+  border: 1px solid var(--c-line-strong);
+  background: var(--c-surface);
+  font-size: var(--t-small);
+  color: var(--c-text-2);
+  white-space: nowrap;
+}
+
+.menu__trigger--tekst:hover { background: var(--c-surface-hover); color: var(--c-text); }
+.menu__trigger:hover { background: var(--c-surface-hover); color: var(--c-text-2); }
+.menu__body {
+  position: absolute;
+  right: 0;
+  z-index: 20;
+  min-width: 210px;
+  padding: var(--s-1);
+  background: var(--c-surface);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-pop);
+}
+.menu__item {
+  display: block;
+  width: 100%;
+  padding: var(--s-2) var(--s-3);
+  border: 0;
+  border-radius: calc(var(--radius) - 2px);
+  background: transparent;
+  color: var(--c-text-2);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.menu__item:hover { background: var(--c-surface-hover); }
+.menu__item[disabled] { color: var(--c-text-5); cursor: default; }
+.menu__item[disabled]:hover { background: transparent; }
+
+/* ⚠ Pudełko otwiera się POD swoim przyciskiem, a nie przy krawędzi karty. `.menu` jest tu
+   elementem blokowym (`<details>` w sekcji karty), więc `right: 0` z komponentu odnosiło się
+   do prawej krawędzi karty i panel wisiał kilkaset pikseli od przycisku, który go otworzył. */
+.menu--wybor { display: inline-block; }
+
+/* ——— poziom widoczności kalendarzy w panelu osoby ————————————————————————————
+   Wiersz: zakres (spółka albo „wszystkie spółki") i trójstanowy wybór obok niego. */
+.widocznosc { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); flex-wrap: wrap; }
+.widocznosc__zakres { font-size: var(--t-small); color: var(--c-text-2); }
+
+/* Nagłówek drugiego rzędu w sekcji — ciszej niż `.pane__title`, bo to część „Dostępu",
+   a nie osobna sekcja. */
+.pane__head--wtorny { margin-top: var(--s-3); }
+
+/* ⚠ Reguły wnętrza starego pudełka wyboru (`menu__szukaj`, `menu__note`, `menu__item--wybor`,
+   `menu__foot`) **usunięte 06.10.2026** razem z przebudową na `.pickbox`. Nie zostawiam ich
+   „na wszelki wypadek": martwa reguła w arkuszu jest gorsza niż jej brak — następny czytający
+   szuka pudełka, którego nie ma, a inwentarz klas liczy ją jako martwą. Powody, dla których
+   tamte reguły istniały (odstęp między nazwą a podpisem, zawijanie zdania zamiast rozpychania
+   panelu), są przeniesione do `.pickbox__item` i `.pickbox__note` wraz z uzasadnieniem. */
+
+/* ——— kontrolka wyboru osób na kalendarzu: panel trzystrefowy ————————————————
+   NAZWANY WYJĄTEK od reguły „zero przewijania w kontenerach" (`docs/system-wizualny.md` 12).
+
+   ⚠ Powód jest zmierzony, nie estetyczny. Przy zasięgu 53 osób panel miał **1364 px wysokości
+   w oknie 855 px**, a jego własny przycisk „Pokaż wybrane" kończył się na **1639 px** — czyli
+   poza ekranem. Zaznaczanie wymagało przewijania strony pod otwartym panelem, który zasłaniał
+   siatkę, więc kontrolka była praktycznie nieużywalna.
+
+   ⚠ **Przewija się WYŁĄCZNIE lista.** Góra (szukanie) i dół (licznik, działania, zapis) są
+   `flex: none`, więc przycisk zapisu jest widoczny zawsze — to jest cała treść tego wyjątku.
+   Lista jest KONTROLKĄ, nie treścią; gdyby kiedyś przyszła pokusa objąć tym samym wyjątkiem
+   tabelę danych, to znaczy, że tabela jest za długa, i rozwiązaniem jest §11.4, nie przewijanie.
+
+   ⚠ **`min-height: 0` na formularzu jest obowiązkowe.** Lista i stopka siedzą w formularzu,
+   więc ograniczenie wysokości nałożone tylko na panel nie wystarcza: element elastyczny ma
+   domyślnie `min-height: auto`, nie skurczy się poniżej treści i wypchnie stopkę poza panel.
+   Zmierzone na prototypie nadzoru: panel miał poprawną wysokość, a przycisk i tak był 700 px
+   niżej. */
+.pickbox {
+  position: absolute;
+  left: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  /* ⚠ Szerszy panel (było 360 px): mieści dłuższe nazwiska bez wielokropka i trzy elementy
+     stopki bez ścisku. Górna granica zostaje wyrażona w oknie, żeby na wąskim ekranie panel
+     nie wyszedł poza kadr. */
+  width: 480px;
+  max-width: calc(100vw - 2 * var(--s-4));
+  /* Zapas na wypadek braku JavaScriptu — z nim wysokość jest dociągana do miejsca pod
+     przyciskiem (`kalendarz-wybor.js`). Bez niego panel i tak nie rośnie na trzy ekrany. */
+  max-height: 60vh;
+  background: var(--c-surface);
+  border: 1px solid var(--c-line-strong);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-pop);
+  overflow: hidden;
+}
+.pickbox__head {
+  flex: none;
+  display: grid;
+  gap: var(--s-2);
+  padding: var(--s-3) var(--s-4);
+  border-bottom: 1px solid var(--c-line-soft);
+}
+.pickbox__note { margin: 0; font-size: var(--t-caption); color: var(--c-text-3); }
+.pickbox__szukaj { display: grid; gap: var(--s-2); }
+.pickbox__form { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
+.pickbox__list { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: var(--s-2) 0; }
+
+/* ⚠ Pozycja w JEDNYM wierszu: siatka trzech kolumn (kratka, nazwisko, podpis), a nie `flex`
+   z dociskaniem podpisu. Zmierzone przed poprawką: przy dłuższym nazwisku wiersz łamał się
+   na dwa, bo podpis („przełożony: …") nie miał gdzie się zmieścić. Ucinane jest NAZWISKO
+   wielokropkiem — nie łamane — a cała treść jest w podpowiedzi przeglądarki. */
+.pickbox__item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--s-3);
+  min-height: var(--control-h);
+  padding: 0 var(--s-4);
+  font-size: var(--t-small);
+  color: var(--c-text);
+  cursor: pointer;
+}
+.pickbox__item:hover { background: var(--c-surface-hover); }
+/* ⚠ `accent-color` z palety, nie systemowy niebieski: niebieskiego nie ma w `00-tokens.css`. */
+.pickbox__box { width: 16px; height: 16px; margin: 0; accent-color: var(--c-accent); }
+.pickbox__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pickbox__tag { font-size: var(--t-caption); color: var(--c-text-3); white-space: nowrap; }
+.pickbox__foot {
+  flex: none;
+  display: grid;
+  gap: var(--s-2);
+  padding: var(--s-3) var(--s-4);
+  border-top: 1px solid var(--c-line-soft);
+  background: var(--c-surface-mute);
+}
+
+/* ⚠ Stopka w DWÓCH rzędach: licznik z działaniami, pod nimi przycisk na całą szerokość.
+   W jednym rzędzie przy szerokości panelu 360 px przycisk zapisu był obcinany. */
+/* ⚠ **Rząd działań bez zawijania** — to naprawa „kontrolka skacze" z 06.10.2026. Licznik,
+   „Zaznacz wszystkich (36)" i „Odznacz pokazanych (30)" razem nie mieściły się w panelu 360 px,
+   więc rząd się zawijał — a punkt zawinięcia zależał od LICZB w etykietach, które zmieniają się
+   przy każdym kliknięciu i przy każdym szukaniu. Licznik ma więc własny wiersz, a dwa działania
+   stoją obok siebie i rozkładają wolne miejsce między siebie (`space-between`).
+   ⚠ `nowrap` jest świadome: jeśli napisy przestaną się mieścić, ma to być widać od razu, a nie
+   objawiać się przeskokiem układu przy pewnych liczbach. */
+.pickbox__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  flex-wrap: nowrap;
+  font-size: var(--t-caption);
+}
+/* ⚠ **Licznik widać tylko wtedy, gdy coś go utrzymuje w prawdzie** (poprawka 10.10.2026,
+   §5.1 zlecenia). Renderuje go serwer, a przelicza `modules/kalendarz-wybor.js`; bez tego
+   modułu napis „Zaznaczono 3 z 37" przestaje być prawdą przy pierwszym kliknięciu i **nie ma
+   nic**, co by to naprawiło. Zmierzone na `/admin/grupy/2`: odznaczenie jednego nazwiska
+   (2 z 3 pól zaznaczonych), licznik dalej „Zaznaczono 3 z 37" — a był jedyną informacją
+   o tym, co się zapisze. Liczba, której nikt nie aktualizuje, jest gorsza niż jej brak. */
+.pickbox__licznik { display: none; color: var(--c-text-3); font-size: var(--t-caption); }
+.pickbox--js .pickbox__licznik { display: inline; }
+
+/* ⚠ **Dwa działania to zwykłe przyciski drugorzędne** (`btn btn--ghost btn--sm`), nie podkreślone
+   odnośniki. Podkreślenie obok przycisku zapisu czytało się jak trzeci, słabszy przycisk w tym
+   samym rzędzie — a to są działania pomocnicze, nie inny sposób zapisania. Mowa wizualna jest
+   ta sama co wszędzie: akcja główna zielona, pomocnicze z obrysem.
+   ⚠ **Widoczne tylko wtedy, gdy obecny jest KOD, KTÓRY JE OBSŁUGUJE** — nie wtedy, gdy obecny
+   jest jakikolwiek JavaScript. Bez nich kontrolka jest kompletna: pola wyboru zaznacza się
+   ręcznie, a „Pokaż" zapisuje.
+
+   ⚠ **Znacznik należy do KOMPONENTU, nie do ekranu** (poprawka 10.10.2026, §5.1 zlecenia).
+   Dotąd stało tu `.js-kalendarz-wybor .pickbox__akcja`, czyli klasa nadawana elementowi
+   `<html>` przez `modules/kalendarz-wybor.js`. Skutek zmierzony: ekran grup dostał tę samą
+   kontrolkę **bez tej klasy**, więc masowego zaznaczania nie było tam wcale — 53 osoby
+   po jednym kliknięciu. To ta sama ściana, o którą Krzysztof uderzył 06.10, odtworzona przy
+   podziale komponentu: reguła opisywała miejsce, a miała opisywać komponent. Teraz klasę
+   `pickbox--js` nadaje moduł **każdemu panelowi, który obsługuje**, więc działania są wszędzie
+   tam, gdzie stoi kontrolka i jej kod — i nigdzie tam, gdzie kodu nie ma.
+   ⚠ Gdyby na jakimś ekranie miały być ukryte, służy do tego `pickbox--bez-masowych`
+   na komponencie — nigdy klasa rodzica. */
+.pickbox__akcja { display: none; white-space: nowrap; }
+.pickbox--js .pickbox__akcja { display: inline-flex; }
+.pickbox--bez-masowych .pickbox__akcja { display: none; }
+.pickbox__akcja {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--c-accent-text);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.pickbox__akcja:hover { color: var(--c-accent-hover); }
+
+/* Panel otwierany NAD przyciskiem, gdy pod nim nie ma miejsca (klasę nadaje JS po pomiarze).
+   Bez JavaScriptu ten wariant nie istnieje i nie jest potrzebny — panel ma wtedy zapas z `vh`. */
+.pickbox--nad { bottom: 100%; margin-bottom: var(--s-1); }
+
+/* ——— wybór spółki ——————————————————————————————————————————————————
+   ⚠ Rodzina `.combo` (lista rozwijana spółek z 06.10) **została usunięta** 10.10.2026 razem
+   z kontrolkami w nagłówkach Kalendarza, Grup i Hierarchii: wybór spółki ma jedno miejsce —
+   znacznik w górnej belce, `.spolka*` w `20-layout.css`. Reguły skasowano, a nie zostawiono
+   „na wypadek": martwy CSS wraca do użycia przez przypadek i wtedy na ekranie znów stoją
+   dwie kontrolki do jednego wyboru. */
+
+/* ——— hierarchia: plansza, drzewo, pasek zmian (zlecenie hierarchia §4–§8) ——————— */
+.hier {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: var(--s-4);
+  align-items: start;
+}
+.hier__panel .card__body, .hier__tree .card__body { display: grid; gap: var(--s-3); }
+.hier__list, .hier__branch { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--s-2); }
+/* Wcięcie pokazuje podległość; linia po lewej wiąże rodzeństwo w jedną gałąź. */
+/* Reguła `.hier__branch:empty { display: none }` **usunięta**: puste gałęzie nie powstają
+   już w HTML-u (szablon), a chowanie arkuszem tego, czego nie powinno być w znaczniku, było
+   właśnie tą usterką — pusty element siatki dalej zajmował `row-gap` i rysował ogon szyny.
+   ⚠ Szyna PLUS łokcie. Sama szyna z `border-left` nie mówi, kto pod kogo podlega — przy trzech
+   poziomach wcięcie jest trudne do odczytania, a linia bez połączeń jest ozdobą, nie informacją
+   (rozstrzygnięcie 22.09.2026). Łokieć to jeden pseudoelement na węzeł, więc nic nie dochodzi
+   do HTML-u.
+   ⚠ Szyna kończy się NA ŁOKCIU OSTATNIEGO DZIECKA, nie na dole kontenera: po poprawce
+   z §2.1 (gałąź powstaje tylko z dziećmi) pusty ogon zniknął sam, a to domyka resztę —
+   ostatni węzeł zasłania szynę poniżej swojego łokcia własnym tłem. */
+.hier__branch:not(.hier__branch--root) {
+  margin-left: var(--s-5);
+  padding-left: var(--s-4);
+  border-left: 1px solid var(--c-line);
+}
+.hier__branch:not(.hier__branch--root) > .hier__node { position: relative; }
+.hier__branch:not(.hier__branch--root) > .hier__node::before {
+  content: "";
+  position: absolute;
+  /* Łokieć biegnie od szyny (lewa krawędź gałęzi, czyli −16 px) do rynny uchwytu. */
+  left: calc(-1 * var(--s-4));
+  width: var(--s-4);
+  /* Na wysokości środka karty pierwszego wiersza: karta ma 24 px wyściółki + wiersz tekstu. */
+  top: 26px;
+  border-top: 1px solid var(--c-line);
+}
+/* ⚠ Ostatnie dziecko zasłania szynę PONIŻEJ swojego łokcia — inaczej linia biegnie dalej
+   w dół, pod ostatnią kartą, gdzie nikogo już nie ma. */
+.hier__branch:not(.hier__branch--root) > .hier__node:last-child::after {
+  content: "";
+  position: absolute;
+  left: calc(-1 * var(--s-4) - 1px);
+  top: 27px;
+  bottom: calc(-1 * var(--s-2));
+  width: 1px;
+  background: var(--c-surface);
+}
+.hier__node { display: grid; gap: var(--s-2); }
+.hier__card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  /* ⚠ Zawijanie, nie przewijanie: w panelu 340 px plakietki i menu „⋯" nie mieszczą się
+     w jednym wierszu z nazwiskiem, a przewijanie w poprzek jest w tej aplikacji zakazane
+     (zmierzone na zrzucie: menu wychodziło za krawędź karty). */
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  background: var(--c-surface);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius);
+  cursor: grab;
+}
+.hier__card-main { display: grid; gap: 2px; min-width: 0; }
+.hier__osoba { color: var(--c-text); }
+.hier__fakty { color: var(--c-text-3); font-size: var(--fs-sm); }
+.hier__card-chips { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s-2); }
+/* ⚠ Bursztyn wyłącznie tam, gdzie ktoś ma zareagować: „ma podwładnych, a nie ma roli
+   przełożonego" i „ma podwładnych, a konto zablokowane". Reszta kart jest bez koloru. */
+.hier__card--uwaga { border-color: var(--c-warn); background: var(--c-warn-soft); }
+.hier__node--ciagniety > .hier__card { opacity: .5; }
+/* ⚠ Własny poddrzew w trakcie ciągnięcia nie przyjmuje upuszczenia — cyklu nie da się
+   nawet ułożyć. Rozstrzyga i tak zapis po stronie serwera. */
+.hier__card--nieaktywny { opacity: .4; cursor: not-allowed; }
+.hier__cel { border-color: var(--c-accent); box-shadow: inset 0 0 0 1px var(--c-accent); }
+.hier__drop {
+  margin: 0;
+  padding: var(--s-3);
+  border: 1px dashed var(--c-line-strong);
+  border-radius: var(--radius);
+  color: var(--c-text-3);
+  text-align: center;
+}
+.hier__drop--panel { border-style: dashed; }
+/* Pasek zmian: przyklejony do dołu, bo decyzja o zapisie musi być pod ręką na każdej
+   wysokości drzewa. `hidden` zdejmuje go z układu całkowicie (reguła z §4b). */
+.hier__bar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-4);
+  margin-top: var(--s-4);
+  padding: var(--s-4);
+  background: var(--c-surface);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-pop);
+}
+.hier__bar-text { display: grid; gap: var(--s-2); min-width: 0; }
+.hier__bar-list { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--s-1); }
+.hier__bar-item { color: var(--c-text-2); font-size: var(--fs-sm); }
+.hier__bar-actions { display: flex; gap: var(--s-2); flex: none; }
+
+@media (max-width: 1100px) {
+  /* Wariant wąski: panel nad drzewem, nie obok — przy 340 px kolumny drzewo robi się
+     nieczytelne, a przewijanie w poprzek jest w tej aplikacji zakazane.
+
+     ⚠ Ten warunek POWINIEN być `@container`, ale nie ma czego zapytać: `.hier` leży
+     bezpośrednio w treści strony, a kontenery zapytań mamy tylko na `.card__body`
+     i `.drawer__body` (nazwa `karta`). Ustanowienie kontenera na `.page` jest zmianą powłoki
+     i ma zmierzoną cenę: `container-type: inline-size` tworzy nowy blok zawierający dla
+     potomków `absolute`/`fixed` (uwaga przy `.card__body` wyżej), a w `.page` wisi kontrolka
+     dostępu `position: fixed`. Zgłoszone w raporcie jako decyzja do podjęcia, nie zrobione
+     po cichu. */
+  .hier { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Zwijanie gałęzi hierarchii i zdanie dla wąskiego ekranu (zlecenie domkniecie-hierarchii §4, §5). */
+/* ⚠ Uchwyt stoi w RYNNIE SIATKI, nie na ujemnym marginesie. Poprzednio miał
+   `margin-left: -24px`, dobrane dokładnie na szerokość wyściółki karty — więc wypadał poza
+   kolumnę treści i przyklejał się do obrysu: zmierzone x=654 przy obrysie karty x=653, czyli
+   1 px. To ta sama usterka co pasek podsumowania 1 px od obrysu, tylko z drugiej strony:
+   tam wyściółki brakowało, tu była zjadana. Rynna daje uchwytowi własne miejsce na każdym
+   poziomie i nie rusza wyściółki karty. */
+.hier__zwin {
+  grid-column: 1;
+  align-self: center;
+  justify-self: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--c-line);
+  border-radius: 50%;
+  background: var(--c-surface);
+  color: var(--c-text-3);
+  font-size: var(--t-small);
+  line-height: 1;
+  cursor: pointer;
+}
+.hier__zwin:hover { color: var(--c-text); border-color: var(--c-line-strong); }
+/* Węzeł: rynna na uchwyt + kolumna treści. Karta i gałąź dzieci stoją w drugiej kolumnie,
+   więc wszystkie karty jednego poziomu mają tę samą krawędź — także te bez uchwytu. */
+.hier__node {
+  display: grid;
+  grid-template-columns: var(--hier-rynna) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--s-2) 0;
+}
+.hier__node > .hier__card,
+.hier__node > .hier__branch { grid-column: 2; }
+/* ⚠ Zdanie zamiast planszy pokazuje się WYŁĄCZNIE na wąskim ekranie: wariantu mobilnego
+   tego ekranu nie ma i nie będzie (decyzja 22.09.2026), ale człowiek, który ciągnie kartę
+   palcem i nic się nie dzieje, zgłasza usterkę. Ścieżka menu działa dalej.
+
+   ⚠ TU ŚWIADOMIE `@media`, NIE `@container` — wyjątek od §11.4 systemu wizualnego, z dwoma
+   powodami i pomiarem:
+   1. `/admin/hierarchia` leży w `$webOnly`, więc **w powłoce mobilnej nie istnieje**
+      (`/m/admin/hierarchia` → 404, zero tras `/m` dla hierarchii). Przypadek, dla którego
+      §11.4 powstało — kolumna 520 px przy oknie 1920 — tu nie zachodzi,
+   2. to zdanie mówi o URZĄDZENIU I EKRANIE („nie da się przeciągnąć palcem"), a nie
+      o dostępnej szerokości karty. Wąska karta w szerokim oknie nie znaczy, że ktoś
+      pracuje palcem; wąskie okno — znaczy.
+   Zmierzone dla pewności, że obie drogi dają tu to samo: karta struktury trzyma się okna
+   (okno 1600 → karta 930, okno 800 → 766, okno 760 → 726), więc próg na kontenerze wypadłby
+   najwyżej o ~35 px okna dalej.
+   ⚠ Gdyby ten ekran kiedykolwiek wszedł do `$shared` (czyli do powłoki mobilnej), ten warunek
+   MUSI zmienić się na `@container karta (…)` — notatka jest tu, żeby nikt nie wyprowadzał
+   tego rozumowania od zera. */
+.hier__tylko-komputer { display: none; }
+@media (max-width: 760px) {
+  .hier__tylko-komputer { display: block; }
+}
+
+/* ——— przypisywanie osób do grupy: DWIE KOLUMNY (zlecenie 2026-10-10-grupy-ekran-dwie-kolumny §2)
+   Rodzina osobna od `.pickbox` i to jest rozstrzygnięcie, nie przeoczenie: `pickbox` jest
+   NAKŁADKĄ nad siatką (kalendarz, gdzie wybór osób jest filtrem), a `assign` jest TREŚCIĄ
+   strony (ekran grupy, gdzie wybór osób jest jedyną czynnością). Ta sama zasada, którą
+   rozstrzygnięto dwie siatki kalendarza: różne pytanie, różna kontrolka.
+
+   ⚠ **Kolumny NIE są kartami.** `.card` ma `overflow: hidden`, a to jest dokładnie ta reguła,
+   która 10.10.2026 ucięła kontrolkę wyboru osób: panel miał 513 px, karta kończyła się
+   468 px od góry okna, więc **396 px panelu — cała lista, licznik i przycisk zapisu — było
+   nieosiągalne**, a strona się nie przewijała, bo mieściła się w oknie. Obramowanie i tło
+   kolumny biorą się więc z tej rodziny, nie z `.card`, i nad kolumnami NIE MA przodka
+   przycinającego.
+
+   ⚠ **Kolumną elastyczną jest `.assign__col`, nie opakowanie wokół niej** — przy pomyłce
+   panel ma właściwą wysokość, a ostatnia akcja stoi kilkaset pikseli niżej (zmierzone
+   na prototypie kontrolek kalendarza).
+
+   ⚠ Przewija się **wyłącznie `.assign__list`** — nazwany wyjątek z `system-wizualny.md` §12,
+   ten sam co przy `.pickbox`: `flex: 1 1 auto`, `min-height: 0`, `overflow-y: auto`.
+   `min-height: 0` jest obowiązkowe na KAŻDYM ogniwie kolumny, inaczej element elastyczny
+   nie zmniejszy się poniżej treści i zamiast listy przewija się strona. */
+.assign {
+  display: grid;
+  /* ⚠ **50:50, nie 1fr/1.15fr** (aneks 10.10.2026 §2, odwołanie własnej specyfikacji
+     Krzysztofa). Zmierzone przy pierwszej wersji: lewa 460 px, prawa 530 px. Różnica 15 %
+     miała sens, dopóki prawa kolumna niosła więcej treści (wyszukiwarkę, plakietki, przycisk
+     zbiorczy), a lewa była samą listą nazwisk. Po symetrii obie strony mają ten sam zestaw
+     elementów, więc różnica nie opisuje już żadnej różnicy — czyta się jako przekrzywienie. */
+  grid-template-columns: minmax(300px, 1fr) minmax(300px, 1fr);
+  gap: var(--s-5);
+  align-items: start;
+}
+
+.assign__col {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  /* ⚠ Stała wysokość, nie `max-height`: obie kolumny mają stać równo niezależnie od tego,
+     ile jest w nich wierszy. Przy `max-height` lewa kolumna pustej grupy miałaby wysokość
+     jednego zdania, a prawa 440 px — i ekran wyglądałby na zepsuty dokładnie wtedy, gdy
+     jest nowy.
+     ⚠ **Ale wysokość jest funkcją OKNA, nie liczbą** — to ta sama lekcja co przy `.pickbox`
+     06.10.2026. Zmierzone na nowym ekranie: przy oknie 600 px kolumny 440 px kończyły się
+     na 646 px, więc „+ Dodaj wszystkich pokazanych" wychodził poniżej okna i strona zaczynała
+     się przewijać (dokument 678 px). `min()` zdejmuje to bez jednej linii JavaScriptu:
+     przy 900 px dalej 440, przy 600 px — 348. 440 px z prototypu zostaje sufitem. */
+  height: min(440px, 58vh);
+}
+
+/* ⚠ **W oknie modalnym kolumny są niższe** (aneks §1: `min(420px, 52vh)` z prototypu).
+   Powyżej samych kolumn stoi tam jeszcze nagłówek okna i jego wyściółka, a całość ma się
+   zmieścić w `max-height` okna — inaczej przewija się treść okna, czyli znowu nie sama lista. */
+.modal--assign .assign__col {
+  height: min(420px, 52vh);
+  background: var(--c-surface);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+.assign__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3);
+  flex: none;
+  padding: var(--s-4) var(--s-4) var(--s-3);
+  border-bottom: 1px solid var(--c-line);
+}
+
+/* Nagłówek kolumny jest `<h2>`, ale nie krzyczy: na ekranie jest jeden tytuł — nazwa grupy. */
+.assign__title { font-size: var(--t-small); font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--c-text-3); }
+.assign__count { font-size: var(--t-small); color: var(--c-text-2); white-space: nowrap; }
+.assign__note { font-size: var(--t-caption); color: var(--c-text-3); }
+
+.assign__search { flex: none; display: grid; gap: var(--s-2); padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--c-line); }
+
+/* ⚠ Opakowanie wyniku prawej kolumny (lista + stopka) — ogniwo między stałą wysokością
+   kolumny a przewijaną listą, więc **musi** mieć `min-height: 0`. Istnieje, żeby szukanie
+   podmieniało wynik, a nie całą kontrolkę razem z polem tekstowym (patrz komentarz
+   w `fragments/group-assign.twig`). */
+/* Pasek błędu rozpięty na obie kolumny siatki — inaczej zwęziłby lewą do połowy. */
+.assign__blad { grid-column: 1 / -1; }
+
+.assign__wynik { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+
+.assign__list { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin: 0; padding: var(--s-2) 0; list-style: none; }
+
+.assign__row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-4);
+  min-height: 36px;
+}
+
+.assign__row:hover { background: var(--c-surface-hover); }
+
+/* Nazwisko zabiera miejsce, które zostaje; `min-width: 0` jest warunkiem skrócenia
+   wielokropkiem w elemencie elastycznym. */
+.assign__name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.assign__tag { flex: none; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--t-caption); color: var(--c-text-3); }
+.assign__tag--off { color: var(--c-text-4); }
+.assign__form { flex: none; display: flex; }
+
+/* ⚠ Przycisk jest celem dotykowym 28 × 28 px w wierszu o 36 px — mniejszy byłby celem
+   do chybienia, a wiersz wyższy robiłby z listy tabelę. */
+.assign__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--c-line-strong);
+  border-radius: var(--radius);
+  background: var(--c-surface);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* ⚠ **Zieleń tylko na dodawaniu**, bo zieleń znaczy akcję (§2 systemu). `✕` jest neutralny
+   i czerwieni nabiera dopiero pod kursorem: lista członków z N czerwonymi krzyżykami wygląda
+   jak lista błędów. */
+.assign__btn--add { color: var(--c-accent); border-color: var(--c-accent); }
+.assign__btn--del { color: var(--c-text-4); }
+@media (hover: hover) {
+  /* Napis na zieleni bierze kolor powierzchni, tak jak `.btn--primary` — nie literał. */
+  .assign__btn--add:hover { background: var(--c-accent); color: var(--c-surface); }
+  .assign__btn--del:hover { color: var(--c-danger); border-color: var(--c-danger); }
+}
+
+.assign__empty {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: var(--s-5);
+  text-align: center;
+  font-size: var(--t-small);
+  color: var(--c-text-3);
+}
+
+.assign__foot { flex: none; display: grid; gap: var(--s-2); padding: var(--s-3) var(--s-4); border-top: 1px solid var(--c-line); }
+
+/* ⚠ Jedna kolumna poniżej 900 px: dwie kolumny po 300 px nie mieszczą się razem z paskiem
+   bocznym, a ściśnięte do 200 px przestają pokazywać nazwiska. Wysokość maleje, żeby obie
+   zmieściły się w oknie laptopa bez przewijania strony. */
+@media (max-width: 900px) {
+  .assign { grid-template-columns: minmax(0, 1fr); }
+  .assign__col { height: 320px; }
+}
+
+/* ——— lista grup (zlecenie 2026-10-10 §4) ————————————————————————————————————————
+   Wiersz: nazwa i skład po lewej, licznik i menu po prawej. ⚠ To NIE jest `.settings-list`:
+   tam wiersz jest ustawieniem z kontrolką, tu wiersz jest **wejściem w ekran** i ma dwie
+   linie treści. */
+.group-list { margin: 0; padding: 0; list-style: none; }
+
+.group-list__row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  padding: var(--s-3) var(--s-4);
+  border-top: 1px solid var(--c-line);
+}
+
+.group-list__row:first-child { border-top: 0; }
+.group-list__row:hover { background: var(--c-surface-hover); }
+.group-list__main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+
+/* ⚠ **Odnośnik rozpięty na cały wiersz pseudoelementem.** `<a>` wokół wiersza byłoby
+   niedozwolone (w środku są przycisk i formularze), a przeglądarki rozstrzygają taki zapis
+   po swojemu. Menu `⋯` ma własną warstwę wyżej, więc kliknięcie w nie nie otwiera grupy. */
+.group-list__name { font-weight: 600; color: var(--c-text); text-decoration: none; }
+.group-list__name::after { content: ''; position: absolute; inset: 0; }
+.group-list__name:hover { color: var(--c-accent); }
+.group-list__sklad { margin: 0; font-size: var(--t-small); color: var(--c-text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.group-list__wiecej { color: var(--c-text-4); }
+.group-list__count { flex: none; font-size: var(--t-small); color: var(--c-text-2); white-space: nowrap; }
+.group-list__note { color: var(--c-text-4); font-size: var(--t-caption); }
+.group-list__menu { position: relative; z-index: 1; flex: none; }
+
+/* Powód wyłączenia pozycji menu — stoi POD nią, bo wyłączony przycisk bez powodu każe się
+   domyślać. */
+.menu__powod { margin: 0; padding: 0 var(--s-3) var(--s-2); font-size: var(--t-caption); color: var(--c-text-4); }
+
+/* ⚠ Ten sam wzorzec „wyłączony przycisk + powód pod spodem" poza menu — w pasku akcji
+   ekranu grupy (aneks §4: ta sama rzecz nie ma być dwoma wzorcami). Powód jest wyrównany
+   do prawej, bo pasek akcji też jest. */
+.page__akcja-powod { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.page__akcja-powod .menu__powod { padding: 0; }
+
+/* ——— pasek „Bez grupy" (zlecenie 2026-10-10 §4) ——————————————————————————————————
+   ⚠ **Przerywana ramka mówi „to nie jest wiersz listy".** „Bez grupy" to stan policzalny,
+   nie grupa: nie ma nazwy do zmiany, nie ma czego usuwać, a suma z listy wyżej go nie
+   dopełnia (jedna osoba może być w kilku grupach). Ten sam zapis co `.empty-state`:
+   kreskowana krawędź = miejsce, które nie jest rekordem. */
+.bez-grupy {
+  margin-top: var(--s-4);
+  border: 1px dashed var(--c-line-strong);
+  border-radius: var(--radius-card);
+  background: transparent;
+}
+
+.bez-grupy__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  cursor: pointer;
+  list-style: none;
+}
+
+.bez-grupy__head::-webkit-details-marker { display: none; }
+.bez-grupy__head:hover { background: var(--c-surface-hover); }
+.bez-grupy__nazwa { color: var(--c-text-2); }
+.bez-grupy__count { font-size: var(--t-small); color: var(--c-text-3); white-space: nowrap; }
+.bez-grupy__body { padding: 0 var(--s-4) var(--s-3); display: grid; gap: var(--s-2); }
+.bez-grupy__sklad { margin: 0; font-size: var(--t-small); color: var(--c-text-2); }
+.bez-grupy__uwaga { margin: 0; font-size: var(--t-caption); color: var(--c-text-3); }
+
+/* ——— zawężenie tabel: kolumny o stałych szerokościach (zlecenie zawezenie-tabel) ——————
+   ⚠ Powód jest zmierzony przy 1440 px, nie estetyczny: bez `table-layout: fixed` przeglądarka
+   liczy szerokości z treści, więc jeden długi tekst rozpycha cały wiersz i tabela wychodzi
+   za kartę. Zmierzone nadmiary: /diagnostyka 301 i 167 px, /dane/synchronizacja 191 px,
+   /admin/integracja 80 px, /dane 10 px. Przewijanie w poprzek jest w tej aplikacji zakazane. */
+.cell--zawija { overflow: visible; white-space: normal; word-break: break-word; }
+/* ⚠ **Zawijanie, nie ucinanie wielokropkiem.** Pierwsza wersja tej poprawki dodawała samo
+   `table--stale`, więc przewijanie zamieniło się w UCIĘTĄ TREŚĆ — zmierzone: 107 komórek
+   na `/dane/synchronizacja`, 12 na `/diagnostyka`, 12 na `/admin/integracja`, w tym
+   znacznik czasu „22.09.2026, 15:51:13" obcięty w połowie i nazwa spółki z R2 ucięta
+   po 158 z 410 px. To nie jest naprawa, tylko przeniesienie problemu: zamiast przewijać
+   w bok, tabela zaczęła KŁAMAĆ o treści.
+   Wiersz może być wyższy — dana nie ma prawa być niewidoczna. */
+.table--zawija th, .table--zawija td {
+  overflow: visible;
+  white-space: normal;
+  word-break: break-word;
+  text-overflow: clip;
+}
+/* Diagnostyka: stan, nazwa, wartość, objaśnienie (objaśnienie bierze resztę i zawija). */
+.col--diag-stan    { width: 7%; }
+.col--diag-nazwa   { width: 25%; }
+.col--diag-wartosc { width: 24%; }
+.col--diag-uwaga   { width: 44%; }
+/* /dane/synchronizacja — dziewięć kolumn; „Rekordy" zawija, bo to lista zbiorów z liczbami. */
+.col--sync-czas      { width: 13%; }
+.col--sync-firma     { width: 14%; }
+.col--sync-stan      { width: 9%; }
+.col--sync-sek       { width: 6%; }
+.col--sync-rekordy   { width: 22%; }
+.col--sync-pola      { width: 8%; }
+.col--sync-limity    { width: 8%; }
+.col--sync-konflikty { width: 8%; }
+.col--sync-connector { width: 12%; }
+/* /admin/integracja — klucze connectora; „Zakres (NIP)" rośnie z liczbą firm, więc zawija.
+   ⚠ Szerokości policzone z NAJDŁUŻSZEJ TREŚCI, nie rozdane równo: plakietka „unieważniony
+   przez administratora" potrzebuje 229 px, a `.chip` ma `white-space: nowrap` (i ma je
+   zachować — plakietka złamana na dwa wiersze przestaje wyglądać jak plakietka). Przy 10%
+   na „Stan" (113 px) tabela nadal wychodziła 36 px za kartę, mimo zawijania pozostałych
+   kolumn — zmierzone.
+
+   ⚠ **Kolumna „Działanie" trzyma dwa przyciski W JEDNEJ LINII (zmiana 06.10.2026).** Dotąd
+   stały pod sobą i to też było policzone, ale wyglądało na dwie osobne decyzje w jednym wierszu
+   — zmierzone przy oknie 1440: komórka 158 px wobec 231 px potrzebnych, więc rząd zawijał się
+   i miał 72 px wysokości zamiast 32.
+   ⚠ Szerokości NIE zabieram „Stanowi": tam granicą jest plakietka, która nie może się złamać.
+   Siedem punktów procentowych pochodzi z kolumn, których treść **wolno zawinąć** — nazwy klucza
+   (2), zakresu NIP (3) i obu kolumn z datami (po 1). Suma nadal 100%, tabela nie rośnie. */
+.col--klucz-nazwa  { width: 18%; }
+.col--klucz-zakres { width: 17%; }
+.col--klucz-czas   { width: 11%; }
+.col--klucz-stan   { width: 22%; }
+.col--klucz-akcja  { width: 21%; }
+/* /dane — lista firm. */
+.col--firma-nazwa  { width: 26%; }
+.col--firma-nip    { width: 14%; }
+.col--firma-stan   { width: 11%; }
+.col--firma-ludzie { width: 11%; }
+.col--firma-sync   { width: 20%; }
+.col--firma-klucz  { width: 18%; }
+
+/* ——— skala ROKU: dwanaście siatek miesięcznych w ramkach, cztery w rzędzie ————————————————
+   (zlecenie `2026-10-11-rok-jako-dwanascie-miesiecy.md`, prototyp zatwierdzony w przeglądarce)
+
+   ⚠ **Pasek 12 × 31 i cała skala kwartału zniknęły.** Pasek nie dawał odczytać dnia tygodnia
+   (kolumnami były numery dni), a to jedyne, po co człowiek patrzy na kalendarz przed złożeniem
+   wniosku. Kwartał umiał to na trzech miesiącach — teraz umie to cały rok, tą samą siatką.
+
+   ⚠ Rodzina nazywa się `msiatka` (**m**iesięczna **siatka**), a nie `kwartal`: to ten sam
+   komponent, który stał w kwartale, tylko nazwa przestała pasować do treści. Przeniesiony,
+   nie przepisany — jeden dzień ma w Miesiącu i w Roku wyglądać jak ta sama rzecz w dwóch
+   wielkościach.
+
+   ⚠ Wypełnienie kratki bierze **te same tokeny `--c-pasek-*-tlo`**, co paski w osi czasu:
+   jeden kolor rodzaju w całym programie. Drugi zestaw wartości dla tej samej informacji
+   rozjechałby się przy pierwszej zmianie motywu. */
+
+/* ⚠ **Jedna reguła zamiast czterech progów** (zlecenie `2026-10-11-waskie-ekrany-i-dni-tygodnia.md`
+   §3). Dotąd stały tu `repeat(4, 1fr)` plus trzy zapytania kontenerowe (1180 / 900 / 620 px)
+   plus ich odpowiedniki od okna — i mimo że liczba kolumn była dobra, **kratka dnia była
+   większa na telefonie niż na monitorze**: pudełko miesiąca jest `1fr`, więc rozpychało się
+   na całą kolumnę. Zmierzone przed zmianą: kontener 1510 → kratka 45 px, 1200 → 34, 880 → 55,
+   **600 → 79**, 360 → 45. Czyli 79 px na telefonie przy 45 px na monitorze, a tuż przed każdym
+   progiem spadek do 34–36 px — najgorzej czytało się dokładnie wtedy, gdy jeszcze nie
+   przeskoczyło.
+
+   ⚠ **Skąd 290 i 360** (wartości z prototypu, ale dają się wyprowadzić, więc nie są zgadnięte).
+   Pudełko ma `--s-4` odstępu z obu stron, a w środku siedem kolumn z przerwami po 2 px, czyli
+   `kratka = (pudełko - 2*16 - 6*2) / 7 = (pudełko - 44) / 7`:
+     • 290 px → kratka **35,1 px** — podłoga czytelności numeru dnia,
+     • 360 px → kratka **45,1 px** — sufit, czyli dokładnie ta kratka, którą Krzysztof
+       zatwierdził przy czterech kolumnach w karcie 1510 px.
+   Para `minmax(290px, 1fr)` + `max-width: 360px` zamyka więc kratkę w paśmie **35–45 px**
+   na całym zakresie szerokości, zamiast pozwalać jej rosnąć z pudełkiem.
+
+   ⚠ **Liczba kolumn wychodzi ta sama, co z ręcznych progów** — i to jest rachunek, nie
+   nadzieja: `auto-fit` liczy kolumny z MINIMUM, więc `n = floor((W + 24) / (290 + 24))`.
+   1510 → 4 · 1300 → 4 · 1180 → 3 · 950 → 3 · 900 → 2 · 700 → 2 · 600 → 1 · 360 → 1.
+   ⚠ Obawa ze zlecenia („cztery pudełka po 360 plus trzy przerwy po 24 to 1512, czyli o 2 px
+   za dużo") dotyczy ścieżek o **stałej** szerokości. Tu ścieżka to `1fr`, a 360 px jest tylko
+   sufitem pudełka: przy 1510 px ścieżka ma (1510 - 72) / 4 = **359,5 px**, czyli mieści się
+   pod sufitem i cztery kolumny zostają.
+   ⚠ Opakowanie `.rok-pole` z `container-type` **zniknęło razem z progami** — nie ma już ani
+   jednego zapytania o ten kontener, a nazwany kontener bez zapytań to martwa reguła, której
+   następny czytający szuka w arkuszu. */
+.rok {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: var(--s-5);
+}
+
+/* ⚠ Pudełko w **ramce**: dwanaście siatek bez obramowania zlewało się w jedną płachtę kratek,
+   bo odstęp między miesiącami jest tego samego rzędu co odstęp między tygodniami. */
+.msiatka {
+  min-width: 0;
+  /* ⚠ Sufit pudełka: bez niego przy jednej kolumnie pudełko idzie na całą szerokość i kratka
+     rośnie do 79 px (zmierzone na 600 px kontenera). Wyprowadzenie liczby — przy `.rok`. */
+  max-width: 360px;
+  padding: var(--s-4);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
+}
+
+.msiatka__nazwa {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--s-2);
+  margin: 0 0 var(--s-2);
+  font-size: var(--t-small);
+  font-weight: var(--w-semibold);
+  color: var(--c-text);
+}
+.msiatka__suma { font-weight: var(--w-regular); font-size: var(--t-caption); color: var(--c-text-3); font-variant-numeric: tabular-nums; }
+
+/* ⚠ Siedem kolumn **równych szerokości pudełka** (`1fr`), a wysokość kratki stała: 44 px.
+   Przy karcie 1560 px daje to kratkę ~45 × 44, czyli proporcję ~1 : 1 — wzorcem jest dzień
+   z widoku Miesiąc (**44 × 56**, 0,79 : 1), a nie własna skala. Poprzednia wersja Roku miała
+   43 × 14 (3,07 : 1), bo szerokość skalowała się z kartą, a wysokość nie. */
+.msiatka__siatka { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
+
+.msiatka__dzien-tygodnia { font-size: var(--t-label); color: var(--c-text-4); text-align: center; padding-bottom: 2px; }
+
+.msiatka__kratka {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  border-radius: var(--radius);
+  background: var(--c-surface-mute);
+  box-shadow: inset 0 0 0 1px var(--c-line);
+  /* ⚠ **13 px (`--t-small`), nie 11**: `system-wizualny.md` §3.2 nie podaje podłogi w pikselach,
+     ale mówi, czym jest `--t-label` (11 px) — **nagłówkiem kolumny i etykietą**. Numer dnia
+     jest DANĄ, nie etykietą, więc schodzenie do 11 px było użyciem tokena nie do jego roli. */
+  font-size: var(--t-small);
+  color: var(--c-text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ⚠ **Dzień spoza miesiąca jest PUSTY, nie szary**: brak dnia to nie dzień wolny, a dwa różne
+   stany w jednym kolorze to pierwszy krok do nieprawdziwej liczby obok. */
+.msiatka__kratka--poza { background: none; box-shadow: none; }
+
+/* Dzień wolny: szary **słabszy od każdego z trzech pasteli**. */
+.msiatka__kratka--wolny { background: var(--c-neutral-soft); }
+
+.msiatka__kratka--urlop   { background: var(--c-pasek-urlop-tlo);      color: var(--c-pasek-urlop-tekst);      font-weight: var(--w-semibold); }
+.msiatka__kratka--zasilek { background: var(--c-pasek-zwolnienie-tlo); color: var(--c-pasek-zwolnienie-tekst); font-weight: var(--w-semibold); }
+.msiatka__kratka--kadrowe { background: var(--c-pasek-kadrowe-tlo);    color: var(--c-pasek-kadrowe-tekst);    font-weight: var(--w-semibold); }
+
+/* ⚠ Dnia dzisiejszego NIE znaczy tu ani tło, ani obrys kratki, tylko **plakietka na numerze**
+   (`.dzien-dzis`) — ten sam jeden znacznik, co w nagłówku osi czasu. Tło kratki znaczy rodzaj
+   nieobecności i nie może znaczyć dwóch rzeczy, a obrys odpadł razem z obrysami w osi czasu. */
+
+/* ——— MIESIĄC dla jednej osoby: siatka tygodniowa + lista wpisów obok ————————————
+   (zlecenie `2026-10-13-kalendarz-naglowek-i-ksztalt-miesiaca.md` §2, prototyp zatwierdzony
+   przez Krzysztofa w przeglądarce)
+
+   ⚠ **To NIE jest nowy komponent kalendarza.** Kratki są te same, co w skali Roku (`msiatka__*`)
+   — razem z weekendami, kolorem rodzaju, `title` i plakietką „dziś". Nowe jest wyłącznie to, co
+   stoi NA ZEWNĄTRZ kratek: dwie kolumny i lista wpisów.
+
+   ⚠ **Dlaczego dwa kształty „Miesiąca", a nie jeden.** Dla JEDNEJ osoby oś czasu to jeden cienki
+   wiersz przez pół ekranu plus kolumna „OSOBA" z własnym nazwiskiem oglądającego — 200 px na
+   informację, którą on zna. Dla WIELU osób siatka tygodniowa jest zła i to jest zmierzone
+   (Beta, sierpień 2026, 53 osoby i 43 nieobecności: przy trzech paskach na tydzień widać 18
+   z 43, pełny obraz wymaga 11 pasków jeden pod drugim). Rozgałęzienie siedzi w serwisie
+   (`widokJa()` kontra `widokZespolu()`), gdzie dwa widoki stały od początku.
+
+   ⚠ **WSZYSTKIE reguły wyglądu są ZAWĘŻONE do `.mies__kalendarz`** i to jest warunek z §4a
+   zlecenia, a nie porządek: kratka 62 px, numer 14 px i promień karty obowiązują w Miesiącu,
+   a Rok ma zostać dokładnie taki, jaki był. Reguła napisana na samą `.msiatka` zmieniłaby
+   dwanaście pudełek w Roku — i to jest dokładnie ten sposób, w jaki „bierzemy komponent z Roku"
+   kończy się zepsutym Rokiem. */
+
+/* ⚠ Proporcje kolumn są z prototypu, ale podłoga prawej kolumny ma rachunek: 300 px to
+   najwęższa kolumna, w której „20–24.07 · 5 dni roboczych · R2" nie łamie się na trzy wiersze.
+   Stąd próg zwinięcia do jednej kolumny: przy 1,45 fr : 1 fr prawa kolumna schodzi do 300 px,
+   gdy całość ma 300 × 2,45 + 32 = **767 px** — poniżej tego siatka musiałaby się rozpychać,
+   więc idą jedna pod drugą. Próg 780 px bierze 13 px zapasu na zaokrąglenia ścieżek. */
+.mies {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(300px, 1fr);
+  gap: var(--s-6);
+  align-items: start;
+}
+/* ⚠ Próg na KONTENERZE, nie na oknie: karta bywa węższa od okna (powłoka mobilna otwarta
+   na komputerze ma okno 1920 px i kartę 486 px), więc warunek od okna mija się z rzeczywistością
+   dokładnie tam, gdzie patrzymy. */
+@container karta (max-width: 780px) { .mies { grid-template-columns: minmax(0, 1fr); } }
+/* Przeglądarka bez zapytań kontenerowych dostaje próg od okna — gorzej dobrany (karta 780 px
+   wypada przy oknie ~1084 px w powłoce webowej), ale nigdy dwie kolumny na telefonie. */
+@supports not (container-type: inline-size) {
+  @media (max-width: 1080px) { .mies { grid-template-columns: minmax(0, 1fr); } }
+}
+
+.mies__kalendarz { min-width: 0; }
+/* ⚠ **Sufit pudełka zdjęty TYLKO tutaj.** W Roku `max-width: 360px` trzyma kratkę w paśmie
+   35–45 px przy dwunastu pudełkach; w Miesiącu pudełko jest jedno i ma wypełnić swoją kolumnę. */
+.mies__kalendarz .msiatka { max-width: none; }
+/* ⚠ **62 px wysokości i numer 14 px** — wartości Miesiąca, nie Roku. Przy karcie 1560 px lewa
+   kolumna ma ~875 px, czyli kratka ~119 × 62: to ten kształt, który Krzysztof zatwierdził
+   w przeglądarce. ⚠ **14 px (`--t-body`), nie 15 z prototypu**: 15 px nie jest tokenem (§3.2),
+   a `--t-body` jest w systemie opisane jako „treść i KAŻDA komórka tabeli" — numer dnia jest
+   właśnie daną w komórce. W Roku numer zostaje na 13 px (`--t-small`). */
+.mies__kalendarz .msiatka__kratka {
+  min-height: 62px;
+  border-radius: var(--radius-card);
+  font-size: var(--t-body);
+}
+
+.mies__wpisy { display: flex; flex-direction: column; gap: var(--s-4); min-width: 0; }
+/* Nagłówek kolumny wpisów: typografia etykiety z systemu (§3.2, `--t-label`), taka sama jak
+   nagłówek kolumny w tabeli i nagłówek „OSOBA" w osi czasu. */
+.mies__naglowek {
+  font-size: var(--t-label);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--c-text-3);
+}
+
+/* ⚠ **Lista wpisów niesie to, czego NIE MA na kratkach**: zakres dat, liczbę dni roboczych
+   i źródło wpisu. Na osi czasu te dane były napisem na pasku („25–29.05"); kratka `msiatka`
+   znaczy dzień samym wypełnieniem, więc bez tej listy widok traci dane, a nie tylko wygląd
+   (§2 zlecenia, punkt o koszcie zmiany). Dlatego jest listą pozycji, a nie tabelą: tabela
+   `table--rekordy` miała cztery kolumny i nagłówki, czyli 200 px szerokości na słowa
+   „Rodzaj / Kiedy / Dni robocze / Skąd" w kolumnie szerokiej na 300 px. */
+.wpisy__poz {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-3);
+  padding: var(--s-3) 0;
+  border-top: 1px solid var(--c-line-soft);
+}
+.wpisy__poz:first-child { border-top: 0; padding-top: 0; }
+/* ⚠ Kropka to **ta sama pigułka, co w legendzie** (18 × 10 px), tylko okrągła — i w tych samych
+   tokenach, co wypełnienie kratki. Trzy miejsca mówiące o jednym rodzaju muszą mieć jeden kolor.
+   ⚠ Obwódka w kolorze TEKSTU rodzaju jest konieczna, nie ozdobna: sam pastel ma na białym tle
+   karty kontrast 1,17–1,21 (wartości przy tokenach `--c-pasek-*`), czyli kropki nie widać.
+   Ta sama poprawka, co w plakietce „dziś" 11.10.2026 — pale wypełnienie potrzebuje granicy. */
+.wpisy__kropka {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--c-pasek-kadrowe-tlo);
+  box-shadow: inset 0 0 0 1px var(--c-pasek-kadrowe-tekst);
+}
+.wpisy__kropka--urlop   { background: var(--c-pasek-urlop-tlo);      box-shadow: inset 0 0 0 1px var(--c-pasek-urlop-tekst); }
+.wpisy__kropka--zasilek { background: var(--c-pasek-zwolnienie-tlo);  box-shadow: inset 0 0 0 1px var(--c-pasek-zwolnienie-tekst); }
+.wpisy__kropka--kadrowe { background: var(--c-pasek-kadrowe-tlo);     box-shadow: inset 0 0 0 1px var(--c-pasek-kadrowe-tekst); }
+.wpisy__tresc { display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; }
+.wpisy__rodzaj { font-size: var(--t-body); font-weight: var(--w-medium); color: var(--c-text); }
+.wpisy__meta { font-size: var(--t-small); color: var(--c-text-3); }
+
+/* ——— stopka „skąd i z kiedy są dane" ————————————————————————————————————————
+   Jedna wyciszona linia pod treścią ekranu (pulpit: pod kartami nieobecności i limitu).
+   ⚠ **Nowa klasa, bo żadna istniejąca nie pasuje** — sprawdzone na `/styleguide`:
+   `card__meta` to część KARTY i ma `max-width: var(--measure)`, więc wyrównanie do prawej
+   kończyłoby się na 72 znakach, a nie przy krawędzi treści; `page__sub` należy do
+   `.page__head` i jest zdefiniowana wyłącznie w arkuszu powłoki komputerowej, więc
+   wspólny partial pulpitu nie może się na niej oprzeć (telefon ładuje inny arkusz 20).
+   Stąd reguła stoi TUTAJ, w komponentach: ten plik jedzie w obu powłokach.
+   ⚠ Do prawej, bo to przypis do wszystkich liczb wyżej, a nie nagłówek czegokolwiek. */
+.stopka-danych {
+  margin-top: var(--s-4);
+  font-size: var(--t-small);
+  color: var(--c-text-3);
+  text-align: right;
+}
+
+/* ⚠ **Wiersz PODRZĘDNY w tabeli limitu** („w tym na żądanie" pod „Wykorzystane", 17.10.2026).
+   Dwa wiersze czytają się jako jedna pozycja, więc: wcięcie etykiety o jedną wyściółkę komórki
+   (`--s-5` tabeli + `--s-4`), ciszej od wiersza nadrzędnego (`--t-small`, `--c-text-3`)
+   i **bez kreski** między nimi. Kreska przed „Pozostało" zostaje nietknięta — rozdziela
+   pozycje, a nie pozycję od jej uszczegółowienia. */
+.table__row--sub > td {
+  /* ⚠ `height: auto` zamiast `--row-h`: wiersz pełnej wysokości czytałby się jako kolejna
+     pozycja listy, a to jest uszczegółowienie pozycji nad nim. */
+  height: auto;
+  padding-bottom: var(--s-3);
+  font-size: var(--t-small);
+  color: var(--c-text-3);
+}
+/* Wcięcie etykiety o jedną wyściółkę komórki względem wiersza nadrzędnego. */
+.table__row--sub > td:first-child { padding-left: calc(var(--s-5) + var(--s-4)); }
+/* ⚠ Kreska między wierszem nadrzędnym a podrzędnym ZNIKA — siedzi na dolnej krawędzi wiersza
+   WYŻEJ, więc gasi ją selektor sąsiedztwa, a nie reguła na samym podwierszu. Przeglądarka bez
+   `:has()` pokaże tę jedną linię; nic poza nią się nie psuje. */
+.table tbody tr:has(+ .table__row--sub) > td { border-bottom: 0; }

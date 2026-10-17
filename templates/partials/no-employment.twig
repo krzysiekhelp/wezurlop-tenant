@@ -1,0 +1,21 @@
+{#- ⚠ Dwa RÓŻNE powody, dwa różne komunikaty (zlecenie `konta-budowa-2` §0.1).
+    Wcześniej jeden tekst obsługiwał oba i mówił „nie masz aktywnego zatrudnienia" także temu,
+    kto zatrudnienie MA, a nie ma nadanego dostępu do żadnej spółki. Pracownik szedł wtedy
+    do kadr z problemem, którego kadry nie mogły naprawić, bo leżał u nas. -#}
+<p class="eyebrow">Konto</p>
+{% if ma_zatrudnienie %}
+    <h1>Twoje konto nie ma przydzielonego dostępu</h1>
+    <p>{{ user_name }}, Twoje konto działa i możesz się zalogować, ale nie ma jeszcze przydzielonego
+        dostępu do żadnej firmy, więc nie ma tu czego pokazać.</p>
+    <p class="notice">Dostęp nadaje administrator systemu w Twojej firmie — to ustawienie po naszej
+        stronie, nie w programie kadrowym. Poproś go o dostęp do swojej firmy.</p>
+{% else %}
+    <h1>Twoje konto nie ma aktywnego zatrudnienia</h1>
+    <p>{{ user_name }}, nie znaleźliśmy aktywnego zatrudnienia powiązanego z Twoim kontem — na przykład umowa
+        się zakończyła albo zaczyna się w przyszłości.</p>
+    <p class="notice">Jeśli to pomyłka, skontaktuj się z administratorem systemu w swojej firmie.</p>
+{% endif %}
+<form method="post" action="{{ url('/wyloguj') }}">
+    {% include 'partials/csrf.twig' %}
+    <button type="submit" class="btn btn--ghost">Wyloguj</button>
+</form>

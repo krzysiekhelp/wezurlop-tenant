@@ -1,0 +1,56 @@
+{% extends 'layout/web.twig' %}
+
+{% block nazwa_ekranu %}Dane z kadr{% endblock %}
+
+{% block content %}
+    <div class="page__head">
+        <div class="page__title">
+            <p class="page__sub">Podgląd tego, co przysłał connector. Dane pochodzą z programu kadrowego i są tu wyłącznie do odczytu — poprawki robi się w kadrach, a przy następnym cyklu trafiają tutaj.</p>
+        </div>
+        <div class="page__actions">
+            <a class="btn btn--ghost" href="{{ url('/dane/synchronizacja') }}">Stan synchronizacji</a>
+        </div>
+    </div>
+    {% if podwojne_osoby is not null %}
+        {# ⚠ Bez słowa „odcisk”: to ekran kadrowej. Mówimy, co z tego wynika dla danych, a szczegóły
+           techniczne zostają na ekranie integracji. #}
+        <p class="notice notice--warn">Część osób może być tu widoczna podwójnie — dwie instalacje connectora obsługują firmy tego samego klucza.
+            Osób zatrudnionych w więcej niż jednej firmie: <strong>{{ podwojne_osoby.osob }}</strong>.
+            Szczegóły i sposób naprawy: <a href="{{ url('/admin/integracja') }}">Integracja z programem kadrowym</a>.</p>
+    {% endif %}
+
+    <section class="card">
+        <div class="table-scroll">
+            {#- ⚠ Stałe szerokości: przy 1440 px tabela wychodziła 10 px za kartę. Dziesięć
+                pikseli to nie kosmetyka — to przewijanie w poprzek, którego w tej aplikacji
+                nie ma prawa być, i które przy dłuższej nazwie firmy rośnie. -#}
+            <table class="table table--stale table--zawija">
+                <colgroup>
+                    <col class="col--firma-nazwa"><col class="col--firma-nip"><col class="col--firma-stan">
+                    <col class="col--firma-ludzie"><col class="col--firma-sync"><col class="col--firma-klucz">
+                </colgroup>
+                <thead><tr><th>Firma</th><th>NIP</th><th>Stan</th><th>Pracownicy</th><th>Ostatnia synchronizacja</th><th>Klucz connectora</th></tr></thead>
+                <tbody>
+                {% for f in firmy %}
+                    <tr>
+                        <td><a href="{{ url('/dane/firma/' ~ f.id) }}">{{ f.name }}</a></td>
+                        <td>{{ nip_grupami(f.nip) }}</td>
+                        <td>
+                            {% if f.signup == 'pending' %}<span class="chip chip--warn">zgłoszona, czeka</span>
+                            {% elseif f.signup == 'rejected' %}<span class="chip chip--danger">odrzucona</span>
+                            {% else %}<span class="chip">zatwierdzona</span>{% endif %}
+                        </td>
+                        <td>{{ f.employees }}</td>
+                        {# ⚠ Znacznik przez filtr — surowy `RRRR-MM-DD HH:MM:SS` w treści dla użytkownika
+                           to ten sam błąd co „UTC”, tylko bez etykiety (docs §10 punkt 3). #}
+                        <td title="{{ f.last_sync ? czas_ze_strefa(f.last_sync) : '' }}">{{ f.last_sync ? czas_wzgledny(f.last_sync) : 'jeszcze nie było' }}</td>
+                        <td>{{ f.key_name ?? '— brak aktywnego klucza' }}</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="6" class="empty-state">Nie ma jeszcze żadnej firmy. Firmy pojawią się tu po tym, jak connector je zgłosi, a administrator zatwierdzi.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+{% endblock %}

@@ -1,0 +1,14 @@
+{#- ⚠ **Nagłówek karty „Zespół" zniknął 11.10.2026** (zlecenie §2d): powtarzał nazwę ekranu,
+    która stoi w belce, więc słowo było na ekranie trzy razy — belka, `h1` pod belką i karta.
+    Zasada, nie lista ekranów: nagłówek karty powtarzający nazwę ekranu jest nadmiarowy;
+    nagłówek mówiący coś innego (miesiąc, limit, nazwisko) jest treścią i zostaje.
+    ⚠ Razem z nagłówkiem **zdanie wyjaśniające weszło DO karty**: nad kartą bez nagłówka
+    wisiało samotnie i czytało się jak sierota. -#}
+<section class="card">
+    <div class="card__body">
+        <p class="card__meta">Osoby w Twojej firmie.</p>
+        {% if members is empty %}
+            <p class="empty-state">Lista zespołu pojawi się po połączeniu z programem kadrowym (Etap 3).</p>
+        {% endif %}
+    </div>
+</section>

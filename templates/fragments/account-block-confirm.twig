@@ -1,0 +1,63 @@
+{#- Potwierdzenie blokady albo odblokowania konta (etap 5, system wizualny §5.6).
+
+    ⚠ Ekran pokazuje SKUTEK, a nie pyta „czy na pewno": pytanie bez skutku każe administratorowi
+    domyślać się, co się stanie, a to jest operacja na cudzym dostępie do danych kadrowych. -#}
+<div class="drawer__head">
+    <div>
+        <div class="drawer__title">
+            <h2>{{ odblokowanie ? 'Odblokować konto?' : 'Zablokować konto?' }}</h2>
+        </div>
+        <div class="drawer__sub">{{ o.name }}</div>
+    </div>
+    {% if w_szufladzie %}
+        <button type="button" class="modal__close" data-modal-close="osoba-panel" aria-label="Zamknij panel">×</button>
+    {% endif %}
+</div>
+
+<div class="drawer__body">
+    <section class="pane">
+        <div class="pane__head"><span class="pane__title">Co się stanie</span></div>
+        <ul class="confirm__list measure">
+            {% if odblokowanie %}
+                <li>Konto wróci do stanu sprzed blokady i {{ o.account_status == 'blocked' ? 'będzie mogło się zalogować' : 'odzyska dostęp' }}.</li>
+                {#- ⚠ Dostępy wracają SAME: blokada nigdy ich nie usunęła, bo historia jest
+                    potrzebna kadrom. Dlatego odblokowanie z powrotem zajmuje licencje. -#}
+                <li>Dostępy do spółek wrócą razem z kontem — blokada ich nie usunęła, tylko przestały się liczyć.</li>
+                <li>Zajętych dostępów po tej zmianie: <strong>{{ licencja.uzyte + wiersz.dostepy }}</strong>{% if licencja.limit is not null %} z {{ licencja.limit }}{% endif %}.</li>
+                {% if licencja.limit is not null and licencja.uzyte + wiersz.dostepy > licencja.limit %}
+                    <li class="access--odchylenie">To przekroczy limit licencji. Odblokowania nie wstrzymujemy — ale odbierz zbędne dostępy albo podnieś licencję.</li>
+                {% endif %}
+                {% if o.powod_blokady == 'sync' %}
+                    <li>Blokadę założyła synchronizacja (wygasły wszystkie zatrudnienia). Jeśli R2 nadal ich nie ma, najbliższy przebieg zablokuje konto ponownie.</li>
+                {% endif %}
+            {% else %}
+                <li>Konto natychmiast przestanie się logować, a wszystkie jego sesje zostaną zakończone.</li>
+                <li>Dostępy do spółek <strong>zostaną w bazie</strong>, ale przestaną się liczyć do licencji — po odblokowaniu wrócą.</li>
+                <li>Zajętych dostępów po tej zmianie: <strong>{{ licencja.uzyte - wiersz.dostepy }}</strong>{% if licencja.limit is not null %} z {{ licencja.limit }}{% endif %}.</li>
+                <li>Synchronizacja <strong>nie zdejmie</strong> tej blokady — to decyzja człowieka i cofa ją tylko człowiek.</li>
+            {% endif %}
+        </ul>
+        <div class="defs">
+            <div><div class="defs__term">Stan konta</div><div class="defs__value">{{ o.account_status }}</div></div>
+            <div><div class="defs__term">Powód blokady</div><div class="defs__value">{{ o.powod_blokady == 'sync' ? 'synchronizacja' : (o.powod_blokady == 'manual' ? 'decyzja administratora' : '—') }}</div></div>
+            <div><div class="defs__term">Zablokowane od</div><div class="defs__value">{{ o.blokada_od is null ? '—' : czas_ze_strefa(o.blokada_od) }}</div></div>
+            <div><div class="defs__term">Dostępy tego konta</div><div class="defs__value">{{ wiersz.dostepy }}</div></div>
+        </div>
+    </section>
+</div>
+
+<div class="drawer__foot">
+    {#- Powrót wraca do panelu tą samą trasą, którą panel się otwiera — bez wychodzenia z listy. -#}
+    <button type="button" class="btn btn--quiet"
+            hx-get="{{ url('/admin/konta/osoba/' ~ o.person_id) }}"
+            hx-target="#osoba-tresc" hx-swap="innerHTML">Wróć</button>
+    <form class="inline-form" method="post" action="{{ url('/admin/konta/osoba/' ~ o.person_id ~ '/blokada') }}"
+          hx-post="{{ url('/admin/konta/osoba/' ~ o.person_id ~ '/blokada') }}"
+          hx-target="#osoba-tresc" hx-swap="innerHTML">
+        {% include 'partials/csrf.twig' %}
+        {#- ⚠ Przycisk nieodwracalnej operacji NIE jest ogniskiem domyślnym (§5.6): Enter nie może
+            być przypadkowym kliknięciem. -#}
+        <button type="submit" class="btn {{ odblokowanie ? 'btn--primary' : 'btn--danger' }}">
+            {{ odblokowanie ? 'Odblokuj konto' : 'Zablokuj konto' }}</button>
+    </form>
+</div>

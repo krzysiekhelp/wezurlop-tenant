@@ -1,0 +1,21 @@
+{#- Nowy wniosek — rama formularza bez zapisu (Etap 3). Zmienne: types. -#}
+{#- ⚠ Nagłówek karty „Nowy wniosek" zdjęty 11.10.2026 — powtarzał nazwę ekranu z belki
+    (zlecenie §2d). Zdanie o stanie formularza już stoi w karcie, więc nie ma czego przenosić. -#}
+<section class="card">
+    <div class="card__body">
+        <p class="card__meta">Złóż wniosek o urlop.</p>
+        <p class="notice notice--dev">Formularz poglądowy — składanie wniosków zostanie uruchomione w Etapie 3.</p>
+        <form class="stack" action="{{ url('/wniosek/nowy') }}" method="get">
+            <div class="field">
+                <label for="request-type">Rodzaj nieobecności</label>
+                <select class="select" id="request-type" name="rodzaj" disabled>
+                    {% for t in types %}<option>{{ t }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="field"><label for="request-from">Od</label><input class="input" id="request-from" type="date" disabled></div>
+            <div class="field"><label for="request-to">Do</label><input class="input" id="request-to" type="date" disabled></div>
+            <div class="field"><label for="request-note">Komentarz dla przełożonego</label><textarea class="input input--area" id="request-note" disabled></textarea></div>
+            <button class="btn btn--primary" type="button" disabled>Wyślij wniosek</button>
+        </form>
+    </div>
+</section>

@@ -1,0 +1,10 @@
+{% extends 'layout/mobile.twig' %}
+
+{#- ⚠ Nagłówek z tej samej wartości co w wariancie webowym (`CalendarController::tytul()`).
+    Wariantu mobilnego w tej turze nie projektujemy, ale DWIE NAZWY jednego nagłówka to już raz
+    kosztowało — a tu wystarczyło jedno słowo, żeby właściciel tej treści był jeden. -#}
+{% block nazwa_ekranu %}{{ tytul }}{% endblock %}
+
+{% block content %}
+    {% include 'partials/page/calendar.twig' %}
+{% endblock %}

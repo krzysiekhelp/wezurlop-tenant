@@ -1,0 +1,44 @@
+# Profil minimal — .htaccess katalogu public/. Aplikacja pod adresami /index.php/… (PATH_INFO).
+# Nagłówek Authorization może nie docierać — connector wysyła klucz także w X-Api-Key.
+<IfModule mod_alias.c>
+  RedirectMatch 404 (^|/)\.(?!well-known/)
+</IfModule>
+
+# ——— Cache zasobów statycznych ————————————————————————————————————————————
+# ⚠ DWIE REGUŁY, bo zasoby dzielą się na dwie klasy, i ten podział jest umyślny.
+#
+# 1. `css`, `js`, `img` — adres NIESIE WERSJĘ (`?v=…`), w paczce wyliczoną ze **skrótu treści
+#    pliku** (manifest `wersje.json`, sha256 — nie `filemtime`, bo rozpakowanie paczki ustawia
+#    czasy po swojemu). Zmieniony plik dostaje nowy adres, więc rok z `immutable` jest
+#    bezpieczny: stary adres nikogo nie obchodzi, a nowy pobiera się od razu.
+#    ⚠ `immutable` ma sens TYLKO przy długim `max-age`: przy czterech godzinach przeglądarka
+#    i tak nie odpytywała serwera, a `immutable` wstrzymuje wyłącznie odpytanie przy RĘCZNYM
+#    odświeżeniu. Dlatego rok, nie godziny (rozstrzygnięcie 22.09.2026).
+#    ⚠ Drugi warunek, bez którego to byłoby ryzykowne: `dev/build-package.php verify` ODRZUCA
+#    paczkę, w której zasób wołany z szablonu albo z arkusza jest poza manifestem — sprawdzone
+#    złamaniem, nie deklaracją. Zasób przeoczony dostaje NUMER WYDANIA, więc odświeża się
+#    przy każdej aktualizacji.
+#
+# 2. ⚠ CZCIONKI (`woff2`) zostają na GODZINACH i **bez `immutable`** — i to nie jest
+#    niekonsekwencja do „ujednolicenia". Powód: pliki czcionek wołane są z arkusza
+#    (`url('../fonts/…')`), więc ich adresy **NIE NIOSĄ WERSJI**. `immutable` na adresie bez
+#    wersji znaczy „nie pytaj ponownie NIGDY, nawet przy odświeżeniu" — czyli plik zamrożony
+#    u klienta na rok, a w paczce kodowanej Encoderem nie ma jak tego odkręcić zdalnie
+#    (ta sama nieodwracalność co HSTS z rocznym `max-age`).
+#    ⚠ **Nie „poprawiaj" tego przez dopisanie `immutable`.** Zysk jest zerowy: to IBM Plex
+#    w trzech wagach i dwóch podzbiorach, sześć plików, które się nie zmieniają — a gdy kiedyś
+#    zmienimy krój, zmieni się nazwa pliku. Jedyną drogą do `immutable` na czcionkach jest
+#    wersja w adresie, a to znaczy przepisywanie arkuszy przy budowaniu paczki, czyli nowe
+#    miejsce, w którym paczka różni się od źródeł (§15 reguł: ten sam commit ma dawać
+#    obie wersje).
+#
+# ⚠ Całość w `<IfModule mod_headers.c>`: brak modułu ma znaczyć „bez nagłówka", nie 500
+# na każdym żądaniu (lekcja z `Require` w `.htaccess`).
+<IfModule mod_headers.c>
+  <FilesMatch "\.(css|js|png|svg|jpg|jpeg|gif|ico)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  <FilesMatch "\.(woff2|woff|ttf)$">
+    Header set Cache-Control "public, max-age=14400"
+  </FilesMatch>
+</IfModule>

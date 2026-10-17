@@ -1,0 +1,20 @@
+<p class="field__hint">Instalator zapisze plik konfiguracji (.env) poza katalogiem publicznym, usunie z niego token instalacyjny, ustawi mu prawa 0640 i zablokuje się na stałe.</p>
+<p class="field__hint">Rejestracja instalacji w panelu wezurlop zostanie dodana wraz z panelem.</p>
+<p class="field__hint">HTTPS: nagłówek HSTS startuje z okresem 30 dni i bez subdomen — objęcie subdomen włącza świadomie administrator, bo dotyczy wszystkich serwisów w tej domenie.</p>
+<fieldset class="stack">
+    <legend>Jak na tym hostingu uruchamiane jest zadanie cykliczne (cron)?</legend>
+    {% set cron_options = {
+        'crontab5': 'crontab co 5 minut (bin/run-jobs.php)',
+        'http5': 'plik cron-05min.php w katalogu domeny, uruchamiany przez hosting co 5 minut',
+        'every15': 'co 15 minut',
+        'hourly': 'co godzinę',
+        'none': 'nie wiem / hosting nie ma crona',
+    } %}
+    {% for value, label in cron_options %}
+        <div class="field field--check">
+            <input id="cron-{{ value }}" name="cron" type="radio" value="{{ value }}"{% if value == cron_default %} checked{% endif %}>
+            <label for="cron-{{ value }}">{{ label }}</label>
+        </div>
+    {% endfor %}
+    <p class="field__hint">Przy cronie rzadszym niż co 5 minut pilne wiadomości (reset hasła, zaproszenie) wysyłane są dodatkowo po zwykłych żądaniach — inaczej link dotarłby na granicy ważności.</p>
+</fieldset>

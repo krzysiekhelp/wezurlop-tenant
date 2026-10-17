@@ -1,0 +1,21 @@
+{#- Instalator: prosta skórka działająca przed konfiguracją aplikacji. Bez sesji, bez htmx, bez skryptów. -#}
+<!doctype html>
+<html lang="pl">
+<head>
+    {% include 'partials/head.twig' %}
+    <title>{% block title %}Instalator — wezurlop{% endblock %}</title>
+</head>
+<body>
+<div class="installer-shell">
+    <div class="installer-frame">
+        <div class="installer-brand">
+            <img src="{{ asset('img/logo.png') }}" alt="wezurlop" width="228" height="44">
+            <strong>Instalator tenanta</strong>
+        </div>
+        <main class="card" id="main">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,50 @@
+<p class="field__hint">Poczta wychodzi wyłącznie przez SMTP. Instalator wyśle teraz wiadomość testową — bez działającej poczty administrator nie dostanie linku do hasła.</p>
+<div class="form-grid">
+    <div class="field">
+        <label for="mail-transport">Sposób wysyłki</label>
+        <select class="input" id="mail-transport" name="mail_transport">
+            <option value="smtp">Serwer SMTP</option>
+            <option value="file">Zapis do plików (tylko instalacja deweloperska)</option>
+        </select>
+    </div>
+    <div class="field">
+        <label for="mail-host">Serwer SMTP</label>
+        <input class="input" id="mail-host" name="mail_host" maxlength="255" autocomplete="off">
+    </div>
+    <div class="field">
+        <label for="mail-port">Port</label>
+        <input class="input" id="mail-port" name="mail_port" inputmode="numeric" value="587" maxlength="5">
+    </div>
+    <div class="field">
+        <label for="mail-encryption">Szyfrowanie</label>
+        <select class="input" id="mail-encryption" name="mail_encryption">
+            <option value="tls">STARTTLS</option>
+            <option value="ssl">SSL/TLS</option>
+            <option value="none">Brak</option>
+        </select>
+    </div>
+    <div class="field">
+        <label for="mail-username">Użytkownik SMTP</label>
+        <input class="input" id="mail-username" name="mail_username" maxlength="255" autocomplete="off">
+    </div>
+    <div class="field">
+        <label for="mail-password">Hasło SMTP</label>
+        <input class="input" id="mail-password" name="mail_password" type="password" maxlength="255" autocomplete="new-password">
+    </div>
+    <div class="field">
+        <label for="mail-from">Adres nadawcy</label>
+        <input class="input" id="mail-from" name="mail_from" type="email" maxlength="254" required>
+    </div>
+    <div class="field">
+        <label for="mail-from-name">Nazwa nadawcy</label>
+        <input class="input" id="mail-from-name" name="mail_from_name" value="wezurlop" maxlength="100">
+    </div>
+    <div class="field">
+        <label for="alert-email">Skrzynka na alerty bezpieczeństwa</label>
+        <input class="input" id="alert-email" name="alert_email" type="email" maxlength="254" required>
+    </div>
+    <div class="field">
+        <label for="test-to">Wyślij wiadomość testową na</label>
+        <input class="input" id="test-to" name="test_to" type="email" maxlength="254" required>
+    </div>
+</div>

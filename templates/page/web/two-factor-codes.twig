@@ -1,0 +1,12 @@
+{% extends 'layout/web.twig' %}
+
+{% block nazwa_ekranu %}Kody zapasowe{% endblock %}
+
+{% block content %}
+    <div class="page__head">
+        <div class="page__title">
+            <p class="page__sub">Zapisz je teraz — nie pokażemy ich ponownie.</p>
+        </div>
+    </div>
+    {% include 'partials/page/two-factor-codes.twig' %}
+{% endblock %}

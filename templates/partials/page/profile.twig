@@ -1,0 +1,17 @@
+{%- set me = current_user() -%}
+<section class="card">
+    <div class="card__head"><h2>{{ me.name }}</h2>{% if me.two_factor %}<span class="chip">2FA włączone</span>{% else %}<span class="chip chip--warn">2FA wyłączone</span>{% endif %}</div>
+    <div class="card__body">
+        <ul class="settings-list">
+            <li><a class="settings-list__row" href="{{ url('/ustawienia/2fa') }}">Weryfikacja dwuetapowa <span aria-hidden="true">›</span></a></li>
+            <li><a class="settings-list__row" href="{{ url('/ustawienia/urzadzenia') }}">Twoje urządzenia <span aria-hidden="true">›</span></a></li>
+            {% if me.employment_count > 1 %}
+                <li><a class="settings-list__row" href="{{ url('/kontekst') }}">Zmień firmę <span aria-hidden="true">›</span></a></li>
+            {% endif %}
+            {% if can('admin.settings') %}
+                <li><a class="settings-list__row" href="{{ url('/ustawienia') }}">Ustawienia tenanta <span aria-hidden="true">›</span></a></li>
+            {% endif %}
+        </ul>
+        {% include 'partials/logout.twig' %}
+    </div>
+</section>

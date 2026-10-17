@@ -1,0 +1,60 @@
+{% extends 'layout/web.twig' %}
+
+{% block nazwa_ekranu %}Stan synchronizacji{% endblock %}
+
+{% block content %}
+    <div class="page__head">
+        <div class="page__title">
+            <p class="page__sub">Ostatnie przebiegi connectora. Wejdź w przebieg, żeby zobaczyć, które rekordy się w nim zmieniły — to jest odpowiedź na pytanie „kadry zmieniły trzy rzeczy, czy przyszły dokładnie trzy”.</p>
+        </div>
+        <div class="page__actions">
+            <a class="btn btn--ghost" href="{{ url('/dane') }}">Dane z kadr</a>
+        </div>
+    </div>
+
+    <section class="card">
+        <div class="table-scroll">
+            {#- `table--zebra`: lista przebiegów rośnie z pracą systemu, dziewięć kolumn. -#}
+        {#- ⚠ Dziewięć kolumn ze stałymi szerokościami. Zmierzone przy 1440 px: bez tego tabela
+            wychodziła 191 px za kartę, a przy 1600 px — 31 px; rozpychała ją kolumna „Rekordy"
+            (wypisuje zbiory z liczbami) i „Connector" (wersja). Przewijanie w poprzek jest
+            w tej aplikacji zakazane, więc szerokości muszą być policzone, nie zgadnięte
+            przez przeglądarkę z treści. -#}
+        <table class="table table--zebra table--stale table--zawija">
+                <colgroup>
+                    <col class="col--sync-czas"><col class="col--sync-firma"><col class="col--sync-stan">
+                    <col class="col--sync-sek"><col class="col--sync-rekordy"><col class="col--sync-pola">
+                    <col class="col--sync-limity"><col class="col--sync-konflikty"><col class="col--sync-connector">
+                </colgroup>
+                <thead><tr><th>Początek</th><th>Firma</th><th>Stan</th><th>Czas</th><th>Rekordy</th><th>Pominięte pola</th><th>429 / 503</th><th>Konflikty</th><th>Connector</th></tr></thead>
+                <tbody>
+                {% for p in przebiegi %}
+                    <tr>
+                        <td><a href="{{ url('/dane/synchronizacja/' ~ p.id) }}">{{ czas_sekundy(p.started_at) }}</a></td>
+                        <td>{{ p.company }}</td>
+                        <td>
+                            {% if p.status == 'closed' %}<span class="chip">zamknięty</span>
+                            {% elseif p.status == 'open' %}<span class="chip chip--warn">otwarty</span>
+                            {% elseif p.status == 'expired' %}<span class="chip chip--danger">wygasły</span>
+                            {% else %}<span class="chip chip--danger">{{ p.status }}</span>{% endif %}
+                        </td>
+                        <td>{{ p.seconds is null ? '—' : p.seconds ~ ' s' }}</td>
+                        <td class="cell--zawija">
+                            {% set d = p.stats.dane ?? {} %}
+                            {% if d is empty %}—{% else %}
+                                {% for zbior, liczby in d %}{{ zbior }}: {{ (liczby.nowe ?? 0) + (liczby.zmienione ?? 0) + (liczby.usuniete ?? 0) }}{% if not loop.last %}, {% endif %}{% endfor %}
+                            {% endif %}
+                        </td>
+                        <td>{{ p.stats.pominietePola ?? 0 }}</td>
+                        <td>{{ p.stats.zaSzybko ?? 0 }} / {{ p.stats.przerwyTechniczne ?? 0 }}</td>
+                        <td>{% if p.conflicts > 0 %}<span class="chip chip--danger">{{ p.conflicts }}</span>{% else %}0{% endif %}</td>
+                        <td>{{ p.connector ?: '—' }}{% if p.r2 %} · R2 {{ p.r2 }}{% endif %}</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="9" class="empty-state">Connector nie wykonał jeszcze żadnego przebiegu.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+{% endblock %}

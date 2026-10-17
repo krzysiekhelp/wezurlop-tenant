@@ -1,0 +1,27 @@
+{% extends 'layout/web.twig' %}
+
+{% block nazwa_ekranu %}Nowe konto administracyjne{% endblock %}
+
+{% block okruchy %}
+    <span>Administracja</span>
+    <span class="crumbs__sep">/</span>
+    <a href="{{ url('/admin/konta') }}">Osoby i konta</a>
+    <span class="crumbs__sep">/</span>
+{% endblock %}
+
+{% block content %}
+    {# Ekran zapasowy: ta sama treść, którą z JavaScriptem pokazuje okno modalne. #}
+    <div class="page__head">
+        <div class="page__title">
+            <p class="page__sub">Jedyna ręczna ścieżka. Pracownicy przychodzą z programu kadrowego i pojawiają się na liście sami.</p>
+        </div>
+    </div>
+    <section class="card">
+        <div class="card__body">
+            {% include 'fragments/admin-account-form.twig' %}
+        </div>
+    </section>
+    <div class="btn-row">
+        <a class="btn btn--ghost" href="{{ url('/admin/konta') }}">Wróć do listy</a>
+    </div>
+{% endblock %}

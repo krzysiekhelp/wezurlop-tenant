@@ -1,0 +1,13 @@
+{#- **Uwaga przy znaczniku: pokazujemy INNĄ spółkę, niż konto wybrało** (zlecenie
+    `2026-10-10-globalny-wybor-spolki.md` §1).
+
+    ⚠ Dlaczego w znaczniku, a nie w treści ekranu: ten stan nie należy do żadnego ekranu —
+    bierze się z tego, że zapamiętana spółka wypadła z listy dozwolonych (konto straciło do niej
+    dostęp albo spółka została wyłączona). Zdanie dopisane na jednym ekranie milczałoby
+    na ośmiu pozostałych. Znacznik stoi wszędzie, więc uwaga też.
+
+    ⚠ Tekst krótki, pełne wyjaśnienie w `title`: w belce nie ma miejsca na zdanie, a cisza
+    w tym miejscu wygląda jak usterka znacznika („wybrałem inną spółkę i nic się nie stało").
+
+    Zmienne: fallback (bool). -#}
+{%- if fallback %}<span class="spolka__uwaga" title="Firma wybrana ostatnio nie jest już dostępna dla tego konta — pokazujemy pierwszą dozwoloną.">(inna niż wybrana)</span>{% endif -%}

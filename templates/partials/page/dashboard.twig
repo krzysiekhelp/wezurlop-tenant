@@ -1,0 +1,146 @@
+{#- Pulpit pracownika — wspólny fragment wariantu webowego i mobilnego.
+    Zmienne: zatrudnienie (albo null), pulpit (albo null).
+
+    ⚠ Konto bez zatrudnienia widzi ZDANIE, nie pusty ekran i nie cudzy pulpit: administrator ma
+    dane pracowników pod `/dane/pracownik/{id}`, a druga ścieżka do danych kadrowych to osobna
+    decyzja, nie „przy okazji” (zlecenie §6.2).
+
+    ⚠ Zero logiki liczącej. Wszystkie liczby, ich stany i podpisy przychodzą gotowe
+    z `PulpitPracownika` — szablon wybiera tylko klasę odpowiadającą stanowi. -#}
+{% if zatrudnienie is null %}
+    <section class="card">
+        <div class="card__body">
+            <p class="empty-state">To konto nie ma zatrudnienia — pulpit pokazuje dane pracownika: limit urlopu i nieobecności z programu kadrowego. Dane pracowników są na ekranie „Dane z kadr”.</p>
+        </div>
+    </section>
+{% else %}
+    <section class="card stats" aria-label="Podsumowanie urlopów">
+        {% for k in pulpit.kafelki %}
+            <div class="stats__item">
+                <span class="stats__key">{{ k.klucz }}</span>
+                <span class="stats__value{% if k.stan == 'brak' %} stats__value--brak{% elseif k.stan == 'odchylenie' %} stats__value--odchylenie{% endif %}">{{ k.wartosc }}{% if k.reszta is not null %} <small>{{ k.reszta }}</small>{% endif %}{% if k.podpis is not null %}<small class="stats__note">{{ k.podpis }}</small>{% endif %}</span>
+            </div>
+        {% endfor %}
+    </section>
+
+    <div class="card-grid">
+        <section class="card">
+            <div class="card__head">
+                <h2 class="card__title">Moje nieobecności</h2>
+                {#- Lata biorą się z DANYCH tej osoby (limity i nieobecności), nie z kalendarza:
+                    przy jednym roku nie ma czego przełączać. -#}
+                {% if pulpit.lata|length > 1 %}
+                    <form class="segmented" method="get" action="{{ url('/') }}">
+                        {% for l in pulpit.lata %}
+                            <button type="submit" name="rok" value="{{ l }}"
+                                    class="segmented__item{{ pulpit.rok == l ? ' segmented__item--on' : '' }}">{{ l }}</button>
+                        {% endfor %}
+                    </form>
+                {% endif %}
+            </div>
+            {#- ⚠ Tabela z partiala, nie druga kopia: ten sam wykaz stoi w kalendarzu „Tylko ja".
+                Dwie kopie rozjechałyby się przy pierwszej zmianie kolumn. -#}
+            {% include 'partials/lista-nieobecnosci.twig' with {
+                'wiersze': pulpit.nieobecnosci,
+                'pusto': 'W ' ~ pulpit.rok ~ ' nie ma żadnej nieobecności z kadr.'
+            } only %}
+            <div class="card__body">
+                <p class="card__meta">
+                    {% if pulpit.nieobecnosci_wiecej > 0 %}
+                        Pokazane {{ pulpit.nieobecnosci|length }} z {{ pulpit.podsumowanie.liczba }} ·
+                    {% endif %}
+                    <a href="{{ url('/kalendarz') }}">wszystkie w kalendarzu</a>
+                </p>
+            </div>
+        </section>
+
+        <section class="card">
+            <div class="card__head"><h2 class="card__title">Limit urlopu {{ pulpit.rok }}</h2></div>
+            {% if pulpit.limit is null %}
+                <div class="card__body">
+                    <p class="empty-state">Kadry nie przysłały limitu urlopowego na {{ pulpit.rok }}.</p>
+                </div>
+            {% elseif not pulpit.limit.naliczony %}
+                <div class="card__body">
+                    <p class="notice">Limit na {{ pulpit.rok }} nie jest jeszcze założony w programie kadrowym. Kadry zakładają go zwykle w drugiej połowie stycznia — do tego czasu nie ma tu czego pokazać, a zero znaczyłoby „wykorzystane”.</p>
+                </div>
+            {% else %}
+                <div class="table-scroll">
+                    <table class="table table--limit">
+                        <tbody>
+                            <tr><td>Wymiar podstawowy</td><td class="table__num">{{ pulpit.limit.wymiar.glowna }}{% if pulpit.limit.wymiar.reszta is not null %} {{ pulpit.limit.wymiar.reszta }}{% endif %}</td></tr>
+                            <tr><td>Zaległy z {{ pulpit.rok - 1 }}</td><td class="table__num">{{ pulpit.limit.zalegly.glowna }}{% if pulpit.limit.zalegly.reszta is not null %} {{ pulpit.limit.zalegly.reszta }}{% endif %}</td></tr>
+                            {% if pulpit.limit.ma_korekty %}
+                                <tr><td>Korekty kadr</td><td class="table__num">{{ pulpit.limit.korekty.glowna }}{% if pulpit.limit.korekty.reszta is not null %} {{ pulpit.limit.korekty.reszta }}{% endif %}</td></tr>
+                            {% endif %}
+                            <tr class="table__sum"><td>Dostępne na start</td><td class="table__num">{{ pulpit.limit.na_start.glowna }}{% if pulpit.limit.na_start.reszta is not null %} {{ pulpit.limit.na_start.reszta }}{% endif %}</td></tr>
+                            <tr><td>Wykorzystane</td><td class="table__num">{{ pulpit.limit.wykorzystane.glowna }}{% if pulpit.limit.wykorzystane.reszta is not null %} {{ pulpit.limit.wykorzystane.reszta }}{% endif %}</td></tr>
+                            {#- ⚠ **Urlop na żądanie jest WIERSZEM PODRZĘDNYM do „Wykorzystane", nie linią
+                                pod tabelą** (decyzja Krzysztofa z 17.10.2026 po prototypie). Wlicza się
+                                do urlopu wypoczynkowego, więc należy do tej tabeli jako część
+                                wykorzystanych dni — osobna linia pod spodem sugerowała drugą pulę.
+                                ⚠ **Bez „z 4 dni"**: rocznego wymiaru urlopu na żądanie R2 nie przysyła
+                                (`leave_balance` ma wyłącznie `on_demand_used_days`), a ustawowej czwórki
+                                nie zaszywamy w kodzie (log decyzji 474). Zostaje sam licznik.
+                                ⚠ Wiersz jedzie także przy **zerze** — „0" jest odpowiedzią na pytanie
+                                „ile już wziąłem". Nie jedzie, gdy kadry pola NIE PRZYSŁAŁY (`null`):
+                                „—" nie jest odpowiedzią, tylko brakiem danych, a te dwa stany są w tym
+                                projekcie rozróżniane wszędzie indziej. -#}
+                            {% if pulpit.limit.na_zadanie_dni is not null %}
+                                <tr class="table__row--sub"><td>w tym na żądanie</td><td class="table__num">{{ pulpit.limit.na_zadanie_dni }} {{ pulpit.limit.na_zadanie_dni == 1 ? 'dzień' : 'dni' }}</td></tr>
+                            {% endif %}
+                            <tr class="table__sum"><td>Pozostało</td><td class="table__num{% if pulpit.limit.ujemne %} table__num--odchylenie{% endif %}">{{ pulpit.limit.pozostalo.glowna }}{% if pulpit.limit.pozostalo.reszta is not null %} {{ pulpit.limit.pozostalo.reszta }}{% endif %}</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                {#- ⚠ **Pojemnik pod tabelą POWSTAJE TYLKO WTEDY, GDY MA CO POKAZAĆ** (17.10.2026).
+                    Stały `card__body` miał trzy rzeczy; dwie z nich zniknęły — zdanie „Limit prowadzą
+                    kadry…" (decyzja Krzysztofa: usunąć) i licznik urlopu na żądanie (przeniesiony
+                    do tabeli). Zostały dwa stany wyjątkowe, więc warunek jest **w szablonie**:
+                    pusty pojemnik z samą wyściółką czyta się jako dziura w układzie, a `:empty`
+                    go nie łapie, bo zawiera biały znak. -#}
+                {% if pulpit.limit.ujemne or pulpit.limit.poza_oknem %}
+                    <div class="card__body">
+                        {% if pulpit.limit.ujemne %}
+                            {#- ⚠ Komunikat NIE brzmi „przekroczyłeś limit”: system pilnuje limitu, więc
+                                ten stan nie mógł powstać po naszej stronie (zlecenie §3.2). -#}
+                            <p class="notice notice--warn" role="status">W danych z kadr jest więcej nieobecności, niż wynosi limit na ten rok. Nie wiemy, czy to korekta, urlop udzielony poza systemem, czy pomyłka — <strong>zgłoś to kadrom</strong>. System nie pozwala wziąć urlopu ponad limit, więc ten stan nie powstał po stronie tej aplikacji.</p>
+                        {% endif %}
+                        {% if pulpit.limit.poza_oknem %}
+                            <p class="card__meta">Ten limit jest poza oknem danych, które przysyła program kadrowy — wartości mogą być nieaktualne.</p>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            {% endif %}
+        </section>
+    </div>
+
+    {#- ⚠ **Skąd i z kiedy są dane — JEDNA linia na dole ekranu, nie podtytuł nad kafelkami**
+        (decyzja Krzysztofa z 17.10.2026 po prototypie). Nad kafelkami ta sama treść stała
+        w `page__sub` razem z nazwą firmy i etatem; nazwę firmy niesie już znacznik w belce,
+        a stan synchronizacji jest przypisem do wszystkich liczb na ekranie, nie nagłówkiem.
+        ⚠ Stoi w TYM partialu, nie w szablonie powłoki webowej: pulpit mobilny dołącza ten plik
+        i nie ma własnego nagłówka strony, więc linia w `page/web/dashboard.twig` nie dotarłaby
+        na telefon. Z tego samego powodu klasa jest w `30-components.css`, a nie w arkuszu
+        powłoki komputerowej — ten jest ładowany tylko w jednym wariancie. -#}
+    {% if zatrudnienie.updated_at is not null %}
+        <p class="stopka-danych">Dane z programu kadrowego: stan na {{ czas(zatrudnienie.updated_at) }}</p>
+    {% endif %}
+
+    {% if pulpit.limity_inne is not empty %}
+        {% for inny in pulpit.limity_inne %}
+            <section class="card">
+                <div class="card__head"><h2 class="card__title">Limit „{{ inny.kind }}” {{ pulpit.rok }}</h2></div>
+                <div class="table-scroll">
+                    <table class="table table--limit">
+                        <tbody>
+                            <tr><td>Dostępne na start</td><td class="table__num">{{ inny.na_start.glowna }}{% if inny.na_start.reszta is not null %} {{ inny.na_start.reszta }}{% endif %}</td></tr>
+                            <tr><td>Wykorzystane</td><td class="table__num">{{ inny.wykorzystane.glowna }}{% if inny.wykorzystane.reszta is not null %} {{ inny.wykorzystane.reszta }}{% endif %}</td></tr>
+                            <tr class="table__sum"><td>Pozostało</td><td class="table__num{% if inny.ujemne %} table__num--odchylenie{% endif %}">{{ inny.pozostalo.glowna }}{% if inny.pozostalo.reszta is not null %} {{ inny.pozostalo.reszta }}{% endif %}</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        {% endfor %}
+    {% endif %}
+{% endif %}

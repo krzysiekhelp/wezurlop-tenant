@@ -1,0 +1,5 @@
+<p class="field__hint">Wersja PHP, ionCube Loader, rozszerzenia i prawa zapisu. Baza danych zostanie sprawdzona w kroku 4.</p>
+{% include 'partials/diagnostics-table.twig' with {groups: checks} only %}
+{% if blocking %}
+    <p class="notice notice--danger" role="alert">Są błędy blokujące. Popraw je i odśwież stronę.</p>
+{% endif %}

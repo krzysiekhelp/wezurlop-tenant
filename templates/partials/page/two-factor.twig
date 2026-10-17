@@ -1,0 +1,61 @@
+{#- 2FA własnego konta. Zmienne: enabled, required, pairing, secret, codes_left, error. -#}
+{% if error is not null %}
+    <p class="notice notice--danger" role="alert">{{ error }}</p>
+{% endif %}
+{% if enabled %}
+    <section class="card">
+        <div class="card__body">
+            <p class="notice">Weryfikacja dwuetapowa jest włączona. Pozostałe kody zapasowe: {{ codes_left }}.</p>
+            <h2>Wyłączenie</h2>
+            {% if required %}
+                <p class="notice notice--warn">Twoja rola wymaga 2FA — po wyłączeniu trzeba będzie od razu sparować aplikację ponownie.</p>
+            {% endif %}
+            <form method="post" action="{{ url('/ustawienia/2fa/wylacz') }}" class="stack">
+                {% include 'partials/csrf.twig' %}
+                <div class="field">
+                    <label for="disable-password">Hasło</label>
+                    <input class="input" id="disable-password" name="password" type="password" autocomplete="current-password" required>
+                </div>
+                <div class="field">
+                    <label for="disable-code">Aktualny kod z aplikacji</label>
+                    <input class="input input--code" id="disable-code" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required>
+                </div>
+                <button type="submit" class="btn btn--danger">Wyłącz 2FA</button>
+            </form>
+        </div>
+    </section>
+{% elseif pairing %}
+    <section class="card">
+        <div class="card__body">
+            <h2>Sparuj aplikację uwierzytelniającą</h2>
+            <div class="qr-card">
+                <img src="{{ url('/ustawienia/2fa/kod.svg') }}" width="210" height="210" alt="Kod QR do sparowania aplikacji">
+                <div>
+                    <p>Zeskanuj kod aplikacją (np. Google Authenticator, Microsoft Authenticator, Aegis) albo wpisz klucz ręcznie:</p>
+                    <p><code class="secret">{{ secret }}</code></p>
+                </div>
+            </div>
+            <form method="post" action="{{ url('/ustawienia/2fa/wlacz') }}" class="stack">
+                {% include 'partials/csrf.twig' %}
+                <div class="field">
+                    <label for="enable-code">Kod z aplikacji (potwierdzenie)</label>
+                    <input class="input input--code" id="enable-code" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required>
+                </div>
+                <button type="submit" class="btn btn--primary">Włącz 2FA</button>
+            </form>
+        </div>
+    </section>
+{% else %}
+    <section class="card">
+        <div class="card__body">
+            {% if required %}
+                <p class="notice notice--warn">Twoja rola wymaga weryfikacji dwuetapowej. Włącz ją, aby korzystać z aplikacji.</p>
+            {% endif %}
+            <p>Weryfikacja dwuetapowa jest wyłączona. Po włączeniu przy logowaniu podasz dodatkowo kod z aplikacji na telefonie.</p>
+            <form method="post" action="{{ url('/ustawienia/2fa/rozpocznij') }}">
+                {% include 'partials/csrf.twig' %}
+                <button type="submit" class="btn btn--primary">Rozpocznij parowanie</button>
+            </form>
+        </div>
+    </section>
+{% endif %}

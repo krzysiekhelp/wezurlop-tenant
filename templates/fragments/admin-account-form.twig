@@ -1,0 +1,60 @@
+{#- Nowe konto administracyjne (etap 4 zlecenia `konta-budowa-2`, plansza 04 makiety).
+
+    ⚠ Ten sam fragment idzie do okna modalnego (htmx) i na pełny ekran `page/web/admin-account.twig`.
+    ⚠ To JEDYNA ręczna ścieżka tworzenia osoby i konta — i ekran mówi wprost, że pracownika
+    nie da się tu dodać, bo pracownicy przychodzą z R2 i pojawiają się na liście sami. -#}
+<form method="post" action="{{ url('/admin/konta/administracyjne') }}"
+      hx-post="{{ url('/admin/konta/administracyjne') }}"
+      hx-target="#konto-adm-tresc" hx-swap="innerHTML">
+    {% include 'partials/csrf.twig' %}
+    <div class="stack">
+        {% if error is not null %}<p class="notice notice--danger" role="alert">{{ error }}</p>{% endif %}
+
+        <p class="notice">Dla osoby, która <strong>nie jest w programie kadrowym</strong> — księgowej z zewnątrz,
+            właściciela, informatyka. Pracownika nie da się dodać tutaj: pracownicy przychodzą z R2
+            i pojawiają się na liście sami.</p>
+
+        <div class="form-grid">
+            <label class="field">
+                <span class="field__label">Imię</span>
+                <input class="input" type="text" name="imie" maxlength="100" required value="{{ wpisane.imie ?? '' }}">
+            </label>
+            <label class="field">
+                <span class="field__label">Nazwisko</span>
+                <input class="input" type="text" name="nazwisko" maxlength="100" required value="{{ wpisane.nazwisko ?? '' }}">
+            </label>
+        </div>
+        <label class="field">
+            <span class="field__label">Adres e-mail</span>
+            <input class="input" type="email" name="email" maxlength="254" required value="{{ wpisane.email ?? '' }}">
+            {#- ⚠ Hasła nie ustawiamy tutaj: tworzący nie ma znać hasła właściciela konta
+                (CLAUDE.md §15). Idzie zaproszenie z jednorazowym linkiem. -#}
+            <span class="field__hint">Na ten adres pójdzie zaproszenie. Hasło ustawia sobie właściciel konta.</span>
+        </label>
+        <label class="field">
+            <span class="field__label">Telefon — opcjonalnie</span>
+            <input class="input" type="tel" name="telefon" maxlength="32" placeholder="np. 601 204 118" value="{{ wpisane.telefon ?? '' }}">
+        </label>
+
+        <div class="field">
+            <span class="field__label">Dostęp</span>
+            {#- ⚠ Kontrolka WYŁĄCZONA, nie ukryta — pokazuje, co powstanie, i mówi dlaczego nie
+                ma wyboru. Rola nie przychodzi z żądania: serwer ustawia administratora tenanta
+                niezależnie od tego, co przyjdzie w formularzu. -#}
+            <select class="select" disabled>
+                <option>Administrator tenanta — wszystkie firmy</option>
+            </select>
+            <span class="field__hint">Konto bez zatrudnienia może mieć tylko rolę administratora.
+                Rola pracownika wymaga aktywnego etatu w spółce.</span>
+        </div>
+
+        <p class="notice notice--warn">Administratorzy mają obowiązkowe logowanie dwuetapowe —
+            aplikację uwierzytelniającą sparuje właściciel konta przy pierwszym logowaniu.</p>
+    </div>
+    <div class="drawer__foot">
+        {% if w_oknie %}
+            <button type="button" class="btn btn--quiet" data-modal-close="konto-adm-modal">Anuluj</button>
+        {% endif %}
+        <button type="submit" class="btn btn--primary">Utwórz i wyślij zaproszenie</button>
+    </div>
+</form>

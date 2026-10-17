@@ -1,0 +1,38 @@
+{#- Gałąź drzewa hierarchii — szablon woła sam siebie dla każdego poziomu.
+
+    ⚠ **Korzenie drzewa to zatrudnienia BEZ przełożonego**, czyli dwa różne stany razem:
+    szczyt hierarchii (jawna decyzja) i „nie ustawiono", ale **tylko takie, które mają
+    podwładnych**. Powód: kogoś nieustawionego z zespołem trzeba pokazać, bo inaczej jego
+    poddrzew nie byłby widoczny nigdzie — a sam stoi jednocześnie na liście „Nieustawieni"
+    po lewej, z plakietką, bo to jest robota do zrobienia.
+
+    ⚠ **`poziom` to bezpiecznik, nie ozdoba.** Gdyby w danych siedział cykl (ograniczenia
+    `CHECK` nie da się na tej kolumnie założyć — patrz migracja `20260922120001`), rekurencja
+    szablonu kręciłaby się do wyczerpania pamięci. Limit ten sam co w serwisie. -#}
+{#- ⚠ Dzieci wyliczone PRZED wypisaniem gałęzi: `<ul>` powstaje tylko wtedy, gdy ma co
+    pokazać. Poprzednio gałąź renderowała się przy KAŻDYM węźle, także przy liściu, a arkusz
+    chował ją przez `:empty` — i to nie wystarczało: pusta gałąź nic nie rysuje, ale **jest
+    elementem siatki**, więc obowiązywał ją `row-gap` rodzica i te 8 px rysowała szyna przodka
+    pod ostatnią kartą, gdzie nikogo nie ma (zmierzone: 5 gałęzi, 3 całkowicie puste,
+    ogon 8 px).
+    ⚠ To czwarte wystąpienie tej rodziny po `[hidden]`, uchwycie na liściach i pustym glifie:
+    **nie ukrywamy arkuszem tego, czego nie powinno być w HTML-u.**
+    ⚠ Skrypt robi to tak samo — `galaz()` tworzy `<ul>` dopiero przy pierwszym dziecku — więc
+    po tej poprawce obie drogi budują to samo drzewo. -#}
+{% set dzieci = wezly|filter(w =>
+    (rodzic is null and w.supervisor_id is null and (w.szczyt or w.podwladnych > 0))
+    or (rodzic is not null and w.supervisor_id == rodzic)) %}
+{% if poziom <= 64 and dzieci is not empty %}
+    <ul class="hier__branch{{ rodzic is null ? ' hier__branch--root' : '' }}">
+        {% for w in dzieci %}
+                <li class="hier__node">
+                    {#- Uchwyt zwijania stoi przy węźle, który ma dzieci — dokładany przez
+                        JavaScript, bo bez niego nie ma co zwijać (`createElement`, §6 reguł). -#}
+                    {% include 'partials/page/hierarchy-card.twig' with {'w': w, 'spolka': spolka} only %}
+                    {% include 'partials/page/hierarchy-branch.twig' with {
+                        'wezly': wezly, 'rodzic': w.id, 'spolka': spolka, 'poziom': poziom + 1
+                    } only %}
+                </li>
+        {% endfor %}
+    </ul>
+{% endif %}

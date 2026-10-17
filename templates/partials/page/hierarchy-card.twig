@@ -1,0 +1,84 @@
+{%- import 'partials/ikony.twig' as ikony -%}
+{#- Karta jednego zatrudnienia w drzewie hierarchii.
+
+    ⚠ **Karta to ZATRUDNIENIE, nie człowiek.** Osoba pracująca w dwóch spółkach ma dwie karty,
+    w dwóch drzewach, niezależnie — i może być kierownikiem w jednej, a szeregowym pracownikiem
+    w drugiej. Stąd „także w …" pod nazwiskiem: bez tego administrator szuka jej w drzewie,
+    w którym jej nie ma.
+
+    ⚠ **Nazwy stanowiska nie ma skąd wziąć** — R2 jej nie przysyła i my jej nie trzymamy.
+    Pod nazwiskiem stoją więc fakty, które naprawdę mamy (numer pracownika, data zatrudnienia,
+    druga spółka), a nie wymyślone stanowisko.
+
+    ⚠ Dane dla JavaScriptu idą przez atrybuty `data-*` (`CLAUDE.md` §6) — zero skryptu w szablonie.
+    ⚠ Kolorujemy WYŁĄCZNIE odchylenia (system wizualny §3.1): plakietka z liczbą podwładnych
+    jest bez koloru, bo stan normalny nie wymaga niczyjej reakcji. -#}
+<div class="hier__card{{ w.zablokowane or w.brak_roli ? ' hier__card--uwaga' : '' }}"
+     draggable="true"
+     data-hier-id="{{ w.id }}"
+     data-hier-osoba="{{ w.osoba }}"
+     data-hier-przelozony="{{ w.supervisor_id ?? '' }}"
+     data-hier-szczyt="{{ w.szczyt ? '1' : '0' }}"
+     data-hier-podwladnych="{{ w.podwladnych }}"
+     data-hier-zespol="{{ w.zespol }}"
+     {#- ⚠ Odchylenia jako dane, nie „poznane po plakietce": po przeciągnięciu skrypt musi
+         przeliczyć pasek liczb z DOM-u, a czytanie tego z obecności plakietki znaczyłoby
+         wnioskowanie o stanie z jego własnego obrazu. -#}
+     data-hier-zablokowane="{{ w.zablokowane ? '1' : '0' }}"
+     data-hier-brak-roli="{{ w.brak_roli ? '1' : '0' }}">
+    <div class="hier__card-main">
+        <span class="hier__osoba">{{ w.osoba }}</span>
+        <span class="hier__fakty">
+            {%- if w.numer %}nr {{ w.numer }}{% endif %}
+            {%- if w.hired_at %}{{ w.numer ? ' · ' : '' }}od {{ czas_data(w.hired_at ~ ' 00:00:00') }}{% endif %}
+            {%- if w.druga_spolka %}{{ w.numer or w.hired_at ? ' · ' : '' }}także w {{ w.druga_spolka }}{% endif %}
+        </span>
+    </div>
+    <div class="hier__card-chips">
+        {#- Plakietka odświeżana przez skrypt po każdej zmianie struktury — stąd atrybut,
+            nie szukanie „pierwszej plakietki w karcie". -#}
+        {% if w.podwladnych > 0 %}
+            <span class="chip" data-hier-chip="podwladnych">{{ w.podwladnych }} {{ w.podwladnych == 1 ? 'podwładny' : 'podwładnych' }}{% if w.zespol > w.podwladnych %} · zespół {{ w.zespol }}{% endif %}</span>
+        {% endif %}
+        {% if w.szczyt %}<span class="chip" data-hier-chip="szczyt">nie podlega nikomu</span>{% endif %}
+        {#- ⚠ Plakietka oznaczona atrybutem, bo JavaScript zdejmuje ją po przeciągnięciu:
+            karta stojąca już pod przełożonym, ale wołająca „nie ustawiono", przeczy sama sobie.
+            Stan i tak rozstrzyga zapis — po odmowie ekran renderuje się od nowa z bazy. -#}
+        {% if w.nieustawiony %}<span class="chip chip--warn" data-hier-chip="nieustawiony">nie ustawiono</span>{% endif %}
+        {% if w.brak_roli %}<span class="chip chip--warn">bez roli przełożonego</span>{% endif %}
+        {% if w.zablokowane %}<span class="chip chip--warn">konto zablokowane</span>{% endif %}
+        {% if w.konto_status is null %}<span class="chip">bez konta</span>{% endif %}
+
+        {#- ⚠ Ścieżka bez myszki jest częścią zakresu, nie dodatkiem (§8): przeciąganie nie działa
+            z klawiatury, źle działa palcem i nie działa wcale przy czytniku ekranu. Menu wywołuje
+            TĘ SAMĄ operację i ten sam zapis — bez JavaScriptu zapisuje po jednej zmianie. -#}
+        <details class="menu">
+            <summary class="menu__trigger" aria-label="Działania dla {{ w.osoba }}">{{ ikony.wiecej() }}</summary>
+            <div class="menu__body">
+                {#- ⚠ Zwykły odnośnik z prawdziwym adresem — i dopiero na nim htmx dokłada okno.
+                    Bez JavaScriptu to jest pełna nawigacja na osobną stronę (ścieżka z §8),
+                    z JavaScriptem treść ląduje w oknie i **niezapisane zmiany z paska zostają**.
+                    Dotąd kliknięcie tej pozycji przy niepustym pasku po cichu kasowało całą
+                    ułożoną strukturę — zmiany żyją wyłącznie w przeglądarce do „Zapisz". -#}
+                <a class="menu__item" href="{{ url('/admin/hierarchia/osoba/' ~ w.id) }}"
+                   data-modal-open="hier-modal"
+                   hx-get="{{ url('/admin/hierarchia/osoba/' ~ w.id) }}"
+                   hx-target="#hier-modal-tresc" hx-swap="innerHTML">Zmień przełożonego…</a>
+                <form method="post" action="{{ url('/admin/hierarchia/zapisz') }}">
+                    {% include 'partials/csrf.twig' %}
+                    <input type="hidden" name="spolka" value="{{ spolka.id }}">
+                    <input type="hidden" name="zmiany[0][employment]" value="{{ w.id }}">
+                    <input type="hidden" name="zmiany[0][cel]" value="szczyt">
+                    <button type="submit" class="menu__item"{{ w.szczyt ? ' disabled' : '' }}>Nie podlega nikomu</button>
+                </form>
+                <form method="post" action="{{ url('/admin/hierarchia/zapisz') }}">
+                    {% include 'partials/csrf.twig' %}
+                    <input type="hidden" name="spolka" value="{{ spolka.id }}">
+                    <input type="hidden" name="zmiany[0][employment]" value="{{ w.id }}">
+                    <input type="hidden" name="zmiany[0][cel]" value="zdejmij">
+                    <button type="submit" class="menu__item"{{ w.nieustawiony ? ' disabled' : '' }}>Zdejmij ze struktury</button>
+                </form>
+            </div>
+        </details>
+    </div>
+</div>

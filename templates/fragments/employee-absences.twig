@@ -1,0 +1,76 @@
+{# Karta nieobecności jako fragment (docs/system-wizualny.md §5.8).
+   ⚠ Odnośniki ZOSTAJĄ odnośnikami: `href` działa bez JavaScriptu i przy otwarciu w nowej karcie,
+   a htmx tylko przechwytuje kliknięcie i wymienia tę jedną kartę. `hx-push-url` utrzymuje adres,
+   więc odświeżenie strony pokazuje ten sam rok.
+   ⚠ Endpoint fragmentu sprawdza zalogowanie, uprawnienie i przynależność osoby do firm użytkownika
+   dokładnie tak samo jak pełny ekran (CLAUDE.md §5). #}
+<section class="card" id="nieobecnosci">
+        <div class="card__head">
+            <h2 class="card__title">Nieobecności</h2>
+            {# ⚠ Przyciski to lata, w których ta osoba NAPRAWDĘ ma nieobecności — bez slice'a
+               i bez zakładania, które lata istnieją. Przy jednym roku nie ma czego przełączać. #}
+            {% if lata|length > 1 %}
+                <div class="segmented">
+                    {% for l in lata %}
+                        <a class="segmented__item{{ zakres == l ? ' segmented__item--on' : '' }}" href="{{ url('/dane/pracownik/' ~ osoba.id) }}?rok={{ l }}" hx-get="{{ url('/dane/pracownik/' ~ osoba.id ~ '/nieobecnosci') }}?rok={{ l }}" hx-target="#nieobecnosci" hx-swap="outerHTML show:none" hx-push-url="{{ url('/dane/pracownik/' ~ osoba.id) }}?rok={{ l }}">{{ l }}</a>
+                    {% endfor %}
+                    <a class="segmented__item{{ zakres is null ? ' segmented__item--on' : '' }}" href="{{ url('/dane/pracownik/' ~ osoba.id) }}?rok=wszystkie" hx-get="{{ url('/dane/pracownik/' ~ osoba.id ~ '/nieobecnosci') }}?rok=wszystkie" hx-target="#nieobecnosci" hx-swap="outerHTML show:none" hx-push-url="{{ url('/dane/pracownik/' ~ osoba.id) }}?rok=wszystkie">wszystkie</a>
+                </div>
+            {% endif %}
+        </div>
+        <div class="table-scroll">
+            {#- `table--zebra`: nieobecności stronicowane, pięć kolumn. -#}
+        <table class="table table--zebra">
+                <thead>
+                    <tr><th class="table__grow">Rodzaj</th><th>Od</th><th>Do</th><th class="table__num">Dni robocze</th><th>Źródło</th></tr>
+                </thead>
+                <tbody>
+                {% set poprzedni_rok = null %}
+                {% for n in nieobecnosci %}
+                    {% if zakres is null and n.from|slice(0, 4) != poprzedni_rok %}
+                        <tr class="table__group"><td colspan="5">{{ n.from|slice(0, 4) }}</td></tr>
+                        {% set poprzedni_rok = n.from|slice(0, 4) %}
+                    {% endif %}
+                    <tr>
+                        <td class="table__grow">
+                            {{ n.type }}
+                            {#- ⚠ Jedno słowo na jedną rzecz: stopka mówi „wycofanych", więc plakietka też mówi
+                                „wycofana" (do 10.10.2026 stało tu „usunięta" i ta sama rzecz miała
+                                na jednym ekranie dwie nazwy — „usunięta" brzmi jak decyzja kadrowej,
+                                a to R2 przestało tę nieobecność przysyłać). -#}
+                            {% if n.removed %} <span class="chip">wycofana</span>{% endif %}
+                            {% if n.out_of_window %} <span class="chip">poza oknem</span>{% endif %}
+                        </td>
+                        <td class="table__mute">{{ n.from }}</td>
+                        <td class="table__mute">{{ n.to }}</td>
+                        <td class="table__num" title="{{ czas_minuty(n.minutes) }}">
+                            {{ n.days is null ? '—' : n.days }}{% if n.type_source == 'kadrowe' %} <span class="chip" title="Program kadrowy nie wylicza długości dla tego źródła">liczy 0</span>{% endif %}
+                        </td>
+                        {# ⚠ Źródło rozróżnia to, co wjechało z kadr, od tego, co wyszło od nas (§5.2). #}
+                        <td>{% if n.source == 'connector' %}<span class="chip chip--accent">wniosek w wezurlop</span>{% else %}<span class="table__mute">R2 Płatnik</span>{% endif %}</td>
+                    </tr>
+                {% else %}
+                    {# ⚠ Neutralnie: najczęstszy powód pustej tabeli to brak urlopu, nie awaria synchronizacji. #}
+                    <tr><td colspan="5" class="table__empty">Brak nieobecności w danych z kadr.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="card__foot">
+            {#- ⚠ Liczba **obowiązujących** i osobno **wycofanych** (10.10.2026): tabela pokazuje
+                jedne i drugie, więc stopka z jedną liczbą nie zgadzała się z tym, co widać nad nią.
+                Zmierzone: osoba z 19 wycofanymi nieobecnościami miała w stopce „19 nieobecności
+                · 76 dni roboczych", a w kadrach ani jednego dnia. -#}
+            <span>{{ podsumowanie_nieobecnosci.liczba }} {{ podsumowanie_nieobecnosci.liczba == 1 ? 'nieobecność' : 'nieobecności' }} · {{ podsumowanie_nieobecnosci.dni }} dni roboczych{% if podsumowanie_nieobecnosci.wycofanych > 0 %} · <strong>wycofanych: {{ podsumowanie_nieobecnosci.wycofanych }}</strong> (w tabeli, nieliczone){% endif %}{% if zakres is null and lata|length > 1 %} · lata {{ lata|join(', ') }}{% endif %}{% if przyciete %} · pokazujemy {{ pokazano_najwyzej }} najnowszych — wybierz rok, żeby zobaczyć starsze{% endif %}</span>
+            {% if strona.stron > 1 %}
+                <div class="btn-row">
+                    {% if strona.numer > 1 %}
+                        <a class="btn btn--ghost btn--sm" href="{{ url('/dane/pracownik/' ~ osoba.id) }}?rok={{ zakres ?? 'wszystkie' }}&amp;strona={{ strona.numer - 1 }}" hx-get="{{ url('/dane/pracownik/' ~ osoba.id ~ '/nieobecnosci') }}?rok={{ zakres ?? 'wszystkie' }}&amp;strona={{ strona.numer - 1 }}" hx-target="#nieobecnosci" hx-swap="outerHTML show:none" hx-push-url="{{ url('/dane/pracownik/' ~ osoba.id) }}?rok={{ zakres ?? 'wszystkie' }}&amp;strona={{ strona.numer - 1 }}">Poprzednie</a>
+                    {% endif %}
+                    {% if strona.numer < strona.stron %}
+                        <a class="btn btn--ghost btn--sm" href="{{ url('/dane/pracownik/' ~ osoba.id) }}?rok={{ zakres ?? 'wszystkie' }}&amp;strona={{ strona.numer + 1 }}" hx-get="{{ url('/dane/pracownik/' ~ osoba.id ~ '/nieobecnosci') }}?rok={{ zakres ?? 'wszystkie' }}&amp;strona={{ strona.numer + 1 }}" hx-target="#nieobecnosci" hx-swap="outerHTML show:none" hx-push-url="{{ url('/dane/pracownik/' ~ osoba.id) }}?rok={{ zakres ?? 'wszystkie' }}&amp;strona={{ strona.numer + 1 }}">Następne</a>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </section>

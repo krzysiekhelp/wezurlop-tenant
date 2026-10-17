@@ -1,0 +1,12 @@
+{% extends 'layout/web.twig' %}
+
+{% block nazwa_ekranu %}Moje wnioski{% endblock %}
+
+{% block content %}
+    <div class="page__head">
+        <div class="page__title">
+            <p class="page__sub">Historia i status Twoich wniosków.</p>
+        </div>
+    </div>
+    {% include 'partials/page/requests.twig' %}
+{% endblock %}

@@ -1,0 +1,138 @@
+/* System wizualny wezurlop — TOKENY. Źródło: docs/system-wizualny.md §2 (dokument obowiązujący),
+   przepisane wprost, bez zmian wartości.
+
+   ⚠ To JEDYNY plik, w którym wolno napisać #rrggbb albo rgba(). W pozostałych arkuszach każda
+   wartość koloru i każdy odstęp pochodzi stąd — inaczej po trzech ekranach znów mamy trzy zielenie
+   i pięć odstępów (docs/system-wizualny.md §1, reguła blokująca).
+   ⚠ Ciemny motyw: nie teraz. Nazwy są rolami, więc dojdzie jednym blokiem nadpisującym --c-*. */
+
+:root {
+  /* ——— kolor: role, nie nazwy barw ——— */
+  --c-bg:             #F5F6F8;   /* tło strony */
+  --c-surface:        #FFFFFF;   /* karta, pasek boczny, pasek górny */
+  --c-surface-mute:   #FCFCFD;   /* stopka karty, co drugi wiersz w tabeli z zebrą */
+  --c-surface-hover:  #F7F8FA;   /* wiersz tabeli pod kursorem */
+  --c-line:           #E6E8EC;   /* linia rozdzielająca */
+  --c-line-soft:      #F0F2F5;   /* linia między wierszami tabeli */
+  --c-line-strong:    #D4D8DF;   /* obrys kontrolki */
+
+  --c-text:           #15181D;   /* nagłówek, dana główna */
+  --c-text-2:         #2A2F39;   /* treść */
+  --c-text-3:         #6B7280;   /* dana drugorzędna, podtytuł */
+  --c-text-4:         #8A909C;   /* podpis, nagłówek kolumny */
+  --c-text-5:         #A8AEB9;   /* metryka techniczna */
+
+  --c-accent:         #12874A;   /* AKCJA — i nic innego */
+  --c-accent-hover:   #0E6E3C;
+  --c-accent-soft:    #E8F4EC;
+  --c-accent-text:    #0E6E3C;
+
+  --c-warn:           #C07C00;
+  --c-warn-soft:      #FDF3E2;
+  --c-warn-text:      #8A5300;
+  --c-warn-line:      #F0D8A8;
+  --c-warn-bg:        #FFFCF5;
+
+  --c-danger:         #B42318;
+  --c-danger-soft:    #FDECEA;
+  --c-danger-text:    #9F2115;
+
+  --c-overlay:        rgba(20, 24, 32, .45);  /* przyciemnienie tła pod oknem modalnym */
+
+  /* ——— pasek nieobecności w osi czasu: WYPEŁNIENIE niesie rodzaj ———————————————
+     Zlecenie `2026-10-11-paski-nieobecnosci.md` §1, wzór zatwierdzony przez Krzysztofa na żywo
+     w przeglądarce. Do 11.10.2026 pasek miał wypełnienie NEUTRALNE (`--c-absence-fill`,
+     `rgba(20, 24, 32, .10)`), a rodzaj niósł obrys — token skasowany razem z obrysem, żeby nie
+     został martwy (nieużywana wartość wraca do użycia przez przypadek).
+
+     ⚠ **Sześć własnych tokenów, a nie podpięcie pod `--c-accent-soft` / `--c-warn-soft`**, choć
+     wartości są podobne: „miękkie tło akcji" i „pasek nieobecności" to dwa różne znaczenia
+     i rozejdą się przy pierwszej zmianie motywu (warunek ze zlecenia §1).
+     ⚠ Wypełnienie jest NIEPRZEZROCZYSTE, odwrotnie niż przed zmianą. Co przez to tracimy:
+     pod paskiem nie prześwituje już wygaszenie dnia wolnego. Co to ratuje: pasek ma `inset: 6px`
+     w pionie, więc tło weekendu widać nad nim i pod nim — informacja „urlop wypada w sobotę"
+     zostaje, tylko niesie ją obwódka komórki, nie wnętrze paska.
+     Zmierzone kontrasty (tekst na pasku · pasek do wiersza · pasek na dniu wolnym):
+       urlop      5,32 · 1,19 · 1,12
+       zwolnienie 5,08 · 1,17 · 1,10
+       kadrowe    6,60 · 1,21 · 1,14                       (dzień wolny do wiersza: 1,06) */
+  --c-pasek-urlop-tlo:       #DCF0E4;
+  --c-pasek-urlop-tekst:     #0E6E3C;
+  --c-pasek-zwolnienie-tlo:  #FDEBD2;
+  --c-pasek-zwolnienie-tekst:#8A5A00;
+  --c-pasek-kadrowe-tlo:     #E7EAEF;
+  --c-pasek-kadrowe-tekst:   #4A5160;
+  --c-neutral-soft:   #F0F2F5;   /* plakietka stanu obojętnego */
+  /* ⚠ **Token `--c-dzis` (#EDEFF2) został usunięty 11.10.2026 wieczorem** i jest to zapisane
+     tutaj, a nie przemilczane, bo jego historia jest regułą na przyszłość. Powstał rano jako
+     obwódka dnia dzisiejszego, z warunkiem liczbowym: kontrast do tła wiersza **1,152** wobec
+     pasków 1,167 / 1,191 / 1,206 i dnia wolnego 1,063 — mocniejszy niż weekend, słabszy niż
+     każda nieobecność (dawny `--c-line-strong` miał 1,430, czyli był najmocniejszym znakiem
+     na ekranie o nieobecnościach). Liczba była dobra. Wypadł przez **kształt**: obwódka siedziała
+     na każdej komórce kolumny osobno, a siedem prostokątów jeden pod drugim oko czyta jako
+     przerywaną ramkę. Znacznik dnia dzisiejszego to teraz plakietka `.dzien-dzis`
+     (`--c-accent-soft` + `--c-accent-text`) na numerze w nagłówku — ⚠ dobry pomiar nie ratuje
+     złego kształtu i nie zwalnia z popatrzenia na ekran. */
+  --c-dot:            #B9BFC9;   /* kropka stanu normalnego */
+  --c-focus:          #12874A;
+
+  /* ——— odstępy: dozwolone są TYLKO te wartości ——— */
+  --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px;
+  --s-5: 24px; --s-6: 32px; --s-7: 48px;
+
+  /* ——— typografia ——— */
+  --f-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --t-h1:      30px;   /* nagłówek strony */
+  --t-h2:      20px;   /* nagłówek sekcji / karty */
+  --t-lead:    16px;   /* wyróżniona treść, tytuł karty */
+  --t-body:    14px;   /* treść i KAŻDA komórka tabeli */
+  --t-small:   13px;   /* pomocnicze, przyciski drugorzędne */
+  --t-caption: 12px;   /* podpis, opis pola, metryka */
+  --t-label:   11px;   /* NAGŁÓWEK KOLUMNY, etykieta sekcji nawigacji */
+  --lh-tight: 1.25;
+  --lh-body:  1.55;
+  --w-regular: 400; --w-medium: 500; --w-semibold: 600;
+  --ls-tight: -0.5px;  /* tylko h1 */
+  --ls-label:  0.5px;  /* tylko wersaliki 11px */
+
+  /* ——— kształt: jeden promień, jeden cień ——— */
+  /* Rynna na uchwyt zwijania w drzewie hierarchii — uchwyt ma 20 px, więc rynna też.
+     ⚠ Wartość jest tokenem, bo wchodzi i do siatki węzła, i do wcięcia gałęzi: dwie liczby
+     w dwóch miejscach rozjechałyby się przy pierwszej zmianie. */
+  --hier-rynna:   20px;
+  --radius:       8px;
+  --radius-card: 10px;
+  --shadow-card: 0 1px 2px rgba(20, 24, 32, .04);
+  --shadow-pop:  0 8px 24px rgba(20, 24, 32, .10);
+
+  /* ——— bezpieczny obszar ekranu (wcięcie aparatu, pasek gestów) ———
+     ⚠ PRZENIESIONE ze starego `tokens.css` (§11.1): to jedyna rzecz, którą stary system robił
+     lepiej — nowy nie miał `env()` wcale. Bez tego telefon z paskiem gestów wychodzi z migracji
+     w stanie GORSZYM niż przed nią: treść wchodzi pod pasek i pod wcięcie aparatu.
+     Wartość zapasowa `0px` jest obowiązkowa — przeglądarka bez `env()` inaczej unieważnia regułę. */
+  --safe-top:    env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left:   env(safe-area-inset-left, 0px);
+  --safe-right:  env(safe-area-inset-right, 0px);
+
+  /* ——— wymiary powłoki ——— */
+  --sidebar-w:  248px;
+  --topbar-h:    64px;
+  --row-h:       48px;   /* wiersz tabeli */
+  --control-h:   38px;   /* input, select, przycisk */
+  --control-h-sm: 32px;
+  /* ⚠ Wskaźnik zgrubny: 44 px to norma celu dotykowego, nie zaokrąglenie 38 px w górę (§11.3). */
+  --control-h-touch: 44px;
+  /* ——— powłoka mobilna (§11.2) ———
+     Dwie wysokości, nie jedna: belka górna i dolna nawigacja mają dziś tę samą wartość, ale to
+     zbieg okoliczności, nie zależność. Jeden wspólny token kazałby zmieniać obie naraz.
+     ⚠ Odstęp dolny treści liczy się z `--m-nav-h`, więc te wartości MUSZĄ być tokenami:
+     56 px wpisane w dwóch miejscach rozjeżdża się przy pierwszej zmianie i ostatnia karta
+     wchodzi pod nawigację. */
+  --m-topbar-h: 56px;
+  --m-nav-h:    56px;
+  /* ⚠ 1.1: limit obejmuje samą TREŚĆ; odstęp strony doliczany jest na zewnątrz (§3.3, §8).
+     W 1.0 padding mieścił się w limicie i przy oknie 1920 px marnowało się 441 px. */
+  --page-max:  1560px;
+  --measure:     72ch;   /* długość wiersza tekstu ciągłego — nie dotyczy tabel */
+}

@@ -1,0 +1,125 @@
+{% extends 'layout/web.twig' %}
+{% import 'partials/plakietka.twig' as plakietka %}
+
+{% block nazwa_ekranu %}Dziennik zdarzeń{% endblock %}
+
+{% block okruchy %}
+{% endblock %}
+
+{% block content %}
+    <div class="page__head">
+        <div class="page__title">
+            <p class="page__sub">{{ strona.razem }} {{ strona.razem == 1 ? 'wpis' : 'wpisów' }}{% if konto %} dla wybranego konta{% endif %} · zapis wyłącznie do odczytu · czasy w strefie {{ strefa_tenanta() }}</p>
+        </div>
+    </div>
+
+    {# Filtr POZA kartą, formularz GET — działa bez JavaScriptu i daje adres do wklejenia (§5). #}
+    <form class="toolbar" method="get" action="{{ url('/admin/dziennik') }}">
+        <label class="field">
+            <span class="field__label">Konto</span>
+            <select class="select" name="konto">
+                <option value="">wszystkie konta</option>
+                {% for k in konta %}
+                    <option value="{{ k.id }}"{{ konto == k.id ? ' selected' : '' }}>{{ k.nazwa }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <button type="submit" class="btn btn--primary">Pokaż</button>
+        {% if konto %}
+            <a class="btn btn--ghost" href="{{ url('/admin/dziennik') }}">Wyczyść filtr</a>
+        {% endif %}
+        <span class="toolbar__spacer"></span>
+        <span class="toolbar__result">Wynik: {{ wpisy|length }} z {{ strona.razem }}</span>
+    </form>
+
+    <section class="card">
+        <div class="table-scroll">
+            {#- ⚠ Stałe szerokości (`table--stale` + `colgroup`): bez nich przeglądarka liczyła
+                z treści i dała kolumnie „Zdarzenie" 874 px przy 141 px na „Kto" — czyli najwięcej
+                miejsca dostała kolumna, która potrzebuje najmniej, a ucinało się to,
+                na co się patrzy. `table--zebra`: lista rośnie z danymi i ma pięć kolumn. -#}
+            <table class="table table--stale table--zebra">
+                <colgroup>
+                    <col class="col--kiedy">
+                    <col class="col--zdarzenie">
+                    <col class="col--kto">
+                    <col class="col--podmiot">
+                    <col class="col--spolka">
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th>Kiedy</th>
+                        <th>Zdarzenie</th>
+                        <th>Kto</th>
+                        <th>Czego dotyczy</th>
+                        <th>Firma</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for w in wpisy %}
+                    <tr>
+                        <td class="table__mute" title="{{ czas_ze_strefa(w.kiedy) }}">{{ czas_sekundy(w.kiedy) }}</td>
+                        {#- Pełna treść w `title`: przy stałych szerokościach najdłuższe pary
+                            etykieta+kod nadal mogą się uciąć, a ekran audytowy nie może gubić treści. -#}
+                        <td title="{{ w.etykieta }} {{ w.kod }}">
+                            {# Waga z kodu zdarzenia; `account.block_refused` jest wyróżniony tak samo jak blokada. #}
+                            {{ plakietka.stan(w.waga, w.etykieta) }}
+                            {# ⚠ Kod w TEJ SAMEJ linii co plakietka (`cell__sub` jest wsadowy,
+                               `cell__druga` był blokowy i łamał wiersz na dwie linie mimo 874 px
+                               wolnego miejsca). Kod **zostaje widoczny** — to ekran audytowy
+                               i etykieta nie może być jedyną treścią (Support/KodyZdarzen.php).
+                               ⚠ Komentarz domknięty BEZ myślnika: wariant przycinający odstępy
+                               zjadał spację między plakietką a kodem i wychodziło
+                               „Udane logowanieauth.login_success". #}
+                            <span class="cell__sub mono">{{ w.kod }}</span>
+                        </td>
+                        <td>
+                            {% if w.kto %}
+                                {% if w.kto_konto %}
+                                    <a class="table__name" href="{{ url('/admin/dziennik') }}?konto={{ w.kto_konto }}">{{ w.kto }}</a>
+                                {% else %}
+                                    {{ w.kto }}
+                                {% endif %}
+                            {% else %}
+                                <span class="table__mute">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if w.podmiot %}
+                                {{ w.podmiot }}
+                            {% elseif w.podmiot_typ %}
+                                <span class="table__mute">{{ w.podmiot_typ }}{% if w.podmiot_id %} #{{ w.podmiot_id }}{% endif %}</span>
+                            {% else %}
+                                <span class="table__mute">—</span>
+                            {% endif %}
+                            {%- if w.szczegoly %}
+                                {%- set opis %}{% for s in w.szczegoly %}{{ s.klucz }}: {{ s.wartosc }}{% if not loop.last %} · {% endif %}{% endfor %}{% endset %}
+                                {#- ⚠ Przy stałych szerokościach długi powód zostaje UCIĘTY wielokropkiem,
+                                    a pełna treść jedzie w `title`. Wiersz ma zostać 48 px, a zawijanie
+                                    tej jednej komórki rozpychałoby całą tabelę. -#}
+                                <span class="cell__druga" title="{{ opis }}">{{ opis }}</span>
+                            {%- endif %}
+                        </td>
+                        <td class="table__mute">{{ w.spolka ?? '—' }}</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="5" class="table__empty">{{ konto ? 'To konto nie ma jeszcze żadnych zdarzeń.' : 'Dziennik jest pusty.' }}</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="card__foot">
+            <span>Pokazano {{ strona.razem > 0 ? strona.offset + 1 : 0 }}–{{ strona.offset + wpisy|length }} z {{ strona.razem }}</span>
+            {% if strona.stron > 1 %}
+                <div class="btn-row">
+                    {% if strona.numer > 1 %}
+                        <a class="btn btn--ghost btn--sm" href="{{ url('/admin/dziennik') }}?konto={{ konto ?? '' }}&amp;strona={{ strona.numer - 1 }}">Poprzednie</a>
+                    {% endif %}
+                    {% if strona.numer < strona.stron %}
+                        <a class="btn btn--ghost btn--sm" href="{{ url('/admin/dziennik') }}?konto={{ konto ?? '' }}&amp;strona={{ strona.numer + 1 }}">Następne</a>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </section>
+{% endblock %}

@@ -1,0 +1,14 @@
+{#- Dolna nawigacja wariantu mobilnego. Styl: 20-layout-mobile.css (§11.2).
+    ⚠ Ikony z jednego zestawu (`partials/ikony.twig`, viewBox 20×20, jedna grubość, currentColor),
+    nie znaki tekstowe: `⌂ ▦ ＋ ▤ ☺` to przypadkowe symbole z różnych bloków Unicode, które każdy
+    system rysuje inną grubością, w innym rozmiarze i innym kroju — a ＋ jest na dodatek znakiem
+    pełnej szerokości, więc rozpychał pozycję. Nazwa pozycji zostaje widoczna obok ikony:
+    sama ikona bez podpisu jest zagadką, a pięć zagadek to menu do odgadywania. -#}
+{% import 'partials/ikony.twig' as ikony %}
+<nav class="bottom-nav" aria-label="Menu główne">
+    <a class="nav-item{% if active('/') %} nav-item--active{% endif %}" href="{{ url('/') }}">{{ ikony.pulpit() }}<span>Start</span></a>
+    <a class="nav-item{% if active('/kalendarz') %} nav-item--active{% endif %}" href="{{ url('/kalendarz') }}">{{ ikony.kalendarz() }}<span>Kalendarz</span></a>
+    <a class="nav-item{% if active('/wniosek/nowy') %} nav-item--active{% endif %}" href="{{ url('/wniosek/nowy') }}">{{ ikony.nowy() }}<span>Wniosek</span></a>
+    <a class="nav-item{% if active('/wnioski') %} nav-item--active{% endif %}" href="{{ url('/wnioski') }}">{{ ikony.wnioski() }}<span>Wnioski</span></a>
+    <a class="nav-item{% if active('/konto') or active('/ustawienia') %} nav-item--active{% endif %}" href="{{ url('/konto') }}">{{ ikony.konto() }}<span>Konto</span></a>
+</nav>

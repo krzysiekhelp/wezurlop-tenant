@@ -1,0 +1,26 @@
+{% extends 'layout/web.twig' %}
+
+{% block nazwa_ekranu %}{{ o.name }}{% endblock %}
+
+{% block okruchy %}
+    <span>Administracja</span>
+    <span class="crumbs__sep">/</span>
+    <a href="{{ url('/admin/konta') }}">Osoby i konta</a>
+    <span class="crumbs__sep">/</span>
+{% endblock %}
+
+{% block content %}
+    {# Ekran zapasowy: ta sama treść, którą z JavaScriptem pokazuje szuflada nad listą.
+       Dzięki temu panel osoby działa tak samo bez JS — odnośnik z listy prowadzi tutaj. #}
+    <section class="card">
+        {% include 'fragments/person-panel.twig' %}
+    </section>
+    <div class="btn-row">
+        <a class="btn btn--ghost" href="{{ url('/admin/konta') }}">Wróć do listy</a>
+    </div>
+
+    {#- ⚠ Warstwa kontrolki dostępu MUSI być i tutaj. Bez niej `hx-get` z przycisku nie ma celu,
+        więc kontrolka na tym ekranie nie robiła nic — czyli była atrapą. Znalazła to bramka
+        po rozszerzeniu o warstwy, nie przegląd kodu. -#}
+    <div class="dropdown" id="dostep-panel" role="dialog" aria-label="Dostęp do spółek" hidden></div>
+{% endblock %}

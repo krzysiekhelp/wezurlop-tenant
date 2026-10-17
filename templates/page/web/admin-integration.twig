@@ -1,0 +1,359 @@
+{% extends 'layout/web.twig' %}
+
+{% block nazwa_ekranu %}Integracja{% endblock %}
+
+{% block okruchy %}
+    <span>Administracja</span>
+    <span class="crumbs__sep">/</span>
+{% endblock %}
+
+{% block content %}
+    <div class="page__head">
+        <div class="page__title">
+            <p class="page__sub">Klucze instalacji, zgłoszenia firm i stan synchronizacji. Każda operacja trafia do dziennika zdarzeń.</p>
+        </div>
+        <div class="page__actions">
+            {# Bez JavaScriptu to zwykły odnośnik do ekranu kreatora; z JS otwiera się okno nad stroną. #}
+            <a class="btn btn--primary" href="{{ url('/admin/podlaczenie') }}" data-modal-open="kreator-modal">Kreator podłączenia</a>
+        </div>
+    </div>
+
+    {% if notice is not null %}<p class="notice" role="status">{{ notice }}</p>{% endif %}
+    {% if error is not null %}<p class="notice notice--danger" role="alert">{{ error }}</p>{% endif %}
+
+    {% if new_key is not null %}
+        <section class="card">
+            <div class="card__head"><h2 class="card__title">Klucz instalacji — pokazujemy go tylko teraz</h2></div>
+            <div class="card__body">
+                {# ⚠ Klucz widać RAZ (§5.7), więc ekran musi dać go przenieść bez przepisywania z palca.
+                   Pole tylko do odczytu; kopiowanie obsługuje plik JS, bez ani jednej linii skryptu tutaj (§6). #}
+                <p class="notice notice--warn">Zobaczysz go tylko teraz. Skopiuj klucz i wklej go w konfiguracji connectora — w bazie zostaje wyłącznie jego skrót.</p>
+                <div class="secret">
+                    <div class="secret__row">
+                        <input class="secret__value mono" id="nowy-klucz" type="text" value="{{ new_key.key }}" readonly
+                               aria-label="Klucz instalacji" autocomplete="off" spellcheck="false">
+                        <button type="button" class="btn btn--ghost" data-copy="nowy-klucz" data-copy-done="nowy-klucz-ok">Kopiuj</button>
+                        <span class="secret__done" id="nowy-klucz-ok" role="status" hidden>Skopiowano</span>
+                    </div>
+                    <p class="field__hint">Wklej go w konfiguracji connectora w polu „Klucz instalacji”, a potem kliknij tam „Testuj połączenie”.</p>
+                </div>
+            </div>
+        </section>
+    {% elseif shown_key is not null %}
+        <p class="notice notice--warn">{% if shown_key.expired %}Klucz „{{ shown_key.name }}” nie został wyświetlony w ciągu 5 minut i przepadł.{% else %}Klucz „{{ shown_key.name }}” był już wyświetlony — nie pokażemy go ponownie.{% endif %} Jeśli go nie zapisano, wygeneruj nowy: obecny zostanie od razu unieważniony.</p>
+    {% endif %}
+
+    {# ⚠ To nie jest komunikat o sukcesie, tylko STAN: kropka, słowo, czas względny i liczby (§5.3). #}
+    <section class="card stats" aria-label="Stan połączenia">
+        <div class="stats__item">
+            {# ⚠ Cisza connectora wygrywa nad „Połączone”: klucz może być aktywny, a danych nie ma
+               od trzech dni — i to jest awaria, o której ekran ma mówić pierwszy (zlecenie 21.09 §2.2). #}
+            <span class="status">
+                <span class="status__dot{% if cisza is not null %} dot--warn{% elseif kreator.gotowe %} dot--ok{% elseif podsumowanie.bledy_dzis > 0 %} dot--warn{% endif %}"></span>
+                <span class="card__title">{% if cisza is not null %}Connector milczy{% elseif kreator.gotowe %}Połączone{% elseif connector is not null %}Podłączanie w toku{% else %}Nie podłączono{% endif %}</span>
+            </span>
+            {% if cisza is not null %}
+                <span class="stats__key">connector nie odezwał się od {{ cisza.godzin }} h (próg {{ cisza.prog }} h) — sprawdź, czy maszyna z connectorem działa, czy usługa wstała i czy nie zmienił się adres serwera kadrowego</span>
+            {% endif %}
+            <span class="stats__key">ostatnia synchronizacja {{ czas_wzgledny(podsumowanie.ostatnia_synchronizacja) }}</span>
+            {# Czas względny jako pierwsza forma, bezwzględny w strefie tenanta obok (docs §10 punkt 6). #}
+            <span class="stats__key mono">{{ czas(podsumowanie.ostatnia_synchronizacja) }}</span>
+        </div>
+        <div class="stats__item">
+            <span class="stats__key">Pracownicy</span>
+            <span class="stats__value">{{ podsumowanie.pracownicy }}</span>
+        </div>
+        <div class="stats__item">
+            <span class="stats__key">Nieobecności</span>
+            <span class="stats__value">{{ podsumowanie.nieobecnosci }}</span>
+        </div>
+        <div class="stats__item">
+            <span class="stats__key">Przebiegi dziś</span>
+            <span class="stats__value">{{ podsumowanie.przebiegi_dzis }}</span>
+        </div>
+        <div class="stats__item">
+            <span class="stats__key">Zakończone błędem</span>
+            <span class="stats__value">{{ podsumowanie.bledy_dzis }}</span>
+        </div>
+        <div class="stats__item">
+            <span class="stats__key">Wersje</span>
+            <span class="stats__value">{% if connector is not null %}Connector {{ connector.wersja ?? '—' }} <small>· R2 Płatnik {{ connector.wersja_r2 ?? '—' }}</small>{% else %}—{% endif %}</span>
+        </div>
+    </section>
+
+    {% for r in rozjazd %}
+        <section class="card">
+            <div class="card__head">
+                <h2 class="card__title">Dwie instalacje connectora na jednym kluczu</h2>
+                <span class="card__meta">klucz „{{ r.klucz }}” — synchronizacja działa, ale osoby nie będą scalane</span>
+            </div>
+            <div class="card__body">
+                {# ⚠ To NIE jest błąd i niczego nie zatrzymujemy (ustalenie 20.09.2026): dwie instalacje
+                   bywają konfiguracją świadomą. Ekran ma powiedzieć, co z tego wynika dla danych. #}
+                <p class="notice notice--warn">Firmy obsługiwane tym kluczem zgłaszają <strong>różne odciski tożsamości</strong>,
+                    czyli liczą identyfikatory osób z dwóch różnych sekretów. Ta sama osoba zatrudniona w dwóch takich firmach
+                    będzie u nas widziana jako <strong>dwie osoby</strong> — limity i nieobecności nie połączą się.</p>
+                <div class="defs">
+                    {% for o in r.odciski %}
+                        <div><div class="defs__term">Odcisk <span class="mono">{{ o.odcisk }}</span></div><div class="defs__value">{{ o.firmy }}</div></div>
+                    {% endfor %}
+                    <div><div class="defs__term">Osób zatrudnionych w więcej niż jednej firmie</div><div class="defs__value">{{ osob_w_wielu_firmach }}</div></div>
+                </div>
+                <p class="field__hint">Jeśli to pomyłka: obie firmy powinien obsługiwać jeden connector (jedna instalacja, jeden sekret).
+                    Jeśli tak ma być — zostaw; synchronizacja obu firm działa, a liczba wyżej pokazuje, ile osób traci połączenie między firmami.</p>
+            </div>
+        </section>
+    {% endfor %}
+
+    {% for s in streams|filter(s => s.identity_pending is not null) %}
+        <section class="card">
+            <div class="card__head"><h2 class="card__title">Strumień firmy {{ s.name }} zatrzymany</h2></div>
+            <div class="card__body">
+                <p class="notice notice--warn">Connector zgłasza inną tożsamość osób niż dotychczas (odcisk <span class="mono">{{ s.identity_pending }}</span> zamiast <span class="mono">{{ s.identity ?? '—' }}</span>). Żaden rekord tej firmy nie został przyjęty.</p>
+                <p>Jeśli to były przenosiny bez przeniesienia sekretu — przywróć sekret na connectorze i uruchom cykl ponownie. Jeśli sekret przepadł bezpowrotnie, zaakceptuj nowy odcisk; osoby przyjdą pod nowymi identyfikatorami i trzeba będzie odtworzyć powiązania.</p>
+                <div class="btn-row">
+                    <a class="btn btn--danger" href="{{ url('/admin/integracja/firmy/' ~ s.id ~ '/tozsamosc') }}"
+                       hx-get="{{ url('/admin/integracja/firmy/' ~ s.id ~ '/tozsamosc') }}"
+                       hx-target="#potwierdzenie-tresc" hx-swap="innerHTML"
+                       data-modal-open="potwierdzenie-modal">Zaakceptuj nowy odcisk</a>
+                </div>
+            </div>
+        </section>
+    {% endfor %}
+
+    <section class="card">
+        <div class="card__head">
+            <h2 class="card__title">Klucze instalacji</h2>
+            <span class="card__meta">{{ keys|length }} {{ keys|length == 1 ? 'klucz' : 'klucze' }} · jedna firma może mieć jeden aktywny</span>
+        </div>
+        <div class="table-scroll">
+            {#- ⚠ Stałe szerokości: zmierzone przy 1440 px, tabela wychodziła 80 px za kartę.
+                Rozpychała ją kolumna „Zakres (NIP)" — wypisuje wszystkie numery klucza, więc jej
+                treść rośnie z liczbą firm. Zawija zamiast rozpychać wiersz.
+                ⚠ `table__grow` (width: 100%) zdjęte: z `table-layout: fixed` bije się z colgroup
+                i wygrywa — ta sama pułapka, na której przejechaliśmy się przy dzienniku zdarzeń. -#}
+            <table class="table table--zebra table--stale table--zawija">
+                <colgroup>
+                    <col class="col--klucz-nazwa"><col class="col--klucz-zakres"><col class="col--klucz-czas">
+                    <col class="col--klucz-czas"><col class="col--klucz-stan"><col class="col--klucz-akcja">
+                </colgroup>
+                <thead>
+                    <tr><th>Nazwa</th><th>Zakres (NIP)</th><th>Utworzony</th><th>Ostatnie użycie</th><th>Stan</th><th>Działanie</th></tr>
+                </thead>
+                <tbody>
+                {% for k in keys %}
+                    <tr>
+                        <td class="cell--zawija">{{ k.name }} <span class="table__mute mono">{{ k.prefix }}…</span></td>
+                        <td class="table__mute mono cell--zawija">{% if k.nips is empty %}{% if k.bez_firm %}<span class="chip chip--warn">brak firm — nie odbierze żadnych danych</span>{% else %}— brak firm w zakresie{% endif %}{% else %}{% for n in k.nips %}{{ nip_grupami(n) }}{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}</td>
+                        <td class="table__mute">{{ czas_data(k.created_at) }}</td>
+                        <td class="table__mute">{{ czas_wzgledny(k.last_used_at) }}</td>
+                        <td>
+                            {% if k.state == 'active' %}
+                                <span class="status"><span class="status__dot{{ k.milczy is not null ? ' dot--warn' : ' dot--ok' }}"></span>{{ k.milczy is not null ? 'milczy' : 'aktywny' }}</span>
+                                {% if k.milczy is not null %}<span class="chip chip--warn">bez użycia od {{ czas_wzgledny(k.last_used_at) }}</span>{% endif %}
+                            {% elseif k.state == 'issued' %}
+                                {# Klucz wydany, którego connector jeszcze nie użył — stan wymagający uwagi,
+                                   ale NIE powód, żeby cokolwiek zabijać: stary klucz pracuje dalej. #}
+                                <span class="status"><span class="status__dot{{ k.czeka_godzin is not null ? ' dot--warn' : '' }}"></span>wydany, jeszcze nieużyty</span>
+                                {% if k.czeka_godzin is not null %}<span class="chip chip--warn">czeka od {{ czas_wzgledny(k.created_at) }} — wklej go w connectorze</span>{% endif %}
+                            {% else %}<span class="chip">{{ k.powod }}</span>{% endif %}
+                        </td>
+                        <td>
+                            {% if k.state == 'active' or k.state == 'issued' %}
+                                <div class="btn-row btn-row--jedna-linia">
+                                    {# Dwie operacje i ani jednej więcej (model z 20.09.2026). Oba odnośniki
+                                       prowadzą do kroku potwierdzenia — bez JS otwiera się pełny ekran,
+                                       z JS ta sama treść ląduje w oknie nad tabelą (§5.6). #}
+                                    <a class="btn btn--ghost btn--sm" href="{{ url('/admin/integracja/klucze/' ~ k.id ~ '/wymien') }}"
+                                       hx-get="{{ url('/admin/integracja/klucze/' ~ k.id ~ '/wymien') }}"
+                                       hx-target="#potwierdzenie-tresc" hx-swap="innerHTML"
+                                       data-modal-open="potwierdzenie-modal">Nowy klucz</a>
+                                    <a class="btn btn--ghost btn--sm" href="{{ url('/admin/integracja/klucze/' ~ k.id ~ '/uniewaznij') }}"
+                                       hx-get="{{ url('/admin/integracja/klucze/' ~ k.id ~ '/uniewaznij') }}"
+                                       hx-target="#potwierdzenie-tresc" hx-swap="innerHTML"
+                                       data-modal-open="potwierdzenie-modal">Unieważnij</a>
+                                </div>
+                            {% else %}
+                                {#- ⚠ Kasowanie TYLKO dla klucza unieważnionego — czynnego nie ma czym
+                                    skasować z tego ekranu i nie chodzi o ukryty przycisk: warunek
+                                    `status <> 'active'` stoi w zapytaniu (`ApiKeyRepository::usun`).
+                                    Czynny klucz trzeba najpierw unieważnić, bo to decyzja o zatrzymaniu
+                                    synchronizacji u klienta i ma własny ekran potwierdzenia.
+                                    ⚠ Odnośnik prowadzi do kroku potwierdzenia, jak dwa powyżej: bez JS
+                                    pełny ekran, z JS to samo w oknie. Skasowania nie da się cofnąć,
+                                    więc jednego kliknięcia tu nie ma. -#}
+                                {#- ⚠ Ten sam pojemnik co przy dwóch przyciskach wyżej, choć przycisk
+                                    jest jeden: wyrównanie należy do KOLUMNY, nie do liczby przycisków.
+                                    Bez tego „Skasuj" stałby przy lewej krawędzi, a „Nowy klucz
+                                    / Unieważnij" przy prawej — w jednej kolumnie, jeden pod drugim. -#}
+                                <div class="btn-row btn-row--jedna-linia">
+                                    <a class="btn btn--ghost btn--sm" href="{{ url('/admin/integracja/klucze/' ~ k.id ~ '/usun') }}"
+                                       hx-get="{{ url('/admin/integracja/klucze/' ~ k.id ~ '/usun') }}"
+                                       hx-target="#potwierdzenie-tresc" hx-swap="innerHTML"
+                                       data-modal-open="potwierdzenie-modal">Skasuj</a>
+                                </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="6" class="table__empty">Nie wydano jeszcze żadnego klucza.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="card__foot">
+            {# ⚠ Treść poprawiona: ekran mówił „stary działa 30 dni”, a obowiązuje reguła z 20.09.2026. #}
+            <span>Po wydaniu nowego klucza stary działa do chwili, w której nowy po raz pierwszy zakończy przebieg — wtedy zostaje unieważniony automatycznie. Nie ma żadnego terminu: dopóki nowy klucz nie zadziała, synchronizacja idzie na starym. Kursory i rekordy należą do firmy, nie do klucza — wydanie klucza nie powoduje ponownego ładowania danych.</span>
+            <a class="btn btn--ghost btn--sm" href="{{ url('/admin/podlaczenie') }}" data-modal-open="kreator-modal">Wydaj nowy klucz</a>
+        </div>
+    </section>
+
+    {% if firmy is not empty %}
+        <section class="card">
+            <div class="card__head">
+                <h2 class="card__title">Zakres kluczy</h2>
+                <span class="card__meta">firma wchodzi do zakresu przez zatwierdzenie zgłoszenia — ręcznie tylko wyjątkowo</span>
+            </div>
+            <div class="card__body">
+                {% for k in keys|filter(k => k.state == 'active' or k.state == 'issued') %}
+                    {# ⚠ Formularz jest kolumną z odstępem: jako blok przyklejał przycisk do ostatniego
+                       pola wyboru, a lista miała ten sam odstęp co nagłówek grupy. #}
+                    <form method="post" action="{{ url('/admin/integracja/klucze/' ~ k.id ~ '/firmy') }}" class="form-column">
+                        {% include 'partials/csrf.twig' %}
+                        <div class="checklist">
+                            <span class="checklist__label">{{ k.name }}</span>
+                            {% for f in firmy %}
+                                <label class="checklist__item">
+                                    <input type="checkbox" name="firmy[]" value="{{ f.id }}"{{ f.nip in k.nips ? ' checked' : '' }}>
+                                    <span>{{ f.name }}</span>
+                                    <span class="table__mute mono">{{ nip_grupami(f.nip) }}</span>
+                                </label>
+                            {% endfor %}
+                        </div>
+                        {# ⚠ Przycisk ma szerokość treści, nie całej karty (§5.3). #}
+                        <button type="submit" class="btn btn--ghost btn--sm">Zapisz zakres</button>
+                    </form>
+                {% endfor %}
+            </div>
+        </section>
+    {% endif %}
+
+    <section class="card">
+        <div class="card__head">
+            <h2 class="card__title">Zgłoszenia firm</h2>
+            <span class="card__meta">{{ signups|length }} {{ signups|length == 1 ? 'oczekuje' : 'oczekują' }}</span>
+        </div>
+        <div class="card__body">
+            <p>Connector sam zgłasza firmę, którą obsługuje. Po zatwierdzeniu firma powstaje w aplikacji, a jej NIP trafia do zakresu klucza — nie trzeba nic wpisywać ręcznie.</p>
+            {% for s in signups %}
+                <div class="notice notice--warn">
+                    <div class="btn-row">
+                        <div class="field">
+                            <span>NIP <span class="mono">{{ nip_grupami(s.nip) }}</span> — „{{ s.name }}”</span>
+                            <span class="field__hint">zgłoszona {{ czas(s.created_at) }}{% if connector is not null and connector.wersja is not null %} · connector {{ connector.wersja }}{% endif %}</span>
+                        </div>
+                        <span class="toolbar__spacer"></span>
+                        <a class="btn btn--ghost btn--sm" href="{{ url('/admin/integracja/zgloszenia/' ~ s.id ~ '/odrzuc') }}"
+                           hx-get="{{ url('/admin/integracja/zgloszenia/' ~ s.id ~ '/odrzuc') }}"
+                           hx-target="#potwierdzenie-tresc" hx-swap="innerHTML"
+                           data-modal-open="potwierdzenie-modal">Odrzuć</a>
+                        <form method="post" action="{{ url('/admin/integracja/zgloszenia/' ~ s.id ~ '/zatwierdz') }}">
+                            {% include 'partials/csrf.twig' %}
+                            <button type="submit" class="btn btn--primary btn--sm">Zatwierdź</button>
+                        </form>
+                    </div>
+                </div>
+            {% else %}
+                <p class="table__empty">Brak zgłoszeń czekających na decyzję. Pojawią się tu same, gdy connector się połączy.</p>
+            {% endfor %}
+
+            {% for f in firmy %}
+                <div class="btn-row">
+                    <span class="status"><span class="status__dot"></span>zatwierdzona</span>
+                    <span>NIP <span class="mono">{{ nip_grupami(f.nip) }}</span> — {{ f.name }}</span>
+                    <span class="toolbar__spacer"></span>
+                    <span class="chip">w zakresie klucza</span>
+                </div>
+            {% endfor %}
+
+            {% if rejected is not empty %}
+                <div class="field">
+                    <span class="field__label">Odrzucone — connector nie zgłasza ich ponownie, dopóki decyzja obowiązuje</span>
+                    {% for s in rejected %}
+                        <div class="btn-row">
+                            <span class="table__mute">NIP <span class="mono">{{ nip_grupami(s.nip) }}</span> — {{ s.name }}</span>
+                            <span class="toolbar__spacer"></span>
+                            <form method="post" action="{{ url('/admin/integracja/zgloszenia/' ~ s.id ~ '/przywroc') }}">
+                                {% include 'partials/csrf.twig' %}
+                                <button type="submit" class="btn btn--quiet btn--sm">Cofnij odrzucenie</button>
+                            </form>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+    </section>
+
+    <section class="card">
+        <div class="card__head">
+            <h2 class="card__title">Ostatnie przebiegi</h2>
+            {% if can('data.view') %}<a href="{{ url('/dane/synchronizacja') }}">Pełny stan synchronizacji</a>{% endif %}
+        </div>
+        <div class="table-scroll">
+            <table class="table table--zebra">
+                <thead>
+                    <tr><th>Rozpoczęty</th><th class="table__grow">Firma</th><th class="table__num">Czas</th><th class="table__num">Rekordy</th><th class="table__num">Konflikty</th><th>Wynik</th></tr>
+                </thead>
+                <tbody>
+                {% for r in runs %}
+                    <tr>
+                        <td class="mono">{{ czas_godzina(r.started_at) }} <span class="table__mute">{{ czas_data(r.started_at) }}</span></td>
+                        <td class="table__grow table__mute">{{ r.company }}</td>
+                        <td class="table__num">{{ r.seconds is null ? '—' : r.seconds ~ ' s' }}</td>
+                        <td class="table__num">{{ r.rekordy }}</td>
+                        <td class="table__num">{{ r.konflikty }}</td>
+                        <td>
+                            {% if r.status == 'closed' %}
+                                <span class="status"><span class="status__dot dot--ok"></span>zakończony{% if r.pelne %} — pełne ładowanie{% endif %}</span>
+                            {% elseif r.status == 'open' %}
+                                <span class="status"><span class="status__dot dot--warn"></span>w toku ({{ r.phase }})</span>
+                            {% else %}
+                                <span class="chip chip--danger">przerwany — {{ r.status }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="6" class="table__empty">Connector nie wykonał jeszcze żadnego przebiegu.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    {# Okno potwierdzeń: treść dociąga htmx z tej samej trasy, którą bez JS otwiera zwykły odnośnik. #}
+    <dialog id="potwierdzenie-modal" class="modal" aria-labelledby="potwierdzenie-modal-title">
+        <div class="modal__head">
+            <h3 id="potwierdzenie-modal-title">Potwierdzenie</h3>
+            <button type="button" class="modal__close" data-modal-close="potwierdzenie-modal" aria-label="Zamknij okno">×</button>
+        </div>
+        <div class="modal__body" id="potwierdzenie-tresc">
+            <p class="table__empty">Wczytuję…</p>
+        </div>
+    </dialog>
+
+    <dialog id="kreator-modal" class="modal" aria-labelledby="kreator-modal-title">
+        <div class="modal__head">
+            <h3 id="kreator-modal-title">Podłączenie programu kadrowego</h3>
+            <button type="button" class="modal__close" data-modal-close="kreator-modal" aria-label="Zamknij okno">×</button>
+        </div>
+        {# Treść dociągana po otwarciu okna — dopóki jest zamknięte, nie leci ani jedno żądanie. #}
+        <div class="modal__body"
+             hx-get="{{ url('/admin/podlaczenie/stan') }}"
+             hx-trigger="kreator:pokaz from:body"
+             hx-target="this"
+             hx-swap="innerHTML">
+            <p class="table__empty">Wczytuję stan podłączenia…</p>
+        </div>
+        <div class="modal__foot"><a href="{{ url('/admin/podlaczenie') }}">Otwórz kreator jako osobny ekran</a></div>
+    </dialog>
+{% endblock %}

@@ -1,0 +1,15 @@
+{#- Formularz nowej grupy — **jedno źródło, dwa miejsca**: okno modalne i ścieżka bez
+    JavaScriptu (`<noscript>`). Dwie kopie tego samego formularza rozjechałyby się przy pierwszej
+    zmianie pola, a bez `<noscript>` przycisk otwierający okno byłby jedyną drogą — czyli bez JS
+    nie dałoby się utworzyć grupy wcale.
+
+    Zmienne: spolka. -#}
+<form class="pick__adres" method="post" action="{{ url('/admin/grupy') }}">
+    {% include 'partials/csrf.twig' %}
+    <input type="hidden" name="spolka" value="{{ spolka.id }}">
+    <label class="field">
+        <span class="field__label">Nazwa grupy</span>
+        <input class="input" type="text" name="nazwa" maxlength="100" placeholder="np. Produkcja" required>
+    </label>
+    <button type="submit" class="btn btn--primary btn--sm">Utwórz</button>
+</form>

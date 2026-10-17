@@ -1,0 +1,13 @@
+{% extends 'layout.twig' %}
+
+{% block naglowek %}{{ naglowek }}{% endblock %}
+
+{% block tresc %}{{ zdanie }}
+{% for w in wiersze %}
+{{ w.etykieta }}: {{ w.wartosc }}{% endfor %}
+
+Szczegóły są w dzienniku zdarzeń, w zakładce Administracja.
+Ta wiadomość nie zawiera adresów ani nazw kont.
+{% endblock %}
+
+{% block stopka %}{% endblock %}

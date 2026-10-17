@@ -1,0 +1,9 @@
+{% extends 'layout/web.twig' %}
+
+{#- ⚠ Jak na `/zespol`: nazwa ekranu w belce, zdanie spod tytułu przeniesione do karty,
+    bo nagłówek karty powtarzał nazwę ekranu i został zdjęty (zlecenie 11.10 §2d). -#}
+{% block nazwa_ekranu %}Nowy wniosek{% endblock %}
+
+{% block content %}
+    {% include 'partials/page/new-request.twig' %}
+{% endblock %}

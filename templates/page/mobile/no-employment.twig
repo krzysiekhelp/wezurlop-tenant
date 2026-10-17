@@ -1,0 +1,3 @@
+{% extends 'layout/auth-mobile.twig' %}
+{% block title %}{% if ma_zatrudnienie %}Brak przydzielonego dostępu{% else %}Brak aktywnego zatrudnienia{% endif %} — wezurlop{% endblock %}
+{% block content %}{% include 'partials/no-employment.twig' %}{% endblock %}

@@ -1,0 +1,98 @@
+{% extends 'layout/web.twig' %}
+
+{#- `modules/grupy.js`: przeniesienie ognisko klawiatury po kliknięciu `+`/`✕` na następny
+    wiersz tej samej kolumny (aneks §6.4). Na liście grup ten sam plik odświeża wiersz po
+    zamknięciu okna. -#}
+{% set grupy_js = true %}
+
+{% block nazwa_ekranu %}{{ grupa.nazwa }}{% endblock %}
+
+{% block okruchy %}
+    <a href="{{ url('/admin/grupy') }}">Grupy</a>
+    <span class="crumbs__sep">/</span>
+{% endblock %}
+
+{#- Ekran jednej grupy (zlecenie `2026-10-10-grupy-ekran-dwie-kolumny.md` §2).
+
+    ⚠ **Treścią tego ekranu są dwie kolumny**, a nie karta z nakładką. Cała zawartość
+    przypisywania mieszka w `fragments/group-assign.twig` — bo po każdym zapisie wymienia się
+    dokładnie ten fragment, renderowany **z aktualnego stanu bazy** (CLAUDE.md §5). Gdyby część
+    kolumn stała tutaj, po podmianie pokazywałaby stan sprzed kliknięcia.
+
+    ⚠ **Przełącznik spółki jest też tutaj**, nie tylko na liście (§2 zlecenia): dotąd po wejściu
+    w grupę kontekst spółki znikał z widoku. Prowadzi na **listę** tej spółki, bo grupa należy
+    do spółki — ta sama grupa w innej spółce nie istnieje. -#}
+{% block content %}
+    <div class="page__head">
+        <div class="page__title">
+            {#- ⚠ **Podtytuł NIE niesie liczby** (aneks §4). Stało tu „3 osoby w grupie", a dwa
+                centymetry obok nagłówek kolumny pokazywał „7" — bo podtytuł jest poza
+                wymienianym fragmentem i przestaje być prawdą przy pierwszym kliknięciu. To ta
+                sama rodzina, którą ta tura wyplenia z wnętrza kontrolki. Liczbę podaje nagłówek
+                kolumny, który jest częścią fragmentu i nie ma jak skłamać. -#}
+            <p class="page__sub">Grupa jest etykietą — nie zmienia ścieżki zatwierdzania urlopu, a jedna osoba może być w kilku grupach.</p>
+            {% include 'partials/spolka-ekranu.twig' with {
+                'spolka': spolka.nazwa, 'z_adresu': spolka_z_adresu,
+                'z_zasobu': spolka_z_zasobu, 'fallback': spolka_fallback, 'zasob': 'Grupa'} only %}
+        </div>
+        <div class="page__actions">
+{#- ⚠ **Kontrolka wyboru spółki zniknęła z tego ekranu** (zlecenie 10.10.2026 §1): jedna
+        kontrolka stoi w górnej belce i jest widoczna na każdym ekranie. Dwie kontrolki do jednego
+        wyboru rozjechałyby się przy pierwszej zmianie — to był cel tej zmiany, nie efekt uboczny. -#}
+            <button type="button" class="btn btn--ghost btn--sm" data-modal-open="grupa-nazwa">Zmień nazwę</button>
+            {#- ⚠ Usunięcie wyłącznie pustej grupy. ⚠ **Ten sam wzorzec co na liście grup**
+                (aneks §4): przycisk **wyłączony z powodem pod spodem**, a nie szary napis
+                zamiast przycisku — ta sama rzecz dwoma wzorcami to dwa miejsca do poprawiania.
+                ⚠ Powód **bez liczby**: stoi poza wymienianym fragmentem, więc liczba nie
+                nadążyłaby po kliknięciu (to ta sama usterka, co podtytuł wyżej).
+                ⚠ `disabled` NIE jest zabezpieczeniem — odmowę wystawia zapytanie, a pod nim
+                klucz obcy `ON DELETE RESTRICT` (CLAUDE.md §10). -#}
+            {% if czlonkow_razem == 0 %}
+                <form method="post" action="{{ url('/admin/grupy/' ~ grupa.id ~ '/usun') }}">
+                    {% include 'partials/csrf.twig' %}
+                    <input type="hidden" name="spolka" value="{{ spolka.id }}">
+                    <button type="submit" class="btn btn--ghost btn--sm">Usuń grupę</button>
+                </form>
+            {% else %}
+                <div class="page__akcja-powod">
+                    <button type="button" class="btn btn--ghost btn--sm" disabled>Usuń grupę</button>
+                    <p class="menu__powod">najpierw wypisz osoby z grupy</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {#- ⚠ Błąd renderuje **fragment**, nie ta strona: po podmianie htmx zostaje wymieniony
+        razem z kolumnami, więc nie ma jak zostać z poprzedniego żądania. -#}
+    {% if notice is not null %}<p class="notice" role="status">{{ notice }}</p>{% endif %}
+
+    {% include 'fragments/group-assign.twig' with {
+        'grupa': grupa, 'spolka': spolka, 'czlonkowie': czlonkowie, 'nieaktywnych': nieaktywnych,
+        'czlonkow_pasujacych': czlonkow_pasujacych, 'czlonkow_razem': czlonkow_razem,
+        'szukaj_w_grupie': szukaj_w_grupie,
+        'poza': poza, 'poza_pasujacych': poza_pasujacych, 'poza_razem': poza_razem,
+        'szukaj': szukaj, 'error': error, 'htmx': true, 'w_oknie': false
+    } only %}
+
+    {#- Ta sama treść formularza w dwóch miejscach, ale **z jednego partiala** — wzorzec
+        „Nowej grupy": okno modalne dla przeglądarki z JavaScriptem, `<noscript>` dla tej bez. -#}
+    <dialog id="grupa-nazwa" class="modal" aria-labelledby="grupa-nazwa-tytul">
+        <div class="modal__head">
+            <h3 id="grupa-nazwa-tytul">Nazwa grupy</h3>
+            <button type="button" class="modal__close" data-modal-close="grupa-nazwa" aria-label="Zamknij okno">×</button>
+        </div>
+        <div class="modal__body">
+            {% include 'partials/grupa-nazwa-form.twig' with {'grupa': grupa, 'spolka': spolka, 'wroc': 'grupa'} only %}
+            <p class="card__meta">Nazwy w jednej firmie muszą się różnić — i <strong>nie rozróżniamy ich wielkością liter</strong>, bo „Produkcja" i „PRODUKCJA" na liście wyglądają jak jedna grupa.</p>
+        </div>
+    </dialog>
+
+    <noscript>
+        <section class="card">
+            <div class="card__head"><h2 class="card__title">Nazwa grupy</h2></div>
+            <div class="card__body">
+                {% include 'partials/grupa-nazwa-form.twig' with {'grupa': grupa, 'spolka': spolka, 'wroc': 'grupa'} only %}
+            </div>
+        </section>
+    </noscript>
+{% endblock %}

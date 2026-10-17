@@ -1,0 +1,7 @@
+<p class="field__hint">Instalator sprawdzi, pod jakim adresem odpowiada aplikacja i czy działa przepisywanie adresów. Decyduje test, nie konfiguracja.</p>
+<p class="notice">{{ variant }}</p>
+{% if tried is not empty %}
+    <ul class="field__hint">
+        {% for line in tried %}<li>{{ line }}</li>{% endfor %}
+    </ul>
+{% endif %}

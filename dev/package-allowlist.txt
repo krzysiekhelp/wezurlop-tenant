@@ -1,0 +1,19 @@
+# Paczka dla klienta — LISTA DOPUSZCZONYCH ścieżek (nie wykluczonych). Plik spoza listy nie jedzie,
+# więc nowy plik testowy albo narzędzie deweloperskie nie trafi do klienta przez przeoczenie.
+# Wzorce: dokładna ścieżka albo katalog/** (wszystko pod nim). vendor/ buduje composer install --no-dev.
+public/**
+src/**
+templates/**
+config/**
+db/migrations/**
+deploy/**
+bin/run-jobs.php
+bin/cron-http.php
+bin/invite.php
+bin/diagnose.php
+composer.json
+composer.lock
+.htaccess
+.env.example
+storage/logs/.gitkeep
+storage/uploads/.gitkeep

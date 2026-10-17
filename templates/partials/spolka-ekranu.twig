@@ -1,0 +1,23 @@
+{#- **Zdanie: skąd wzięła się spółka tego ekranu** (zlecenie `2026-10-10-globalny-wybor-spolki.md` §1).
+
+    ⚠ Zdanie **tylko wtedy, gdy spółka ekranu NIE wzięła się z wyboru w belce**: z adresu (stary
+    odnośnik honorowany na jedno żądanie), z zasobu (grupa należy do swojej spółki) albo z powrotu
+    do dozwolonej (konto straciło dostęp do zapamiętanej). Przy zgodności nie ma o czym mówić —
+    nazwa stoi w znaczniku i powtarzanie jej byłoby drugim źródłem tej samej prawdy.
+
+    ⚠ Jeden partial, nie zdanie dopisane na czterech ekranach: każdy ekran spółkowy mówi to samo
+    i ma mówić tak samo. Cztery kopie rozjadą się przy pierwszej zmianie brzmienia.
+
+    Zmienne: spolka (nazwa), z_adresu, z_zasobu, fallback (bool), zasob (opcjonalnie: słowo
+    o zasobie, np. „Grupa"). -#}
+{%- if z_adresu|default(false) or z_zasobu|default(false) or fallback|default(false) %}
+    <p class="page__sub">
+        {%- if z_zasobu|default(false) -%}
+            {{ zasob|default('Ten zasób') }} należy do firmy <strong>{{ spolka }}</strong> — innej niż wybrana w belce. Pokazujemy go, ale Twojego kontekstu nie zmieniamy.
+        {%- elseif z_adresu|default(false) -%}
+            Firma <strong>{{ spolka }}</strong> pochodzi z adresu — na jedno wyświetlenie; znacznik w belce nadal pokazuje Twój wybór.
+        {%- else -%}
+            Firma wybrana ostatnio nie jest już dostępna dla tego konta, więc pokazujemy <strong>{{ spolka }}</strong>.
+        {%- endif -%}
+    </p>
+{%- endif %}

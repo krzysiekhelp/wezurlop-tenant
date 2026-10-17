@@ -1,0 +1,47 @@
+{#- Wynik wysyłki partii zaproszeń.
+
+    ⚠ Ten sam fragment idzie do okna modalnego (htmx) i na pełny ekran `page/web/invite-result.twig`,
+    tak jak `fragments/confirm.twig` — dzięki temu wynik widać z JavaScriptem i bez niego.
+
+    ⚠ DWIE LICZBY OSOBNO (§1 zlecenia): zaproszenie i dostęp to dwie różne rzeczy, więc jedna
+    liczba „udało się N" kłamałaby zawsze, gdy zaproszenie przeszło, a dostępu nie nadano.
+
+    ⚠ Ekran mówi „przyjęto do wysyłki", nie „wysłano": wysyłka idzie przez kolejkę i crona
+    (CLAUDE.md §0), więc w chwili pokazania tego ekranu poczta jeszcze nie wyszła. -#}
+<div class="stack">
+    <div class="defs">
+        <div>
+            <div class="defs__term">Zaproszeń przyjętych do wysyłki</div>
+            <div class="defs__value">{{ zaproszono }}</div>
+        </div>
+        <div>
+            <div class="defs__term">Osób z nadanym dostępem</div>
+            <div class="defs__value">{{ z_dostepem }}{% if dostepow != z_dostepem %} <span class="table__mute">({{ dostepow }} dostępów do spółek)</span>{% endif %}</div>
+        </div>
+    </div>
+
+    {#- ⚠ „W ciągu kilku minut" było nieprawdą u klienta z cronem co godzinę — termin liczy się
+        z faktycznej częstotliwości crona, a martwy cron ma tu własny, głośny wygląd (§2). -#}
+    {% if zaproszono > 0 %}
+        <p class="notice{{ termin.awaria ? ' notice--danger' : '' }}" role="{{ termin.awaria ? 'alert' : 'status' }}">
+            Wysyłka idzie zadaniem w kolejce, nie w tym żądaniu.
+            {% include 'partials/termin-wysylki.twig' with {co: 'Poczta'} %}
+        </p>
+    {% endif %}
+
+    {% if pominieto is not empty %}
+        <div>
+            <p class="field__hint">Pominięte ({{ pominieto|length }} z {{ wybranych }} zaznaczonych):</p>
+            <ul class="settings-list">
+                {% for wpis in pominieto %}
+                    <li class="settings-list__row">
+                        <span class="settings-list__copy">{{ wpis.osoba }}</span>
+                        <span class="chip chip--warn">{{ wpis.powod }}</span>
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% elseif zaproszono == 0 %}
+        <p class="empty-state">Nikogo nie zaproszono — nie zaznaczono żadnej osoby.</p>
+    {% endif %}
+</div>

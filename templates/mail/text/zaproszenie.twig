@@ -1,0 +1,21 @@
+{% extends 'layout.twig' %}
+
+{% block naglowek %}Masz dostęp do systemu urlopowego{% endblock %}
+
+{% block tresc %}Dzień dobry{% if imie_w_wolaczu %}, {{ imie_w_wolaczu }}{% endif %}.
+
+{% if firma %}{{ firma }} udostępnia Ci system{% else %}Masz dostęp do systemu{% endif %}, w którym składasz wnioski urlopowe,
+sprawdzasz swój limit dni i widzisz kalendarz nieobecności zespołu.
+Żeby zacząć, ustaw własne hasło:
+
+{{ link }}
+
+Link jest ważny {{ waznosc_dni }} i działa jeden raz.
+
+Twój login: {{ login }}
+{% if zapraszajacy %}Zaprosił: {{ zapraszajacy }}
+{% endif %}{% endblock %}
+
+{% block stopka %}Nie spodziewałeś się tej wiadomości? Zignoruj ją — bez ustawienia hasła
+konto pozostaje nieaktywne.
+{% endblock %}

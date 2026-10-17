@@ -1,0 +1,438 @@
+/* Powłoka aplikacji: pasek boczny, pasek górny, obszar treści (docs/system-wizualny.md §3.3, §3.5).
+   Wszystkie wartości z 00-tokens.css — żadnego #rrggbb i żadnego odstępu spoza skali. */
+
+/* ⚠ **Ile pionu zostaje na treść po belkach tej powłoki.** Zmienna, a nie liczba w komponencie,
+   bo odpowiedź jest inna w każdej powłoce: tu zabiera belka górna, na telefonie belka górna
+   PLUS dolna nawigacja i pasek gestów. Komponent (dziś `.team-scroll`) pyta o `--kadr-h`
+   i nie musi wiedzieć, w czym stoi — to jest ta sama granica, co „komponenty wspólne,
+   powłoka osobna".
+   ⚠ `dvh` po `vh`, tą samą parą co `.app` niżej: `vh` liczy pasek adresu przeglądarki, więc
+   bez drugiej linii kadr jest za wysoki dokładnie o ten pasek. */
+:root {
+  --kadr-h: calc(100vh - var(--topbar-h) - var(--s-5));
+  --kadr-h: calc(100dvh - var(--topbar-h) - var(--s-5));
+}
+
+.app {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+  min-height: 100vh;
+  min-height: 100dvh;   /* ⚠ `vh` liczy pasek adresu — układ skakał przy jego chowaniu (§11.3 punkt 4) */
+}
+
+/* ——— pasek boczny ——————————————————————————————————————————————————————— */
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  padding: var(--s-4) var(--s-3) var(--s-5);
+  background: var(--c-surface);
+  border-right: 1px solid var(--c-line);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100dvh;
+  overflow-y: auto;
+}
+
+.sidebar__brand { display: flex; align-items: center; padding: var(--s-2) var(--s-3); }
+.sidebar__brand img { height: 32px; width: auto; }
+
+.nav-group { display: flex; flex-direction: column; gap: var(--s-1); }
+.nav-group + .nav-group { margin-top: var(--s-4); }
+
+/* Etykieta sekcji: ciszej niż pozycje — to podpis, nie pozycja menu. */
+.nav-group__label {
+  padding: 0 var(--s-3) var(--s-2);
+  font-size: var(--t-label);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--c-text-3);
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-height: var(--control-h);
+  padding: 0 var(--s-3);
+  border-radius: var(--radius);
+  color: var(--c-text-2);
+  font-size: var(--t-body);
+  text-decoration: none;
+}
+@media (hover: hover) {
+  .nav-item:hover { background: var(--c-line-soft); text-decoration: none; }
+}
+
+/* Zieleń = akcja i „tu jesteś”, nigdzie indziej (§3.1). */
+.nav-item--on { background: var(--c-accent-soft); color: var(--c-accent-text); font-weight: var(--w-medium); }
+.nav-item--on .ico { color: var(--c-accent); }
+
+.nav-item__ico { flex: none; color: var(--c-text-4); }
+.nav-item--on .nav-item__ico { color: var(--c-accent); }
+
+.nav-item__badge {
+  margin-left: auto;
+  min-width: 20px;
+  padding: 0 var(--s-1);
+  border-radius: var(--radius);
+  background: var(--c-warn-soft);
+  color: var(--c-warn-text);
+  font-size: var(--t-caption);
+  font-weight: var(--w-medium);
+  text-align: center;
+}
+
+/* `.ico` przeniesione do 30-components.css — uzasadnienie w komentarzu tam (§11.2). */
+
+/* ——— pasek górny ——————————————————————————————————————————————————————— */
+
+/* ⚠ **Trzy gniazda, nie rozpychacz** (prośba Krzysztofa 11.10.2026: znacznik spółki na środku).
+   Lewe (`.crumbs`) i prawe (`.topbar__prawa`) mają `flex: 1 1 0`, więc dzielą wolne miejsce
+   po równo i środkowe gniazdo stoi w geometrycznym środku belki — niezależnie od długości
+   ścieżki i nazwiska w menu konta. `justify-content` nic tu już nie rozstrzyga. */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  height: var(--topbar-h);
+  padding: 0 var(--s-6);
+  background: var(--c-surface);
+  border-bottom: 1px solid var(--c-line);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+/* Ścieżka po lewej — rozwiązuje przy okazji brak drogi powrotnej z karty pracownika (§3.5). */
+.crumbs { display: flex; align-items: center; gap: var(--s-2); font-size: var(--t-small); color: var(--c-text-3); flex: 1 1 0; min-width: 0; }
+.crumbs a { color: var(--c-text-3); }
+@media (hover: hover) {
+  .crumbs a:hover { color: var(--c-text-2); }
+}
+.crumbs__sep { color: var(--c-text-5); }
+/* ⚠ **`.crumbs__now` to od 11.10.2026 `h1`, nie `span`** (zlecenie §2c: nazwa ekranu występuje
+   raz, a strona bez `h1` to regres dostępności). Wygląd się nie zmienia, więc reguła musi
+   **zdjąć z `h1` jego własny rozmiar** — inaczej bieżąca pozycja ścieżki rośnie z 13 px
+   do 30 px i rozpycha belkę o wysokości 56 px. `inherit` bierze to, co ma `.crumbs`. */
+.crumbs__now {
+  color: var(--c-text);
+  font-size: inherit;
+  font-weight: var(--w-medium);
+  line-height: inherit;
+  letter-spacing: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Menu użytkownika: natywny <details>, więc działa bez JavaScriptu. „Wyloguj” siedzi w środku,
+   bo to nie jest akcja pierwszego rzędu (§3.5). */
+.user-menu { position: relative; }
+.user-menu__button {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  height: var(--control-h);
+  padding: 0 var(--s-2);
+  border-radius: var(--radius);
+  color: var(--c-text-2);
+  font-size: var(--t-small);
+  cursor: pointer;
+  list-style: none;
+}
+.user-menu__button::-webkit-details-marker { display: none; }
+@media (hover: hover) {
+  .user-menu__button:hover { background: var(--c-line-soft); }
+}
+.user-menu__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--c-accent-soft);
+  color: var(--c-accent-text);
+  font-size: var(--t-caption);
+  font-weight: var(--w-semibold);
+}
+.user-menu__panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + var(--s-2));
+  min-width: 220px;
+  padding: var(--s-2);
+  background: var(--c-surface);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-pop);
+  z-index: 20;
+}
+.user-menu__name { padding: var(--s-2) var(--s-3); border-bottom: 1px solid var(--c-line-soft); margin-bottom: var(--s-1); }
+.user-menu__name strong { display: block; color: var(--c-text); font-weight: var(--w-medium); }
+.user-menu__name span { font-size: var(--t-caption); color: var(--c-text-3); }
+.user-menu__item {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  width: 100%;
+  min-height: var(--control-h-sm);
+  padding: 0 var(--s-3);
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--c-text-2);
+  font-size: var(--t-small);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .user-menu__item:hover { background: var(--c-line-soft); text-decoration: none; }
+}
+
+/* ——— obszar treści ————————————————————————————————————————————————————— */
+
+.main { display: flex; flex-direction: column; min-width: 0; }
+
+/* ⚠ Bez --page-max na monitorze 1920 px „Stan” stoi pół metra od nazwiska (§3.3). */
+.page { width: 100%; max-width: calc(var(--page-max) + 2 * var(--s-6)); margin-inline: auto; padding-inline: var(--s-6); padding-block: var(--s-6); display: flex; flex-direction: column; gap: var(--s-5); }
+
+/* ——— pasek komunikatu w wariancie web (rozstrzygnięcie 22.09.2026) ————————————
+
+   ⚠ Przyklejony **pod górną belką**, bo ma `role="alert"`: komunikat, którego nie widać,
+   nie jest komunikatem. `top` liczy się z wysokości belki, nie ze stałej — belka jest
+   `sticky top: 0` i ma `--topbar-h`.
+
+   ⚠ Warstwa NIŻSZA niż belka (`z-index` 9 przy 10 belki): pasek ma się wsuwać pod nią,
+   a nie zasłaniać ścieżki i menu użytkownika.
+
+   ⚠ Ukryty pasek nie rezerwuje miejsca ani nie przesuwa treści — załatwia to
+   `[hidden] { display: none !important }` z `10-base.css`, a bramka sprawdza, że pudełko
+   ma 0 × 0. Dlatego tu NIE MA `min-height` ani `margin` na stałe.
+
+   ⚠ Cień jak w wariancie mobilnym (`--shadow-pop`): pasek unosi się nad treścią, którą
+   przy przewijaniu zasłania — bez cienia wyglądałby jak wklejony w tekst. */
+.flash {
+  position: sticky;
+  top: var(--topbar-h);
+  z-index: 9;
+  box-shadow: var(--shadow-pop);
+}
+
+/* ——— znacznik spółki w górnej belce (zlecenie 2026-10-10-globalny-wybor-spolki §1) ————————
+   ⚠ **Jedna kontrolka wyboru spółki w całym programie.** Zastąpiła `.combo` w nagłówkach trzech
+   ekranów, `<select name="spolka">` na kontach i ciszę na dziewięciu pozostałych. Stoi w belce,
+   **na środku** (prośba Krzysztofa 11.10.2026) — czyli w jednym miejscu na każdym ekranie.
+
+   ⚠ **Wygląd jest wygląd dawnej `.combo`**, tej z nagłówków zakładek: stała szerokość, ramka,
+   nazwa biorąca całe wolne miejsce, strzałka na prawej krawędzi, panel z wyróżnieniem bieżącej
+   pozycji tłem. Przeniesienie kontrolki do belki zmieniło jej miejsce, nie jej język wizualny —
+   dlatego reguły niżej są przepisane z `.combo`, a nie wymyślone drugi raz.
+
+   ⚠ Dwa stany wizualne, bo znacznik ma dwa znaczenia: **kontrolka** (ekran jednej spółki,
+   jest z czego wybierać) i **napis** (ekran całego tenanta albo jedna dostępna spółka).
+   Napis ma przerywaną ramkę i kolor metryki, żeby nie wyglądał na przycisk, którego nie ma —
+   to ta sama mowa, co `.empty-state` i pasek „Bez grupy”. */
+.spolka {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  flex: none;
+  /* ⚠ **Szerokość STAŁA, nie `max-width`** — reguła przeniesiona z `.combo` razem z wyglądem.
+     Przy górnej granicy kontrolka brała tyle, ile potrzebowała nazwa: 113 px dla „ALFA"
+     i 224 px dla nazwy prawnej BETA. W belce wyśrodkowanej taka różnica przesuwałaby
+     kontrolkę przy każdym przełączeniu spółki — czyli to samo, co dawniej przesuwało pasek
+     akcji o 111 px. Dłuższa nazwa jest **ucięta wielokropkiem**, pełna stoi w `title`
+     i na liście po rozwinięciu. Oba warianty mają tę samą szerokość, więc belka nie drga
+     przy przejściu między ekranem spółkowym i tenantowym. */
+  width: 14rem;
+  height: var(--control-h-sm);
+  padding: 0 var(--s-3);
+  border-radius: var(--radius);
+  font-size: var(--t-small);
+  color: var(--c-text-2);
+}
+
+/* ⚠ Przycięcie wielokropkiem, nie zawijanie: nazwa spółki z R2 bywa długa („Przedsiębiorstwo
+   Produkcyjno-Usługowe …"), a belka ma jedną linię. `min-width: 0` jest warunkiem skrócenia
+   w elemencie elastycznym.
+   ⚠ **`flex: 1 1 auto` — nazwa BIERZE CAŁE wolne miejsce, więc strzałka stoi na prawej
+   krawędzi** niezależnie od długości nazwy. Bez tego krótka nazwa zbijała napis i strzałkę
+   do lewej, a strzałka skakała o 111 px w zależności od wybranej spółki. */
+.spolka__nazwa { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ⚠ Uwaga „(inna niż wybrana)" — bursztyn, bo to stan **wymagający uwagi**, a nie błąd:
+   zapamiętana spółka wypadła z listy dozwolonych. `flex: none` i brak przycinania, bo to
+   trzy słowa, które muszą być czytelne; nazwa spółki skraca się wcześniej. */
+.spolka__uwaga { flex: none; font-size: var(--t-caption); color: var(--c-warn-text); }
+
+.spolka--staly { border: 1px dashed var(--c-line-strong); color: var(--c-text-3); }
+.spolka--staly .spolka__nazwa { color: var(--c-text-3); }
+
+.spolka--wybor { position: relative; padding: 0; }
+.spolka__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  width: 100%;
+  height: var(--control-h-sm);
+  padding: 0 var(--s-3);
+  border: 1px solid var(--c-line-strong);
+  border-radius: var(--radius);
+  background: var(--c-surface);
+  color: var(--c-text-2);
+  cursor: pointer;
+  list-style: none;
+}
+
+.spolka__trigger::-webkit-details-marker { display: none; }
+.spolka__strzalka { flex: none; color: var(--c-text-4); display: inline-flex; }
+/* Strzałka obraca się po rozwinięciu — tak samo jak w dawnej `.combo`. */
+.spolka--wybor[open] .spolka__strzalka { transform: rotate(180deg); }
+@media (hover: hover) {
+  .spolka__trigger:hover { background: var(--c-surface-hover); color: var(--c-text); }
+}
+
+/* Panel: ta sama geometria co dawny `.combo__panel` — warstwa nad treścią, przyklejona
+   do prawej krawędzi kontrolki, szersza od niej tylko tyle, ile trzeba na pełne nazwy. */
+.spolka__panel {
+  position: absolute;
+  top: calc(100% + var(--s-1));
+  right: 0;
+  z-index: 20;
+  min-width: 100%;
+  max-width: min(26rem, calc(100vw - 2 * var(--s-4)));
+  padding: var(--s-1);
+  background: var(--c-surface);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-pop);
+}
+
+/* ⚠ Nagłówek sekcji w panelu — pozycje mają DWA znaczenia (zmiana kontekstu pracy kontra zmiana
+   samego widoku), więc muszą być widoczne jako dwa rodzaje PRZED kliknięciem, nie po
+   (zlecenie 2026-10-07 §3). Nagłówki pokazują się tylko wtedy, gdy oba zbiory są niepuste. */
+.spolka__grupa {
+  margin: 0;
+  padding: var(--s-2) var(--s-3) var(--s-1);
+  font-size: var(--t-caption);
+  font-weight: var(--w-medium);
+  color: var(--c-text-4);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.spolka__grupa:not(:first-child) { border-top: 1px solid var(--c-line); margin-top: var(--s-1); }
+
+/* Zdanie wyjaśniające różnicę — pod listą, nie nad: najpierw wybór, potem wyjaśnienie. */
+.spolka__stopka {
+  margin: var(--s-1) 0 0;
+  padding: var(--s-2) var(--s-3) 0;
+  border-top: 1px solid var(--c-line);
+  font-size: var(--t-caption);
+  color: var(--c-text-3);
+}
+
+/* Formularz jest tylko opakowaniem pozycji — nie ma własnego wyglądu ani odstępu. */
+.spolka form { margin: 0; }
+
+.spolka__pozycja {
+  display: block;
+  width: 100%;
+  padding: var(--s-2) var(--s-3);
+  border: 0;
+  border-radius: calc(var(--radius) - 2px);
+  background: transparent;
+  color: var(--c-text-2);
+  font: inherit;
+  font-size: var(--t-small);
+  text-align: left;
+  /* ⚠ Nazwa prawna ma prawo się zawinąć — w panelu jest miejsce, a ucięta nazwa na liście
+     wyboru zmusza do zgadywania, którą spółkę się klika. */
+  white-space: normal;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .spolka__pozycja:hover { background: var(--c-surface-hover); color: var(--c-text); }
+}
+
+/* ⚠ Bieżąca pozycja wyróżniona TŁEM, nie ptaszkiem — wariant wybrany przez Krzysztofa
+   po zobaczeniu obu (06.10) i przywrócony razem z wyglądem `.combo`. Nie zmieniać bez pytania. */
+.spolka__pozycja--on { background: var(--c-accent-soft); color: var(--c-accent-text); font-weight: var(--w-medium); }
+
+/* Środkowe gniazdo trzyma znacznik spółki; prawe wyrównuje menu konta do krawędzi.
+   ⚠ `min-width: 0` po prawej jest warunkiem skrócenia nazwiska zamiast rozepchania belki. */
+.topbar__srodek { flex: none; display: flex; align-items: center; justify-content: center; }
+.topbar__prawa { flex: 1 1 0; min-width: 0; display: flex; align-items: center; justify-content: flex-end; }
+
+.page__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s-4); }
+/* Nagłówek strony BEZ tytułu — została sama akcja (przełącznik kontekstu na pulpicie), więc
+   staje po prawej, tam gdzie stała wcześniej. ⚠ `space-between` z jednym dzieckiem wyrzuciłby
+   ją na lewą krawędź. Ta sama para co `.card__head--akcja` w komponentach — jedna konwencja. */
+.page__head--akcja { justify-content: flex-end; }
+.page__title { display: flex; flex-direction: column; gap: var(--s-2); min-width: 0; }
+.page__sub { font-size: var(--t-small); color: var(--c-text-3); max-width: var(--measure); }
+/* ⚠ **Pasek akcji ZAWIJA SIĘ** (`flex-wrap`), od 11.10.2026. Powód zmierzony, nie estetyczny:
+   kalendarz dostał czwartą kontrolkę (przełącznik skal czasu), a przy wąskim oknie przeglądarki
+   (374 px) pasek wychodził poza stronę o **105 px** i strona przewijała się w poziomie —
+   przy `flex: none` i bez zawijania nie ma jak tego oddać. Zawinięcie do drugiego rzędu jest
+   zawsze lepsze niż przewijanie strony: kontrolki zostają osiągalne i nic nie wystaje.
+   ⚠ `flex-wrap` sam **nie wystarczył** i to też jest pomiar: przy `flex: none` pudełko paska ma
+   szerokość swojej treści, więc nie ma względem czego zawijać — przewijanie zostawało
+   (zmierzone: 479 px treści w oknie 320 px). Trzeba było dopuścić ściskanie: `flex: 0 1 auto`
+   plus `min-width: 0`. */
+.page__actions { display: flex; align-items: center; gap: var(--s-2); flex: 0 1 auto; min-width: 0; flex-wrap: wrap; justify-content: flex-end; }
+
+/* Pasek filtrów stoi POZA kartą — dziś na jednym ekranie jest w karcie, na drugim nad nią (§5). */
+.toolbar { display: flex; align-items: flex-end; gap: var(--s-3); flex-wrap: wrap; }
+.toolbar__spacer { flex: 1 1 auto; }
+.toolbar__result { font-size: var(--t-small); color: var(--c-text-3); }
+
+@media (max-width: 1024px) {
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .sidebar { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--c-line); }
+  .page { padding: var(--s-4); }
+  .topbar { padding: 0 var(--s-4); }
+}
+
+/* ——— MOSTEK: ekrany jeszcze nieprzepisane ———————————————————————————————
+
+   ⚠ Te klasy należą do ekranów spoza pierwszego rzutu (logowanie, reset, 2FA, pulpit, kalendarz,
+   diagnostyka, konta, kreator). Stary arkusz przestał je obsługiwać razem z powłoką w kroku 2,
+   więc dostają tu minimum z tokenów — inaczej ekran logowania nie ma żadnego układu.
+   Blok znika razem z przepisaniem tamtych ekranów w drugim rzucie.                             */
+
+
+.brand { display: block; padding: var(--s-1) var(--s-2) var(--s-2); }
+.brand img { height: 44px; width: auto; object-fit: contain; }
+
+/* Ekrany uwierzytelnienia: logo, hasło reklamowe po lewej, formularz po prawej. */
+.auth-shell { min-height: 100dvh; max-width: var(--page-max); margin-inline: auto; padding: var(--s-6); display: flex; flex-direction: column; gap: var(--s-5); }
+.auth-top { display: flex; align-items: center; justify-content: space-between; }
+.auth-top img { height: 44px; width: auto; }
+.auth-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(360px, .9fr); gap: var(--s-5); align-items: start; }
+
+.hero-panel { padding: var(--s-6); background: var(--c-accent-soft); display: flex; flex-direction: column; gap: var(--s-3); }
+.hero-panel h2 { font-size: var(--t-h1); line-height: var(--lh-tight); }
+.hero-panel p { color: var(--c-text-3); }
+.hero-panel img { width: 260px; margin: var(--s-5) auto 0; }
+
+.form-card { padding: var(--s-6); display: flex; flex-direction: column; gap: var(--s-4); }
+.form-card h1, .form-card h2 { font-size: var(--t-h2); }
+.form-card > p { color: var(--c-text-3); }
+
+@media (max-width: 1024px) {
+  .auth-grid { grid-template-columns: minmax(0, 1fr); }
+  .hero-panel { display: none; }
+  .auth-shell { padding: var(--s-4); }
+}
+
+/* `.stack` przeniesione do 30-components.css — rytm pionowy jest komponentem, nie powłoką,
+   i wariant mobilny potrzebuje tego samego. ⚠ Zostawienie tej reguły tutaj było pułapką:
+   30-components.css wczytuje się później, więc jego `gap: --s-4` i tak by wygrał, a ta linia
+   wyglądałaby na obowiązującą. Kreator, który potrzebuje większego odstępu, nosi `.stack--lg`. */

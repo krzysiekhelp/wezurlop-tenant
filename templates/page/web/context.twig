@@ -1,0 +1,12 @@
+{% extends 'layout/web.twig' %}
+
+{% block nazwa_ekranu %}Wybór firmy{% endblock %}
+
+{% block content %}
+    <div class="page__head">
+        <div class="page__title">
+            <p class="page__sub">Pracujesz w kilku firmach — wybierz kontekst.</p>
+        </div>
+    </div>
+    {% include 'partials/page/context.twig' %}
+{% endblock %}

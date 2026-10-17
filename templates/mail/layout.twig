@@ -1,0 +1,55 @@
+{#- ⚠ UKŁAD WIADOMOŚCI — jeden, wspólny dla wszystkich trzech rodzajów treści.
+
+    ⚠ POCZTA RZĄDZI SIĘ INNYMI PRAWAMI NIŻ STRONA i nie jest to odstępstwo od §6 reguł
+    (docs/system-wizualny.md, sekcja „Poczta"):
+      • style WYŁĄCZNIE w atrybutach `style=` — część klientów wycina `<style>` z nagłówka,
+      • tabele zamiast siatek — Outlook rysuje wiadomość silnikiem Worda, gdzie `flex`, `grid`
+        i promień na przycisku nie działają,
+      • krój SYSTEMOWY — IBM Plex ze strony w skrzynce się nie wczyta,
+      • ZERO obrazków: logo jako tekst, bo klient poczty blokuje obrazki domyślnie; żadnego
+        piksela śledzącego,
+      • kolory wpisane wprost tymi samymi WARTOŚCIAMI co tokeny — zmienne CSS w poczcie nie działają.
+
+    ⚠ Nie kopiuj tego układu do szablonów treści. Poprawka stopki ma być w jednym miejscu —
+    inaczej wracamy do wzorca „dwie nazwy nagłówka strony", który kosztował nas cały dzień.
+
+    Bloki: `naglowek` (wiersz tytułowy karty), `tresc`, `stopka` (linijki pod kartą). -#}
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ temat }}</title>
+</head>
+<body style="margin:0; padding:0; background:#F5F6F8;">
+{#- Tekst podglądu: pierwsze zdanie, które klient pokazuje na liście wiadomości. Ukryty,
+    bo inaczej powtarzałby się na górze treści. -#}
+<div style="display:none; max-height:0; overflow:hidden; opacity:0;">{{ podglad }}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F5F6F8;">
+<tr><td align="center" style="padding:24px 12px;">
+  <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:100%;">
+
+    {#- Logo jako TEKST — widać je także przy zablokowanych obrazkach. -#}
+    <tr><td style="padding:0 0 18px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; font-size:17px; font-weight:700; color:#15181D; letter-spacing:-.2px;">wez<span style="color:#12874A;">urlop</span>.pl</td></tr>
+
+    <tr><td style="background:#FFFFFF; border:1px solid #E6E8EC; border-radius:10px; padding:32px 32px 28px 32px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr><td style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; font-size:22px; line-height:1.3; font-weight:600; color:#15181D; padding:0 0 14px 0;">{% block naglowek %}{% endblock %}</td></tr>
+        {% block tresc %}{% endblock %}
+      </table>
+    </td></tr>
+
+    <tr><td style="padding:16px 4px 0 4px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; font-size:12px; line-height:1.65; color:#8A909C;">
+      {% block stopka %}{% endblock %}
+      {#- ⚠ „Nie odpowiadaj" mówimy wprost, zamiast ustawiać `Reply-To` na skrzynkę techniczną,
+          której nikt nie czyta. Nazwa firmy KLIENTA, nie nasza: pracownik dostaje wiadomość
+          od swojego pracodawcy. -#}
+      {#- ⚠ Myślnik, nie kropka: nazwy z R2 kończą się na „SP. Z O.O.", więc kropka dawała „O.O..". -#}
+      Wiadomość wysłana automatycznie {% if firma %}z systemu urlopowego firmy {{ firma }}{% else %}z systemu urlopowego{% endif %} — nie odpowiadaj na ten adres.
+    </td></tr>
+
+  </table>
+</td></tr>
+</table>
+</body>
+</html>

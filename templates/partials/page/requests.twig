@@ -1,0 +1,37 @@
+{#- Moje wnioski — pusta rama z danymi przykładowymi z kontrolera. -#}
+{% import 'partials/ikony.twig' as ikony %}
+{% import 'partials/plakietka.twig' as plakietka %}
+<section class="card">
+    {#- ⚠ Bez `H2`: ekran nazywa się „Moje wnioski" i w nagłówku strony (web), i w nagłówku
+        mobilnym — nagłówek karty był trzecim wystąpieniem tej samej nazwy (system-wizualny.md §4d).
+        Przycisk zostaje w karcie i jest wyrównany do prawej, W OBU wariantach: rozjechanie
+        wspólnego szablonu kosztowałoby więcej niż zysk z przeniesienia akcji do `.page__actions`,
+        którego wariant mobilny nie ma (rozstrzygnięcie 22.09.2026, droga (b)). -#}
+    <div class="card__head card__head--akcja"><a class="btn btn--primary btn--sm" href="{{ url('/wniosek/nowy') }}">{{ ikony.nowy() }} Nowy</a></div>
+    {#- ⚠ Komunikat zostaje w `card__body` (ma własny padding), a TABELA wychodzi z opakowania:
+        tabela na pełną szerokość karty jest jej bezpośrednim dzieckiem, a wcięcie robi padding
+        komórki (system-wizualny.md §3.4). W opakowaniu pierwsza komórka zaczynała się 49 px
+        od krawędzi karty zamiast 25. -#}
+    <div class="card__body">
+        <p class="notice notice--dev">Dane przykładowe — wnioski urlopowe powstaną w Etapie 3.</p>
+    </div>
+        <div class="table-scroll">
+            {#- ⚠ `table--rekordy` WŁĄCZA układ dwuliniowy na telefonie (§11.4). Znacznik jest
+                włączający, nie wyłączający: bez niego zostaje przewijanie w bok — widoczne
+                i natychmiast zgłoszone. Odwrotnie (reguła domyślna, wyjątek na tabelach par)
+                pomyłka dawałaby odwrócony akcent, który wygląda dobrze i jest nieprawdziwy.
+                ⚠ Jawne `role`: `display: block` na elementach tabeli kasuje rolę tabeli, wiersza
+                i komórki w części czytników ekranu, a powiązania z nagłówkiem i tak nie ma,
+                bo nagłówki chowamy. To dane kadrowe — ekran nieczytelny czytnikiem jest zepsuty. -#}
+            <table class="table table--rekordy table--zebra" role="table">
+                <thead role="rowgroup"><tr role="row"><th role="columnheader">Termin</th><th role="columnheader">Rodzaj</th><th role="columnheader">Dni</th><th role="columnheader">Status</th></tr></thead>
+                <tbody role="rowgroup">
+                {% for r in requests %}
+                    <tr role="row"><td role="cell" class="table__lead">{{ r.period }}</td><td role="cell">{{ r.type }}</td><td role="cell">{{ r.days }} {{ r.days == 1 ? 'dzień' : 'dni' }}</td><td role="cell" class="table__state">{{ plakietka.stan(r.status, r.label) }}</td></tr>
+                {% else %}
+                    <tr role="row"><td role="cell" colspan="4" class="empty-state">Brak wniosków.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+</section>
