@@ -239,7 +239,7 @@ final class Kernel
             $services->grupyRepository(),
             $services->grupy(),
             $pracownikRepo,
-            new PulpitPracownika($pracownikRepo),
+            new PulpitPracownika($pracownikRepo, $services->syncRepository()),
             new KalendarzPracownika($pracownikRepo),
             new ZasiegPodgladu($services->hierarchyRepository(), $pracownikRepo),
             new CalendarFilterRepository($services->db),

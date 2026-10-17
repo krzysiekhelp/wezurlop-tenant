@@ -46,16 +46,14 @@ final class PracownikRepository
                     e.r2_calendar_ref, p.first_name, p.last_name,
                     (SELECT cc.name FROM company_calendar cc
                       WHERE cc.company_id = e.company_id AND cc.calendar_ref = e.r2_calendar_ref
-                      ORDER BY cc.year DESC LIMIT 1) AS calendar_name,
-                    (SELECT MAX(sr.updated_at) FROM sync_record sr
-                      WHERE sr.company_id = e.company_id AND sr.zbior = :zbior AND sr.local_id = e.id) AS updated_at
+                      ORDER BY cc.year DESC LIMIT 1) AS calendar_name
              FROM employment e
                JOIN company c ON c.id = e.company_id
                JOIN person p ON p.id = e.person_id
                JOIN account a ON a.person_id = e.person_id
              WHERE e.id = :id AND a.id = :account AND e.is_active = 1 AND c.is_active = 1'
         );
-        $stmt->execute(['id' => $employmentId, 'account' => $accountId, 'zbior' => 'zatrudnienie']);
+        $stmt->execute(['id' => $employmentId, 'account' => $accountId]);
         $row = $stmt->fetch();
         if (!is_array($row)) {
             return null;
@@ -74,7 +72,6 @@ final class PracownikRepository
             'calendar' => $row['r2_calendar_ref'] === null || $row['r2_calendar_ref'] === ''
                 ? null : (string) $row['r2_calendar_ref'],
             'calendar_name' => $row['calendar_name'] === null ? null : (string) $row['calendar_name'],
-            'updated_at' => $row['updated_at'] === null ? null : (string) $row['updated_at'],
         ];
     }
 

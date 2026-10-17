@@ -5,13 +5,14 @@ declare(strict_types=1);
 namespace Wezurlop\Service;
 
 use Wezurlop\Repository\PracownikRepository;
+use Wezurlop\Repository\SyncRepository;
 use Wezurlop\Support\DataDnia;
 use Wezurlop\Support\Odmiana;
 use Wezurlop\Support\Strefa;
 use Wezurlop\Support\WorkTime;
 
 /**
- * Pulpit pracownika: pięć liczb, tabela „Moje nieobecności”, karta limitu.
+ * Pulpit pracownika: sześć kafelków paska, tabela „Moje nieobecności”, karta limitu.
  * Strefa jawna (CLAUDE.md §15) — prezentacja danych z kadr, zero reguł biznesowych.
  *
  * ⚠ **Nie liczymy nic sami.** Dni i minuty przychodzą z programu kadrowego; tutaj dzieje się
@@ -35,8 +36,13 @@ final class PulpitPracownika
     /** ⚠ Znak minus (U+2212), nie łącznik: „-2 dni” w tej samej linii co cyfry wygląda jak literówka. */
     private const MINUS = "\u{2212}";
 
-    public function __construct(private readonly PracownikRepository $dane)
-    {
+    public function __construct(
+        private readonly PracownikRepository $dane,
+        /** ⚠ Źródło kafelka „Ostatnia synchronizacja” — **ten sam** `lastClosedRunAt()`,
+         *  z którego czyta ekran `/admin/integracja`. Druga droga do tej daty znaczyłaby,
+         *  że pulpit i ekran integracji mogą pokazać dwa różne „ostatnio”. */
+        private readonly SyncRepository $sync,
+    ) {
     }
 
     /**
@@ -69,7 +75,15 @@ final class PulpitPracownika
                 $urlopowy,
                 $podsumowanie,
                 $najblizsza,
-                $zatrudnienie['updated_at'] ?? null,
+                // ⚠ **Ostatni ZAKOŃCZONY przebieg connectora dla firmy z kontekstu**, a nie znacznik
+                // zmiany tego jednego wiersza zatrudnienia (do 17.10.2026 kafelek czytał
+                // `MAX(sync_record.updated_at)` dla `local_id` zatrudnienia). Tamto źródło odpowiadało
+                // na pytanie „kiedy kadry ostatnio zmieniły MÓJ wiersz”, więc przy cogodzinnych
+                // przebiegach bez zmian pokazywało datę o cztery tygodnie starszą niż prawda — i tak
+                // właśnie zostało zgłoszone jako usterka (pomiar 17.10.2026: ostatni przebieg 15:30,
+                // kafelek 20.09 16:19). Przebieg, w którym nie było co przesyłać, jest też
+                // synchronizacją: kafelek odpowiada na pytanie „czy connector się łączy”.
+                $this->sync->lastClosedRunAt((int) $zatrudnienie['company_id']),
                 $strefa,
             ),
             'limit' => self::karta($urlopowy),
@@ -96,6 +110,8 @@ final class PulpitPracownika
      * @param array<string, mixed>|null $urlopowy
      * @param array{liczba: int, dni: int} $podsumowanie
      * @param array<string, mixed>|null $najblizsza
+     * @param ?string $synchronizacja czas UTC zakończenia ostatniego domkniętego przebiegu
+     *        connectora dla firmy z kontekstu; `null` = jeszcze się nie połączył
      * @return list<array<string, mixed>>
      */
     private static function kafelki(
@@ -139,9 +155,10 @@ final class PulpitPracownika
      * w dobach: „wczoraj o 23:50” ma być wczoraj, choć od teraz dzieli je kilka godzin.
      * Odmiana jest trzystopniowa, bo „0 dni temu” nie jest zdaniem po polsku.
      *
-     * ⚠ Brak znacznika to NIE jest „0 dni temu” ani „—” bez wyjaśnienia: kadry mogły jeszcze
-     * nic nie przysłać i to jest inna informacja niż „przysłały dawno”. Stąd `stan: brak`,
-     * czyli ta sama cichsza forma wartości, co przy „Wnioski oczekujące”.
+     * ⚠ Brak przebiegu to NIE jest „0 dni temu” ani „—” bez wyjaśnienia: connector mógł się
+     * jeszcze nie połączyć ani razu i to jest inna informacja niż „połączył się dawno”.
+     * Stąd `stan: brak`, czyli ta sama cichsza forma wartości, co przy „Wnioski oczekujące”,
+     * i podpis mówiący wprost, czego brakuje — żeby nikt nie szukał winy w kadrach.
      */
     private static function kafelekSynchronizacji(?string $utc, string $strefa): array
     {
@@ -151,7 +168,7 @@ final class PulpitPracownika
                 'klucz' => 'Ostatnia synchronizacja',
                 'wartosc' => '—',
                 'reszta' => null,
-                'podpis' => 'brak danych z programu kadrowego',
+                'podpis' => 'connector jeszcze się nie połączył',
                 'stan' => 'brak',
             ];
         }
