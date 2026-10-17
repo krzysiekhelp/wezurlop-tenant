@@ -203,6 +203,24 @@ def sciezki_web() -> list[str]:
     return trasy + [s for s in parametryczne.split(",") if s]
 
 
+# ——— selektory znaczników, które bramka klika i mierzy ————————————————————————
+# ⚠ **Jedno miejsce na selektor, nie dziesięć** (tura kryteriów Z22, 17.10.2026). Dziesięć
+# kryteriów świeciło czerwono nie dlatego, że produkt się popsuł, tylko dlatego, że każde z nich
+# miało wklejony własny selektor sprzed przebudowy nagłówka (Z8) i pulpitu (Z15). Gdy znacznik
+# zmienia nazwę, ma się to poprawiać TUTAJ, a nie w dziesięciu miejscach — inaczej następna
+# przebudowa znów zgasi połowę bramki, a nikt tego nie zauważy, bo „kryteria i tak są czerwone".
+#
+# ⚠ Strzałki okresu nie mają TEKSTU od Z8 — mają `aria-label` („Poprzedni miesiąc", „Poprzedni
+# rok"), bo etykieta zależy od skali. Dlatego selektor idzie po `aria-label`, nie po treści,
+# i nie po `.page__actions`, którego w ogóle już nie ma.
+SEL_POPRZEDNI = ".kal-nav a.kal-btn[aria-label^='Poprzedni']"
+SEL_NASTEPNY = ".kal-nav a.kal-btn[aria-label^='Następny']"
+# Dowolny odnośnik okresu w nagłówku kalendarza (strzałka albo przycisk skali).
+SEL_OKRES = ".kal-nav a.kal-btn[href*='miesiac=']"
+# Kratka dnia dzisiejszego w siatce miesiąca i roku oraz w nagłówku osi czasu.
+SEL_DZIS_KRATKA = ".msiatka__kratka--dzis"
+SEL_DZIS_NAGLOWEK = ".team-grid__head--dzis"
+
 MOBILNE = ["", "/kalendarz", "/wnioski", "/wniosek/nowy", "/konto", "/zespol", "/ustawienia",
            "/ustawienia/2fa", "/ustawienia/2fa/kody", "/ustawienia/urzadzenia", "/kontekst",
            "/styleguide"]
@@ -1544,7 +1562,7 @@ def sprawdz_wymiane_fragmentu(b) -> dict:
         tytul_przed = pg.locator(".card__title").first.inner_text()
         # Znacznik na `<body>` ginie przy pełnym przeładowaniu, a przeżywa wymianę fragmentu.
         pg.evaluate("() => { document.body.dataset.bramka = 'przed'; }")
-        pg.click(".page__actions a:has-text('Poprzedni')")
+        pg.click(SEL_POPRZEDNI)
         pg.wait_for_timeout(800)
         znacznik = pg.evaluate("() => document.body.dataset.bramka || null")
         adres_po = pg.url
@@ -1566,7 +1584,7 @@ def sprawdz_wymiane_fragmentu(b) -> dict:
             pg2.click(".page form button[type=submit]")
             pg2.wait_for_load_state("networkidle")
         pg2.goto(BAZA + "/kalendarz?miesiac=2026-09", wait_until="networkidle")
-        pg2.click(".page__actions a:has-text('Poprzedni')")
+        pg2.click(SEL_POPRZEDNI)
         pg2.wait_for_load_state("networkidle")
         bez_js_adres = pg2.url
         bez_js_powloka = pg2.query_selector(".sidebar") is not None
@@ -2296,7 +2314,7 @@ def sprawdz_panel_wyboru(b) -> dict:
         z_powrotem = pomiar_panelu()
 
         # ⚠ Po WYMIANIE FRAGMENTU (miesiąc, potem spółka) kontrolka musi dalej się dopasowywać.
-        pg.click(".page__actions a[href*='miesiac=']")
+        pg.click(SEL_OKRES)
         pg.wait_for_timeout(600)
         po_miesiacu = geometria()
         # ⚠ **Zmiana spółki przestała być wymianą fragmentu** (10.10.2026, §1 zlecenia
@@ -2480,7 +2498,7 @@ def sprawdz_panel_wyboru(b) -> dict:
               // to, co stoi obok. Teraz obok stoi nawigacja miesiąca w pasku akcji — i ona
               // nie ma prawa drgnąć, bo znacznik jest w innej warstwie.
               const t = document.querySelector('.spolka__trigger');
-              const prev = document.querySelector('.page__actions a[href*="miesiac"]');
+              const prev = document.querySelector('.kal-nav a.kal-btn[href*="miesiac"]');
               const n = t ? t.querySelector('.spolka__nazwa') : null;
               if (!t || !prev) { return null; }
               const a = t.querySelector('.spolka__strzalka');
@@ -2495,8 +2513,11 @@ def sprawdz_panel_wyboru(b) -> dict:
                       strzalka_od_prawej: Math.round(
                         t.getBoundingClientRect().right - a.getBoundingClientRect().right),
                       // ⚠ §3: przełącznik widoku istnieje od DWÓCH pozycji — nigdy z jedną.
+                      // ⚠ Od Z8 przełączniki kalendarza to `.kal-grupa` z `.kal-btn`, a nie
+                      // `.segmented` w pasku akcji — `.segmented` został na pulpicie i w wykazie,
+                      // gdzie przełącza ROK, więc szukanie go tutaj mierzyło inny ekran.
                       pozycji_przelacznika: Array.from(
-                        document.querySelectorAll('.page__actions .segmented')).map(
+                        document.querySelectorAll('.kal-nav__prawa .kal-grupa')).map(
                           s => s.children.length),
                       podtytul_istnieje: document.querySelector('.page__sub') !== null,
                       // ⚠ Jedyny `h1` dokumentu: od 11.10.2026 stoi w belce, nie w `.page__title`
@@ -3513,26 +3534,26 @@ def nieobecnosci_pracownika(employmentId: int, od: str, do: str) -> dict:
 # ⚠ Pomiar skal: kształt, dane i geometria w jednym odczycie — ale **osobno dla każdej skali**
 # (zlecenie §3a: „nigdy »sprawdzamy Rok, reszta pewnie też działa«").
 POMIAR_SKALI = r"""() => {
-  // ⚠ Przełącznik skal rozpoznajemy po `data-skala`, nie po kolejności: konto z jedną pozycją
-  // widoku (pracownik bez podwładnych i bez nadanego poziomu) nie ma drugiego `.segmented`,
-  // więc „pierwszy z dwóch" byłby pomiarem na kształcie, który nie zawsze istnieje.
-  const przelacznik = document.querySelector('.page__actions .segmented[data-skala]');
-  const wybrana = przelacznik
-    ? Array.from(przelacznik.children).filter(e => e.className.includes('--on'))
-        .map(e => e.textContent.trim())
-    : [];
-  const skalaZAtrybutu = przelacznik ? przelacznik.getAttribute('data-skala') : null;
-  const pozycje = przelacznik
-    ? [Array.from(przelacznik.children).map(e => e.textContent.trim())]
-    : [];
-  // ⚠ Osiągalność liczona PRZECIĘCIEM z każdym przycinającym przodkiem — tak samo jak przy
-  // panelu wyboru osób. „Jest w HTML" nie znaczy „widać".
+  // ⚠ Przełącznik skal rozpoznajemy po **nazwie dostępnej** (`aria-label="Skala czasu"`), a nie
+  // po klasie ani po kolejności grup. Od Z8 (17.10.2026) kontrolki kalendarza to `.kal-grupa`
+  // z `.kal-btn`, a `data-skala` zniknęło razem z `.segmented` — kryterium szukające tamtego
+  // atrybutu mierzyło ekran, którego nie ma. Nazwa dostępna jest kontraktem z czytnikiem ekranu,
+  // więc jest stabilniejsza od klasy: zmiana nazwy to zmiana zachowania, a nie kosmetyka.
+  const grupaSkal = document.querySelector('.kal-nav__prawa .kal-grupa[aria-label="Skala czasu"]');
+  const przyciski = grupaSkal ? Array.from(grupaSkal.children) : [];
+  const etykieta = (e) => (e.querySelector('.kal-btn__etykieta') || e).textContent.trim();
+  const wybrana = przyciski.filter(e => e.classList.contains('kal-btn--on')).map(etykieta);
+  // Skala bieżąca z `aria-current`, czyli z tego samego źródła, z którego czyta ją czytnik ekranu.
+  const biezacy = przyciski.find(e => e.getAttribute('aria-current') === 'true') || null;
+  const skalaZAdresu = biezacy
+    ? (new URL(biezacy.href, location.href).searchParams.get('skala') || 'miesiac')
+    : null;
+  const pozycje = grupaSkal ? [przyciski.map(etykieta)] : [];
+
   // ⚠ Osiągalność = **przecięcie z każdym PRZYCINAJĄCYM PRZODKIEM**, plus warunek, że nic nie
-  // wychodzi za prawą krawędź strony. Celowo **nie** przecinamy z wysokością okna: trzy siatki
-  // ustawione w jednej kolumnie stoją jedna pod drugą, więc druga i trzecia są poniżej zgięcia —
-  // i to jest normalne przewijanie w pionie, nie niedostępność. Pierwsza wersja liczyła je jako
-  // niewidoczne i kryterium świeciło czerwono na poprawnym układzie (zmierzone: 1 z 3 przy
-  // 374 px, przy zerowym przewijaniu strony w poziomie).
+  // wychodzi za prawą krawędź strony. Celowo **nie** przecinamy z wysokością okna: dwanaście
+  // siatek roku stoi jedna pod drugą, więc dalsze są poniżej zgięcia — to normalne przewijanie
+  // w pionie, nie niedostępność.
   const widac = (el) => {
     const r = el.getBoundingClientRect();
     if (r.width <= 0 || r.height <= 0) { return false; }
@@ -3550,29 +3571,32 @@ POMIAR_SKALI = r"""() => {
     return (x2 - x1) > 2 && (y2 - y1) > 2 && x1 >= -1 && x2 <= szerStrony + 1;
   };
 
-  const kratkiRoku = Array.from(document.querySelectorAll('.rok__dzien'));
-  const nieobecneRoku = kratkiRoku.filter(
-    e => /rok__dzien--(urlop|zasilek|kadrowe)/.test(e.className));
-  // ⚠ **Numer dnia nad swoją kolumną — geometrią**, nie indeksem w pętli: ten sam sposób,
-  // którym przy paskach wyszło 0 px odchylenia.
-  const naglowkiRoku = Array.from(document.querySelectorAll('.rok__naglowek'))
-    .filter(e => e.textContent.trim() !== '' && !e.className.includes('--miesiac')
-                 && !e.className.includes('--suma'));
-  const pierwszyWiersz = kratkiRoku.slice(0, 31);
-  const odchylenia = naglowkiRoku.map(h => {
-    const numer = parseInt(h.textContent.trim(), 10);
-    const kratka = pierwszyWiersz[numer - 1];
-    if (!kratka) { return {numer, odchylenie: null}; }
-    const a = h.getBoundingClientRect(), b = kratka.getBoundingClientRect();
-    return {numer, odchylenie: Math.round((a.left + a.right) / 2 - (b.left + b.right) / 2)};
-  });
+  // ⚠ Rok i Miesiąc stoją na TYM SAMYM komponencie siatki (`.msiatka`) — tak zostało
+  // rozstrzygnięte 13.10.2026 i zapisane w §4c systemu wizualnego. Rok to dwanaście pudełek
+  // z nazwą miesiąca, Miesiąc „Tylko ja" to jedno pudełko obok wykazu wpisów.
+  const siatki = Array.from(document.querySelectorAll('.msiatka'));
+  const kratki = Array.from(document.querySelectorAll('.msiatka__kratka'));
+  const nieobecne = kratki.filter(
+    e => /msiatka__kratka--(urlop|zasilek|kadrowe)/.test(e.className));
 
-  const polaKwartalu = document.querySelector('.kwartal');
-  const toryKwartalu = polaKwartalu
-    ? getComputedStyle(polaKwartalu).gridTemplateColumns.trim().split(/\s+/).length
-    : null;
-  const siatkiKwartalu = Array.from(document.querySelectorAll('.kwartal__siatka'));
-  const kratkiKwartalu = Array.from(document.querySelectorAll('.kwartal__kratka'));
+  // ⚠ **Nagłówek dnia tygodnia nad swoją kolumną — geometrią, nie indeksem w pętli.** To jest
+  // następca sprawdzenia „numer nad kolumną" ze starej siatki roku (`.rok__naglowek`), której
+  // już nie ma: tam numery dni szły w jednym rzędzie 1–31, tu siatka jest tygodniowa i kolumna
+  // znaczy dzień tygodnia. Pytanie zostaje to samo — czy nagłówek stoi nad tym, co opisuje.
+  const pierwsza = siatki[0];
+  const odchylenia = [];
+  if (pierwsza) {
+    const naglowki = Array.from(pierwsza.querySelectorAll('.msiatka__dzien-tygodnia'));
+    const komorki = Array.from(pierwsza.querySelectorAll('.msiatka__kratka'));
+    naglowki.forEach((h, i) => {
+      // Kratka z tej samej kolumny: pierwszy wiersz siatki ma tyle komórek, ile nagłówków.
+      const k = komorki[i];
+      if (!k) { odchylenia.push({kolumna: h.textContent.trim(), odchylenie: null}); return; }
+      const a = h.getBoundingClientRect(), bb = k.getBoundingClientRect();
+      odchylenia.push({kolumna: h.textContent.trim(),
+                       odchylenie: Math.round((a.left + a.right) / 2 - (bb.left + bb.right) / 2)});
+    });
+  }
 
   // ⚠ Wiersze czytamy z `.table--rekordy` (tabela jest tam zawsze), a wyrównanie z obecności
   // modyfikatora — inaczej zdjęcie modyfikatora wywracało pomiar liczby wierszy, czyli jedna
@@ -3589,24 +3613,29 @@ POMIAR_SKALI = r"""() => {
       kolumny: naglowki.map(th => Math.round(th.getBoundingClientRect().width)),
       naglowki: naglowki.map(th => th.textContent.trim()),
       od_prawej: ostatnia ? Math.round(karta.right - ostatnia.getBoundingClientRect().right) : null,
-      // W układzie dwuliniowym (wąski kontener) nagłówki są schowane — wtedy wyrównania nie ma
-      // i kryterium tego nie wymaga; rozstrzyga `thead` widoczny.
       kolumnowa: naglowki.length > 0 && naglowki[0].getBoundingClientRect().width > 0,
     };
   }
 
   return {
     skala_wybrana: wybrana,
-    skala_z_atrybutu: skalaZAtrybutu,
+    skala_z_adresu: skalaZAdresu,
     pozycje_przelacznikow: pozycje,
-    rok: {kratek: kratkiRoku.length, nieobecnych: nieobecneRoku.length,
-          wierszy: document.querySelectorAll('.rok__miesiac').length,
-          sumy: Array.from(document.querySelectorAll('.rok__suma')).map(e => e.textContent.trim()),
-          odchylenia, widac: kratkiRoku.length > 0 && widac(kratkiRoku[0])},
-    kwartal: {siatek: siatkiKwartalu.length, torow: toryKwartalu,
-              siatek_widocznych: siatkiKwartalu.filter(widac).length,
-              nieobecnych: kratkiKwartalu.filter(
-                e => /kwartal__kratka--(urlop|zasilek|kadrowe)/.test(e.className)).length},
+    siatka: {
+      pudelek: siatki.length,
+      kratek: kratki.length,
+      nieobecnych: nieobecne.length,
+      nazwy: Array.from(document.querySelectorAll('.msiatka__nazwa')).map(e => e.textContent.trim()),
+      sumy: Array.from(document.querySelectorAll('.msiatka__suma')).map(e => e.textContent.trim()),
+      odchylenia,
+      widac: siatki.length > 0 && widac(siatki[0]),
+    },
+    // Miesiąc „Tylko ja": siatka PO LEWEJ i wykaz wpisów PO PRAWEJ — jeden blok `.mies`.
+    miesiac_ja: {
+      blokow: document.querySelectorAll('.mies').length,
+      wpisow: document.querySelectorAll('.wpisy__poz').length,
+      ma_odnosnik: document.querySelector('.mies__wpisy .card__meta a') !== null,
+    },
     lista,
     strona_przewija: document.documentElement.scrollWidth > document.documentElement.clientWidth,
     miesiac_os: document.querySelectorAll('.team-grid').length,
@@ -3655,9 +3684,11 @@ def sprawdz_skale_czasu(b) -> dict:
     OGON = f"&spolka={spolka_ja}" if spolka_ja > 0 else ""
     MIESIAC = "2026-08"
     ROK = MIESIAC[:4]
+    # ⚠ **Dwie skale, nie trzy** (tura kryteriów Z22): „Kwartał" zniknął z produktu przy
+    # przebudowie nagłówka (Z8, 17.10.2026) — zostały Miesiąc, Rok i Lista. Kryterium pytające
+    # o kwartał mierzyło ekran, którego nie ma, i czerwieniło się na poprawnym kodzie.
     zakresy = {
         "rok": (f"{ROK}-01-01", f"{ROK}-12-31"),
-        "kwartal": (f"{ROK}-07-01", f"{ROK}-09-30"),
         "lista": (f"{ROK}-01-01", f"{ROK}-12-31"),
     }
     z_bazy = {k: nieobecnosci_pracownika(jaId, *v) for k, v in zakresy.items()}
@@ -3675,7 +3706,7 @@ def sprawdz_skale_czasu(b) -> dict:
             pg.wait_for_load_state("networkidle")
 
         pomiary = {}
-        for skala in ("rok", "kwartal", "lista"):
+        for skala in ("rok", "lista"):
             pg.goto(BAZA + f"/kalendarz?widok=ja&miesiac={MIESIAC}&skala={skala}{OGON}",
                     wait_until="networkidle")
             pomiary[skala] = pg.evaluate(POMIAR_SKALI)
@@ -3714,64 +3745,67 @@ def sprawdz_skale_czasu(b) -> dict:
                     except Exception:  # noqa: BLE001
                         pass
 
-        # 5. wąski ekran — trzy siatki kwartału widoczne, zero przewijania strony
+        # 5. wąski ekran — dwanaście siatek roku widocznych, zero przewijania strony w poziomie
+        # ⚠ Mierzymy też POWŁOKĘ MOBILNĄ (`/m/`), nie tylko wąskie okno powłoki webowej: to dwa
+        # różne układy i tylko jeden z nich ma dolną nawigację.
         waskie = {}
         for etyk, szer in (("374", 374), ("320", 320)):
             pg.set_viewport_size({"width": szer, "height": 812})
-            for adres, klucz in ((f"/kalendarz?widok=ja&miesiac={MIESIAC}&skala=kwartal{OGON}", "kwartal"),
-                                 (f"/m/kalendarz?widok=ja&miesiac={MIESIAC}&skala=kwartal{OGON}", "kwartal_m"),
-                                 (f"/kalendarz?widok=ja&miesiac={MIESIAC}&skala=rok{OGON}", "rok")):
+            for adres, klucz in ((f"/kalendarz?widok=ja&miesiac={MIESIAC}&skala=rok{OGON}", "rok"),
+                                 (f"/m/kalendarz?widok=ja&miesiac={MIESIAC}&skala=rok{OGON}", "rok_m"),
+                                 (f"/kalendarz?widok=ja&miesiac={MIESIAC}{OGON}", "miesiac")):
                 pg.goto(BAZA + adres, wait_until="networkidle")
                 waskie[f"{etyk}-{klucz}"] = pg.evaluate(POMIAR_SKALI)
         pg.set_viewport_size({"width": 1440, "height": 1000})
 
-        # ⚠ Mierzymy WYŁĄCZNIE przełącznik skal (po `data-skala`). Pierwsza wersja zakładała,
-        # że obok stoi przełącznik widoku — a konto pracownika bez podwładnych i bez nadanego
-        # poziomu ma jedną pozycję widoku, więc tamtego przełącznika nie ma wcale (reguła
-        # „kontrolka istnieje od dwóch pozycji”). Kryterium świeciło czerwono na poprawnym kodzie.
+        # ⚠ Mierzymy WYŁĄCZNIE przełącznik skal (po nazwie dostępnej „Skala czasu"). Konto
+        # pracownika bez podwładnych i bez nadanego poziomu ma JEDNĄ pozycję widoku, więc obok
+        # nie ma drugiej grupy — „pierwsza z dwóch" byłaby pomiarem na kształcie, który nie
+        # zawsze istnieje.
         stan_z_adresu = (
             pomiary["rok"]["skala_wybrana"] == ["Rok"]
-            and pomiary["rok"]["skala_z_atrybutu"] == "rok"
-            and pomiary["kwartal"]["skala_wybrana"] == ["Kwartał"]
-            and pomiary["kwartal"]["skala_z_atrybutu"] == "kwartal"
+            and pomiary["rok"]["skala_z_adresu"] == "rok"
             and pomiary["lista"]["skala_wybrana"] == ["Lista"]
-            and pomiary["lista"]["skala_z_atrybutu"] == "lista"
+            and pomiary["lista"]["skala_z_adresu"] == "lista"
+            # Wartość spoza białej listy wraca do miesiąca — cicho, bez błędu.
             and pomiary["bzdura"]["skala_wybrana"] == ["Miesiąc"]
-            and pomiary["bzdura"]["skala_z_atrybutu"] == "miesiac"
+            and pomiary["bzdura"]["skala_z_adresu"] == "miesiac"
             # Kształt ekranu idzie za skalą, nie tylko podświetlenie przycisku.
-            and pomiary["rok"]["rok"]["wierszy"] == 12
-            and pomiary["kwartal"]["kwartal"]["siatek"] == 3
+            and pomiary["rok"]["siatka"]["pudelek"] == 12
+            and len(pomiary["rok"]["siatka"]["nazwy"]) == 12
             and pomiary["lista"]["lista"] is not None
             and pomiary["lista"]["lista"]["wierszy"] > 0
-            and pomiary["bzdura"]["miesiac_os"] == 1 and pomiary["bzdura"]["rok"]["kratek"] == 0
-            # ⚠ „Skala nie działa poza »Tylko ja«" mierzy się na koncie, które INNY widok
-            # naprawdę ma — patrz `poza_ja` niżej. Na koncie pracownika bez podwładnych
-            # `?widok=zespol` wraca do „Tylko ja", więc skala **słusznie** tam działa;
-            # pierwsza wersja tego kryterium czytała to jako usterkę.
-            and all(p["pozycje_przelacznikow"][0] == ["Miesiąc", "Kwartał", "Rok", "Lista"]
-                    for k, p in pomiary.items() if k in ("rok", "kwartal", "lista", "bzdura"))
-            # Na widoku firmy (konto z nadanym poziomem): żadnej siatki roku i **żadnego
+            and pomiary["lista"]["siatka"]["pudelek"] == 0
+            # ⚠ Miesiąc „Tylko ja" to JEDNA siatka obok wykazu wpisów (13.10.2026), a nie oś
+            # czasu: oś została przy widokach zespołu i firmy, gdzie wiersz znaczy osobę.
+            and pomiary["bzdura"]["miesiac_ja"]["blokow"] == 1
+            and pomiary["bzdura"]["siatka"]["pudelek"] == 1
+            and pomiary["bzdura"]["miesiac_os"] == 0
+            and all(p["pozycje_przelacznikow"][0] == ["Miesiąc", "Rok", "Lista"]
+                    for k, p in pomiary.items() if k in ("rok", "lista", "bzdura"))
+            # Na widoku firmy (konto z nadanym poziomem): żadnej siatki miesięcznej i **żadnego
             # przełącznika skal** — bo poza „Tylko ja" nie ma czym przełączać.
             and poza_ja is not None
-            and poza_ja["rok"]["kratek"] == 0
-            and poza_ja["skala_z_atrybutu"] is None
+            and poza_ja["siatka"]["pudelek"] == 0
+            and poza_ja["skala_z_adresu"] is None
             and poza_ja["miesiac_os"] == 1
         )
         # ⚠ Porównanie z bazą: równość, nie „co najmniej". Sufit wyłapie duplikaty z pętli.
         dane_nie_pustka = (
             z_bazy["rok"]["wpisow"] > 0
-            and pomiary["rok"]["rok"]["nieobecnych"] == z_bazy["rok"]["dni"]
-            and pomiary["kwartal"]["kwartal"]["nieobecnych"] == z_bazy["kwartal"]["dni"]
+            and pomiary["rok"]["siatka"]["nieobecnych"] == z_bazy["rok"]["dni"]
             # Lista scala ciągi kadrowe, więc wierszy może być MNIEJ niż wpisów — nigdy więcej.
             and pomiary["lista"]["lista"] is not None
             and 0 < pomiary["lista"]["lista"]["wierszy"] <= z_bazy["lista"]["wpisow"]
         )
-        rok_numer_nad_kolumna = (
-            pomiary["rok"]["rok"]["kratek"] == 12 * 31
-            and pomiary["rok"]["rok"]["odchylenia"] != []
-            and all(o["odchylenie"] is not None and abs(o["odchylenie"]) <= 2
-                    for o in pomiary["rok"]["rok"]["odchylenia"])
-            and pomiary["rok"]["rok"]["widac"]
+        # ⚠ Następca sprawdzenia „numer nad kolumną": w siatce tygodniowej kolumna znaczy dzień
+        # tygodnia, więc mierzymy, czy nagłówek (`pon`, `wt`, …) stoi nad swoją kolumną. Pytanie
+        # jest to samo, co przy starej siatce 1–31: czy podpis opisuje to, co pod nim.
+        odchylenia = pomiary["rok"]["siatka"]["odchylenia"]
+        naglowek_nad_kolumna = (
+            len(odchylenia) == 7
+            and all(o["odchylenie"] is not None and abs(o["odchylenie"]) <= 2 for o in odchylenia)
+            and pomiary["rok"]["siatka"]["widac"]
         )
         lst = pomiary["lista"]["lista"]
         lista_wyrownanie = (
@@ -3780,45 +3814,40 @@ def sprawdz_skale_czasu(b) -> dict:
             and lst["od_prawej"] is not None and lst["od_prawej"] <= 4
             and lst["kolumny"][0] > lst["kolumny"][2]
         )
-        # ⚠ Mierzymy też **TRYB AWARII**, nie tylko brak przewijania: przy `minmax(0, 1fr)`
-        # trzy siatki zawsze się „zmieszczą", bo się ścisną do nieczytelności — i kryterium
-        # patrzące tylko na przewijanie przepuściłoby brak progu. Dlatego: na wąskim **jeden
-        # tor**, na szerokim **trzy**.
-        kwartal_waski = all(
-            p["kwartal"]["siatek"] == 3 and p["kwartal"]["siatek_widocznych"] == 3
-            and p["kwartal"]["torow"] == 1
-            and p["strona_przewija"] is False
-            for k, p in waskie.items() if "kwartal" in k
-        ) and all(p["strona_przewija"] is False for p in waskie.values()) \
-            and pomiary["kwartal"]["kwartal"]["torow"] == 3
+        # ⚠ Wąski ekran mierzy **tryb awarii**, nie tylko brak przewijania: dwanaście siatek
+        # zawsze się „zmieści", bo mogą się ścisnąć do nieczytelności — więc obok przewijania
+        # sprawdzamy, że wszystkie dwanaście jest na miejscu i że pierwsza jest osiągalna.
+        rok_waski = all(
+            p["siatka"]["pudelek"] == 12 and p["siatka"]["widac"] and p["strona_przewija"] is False
+            for k, p in waskie.items() if k.endswith("-rok") or k.endswith("-rok_m")
+        ) and all(p["strona_przewija"] is False for p in waskie.values())
 
         return {
-            "ok": stan_z_adresu and dane_nie_pustka and rok_numer_nad_kolumna
-                  and lista_wyrownanie and kwartal_waski,
+            "ok": stan_z_adresu and dane_nie_pustka and naglowek_nad_kolumna
+                  and lista_wyrownanie and rok_waski,
             "stan_z_adresu": stan_z_adresu,
             "dane_nie_pustka": dane_nie_pustka,
-            "rok_numer_nad_kolumna": rok_numer_nad_kolumna,
+            "naglowek_nad_kolumna": naglowek_nad_kolumna,
             "lista_wyrownanie": lista_wyrownanie,
-            "kwartal_waski": kwartal_waski,
+            "rok_waski": rok_waski,
             "zatrudnienie": jaId,
             "z_bazy": z_bazy,
             "skale": {k: {"wybrana": p["skala_wybrana"],
-                          "rok_kratek": p["rok"]["kratek"], "rok_nieobecnych": p["rok"]["nieobecnych"],
-                          "kwartal_siatek": p["kwartal"]["siatek"],
-                          "kwartal_nieobecnych": p["kwartal"]["nieobecnych"],
+                          "pudelek": p["siatka"]["pudelek"], "kratek": p["siatka"]["kratek"],
+                          "nieobecnych": p["siatka"]["nieobecnych"],
+                          "wpisow_obok": p["miesiac_ja"]["wpisow"],
                           "lista_wierszy": (p["lista"] or {}).get("wierszy"),
                           "os_czasu": p["miesiac_os"]}
                       for k, p in pomiary.items()},
-            "rok_odchylenia": pomiary["rok"]["rok"]["odchylenia"],
-            "rok_sumy": pomiary["rok"]["rok"]["sumy"],
+            "odchylenia_naglowkow": odchylenia,
+            "sumy_miesiecy": pomiary["rok"]["siatka"]["sumy"],
             "lista_kolumny": lst,
             "poza_ja": None if poza_ja is None else {
-                "rok_kratek": poza_ja["rok"]["kratek"],
-                "przelacznik_skal": poza_ja["skala_z_atrybutu"],
+                "pudelek": poza_ja["siatka"]["pudelek"],
+                "przelacznik_skal": poza_ja["skala_z_adresu"],
                 "os_czasu": poza_ja["miesiac_os"]},
-            "waskie": {k: {"siatek": p["kwartal"]["siatek"],
-                           "siatek_widocznych": p["kwartal"]["siatek_widocznych"],
-                           "torow": p["kwartal"]["torow"],
+            "waskie": {k: {"pudelek": p["siatka"]["pudelek"],
+                           "widac": p["siatka"]["widac"],
                            "strona_przewija": p["strona_przewija"]}
                        for k, p in waskie.items()},
         }
@@ -4314,8 +4343,18 @@ def sprawdz_kontekst_spolki(b) -> dict:
         pg = zaloguj_pracownika(ctx)
 
         def spolka_pulpitu() -> str:
+            """Nazwa spółki, w której kontekście stoi PULPIT.
+
+            ⚠ Czytana z **zaznaczonej pozycji przełącznika spółek**, a nie ze zdania pod tytułem:
+            `.page__sub` zszedł z pulpitu 17.10.2026 razem z całym podtytułem (decyzja Krzysztofa),
+            więc odczyt zwracał pusty napis i kryterium nie mogło przejść, choć produkt działał.
+            ⚠ Przełącznik pokazuje „NAZWA · etat 1/1", więc bierzemy człon przed kropką — nazwa
+            jest tym, co ma się zgadzać z kalendarzem, a etat to osobna dana.
+            """
             pg.goto(BAZA + "/", wait_until="networkidle")
-            return pg.evaluate("() => (document.querySelector('.page__sub') || {}).textContent || ''")
+            return pg.evaluate(
+                "() => ((document.querySelector('.page__head .segmented__item--on') || {})"
+                ".textContent || '').split('\u00b7')[0].trim()")
 
         def spolka_kalendarza() -> str:
             pg.goto(BAZA + ADRES, wait_until="networkidle")
