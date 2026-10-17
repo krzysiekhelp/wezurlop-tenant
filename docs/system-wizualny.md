@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18, 17.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.1, 17.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -10,6 +10,12 @@ co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej ju
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
 
+> **Zmiana 1.18 → 1.18.1:** z §1 znika zapowiedź arkusza **`40-screens.css`** („wyjątki per
+> ekran"). Nigdy nie powstał i nie jest potrzebny: wyjątki ekranowe stoją w `30-components.css`,
+> przy komponencie, którego dotyczą, i mają tam komentarz z powodem — czyli dokładnie to, co
+> tamten plik miał zapewnić, tylko bez szukania w dwóch miejscach. W zamian w spisie plików
+> pojawia się `20-layout-mobile.css`, który istnieje od dawna, a w opisie go nie było.
+>
 > **Zmiany 1.17 → 1.18:** domknięcie tury Z6–Z15 (17.10.2026).
 > **(1)** Nowy token typografii **`--t-stat: 24px`** — dana kafelka na pulpicie. Nie `--t-h1`:
 > liczba w kaflu nie jest nagłówkiem strony, a przy 30 px pasek sześciu kafli wymagał 1320 px
@@ -125,8 +131,9 @@ Aplikacja nie jest brzydka — jest **bez systemu**. Objawy, które to zdradzaj�
   00-tokens.css       <- WYŁĄCZNIE :root { --… }. Żadnego selektora poza :root.
   10-base.css         <- reset, @font-face, typografia, linki, focus
   20-layout.css       <- powłoka aplikacji: sidebar, topbar, main, page
-  30-components.css   <- card, table, btn, chip, input, nav, segmented, stats, defs
-  40-screens.css      <- WYJĄTKI per ekran; każdy wpis z komentarzem „dlaczego"
+  30-components.css   <- card, table, btn, chip, input, nav, segmented, stats, defs, kafle,
+                         kal-nav, msiatka, team-grid — z wyjątkami ekranowymi na miejscu
+  20-layout-mobile.css <- powłoka telefonu (§11.2) i nieliczne nadpisania wymuszone szerokością
 /public/assets/fonts/
   ibm-plex-sans-{400,500,600}-{latin,latin-ext}.woff2
   OFL.txt             <- licencja, obowiązkowo w paczce klienta

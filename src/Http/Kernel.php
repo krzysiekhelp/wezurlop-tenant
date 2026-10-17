@@ -439,6 +439,7 @@ final class Kernel
             'odmiana_osob_d' => Odmiana::osobyDopelniacz(...),
             'odmiana_nieobecnosci' => Odmiana::nieobecnosci(...),
             'odmiana_dni_robocze' => Odmiana::dniRobocze(...),
+            'odmiana_wpisow' => Odmiana::wpisy(...),
             'nip_grupami'  => Nip::human(...),
             'czas_wzgledny' => static fn (?string $utc): string => RelativeTime::format($utc),
             // Instalator działa, zanim ustawienia istnieją — strefa domyślna, ta sama funkcja.
@@ -528,6 +529,8 @@ final class Kernel
                 // liczebnika. Lista wpisów w Miesiącu podaje dni bez nagłówka kolumny,
                 // więc słowo musi być odmienione w zdaniu.
                 'odmiana_dni_robocze' => Odmiana::dniRobocze(...),
+                // „1 wpis”, „3 wpisy”, „5 wpisów” — wpisy kadrowe sklejone w jeden ciąg.
+                'odmiana_wpisow' => Odmiana::wpisy(...),
                 'nip_grupami'  => Nip::human(...),
                 'czas_wzgledny' => static fn (?string $utc): string => RelativeTime::format($utc),
                 // ⚠ JEDNO miejsce, w którym UTC z bazy staje się czasem użytkownika (docs §10 punkt 3).

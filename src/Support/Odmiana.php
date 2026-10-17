@@ -56,6 +56,18 @@ final class Odmiana
         return abs($ile) === 1 ? 'konto' : (self::mnoga($ile) ? 'konta' : 'kont');
     }
 
+    /**
+     * „1 wpis”, „3 wpisy”, „5 wpisów” — wpisy kadrowe sklejone w jeden ciąg.
+     *
+     * ⚠ Dochodzi 17.10.2026, bo dwa ekrany pisały „5 wpisy w kadrach”: wykaz w Miesiącu
+     * „Tylko ja” i tabela nieobecności na pulpicie. Liczba brała się z danych kadrowych,
+     * więc błędna forma czytała się jak usterka w danych, a nie w zdaniu.
+     */
+    public static function wpisy(int $ile): string
+    {
+        return abs($ile) === 1 ? 'wpis' : (self::mnoga($ile) ? 'wpisy' : 'wpisów');
+    }
+
     /** „1 nieobecność”, „2 nieobecności”, „5 nieobecności” — obie formy mnogie są takie same. */
     public static function nieobecnosci(int $ile): string
     {

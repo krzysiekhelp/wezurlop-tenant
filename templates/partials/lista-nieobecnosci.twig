@@ -28,7 +28,7 @@
                     {{ n.rodzaj }}
                     {#- Wpis sklejony z kilku pozycji kadrowych mówi o tym wprost:
                         inaczej liczba dni nie zgadzałaby się z żadnym pojedynczym wpisem. -#}
-                    {% if n.wpisow > 1 %}<span class="table__note">jeden ciąg, {{ n.wpisow }} wpisy w kadrach</span>{% endif %}
+                    {% if n.wpisow > 1 %}<span class="table__note">jeden ciąg, {{ n.wpisow }} {{ odmiana_wpisow(n.wpisow) }} w kadrach</span>{% endif %}
                     {% if n.poza_oknem %} <span class="chip">poza oknem</span>{% endif %}
                 </td>
                 <td role="cell" class="table__mute">{{ n.kiedy }}</td>

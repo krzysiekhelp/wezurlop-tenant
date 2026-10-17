@@ -74,7 +74,12 @@
                                 <span class="wpisy__rodzaj">{{ n.rodzaj }}{% if n.poza_oknem %} <span class="chip">poza oknem</span>{% endif %}</span>
                                 {#- ⚠ Zakres dat i liczba dni roboczych to **dane, których nie ma
                                     na kratkach** — a nie powtórzenie siatki. Źródło wpisu zostaje,
-                                    bo odpowiada na pytanie „skąd to się tu wzięło”.
+                                    ⚠ **Źródła wpisu w tej linii NIE MA** (decyzja Krzysztofa,
+                                    17.10.2026): „R2 Płatnik, kadrowe” zajmowało jedną trzecią linii
+                                    i wypychało resztę do drugiego wiersza, przez co przy 1366 px
+                                    wykaz rozpychał kartę ponad siatkę. Źródło zostaje tam, gdzie
+                                    odpowiada na zadane pytanie — na skali Lista i na karcie
+                                    pracownika; przy kalendarzu nikt go nie szuka.
                                     ⚠ **Wszystko, co dodatkowe, jedzie W TEJ SAMEJ LINII, po kropce**
                                     (decyzja Krzysztofa z 17.10.2026, dopisek do Z14): wpis sklejony
                                     z kilku pozycji kadrowych i plakietka „poza oknem" miały wcześniej
@@ -90,7 +95,7 @@
                                     i pozycja rośnie z 71 na 93 px, czyli lista z 407 na 517 px przy
                                     siatce 437 px. Plakietka przy nazwie nie kosztuje ani piksela,
                                     bo nazwa rodzaju jest krótka. -#}
-                                <span class="wpisy__meta">{{ n.kiedy }} · {% if n.dni is null %}kadry nie podały liczby dni{% else %}{{ n.dni }} {{ odmiana_dni_robocze(n.dni) }}{% endif %} · {{ n.wpis }}{% if n.wpisow > 1 %} · jeden ciąg, {{ n.wpisow }} wpisy w kadrach{% endif %}</span>
+                                <span class="wpisy__meta">{{ n.kiedy }} · {% if n.dni is null %}kadry nie podały liczby dni{% else %}{{ n.dni }} {{ odmiana_dni_robocze(n.dni) }}{% endif %}{% if n.wpisow > 1 %} · jeden ciąg, {{ n.wpisow }} {{ odmiana_wpisow(n.wpisow) }}{% endif %}</span>
                             </div>
                         </li>
                     {% endfor %}
