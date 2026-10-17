@@ -14,7 +14,16 @@
         </div>
     </section>
 {% else %}
-    <section class="card stats" aria-label="Podsumowanie urlopów">
+    {#- ⚠ **`stats--duze` to MODYFIKATOR, nie zmiana komponentu** (zlecenie Z5 §4, sprawdzone
+        w szablonach): `.stats` stoi na pięciu ekranach, a na dwóch z nich wartość kafelka jest
+        TEKSTEM, nie liczbą — „Connector 1.2 · R2 Płatnik 4.5" na `/admin/integracja` i nazwa
+        rozkładu czasu pracy na `/dane/pracownik/{id}`. Przy 30 px te wartości łamałyby się
+        w pół, a na integracji w `stats__key` siedzi całe zdanie ostrzeżenia, które przy
+        wzmocnionej etykiecie zaczęłoby krzyczeć. Typografia z prototypu pasuje do PASKA LICZB,
+        a tamte kafelki liczbami nie są.
+        ⚠ Szósty kafelek („Ostatnia synchronizacja") niesie stan danych, który wcześniej stał
+        w linii pod kartami — przy długiej liście nieobecności trzeba było po niego przewijać. -#}
+    <section class="card stats stats--duze" aria-label="Podsumowanie urlopów">
         {% for k in pulpit.kafelki %}
             <div class="stats__item">
                 <span class="stats__key">{{ k.klucz }}</span>
@@ -114,18 +123,6 @@
             {% endif %}
         </section>
     </div>
-
-    {#- ⚠ **Skąd i z kiedy są dane — JEDNA linia na dole ekranu, nie podtytuł nad kafelkami**
-        (decyzja Krzysztofa z 17.10.2026 po prototypie). Nad kafelkami ta sama treść stała
-        w `page__sub` razem z nazwą firmy i etatem; nazwę firmy niesie już znacznik w belce,
-        a stan synchronizacji jest przypisem do wszystkich liczb na ekranie, nie nagłówkiem.
-        ⚠ Stoi w TYM partialu, nie w szablonie powłoki webowej: pulpit mobilny dołącza ten plik
-        i nie ma własnego nagłówka strony, więc linia w `page/web/dashboard.twig` nie dotarłaby
-        na telefon. Z tego samego powodu klasa jest w `30-components.css`, a nie w arkuszu
-        powłoki komputerowej — ten jest ładowany tylko w jednym wariancie. -#}
-    {% if zatrudnienie.updated_at is not null %}
-        <p class="stopka-danych">Dane z programu kadrowego: stan na {{ czas(zatrudnienie.updated_at) }}</p>
-    {% endif %}
 
     {% if pulpit.limity_inne is not empty %}
         {% for inny in pulpit.limity_inne %}

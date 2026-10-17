@@ -84,7 +84,7 @@ final class ControllerFactory
         $d = $this->d;
 
         return match ($class) {
-            DashboardController::class     => new DashboardController($d->view, $d->pracownik, $d->pulpit, $d->employments),
+            DashboardController::class     => new DashboardController($d->view, $d->pracownik, $d->pulpit, $d->employments, $d->settings),
             CalendarController::class      => new CalendarController($d->view, $d->pracownik, $d->employments,
                 $d->kalendarz, $d->zasieg, $d->filtrKalendarza, $d->widocznoscKalendarza, $d->config,
                 $d->kontekstSpolki, $d->errors, $d->urls),

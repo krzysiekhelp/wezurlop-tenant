@@ -115,6 +115,30 @@ final class Strefa
         return $zPhp !== '' && $zPhp !== 'UTC' && self::istnieje($zPhp) ? $zPhp : self::DOMYSLNA;
     }
 
+    /**
+     * Ile DNI KALENDARZOWYCH temu, licząc w strefie tenanta: `0` dziś, `1` wczoraj, `null`
+     * gdy znacznika nie ma albo jest nieczytelny.
+     *
+     * ⚠ Dni kalendarzowe, nie doby: „wczoraj o 23:50" i „wczoraj o 00:10" to jedno i to samo
+     * „wczoraj", choć dzieli je prawie doba. Różnica liczona na sekundach dawałaby przy tej
+     * pierwszej „dziś", a człowiek czyta datę, nie upływ czasu.
+     *
+     * ⚠ Przeliczenie na strefę tenanta siedzi w `moment()` — tej samej funkcji, co wszystkie
+     * formaty wyżej. Policzenie różnicy dni gdziekolwiek indziej znaczyłoby drugie miejsce,
+     * w którym UTC z bazy staje się czasem użytkownika (docs §10 punkt 3).
+     */
+    public static function dniTemu(?string $utc, string $strefa, ?DateTimeImmutable $teraz = null): ?int
+    {
+        $moment = self::moment($utc, $strefa);
+        if ($moment === null) {
+            return null;
+        }
+        $terazWStrefie = ($teraz ?? new DateTimeImmutable('now', new DateTimeZone('UTC')))
+            ->setTimezone($moment->getTimezone());
+
+        return (int) $moment->setTime(0, 0)->diff($terazWStrefie->setTime(0, 0))->format('%r%a');
+    }
+
     private static function moment(?string $utc, string $strefa): ?DateTimeImmutable
     {
         // ⚠ Wartość bez godziny to data kalendarzowa — oddajemy ją bez dotykania strefy.

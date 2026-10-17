@@ -3118,21 +3118,6 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 .wpisy__rodzaj { font-size: var(--t-body); font-weight: var(--w-medium); color: var(--c-text); }
 .wpisy__meta { font-size: var(--t-small); color: var(--c-text-3); }
 
-/* ——— stopka „skąd i z kiedy są dane" ————————————————————————————————————————
-   Jedna wyciszona linia pod treścią ekranu (pulpit: pod kartami nieobecności i limitu).
-   ⚠ **Nowa klasa, bo żadna istniejąca nie pasuje** — sprawdzone na `/styleguide`:
-   `card__meta` to część KARTY i ma `max-width: var(--measure)`, więc wyrównanie do prawej
-   kończyłoby się na 72 znakach, a nie przy krawędzi treści; `page__sub` należy do
-   `.page__head` i jest zdefiniowana wyłącznie w arkuszu powłoki komputerowej, więc
-   wspólny partial pulpitu nie może się na niej oprzeć (telefon ładuje inny arkusz 20).
-   Stąd reguła stoi TUTAJ, w komponentach: ten plik jedzie w obu powłokach.
-   ⚠ Do prawej, bo to przypis do wszystkich liczb wyżej, a nie nagłówek czegokolwiek. */
-.stopka-danych {
-  margin-top: var(--s-4);
-  font-size: var(--t-small);
-  color: var(--c-text-3);
-  text-align: right;
-}
 
 /* ⚠ **Wiersz PODRZĘDNY w tabeli limitu** („w tym na żądanie" pod „Wykorzystane", 17.10.2026).
    Dwa wiersze czytają się jako jedna pozycja, więc: wcięcie etykiety o jedną wyściółkę komórki
@@ -3153,3 +3138,87 @@ body:has(dialog.modal[open]) { overflow: hidden; }
    WYŻEJ, więc gasi ją selektor sąsiedztwa, a nie reguła na samym podwierszu. Przeglądarka bez
    `:has()` pokaże tę jedną linię; nic poza nią się nie psuje. */
 .table tbody tr:has(+ .table__row--sub) > td { border-bottom: 0; }
+
+/* ——— pasek kafelków na pulpicie: większa skala ——————————————————————————————
+   (zlecenie Z5 z 17.10.2026, prototyp zatwierdzony przez Krzysztofa w przeglądarce)
+
+   ⚠ **MODYFIKATOR, nie zmiana komponentu** — i to jest sprawdzone w szablonach, nie założone:
+   `.stats` stoi na pięciu ekranach, a na dwóch z nich wartość kafelka **nie jest liczbą**
+   („Connector 1.2 · R2 Płatnik 4.5" na `/admin/integracja`, nazwa rozkładu czasu pracy
+   na `/dane/pracownik/{id}`). Przy 30 px takie wartości łamią się w pół, a na integracji
+   w `stats__key` siedzi całe zdanie ostrzeżenia, które przy wzmocnionej etykiecie zaczyna
+   krzyczeć. Ta typografia jest dla PASKA LICZB i tylko tam wchodzi. */
+.stats--duze .stats__item { gap: var(--s-2); }
+.stats--duze .stats__key { font-size: var(--t-small); color: var(--c-text-2); }
+/* ⚠ `white-space: nowrap` na WARTOŚCI: „20.09.2026" i „27 dni 6 godz." złamane w pół czytają się
+   jak dwie różne dane. Podpis pod spodem zawijać się musi, więc odzyskuje `normal` niżej. */
+.stats--duze .stats__value {
+  font-size: var(--t-h1);
+  font-weight: var(--w-semibold);
+  line-height: var(--lh-tight);
+  white-space: nowrap;
+}
+/* Część godzinowa („6 godz.") zostaje W TEJ SAMEJ LINII co dni — spadnięta do osobnego wiersza
+   czyta się jak opis, a jest częścią tej samej liczby. */
+.stats--duze .stats__value > small {
+  margin-left: var(--s-1);
+  font-size: var(--t-lead);
+  font-weight: var(--w-medium);
+  color: var(--c-text-2);
+}
+/* ⚠ Podpis jest też elementem `small` w środku wartości, więc musi mieć WYŻSZĄ swoistość
+   niż reguła wyżej — inaczej dostałby 16 px i wyrównanie w linii. */
+.stats--duze .stats__value > small.stats__note {
+  margin-left: 0;
+  margin-top: var(--s-1);
+  font-size: var(--t-small);
+  font-weight: var(--w-regular);
+  color: var(--c-text-3);
+  line-height: var(--lh-body);
+  white-space: normal;
+}
+
+/* ⚠ **Sześć kafelków zawija się PROGIEM KONTENERA, nie samym `flex-wrap`.** Pasek nie leży
+   w `.card__body`, więc nie ma nad sobą kontenera `karta` — kontenerem jest on sam.
+
+   ⚠ **Progi są POLICZONE z najszerszej liczby, nie wzięte z oka.** Zmierzone w przeglądarce przy
+   tej skali typografii: „20.09.2026" (data synchronizacji) potrzebuje **162 px**, „11 dni 7 godz."
+   — 152 px, pozostałe od 23 px. Kafelek ma 2 × 24 px wyściółki, więc podłoga to 162 + 48 = 210 px;
+   biorę **220 px** na zaokrąglenia i dłuższą datę. Stąd progi: sześć w rzędzie wymaga
+   6 × 220 = **1320 px**, trzy — **660**, dwa — **440**, niżej jeden.
+   ⚠ Podłoga `min-width` jest tu WIĘKSZA niż w komponencie (180 px) i to jest cała różnica między
+   „zawija się" a „data wychodzi z kafelka": przy 180 px trzy kafelki wchodzą już od 540 px,
+   a wtedy na liczbę zostaje 132 px przy potrzebnych 162.
+
+   ⚠ `nth-child` jest tu UPRAWNIONY, w odróżnieniu od siatki kalendarza: kafelek to zawsze jedno
+   dziecko i jedna komórka, nic nie rozciąga się na kilka kolumn, więc `3n+1` naprawdę znaczy
+   „pierwszy w rzędzie". W kalendarzu znaczyło co innego (pasek wielodniowy to jedno dziecko
+   na kilka kolumn) i dlatego stamtąd wypadł. */
+.stats--duze { container-type: inline-size; container-name: kafle; }
+.stats--duze .stats__item { min-width: 220px; }
+@container kafle (max-width: 1320px) {
+  .stats--duze .stats__item { flex: 1 1 33.333%; }
+  .stats--duze .stats__item:nth-child(3n+1) { border-left: 0; }
+  .stats--duze .stats__item:nth-child(n+4) { border-top: 1px solid var(--c-line-soft); }
+}
+@container kafle (max-width: 660px) {
+  .stats--duze .stats__item { flex: 1 1 50%; }
+  .stats--duze .stats__item:nth-child(3n+1) { border-left: 1px solid var(--c-line-soft); }
+  .stats--duze .stats__item:nth-child(odd) { border-left: 0; }
+  .stats--duze .stats__item:nth-child(n+3) { border-top: 1px solid var(--c-line-soft); }
+}
+@container kafle (max-width: 440px) {
+  .stats--duze .stats__item { flex: 1 1 100%; }
+  /* ⚠ `:nth-child(n)` nie zawęża niczego — wyrównuje SWOISTOŚĆ do reguły z progu 660 px, która
+     dalej obowiązuje i zapala lewą krawędź przy `3n+1`. Bez tego czwarty kafelek zostawał
+     z kreską po lewej na początku własnego wiersza (zmierzone: 1 taka kreska przy 430 px). */
+  .stats--duze .stats__item:nth-child(n) { border-left: 0; }
+  .stats--duze .stats__item + .stats__item { border-top: 1px solid var(--c-line-soft); }
+}
+/* Przeglądarka bez zapytań kontenerowych dostaje próg od okna — gorzej dobrany, ale nigdy
+   liczba wychodząca z kafelka. */
+@supports not (container-type: inline-size) {
+  @media (max-width: 1600px) { .stats--duze .stats__item { flex: 1 1 33.333%; } }
+  @media (max-width: 900px) { .stats--duze .stats__item { flex: 1 1 50%; } }
+  @media (max-width: 640px) { .stats--duze .stats__item { flex: 1 1 100%; border-left: 0; } }
+}

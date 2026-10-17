@@ -11,7 +11,9 @@ use Wezurlop\Http\Request;
 use Wezurlop\Http\Response;
 use Wezurlop\Repository\EmploymentRepository;
 use Wezurlop\Repository\PracownikRepository;
+use Wezurlop\Repository\TenantSettingRepository;
 use Wezurlop\Service\PulpitPracownika;
+use Wezurlop\Support\Strefa;
 use Wezurlop\Support\View;
 
 /**
@@ -49,6 +51,10 @@ final class DashboardController
         private readonly PracownikRepository $dane,
         private readonly PulpitPracownika $pulpit,
         private readonly EmploymentRepository $employments,
+        /** ⚠ Źródło strefy czasowej tenanta — DOKŁADNIE to samo, z którego czyta `ViewContext`
+         *  (`settings.get('timezone')`). Druga droga do tej wartości znaczyłaby, że kafelek
+         *  „Ostatnia synchronizacja” i filtr `czas()` w szablonie mogą pokazać inną godzinę. */
+        private readonly TenantSettingRepository $settings,
     ) {
     }
 
@@ -85,7 +91,12 @@ final class DashboardController
             // a nie druga droga do tych samych danych. Limit i nieobecności wiszą przy zatrudnieniu,
             // więc jedno aktywne zatrudnienie = jeden zestaw liczb i nie ma czego sumować (§3.3).
             'spolki' => self::spolki($this->employments->accessibleForAccount($user->accountId()), $zatrudnienie['id']),
-            'pulpit' => $this->pulpit->pulpit($zatrudnienie, $rok, $dzis->format('Y-m-d')),
+            'pulpit' => $this->pulpit->pulpit(
+                $zatrudnienie,
+                $rok,
+                $dzis->format('Y-m-d'),
+                $this->settings->get('timezone', Strefa::DOMYSLNA),
+            ),
         ]);
     }
 

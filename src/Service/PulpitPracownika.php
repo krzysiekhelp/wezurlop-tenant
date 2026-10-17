@@ -7,6 +7,7 @@ namespace Wezurlop\Service;
 use Wezurlop\Repository\PracownikRepository;
 use Wezurlop\Support\DataDnia;
 use Wezurlop\Support\Odmiana;
+use Wezurlop\Support\Strefa;
 use Wezurlop\Support\WorkTime;
 
 /**
@@ -42,9 +43,11 @@ final class PulpitPracownika
      * Wszystko, co pulpit ma wyświetlić dla jednego zatrudnienia i jednego roku.
      *
      * @param array<string, mixed> $zatrudnienie wiersz z `PracownikRepository::mojeZatrudnienie()`
+     * @param string $strefa strefa czasowa tenanta — potrzebna do kafelka „Ostatnia synchronizacja”,
+     *        bo „ile dni temu” liczy się po dniach KALENDARZOWYCH, a te zależą od strefy
      * @return array<string, mixed>
      */
-    public function pulpit(array $zatrudnienie, int $rok, string $dzis): array
+    public function pulpit(array $zatrudnienie, int $rok, string $dzis, string $strefa): array
     {
         $id = (int) $zatrudnienie['id'];
         $saldo = $this->dane->saldo($id, $rok);
@@ -61,7 +64,14 @@ final class PulpitPracownika
         return [
             'rok' => $rok,
             'lata' => $this->dane->lata($id),
-            'kafelki' => self::kafelki($rok, $urlopowy, $podsumowanie, $najblizsza),
+            'kafelki' => self::kafelki(
+                $rok,
+                $urlopowy,
+                $podsumowanie,
+                $najblizsza,
+                $zatrudnienie['updated_at'] ?? null,
+                $strefa,
+            ),
             'limit' => self::karta($urlopowy),
             'limity_inne' => array_values(array_filter(
                 array_map(self::karta(...), $saldo),
@@ -74,16 +84,28 @@ final class PulpitPracownika
     }
 
     /**
-     * Pięć kafelków paska. Piąty **nie jest liczbą** i to jest sedno (zlecenie §1):
+     * Sześć kafelków paska. Piąty **nie jest liczbą** i to jest sedno (zlecenie §1):
      * „Wnioski oczekujące: 0” znaczyłoby „nic nie czeka”, a prawda brzmi „tego jeszcze nie ma”.
+     *
+     * ⚠ **Szósty — „Ostatnia synchronizacja” — doszedł 17.10.2026** i zastąpił linię pod kartami
+     * („Dane z programu kadrowego: stan na …”, dodaną dwa zlecenia wcześniej). Powód jest
+     * z ekranu: przy długiej liście nieobecności ta linia zjeżdżała tak nisko, że odpowiedź
+     * na pytanie „czy te liczby są świeże” trzeba było przewinąć. Stan danych jest cechą
+     * WSZYSTKICH liczb na tym pasku, więc stoi na pasku.
      *
      * @param array<string, mixed>|null $urlopowy
      * @param array{liczba: int, dni: int} $podsumowanie
      * @param array<string, mixed>|null $najblizsza
      * @return list<array<string, mixed>>
      */
-    private static function kafelki(int $rok, ?array $urlopowy, array $podsumowanie, ?array $najblizsza): array
-    {
+    private static function kafelki(
+        int $rok,
+        ?array $urlopowy,
+        array $podsumowanie,
+        ?array $najblizsza,
+        ?string $synchronizacja,
+        string $strefa
+    ): array {
         return [
             self::kafelekPozostalo($rok, $urlopowy),
             self::kafelekWykorzystane($urlopowy),
@@ -106,6 +128,46 @@ final class PulpitPracownika
                 'podpis' => 'wnioski dojdą w kolejnym etapie',
                 'stan' => 'brak',
             ],
+            self::kafelekSynchronizacji($synchronizacja, $strefa),
+        ];
+    }
+
+    /**
+     * Kafelek „Ostatnia synchronizacja”: data jako wartość, godzina i wiek jako podpis.
+     *
+     * ⚠ **Wiek liczony w DNIACH KALENDARZOWYCH strefy tenanta** (`Strefa::dniTemu`), nie
+     * w dobach: „wczoraj o 23:50” ma być wczoraj, choć od teraz dzieli je kilka godzin.
+     * Odmiana jest trzystopniowa, bo „0 dni temu” nie jest zdaniem po polsku.
+     *
+     * ⚠ Brak znacznika to NIE jest „0 dni temu” ani „—” bez wyjaśnienia: kadry mogły jeszcze
+     * nic nie przysłać i to jest inna informacja niż „przysłały dawno”. Stąd `stan: brak`,
+     * czyli ta sama cichsza forma wartości, co przy „Wnioski oczekujące”.
+     */
+    private static function kafelekSynchronizacji(?string $utc, string $strefa): array
+    {
+        $dni = Strefa::dniTemu($utc, $strefa);
+        if ($dni === null) {
+            return [
+                'klucz' => 'Ostatnia synchronizacja',
+                'wartosc' => '—',
+                'reszta' => null,
+                'podpis' => 'brak danych z programu kadrowego',
+                'stan' => 'brak',
+            ];
+        }
+
+        return [
+            'klucz' => 'Ostatnia synchronizacja',
+            'wartosc' => Strefa::czas($utc, $strefa, 'd.m.Y'),
+            'reszta' => null,
+            // ⚠ `Strefa::godzina()` daje `H:i:s` (jest do tabel, gdzie liczą się sekundy przebiegu),
+            // a tutaj zlecenie prosi o `GG:MM` — więc format jawnie, nie przez tamten skrót.
+            'podpis' => Strefa::czas($utc, $strefa, 'H:i') . ' · ' . match (true) {
+                $dni === 0 => 'dziś',
+                $dni === 1 => 'wczoraj',
+                default => $dni . ' dni temu',
+            },
+            'stan' => 'liczba',
         ];
     }
 
