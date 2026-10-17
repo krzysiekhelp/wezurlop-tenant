@@ -261,9 +261,13 @@
         przepełnienia czyni blok kontenerem przewijanym. Siatka miesiąca nie przykleja niczego
         i nie przewija się, a jej narożniki mają być przycięte promieniem karty. -#}
     <section class="card">
+        {#- ⚠ Adres „wszystkich" powstaje TUTAJ, nie w partialu: `okres` jest zmienną tego ekranu,
+            a partial dostaje `only`, czyli widzi wyłącznie to, co mu podamy. Ta sama trasa
+            i ten sam okres — zmienia się jedna rzecz, skala. -#}
         {% include 'partials/miesiac-ja.twig' with {
             'mies': ja,
-            'pusto': 'W tym miesiącu kadry nie zapisały żadnej Twojej nieobecności.'
+            'pusto': 'W tym miesiącu kadry nie zapisały żadnej Twojej nieobecności.',
+            'adres_lista': url('/kalendarz') ~ '?widok=ja&miesiac=' ~ okres.miesiac ~ '&skala=lista'
         } only %}
     </section>
     {#- ⚠ **Objaśnienia BEZ RAMKI I BEZ TŁA** (zlecenie

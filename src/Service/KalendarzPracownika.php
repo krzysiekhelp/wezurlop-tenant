@@ -52,6 +52,18 @@ final class KalendarzPracownika
     /** ⚠ **Skala czasu jest STANEM WIDOKU, nie nowym ekranem** (zlecenie 11.10.2026 §1):
      * jedzie w adresie tak samo jak `?widok=` i `?miesiac=`, więc wybór da się wkleić, zakładkować
      * i cofnąć przyciskiem przeglądarki. Dotyczy wyłącznie widoku „Tylko ja”. */
+    /**
+     * Ile wpisów pokazuje lista obok siatki Miesiąca — reszta jest na skali Lista.
+     *
+     * ⚠ Ta sama liczba i ta sama zasada, co w tabeli na pulpicie
+     * (`PulpitPracownika::NIEOBECNOSCI_NA_PULPICIE`), ale **osobna stała, nie wspólna**:
+     * tam limit wynika z wysokości karty na pulpicie, tutaj z wysokości siatki miesiąca
+     * obok. Jedna stała na dwa powody rozjechałaby się przy pierwszej zmianie jednego z nich,
+     * a zmiana „przy okazji" ruszyłaby drugi ekran (decyzja Krzysztofa po Z13: lista ma się
+     * nie rozpychać ponad siatkę).
+     */
+    public const WPISOW_W_MIESIACU = 5;
+
     public const SKALA_MIESIAC = 'miesiac';
     public const SKALA_ROK = 'rok';
     public const SKALA_LISTA = 'lista';
@@ -184,19 +196,25 @@ final class KalendarzPracownika
         // własne dane, a identyfikator nie przychodzi z żądania (tak samo jak w skali Roku).
         $mapa = $this->mapaDni($zatrudnienie, $pierwszy, $pierwszy->modify('last day of this month'));
         $siatka = $this->tygodnieMiesiaca($pierwszy, $mapa, $dzis);
+        // ⚠ Sklejanie ciągów kadrowych robi `PulpitPracownika::sklej()` — ta sama funkcja,
+        // z której korzysta tabela na pulpicie i skala Listy. Druga implementacja tej reguły
+        // znaczyłaby, że ten sam urlop ma na trzech ekranach inną liczbę dni. `sklej()`
+        // oczekuje kolejności malejącej (tak czyta je pulpit), a zapytanie zakresowe daje
+        // rosnącą.
+        $pelna = array_map(
+            static fn (array $w): array => $w + ['kiedy' => DataDnia::zakres($w['od'], $w['do'])],
+            PulpitPracownika::sklej(array_reverse($mapa['wpisy'])),
+        );
 
         return [
             'dni_tygodnia' => self::DNI_TYGODNIA,
             'tygodnie' => $siatka['tygodnie'],
-            // ⚠ Sklejanie ciągów kadrowych robi `PulpitPracownika::sklej()` — ta sama funkcja,
-            // z której korzysta tabela na pulpicie i skala Listy. Druga implementacja tej reguły
-            // znaczyłaby, że ten sam urlop ma na trzech ekranach inną liczbę dni. `sklej()`
-            // oczekuje kolejności malejącej (tak czyta je pulpit), a zapytanie zakresowe daje
-            // rosnącą.
-            'lista' => array_map(
-                static fn (array $w): array => $w + ['kiedy' => DataDnia::zakres($w['od'], $w['do'])],
-                PulpitPracownika::sklej(array_reverse($mapa['wpisy'])),
-            ),
+            // ⚠ **Przycina SERWER, nie CSS** (zlecenie Z14 z 17.10.2026): lista ucięta wysokością
+            // pudełka dalej niesie cały HTML, więc przeglądarka, czytnik ekranu i wyszukiwanie
+            // w stronie widzą wpisy, których człowiek nie widzi. `lista_wszystkich` jedzie obok,
+            // żeby szablon mógł powiedzieć, ile ich naprawdę jest, bez drugiego liczenia.
+            'lista' => array_slice($pelna, 0, self::WPISOW_W_MIESIACU),
+            'lista_wszystkich' => count($pelna),
             // ⚠ **Wpisy kadrowe w zakresie**, nie wiersze po sklejeniu — ta sama liczba, co
             // przed przebudową (`count($wpisy)` z `siatka()`), żeby zdanie pod tytułem nie
             // zmieniło znaczenia razem z kształtem siatki.

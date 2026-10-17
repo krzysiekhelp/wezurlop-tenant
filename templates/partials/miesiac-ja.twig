@@ -24,7 +24,14 @@
     pełny zakres stoi obok, na liście. To ta sama wada, za którą odrzucono stronicowanie po
     tygodniach — różnica jest w tym, że tam nie było czego postawić obok.
 
-    Zmienne: `mies` (model z `KalendarzPracownika::widokJa()`), `pusto` (zdanie dla zera wpisów).
+    ⚠ **Lista pokazuje najwyżej pięć wpisów** (zlecenie Z14, decyzja Krzysztofa po Z13), bo przy
+    dłuższym miesiącu rozpychała kartę ponad siatkę obok — a to siatka jest tu rzeczą główną.
+    Przycięcia dokonuje SERWER (`array_slice` w `widokJa()`), nie wysokość pudełka: lista ucięta
+    stylem dalej niesie cały HTML, więc czytnik ekranu i wyszukiwanie w stronie widzą wpisy,
+    których człowiek nie widzi. Reszta jest o jedno kliknięcie dalej, na skali Lista.
+
+    Zmienne: `mies` (model z `KalendarzPracownika::widokJa()`), `pusto` (zdanie dla zera wpisów),
+    `adres_lista` (ten sam okres na skali Lista).
 
     ⚠ Zero logiki — klasy odpowiadają stanom kratek przysłanym z serwisu. -#}
 <div class="card__body">
@@ -76,6 +83,15 @@
                         </li>
                     {% endfor %}
                 </ul>
+                {#- ⚠ Odnośnik jedzie **dopiero od szóstego wpisu**: przy pięciu i mniej lista jest
+                    kompletna, a „wszystkie (5)" pod pięcioma wpisami obiecywałoby coś więcej
+                    i kazałoby kliknąć po to samo.
+                    ⚠ Ten sam komponent i ta sama klasa, co „wszystkie w kalendarzu" na pulpicie
+                    (`card__meta` z odnośnikiem) — dwa odnośniki o tym samym znaczeniu na dwóch
+                    ekranach mają wyglądać jednakowo. -#}
+                {% if mies.lista_wszystkich > mies.lista|length %}
+                    <p class="card__meta"><a href="{{ adres_lista }}">wszystkie ({{ mies.lista_wszystkich }})</a></p>
+                {% endif %}
             {% endif %}
         </div>
     </div>
