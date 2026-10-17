@@ -81,7 +81,22 @@
                     żądaniu, więc podmieniona wartość niczego nie doda. -#}
                 {% if widok != 'ja' %}
                     <details class="menu menu--wybor">
-                        <summary class="menu__trigger menu__trigger--tekst">{% if ukryci > 0 or obciete > 0 %}Widać {{ wybrane|length }} z {{ w_zasiegu }} {{ odmiana_osob_d(w_zasiegu) }}{% else %}Wszystkie osoby: {{ w_zasiegu }}{% endif %}</summary>
+                        {#- ⚠ **Dwie linie, nie jedno zdanie** (zlecenie Z9): górna mówi, CZEGO dotyczy
+                            kontrolka, dolna — jaki jest stan wyboru. Jedno zdanie („Widać 4 z 7 osób")
+                            mieszało jedno z drugim i przy zawężeniu zmieniało długość przycisku,
+                            więc sąsiednie kontrolki przeskakiwały.
+                            ⚠ Stan liczony jest z danych, które już są (`wybrane`, `w_zasiegu`) —
+                            zero nowej logiki filtra. „Wszystkie · 7" przy pełnym zasięgu, „4 z 7"
+                            przy zawężeniu: kropka łączy etykietę z liczbą, a „z" przeciwstawia
+                            część całości. -#}
+                        <summary class="menu__trigger menu__trigger--osoby">
+                            {{ ikony.zespol() }}
+                            <span class="wybor-osob">
+                                <span class="wybor-osob__etykieta">Osoby na kalendarzu</span>
+                                <span class="wybor-osob__stan">{% if ukryci > 0 or obciete > 0 %}{{ wybrane|length }} z {{ w_zasiegu }}{% else %}Wszystkie · {{ w_zasiegu }}{% endif %}</span>
+                            </span>
+                            {{ ikony.strzalka() }}
+                        </summary>
                         {% include 'fragments/calendar-picker.twig' with {'htmx': htmx|default(false)} %}
                     </details>
                 {% endif %}

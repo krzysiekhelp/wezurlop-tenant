@@ -65,21 +65,17 @@
         <section class="card card--panel">
             {% include 'partials/naglowek-kalendarza.twig' %}
             {#- ⚠ **Kontrolka wyboru osób wyszła do nagłówka** (drugi wiersz, za strzałkami —
-                zlecenie Z8); tutaj zostają same komunikaty o niepełnej liście.
-                ⚠ Pojemnik powstaje TYLKO wtedy, gdy któryś z nich ma się pokazać — inaczej
-                zostałaby pusta wyściółka pod kreską, a `:empty` jej nie łapie (biały znak).
-                ⚠ **TRZY POWODY NIEPEŁNEJ LISTY = TRZY RÓŻNE ZDANIA** (zlecenie §4.4 z 08.10).
-                Jedno zdanie na trzy przypadki to ten sam błąd co „pusto z filtra i pusto z braku
-                danych wyglądają tak samo": człowiek nie wie, czy czegoś nie widzi, bo sam to
-                odznaczył, bo lista jest przycięta, czy bo dalej nie sięga. -#}
-            {% if obciete > 0 or ukryci > 0 %}
+                zlecenie Z8); tutaj zostaje komunikat o LIMICIE WYŚWIETLANIA.
+                ⚠ **Zdanie o filtrze („Filtr ukrył N z M osób") usunięte 17.10.2026** (dopisek
+                do Z9). Powód jest dobry: odkąd przycisk wyboru osób pokazuje stan wprost
+                („3 z 7"), zdanie powtarzało liczbę, która stoi dwa centymetry wyżej. Zostaje
+                komunikat o limicie, bo on mówi co innego — **nie ja zawęziłem, tylko system
+                przyciął** — i tej różnicy przycisk nie niesie.
+                ⚠ Pojemnik powstaje TYLKO wtedy, gdy ma co pokazać: inaczej zostałaby pusta
+                wyściółka pod kreską, a `:empty` jej nie łapie (biały znak). -#}
+            {% if obciete > 0 %}
                 <div class="card__body card__body--tight">
-                    {% if obciete > 0 %}
-                        <p class="notice" role="status">Pokazuję {{ wybrane|length }} z {{ w_zasiegu }} {{ odmiana_osob_d(w_zasiegu) }} — zawęź wybór w kontrolce powyżej. To limit wyświetlania, nie filtr: nikogo nie ukryto na stałe.</p>
-                    {% endif %}
-                    {% if ukryci > 0 %}
-                        <p class="notice" role="status">Filtr ukrył {{ ukryci }} z {{ w_zasiegu }} {{ odmiana_osob_d(w_zasiegu) }} w Twoim zasięgu. Zaznacz je w kontrolce powyżej, żeby wróciły na kalendarz.</p>
-                    {% endif %}
+                    <p class="notice" role="status">Pokazuję {{ wybrane|length }} z {{ w_zasiegu }} {{ odmiana_osob_d(w_zasiegu) }} — zawęź wybór w kontrolce powyżej. To limit wyświetlania, nie filtr: nikogo nie ukryto na stałe.</p>
                 </div>
             {% endif %}
         </section>

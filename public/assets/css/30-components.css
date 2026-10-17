@@ -2281,24 +2281,47 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 }
 .menu__trigger::-webkit-details-marker { display: none; }
 
-/* ⚠ Wyzwalacz z tekstem, nie z ikoną: `.menu__trigger` ma stałe 28 × 24 px (jest pudełkiem
-   na trzy kropki przy karcie hierarchii), więc napis „Osoby na kalendarzu: 4 z 4" łamał się
-   w nim na trzy wiersze i wyglądał jak podpis, a nie jak przycisk do kliknięcia. Wariant
-   dostaje wymiary kontrolki i obrys — ten sam co `.btn--sm`. */
-.menu__trigger--tekst {
+.menu__trigger:hover { background: var(--c-surface-hover); color: var(--c-text-2); }
+
+/* ⚠ **Wyzwalacz wyboru osób — kontrolka wielkości przycisku kalendarza** (zlecenie Z9
+   z 17.10.2026, prototyp zatwierdzony przez Krzysztofa). Zastąpił wariant `--tekst`, który był
+   wysoki na 32 px i w rzędzie z kwadratami 64 px wyglądał jak element innego ekranu.
+   Reguła bazowa `.menu__trigger` ma stałe 28 × 24 px (jest pudełkiem na trzy kropki przy karcie
+   hierarchii), więc wariant nadpisuje wymiary — bez tego dwuwierszowa treść łamała się w nim
+   na pięć linii.
+   ⚠ **Bez zieleni w stanie otwartym i wybranym** — i to jest reguła, nie upodobanie: zieleń
+   (`--c-accent*`) znaczy w tym systemie AKCJĘ albo bieżący wybór skali, a ta kontrolka nie jest
+   ani jednym, ani drugim — mówi, ile osób widać. Otwarcie znaczy więc tłem i mocniejszym obrysem,
+   tymi samymi, co stan `:hover`.
+   ⚠ Obramowanie `--c-line`, nie `--c-line-strong` jak w dawnym wariancie: kontrolka stoi teraz
+   obok kwadratów `.kal-btn` i musi mieć tę samą kreskę, inaczej czyta się jako mocniejsza. */
+.menu__trigger--osoby {
   width: auto;
-  height: var(--control-h-sm);
-  gap: var(--s-2);
-  padding: 0 var(--s-3);
-  border: 1px solid var(--c-line-strong);
+  min-width: 140px;
+  height: 64px;
+  gap: var(--s-3);
+  padding: 0 var(--s-4);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
   background: var(--c-surface);
-  font-size: var(--t-small);
   color: var(--c-text-2);
   white-space: nowrap;
 }
-
-.menu__trigger--tekst:hover { background: var(--c-surface-hover); color: var(--c-text); }
-.menu__trigger:hover { background: var(--c-surface-hover); color: var(--c-text-2); }
+.menu__trigger--osoby:hover { background: var(--c-surface-hover); color: var(--c-text); }
+.menu--wybor[open] > .menu__trigger--osoby {
+  background: var(--c-surface-hover);
+  border-color: var(--c-line-strong);
+}
+/* Dwie ikony w jednym przycisku i każda ma inną rolę: osoby to TREŚĆ (ciemniej, 20 px),
+   szewron to ZAPOWIEDŹ ruchu (ciszej, 16 px). `:first-of-type` / `:last-of-type`, bo między nimi
+   stoi jeszcze blok dwóch linii i `:first-child` nie wystarczy. */
+.menu__trigger--osoby > .ico:first-of-type { width: 20px; height: 20px; color: var(--c-text-2); }
+.menu__trigger--osoby > .ico:last-of-type { width: 16px; height: 16px; color: var(--c-text-3); }
+/* ⚠ Obrót zamiast drugiej ikony „w górę": to ta sama strzałka w innym stanie, a nie inny znak. */
+.menu--wybor[open] > .menu__trigger--osoby > .ico:last-of-type { transform: rotate(180deg); }
+.wybor-osob { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.wybor-osob__etykieta { font-size: var(--t-caption); color: var(--c-text-3); }
+.wybor-osob__stan { font-size: var(--t-body); font-weight: var(--w-semibold); color: var(--c-text); }
 .menu__body {
   position: absolute;
   right: 0;
@@ -2331,6 +2354,20 @@ body:has(dialog.modal[open]) { overflow: hidden; }
    elementem blokowym (`<details>` w sekcji karty), więc `right: 0` z komponentu odnosiło się
    do prawej krawędzi karty i panel wisiał kilkaset pikseli od przycisku, który go otworzył. */
 .menu--wybor { display: inline-block; }
+/* ⚠ **Na wąskim ekranie panel czepia się KARTY, nie przycisku** — i to jest poprawka po pomiarze
+   z 17.10.2026, nie przezorność. Od Z8 kontrolka wyboru osób stoi w drugim wierszu nagłówka,
+   czyli z wcięciem: na telefonie jej lewa krawędź wypada 57 px od brzegu okna. Panel ma
+   `left: 0` względem `.menu`, a szerokość `min(480px, 100vw − 32px)` = 342 px, więc kończył się
+   na 399 px przy oknie 374 — wystawał o 25 px i **strona przewijała się w poziomie**
+   (zmierzone na `/m/kalendarz?widok=firma`, `poziomo: 25`).
+   Wyzerowanie pozycjonowania przenosi punkt odniesienia na `.card--panel` (ona ma
+   `position: relative`), czyli na lewą krawędź karty — tę samą, od której liczy się
+   `max-width: 100vw − 32`. ⚠ Próg jest `@media`, nie `@container`, bo ogranicznik szerokości
+   panelu też jest wyrażony w oknie: poniżej 512 px to `100vw` rozstrzyga o szerokości
+   (480 + 32 = 512), więc dokładnie tam zaczyna się problem. */
+@media (max-width: 512px) {
+  .menu--wybor { position: static; }
+}
 
 /* ——— poziom widoczności kalendarzy w panelu osoby ————————————————————————————
    Wiersz: zakres (spółka albo „wszystkie spółki") i trójstanowy wybór obok niego. */
