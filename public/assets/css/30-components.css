@@ -3189,6 +3189,18 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   border-radius: var(--radius-card);
   font-size: var(--t-body);
 }
+/* ⚠ **Siatka Miesiąca ma ZAWSZE sześć wierszy tygodni** (zlecenie Z13 z 17.10.2026, decyzja
+   Krzysztofa): miesiąc zajmuje pięć albo sześć tygodni w zależności od tego, w który dzień się
+   zaczyna, więc karta skakała w pionie przy każdej zmianie miesiąca — a strzałki klika się
+   po kilka razy pod rząd, czyli to ten sam problem, co „ekran ucieka spod kursora".
+   ⚠ Rozwiązane **wierszami siatki, nie pustymi kratkami w szablonie**: brakujący tydzień ma być
+   pustym miejscem, a nie rzędem kratek ani dniami sąsiedniego miesiąca (to drugie dokładałoby
+   na ekran dane, których ten widok nie pokazuje — patrz reguła „dzień spoza miesiąca jest PUSTY,
+   nie szary"). Pierwszy wiersz to nagłówek dni tygodnia (`auto`), kolejne sześć ma stałą
+   wysokość kratki.
+   ⚠ Zawężone do `.mies__kalendarz`: w Roku pudełek jest dwanaście i każde ma tyle wierszy,
+   ile naprawdę potrzebuje — tam stała wysokość dodałaby dwanaście pustych pasów. */
+.mies__kalendarz .msiatka__siatka { grid-template-rows: auto repeat(6, 62px); }
 
 .mies__wpisy { display: flex; flex-direction: column; gap: var(--s-4); min-width: 0; }
 /* Nagłówek kolumny wpisów: typografia etykiety z systemu (§3.2, `--t-label`), taka sama jak
