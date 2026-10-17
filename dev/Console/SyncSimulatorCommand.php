@@ -1115,9 +1115,24 @@ final class SyncSimulatorCommand
         $this->check->that($r['status'] === 400 && ($r['json']['blad']['kod'] ?? '') === 'NIP_NIESPOJNY',
             'zadania: niespójny NIP też daje 400, przed szukaniem przebiegu', $r['body']);
 
-        // ostatniPrzebieg pojawia się dopiero po domkniętym cyklu
+        // ⚠ Licznik wycofywanej drogi (`nipWAdresie` w opisie przebiegu): bez niego etap drugi,
+        // czyli usunięcie obsługi `?nip=`, opierałby się na domyśle „chyba już wszyscy przeszli".
+        // ⚠ Wszystko w JEDNYM cyklu — sprawdzenie niżej liczy przebiegi i drugi cykl zepsułby je
+        // tak, że wyglądałoby to na usterkę liczenia, a nie na usterkę pomiaru.
         $c->start();
+        $c->get('zadania', ['nip' => self::NIP_A, 'przebiegId' => $c->runId]);
+        $this->check->that(($this->fx->run($c->runId)['stats']['nipWAdresie'] ?? null) === 0,
+            'licznik nipWAdresie: żądanie nagłówkiem daje ZERO, a nie brak pola');
+        $c->get('zadania', ['nip' => self::NIP_A, 'przebiegId' => $c->runId], [], true);
+        $this->check->that(($this->fx->run($c->runId)['stats']['nipWAdresie'] ?? null) === 1,
+            'licznik nipWAdresie: żądanie z NIP-em w adresie policzone');
+        $c->get('zadania', ['nip' => self::NIP_A, 'przebiegId' => $c->runId], ['X-Nip' => self::NIP_A], true);
+        $this->check->that(($this->fx->run($c->runId)['stats']['nipWAdresie'] ?? null) === 1,
+            'nagłówek obok adresu NIE liczy się jako stara droga');
         $c->koniec();
+
+        // ostatniPrzebieg pojawia się dopiero po domkniętym cyklu — tym samym, w którym wyżej
+        // sprawdzaliśmy licznik, żeby przebieg policzył się RAZ (sprawdzenie na końcu).
         $r = $c->get('stan', ['nip' => self::NIP_A]);
         $this->check->that(is_string($r['json']['ostatniPrzebieg'] ?? null) && str_ends_with((string) $r['json']['ostatniPrzebieg'], 'Z'),
             'po domkniętym cyklu: ostatniPrzebieg w UTC (…Z)', $r['body']);

@@ -371,10 +371,17 @@ final class SyncService
 
     /**
      * @param array{id: int} $key
+     * ⚠ `$nipWAdresie` to **licznik wycofywanej drogi**, nie zachowanie: mówi tylko tyle, że ten
+     * connector przysłał NIP w adresie (`?nip=`) zamiast w nagłówku `X-Nip`. Bez tego licznika etap
+     * drugi — usunięcie obsługi `?nip=` — opierałby się na domyśle „chyba już wszyscy przeszli",
+     * a tu jedno ustawienie w connectorze u klienta decyduje o tym, czy synchronizacja stanie.
+     * Liczymy w `zadania`, bo ta operacja jedzie w KAŻDYM cyklu; `stan` to ręczny test połączenia
+     * i nie należy do żadnego przebiegu, więc nie ma gdzie go policzyć.
+     *
      * @param array<string, mixed> $query
      * @return array{zadania: list<array<string, mixed>>}
      */
-    public function zadania(array $key, array $query): array
+    public function zadania(array $key, array $query, bool $nipWAdresie = false): array
     {
         $company = $this->company($key, $query);
         $run = $this->run($company, $query);
@@ -387,7 +394,7 @@ final class SyncService
             $limit = min(self::MAX_TASKS, $parsed);
         }
 
-        return $this->db->transaction(function () use ($company, $run, $limit): array {
+        return $this->db->transaction(function () use ($company, $run, $limit, $nipWAdresie): array {
             // Faza weryfikacji na danych, które właśnie przyszły, potem wydanie.
             $prepared = $this->taskService->prepare($company['id'], $run['id']);
             $issued = $this->taskService->issue($company['id'], $run['id'], $limit);
@@ -395,6 +402,10 @@ final class SyncService
             $stats['zadaniaWydane'] = ($stats['zadaniaWydane'] ?? 0) + count($issued);
             $stats['zadaniaUtworzone'] = ($stats['zadaniaUtworzone'] ?? 0) + $prepared['utworzone'];
             $stats['konflikty'] = ($stats['konflikty'] ?? 0) + $prepared['konflikty'];
+            // ⚠ Pole jedzie ZAWSZE, także z zerem: „0" znaczy „ten przebieg w całości poszedł
+            // nagłówkiem", a brak pola znaczyłby „nie wiadomo". Przy wyłączaniu `?nip=` różnica
+            // między tymi dwoma zdaniami jest całą wartością tego licznika.
+            $stats['nipWAdresie'] = ($stats['nipWAdresie'] ?? 0) + ($nipWAdresie ? 1 : 0);
             $this->sync->saveRunStats($run['id'], 'zadania', $stats);
 
             return ['zadania' => $issued];

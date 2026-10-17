@@ -67,7 +67,7 @@ final class SyncController
         }
 
         try {
-            return Response::json($this->sync->zadania($key, $query));
+            return Response::json($this->sync->zadania($key, $query, self::nipZAdresu($request)));
         } catch (Throwable $e) {
             $this->countTransient($e, $query['przebiegId'] ?? null);
             throw $e;
@@ -123,6 +123,23 @@ final class SyncController
         }
 
         return $zNaglowka ?? $zAdresu;
+    }
+
+    /**
+     * Czy NIP przyszedł WYŁĄCZNIE wycofywaną drogą, czyli w adresie i bez nagłówka `X-Nip`.
+     *
+     * ⚠ Liczone po to, żeby wyłączenie `?nip=` było decyzją na podstawie danych, a nie domysłem:
+     * licznik `nipWAdresie` w opisie przebiegu pokazuje wprost, czy connector tego klienta już
+     * przeszedł na nagłówek. Nagłówek obok adresu (oba zgodne) NIE liczy się jako stara droga —
+     * taki connector już umie nową i tylko zostawił stary parametr.
+     */
+    private static function nipZAdresu(Request $request): bool
+    {
+        $zNaglowka = $request->header('X-Nip');
+        $zAdresu = $request->query('nip');
+
+        return (!is_string($zNaglowka) || trim($zNaglowka) === '')
+            && is_string($zAdresu) && trim($zAdresu) !== '';
     }
 
     /**

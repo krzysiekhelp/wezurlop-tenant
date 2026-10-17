@@ -59,6 +59,11 @@ rozbieżność znaczy, że po drugiej stronie coś się rozjechało, a wybranie 
 dałoby synchronizację NIE TEJ firmy. Porównanie idzie **po normalizacji**, więc
 `PL525-252-50-06` i `5252525006` to ten sam numer, a nie niespójność.
 ⚠ Protokół zostaje **`1`** — zmiana jest addytywna: stare żądanie działa bez zmian.
+⚠ **Tenant liczy żądania ze starą drogą** w opisie przebiegu (`nipWAdresie` w `sync_run.stats`,
+liczone przy `zadania`, czyli w każdym cyklu) i pokazuje je na ekranie przebiegu, gdy jest ich
+więcej niż zero. Dzięki temu wyłączenie `?nip=` będzie decyzją na podstawie danych, a nie
+domysłem „chyba wszyscy już przeszli". Connector nie musi nic z tym robić — to licznik po naszej
+stronie.
 
 ⚠ **Nie ma jednego adresu dla wszystkich klientów.** Aplikacja jest instalowana u każdego klienta
 osobno, więc adresem bazowym jest **domena tego klienta**, wpisywana w konfigurację connectora

@@ -89,6 +89,13 @@
                 odpowiedzi „za szybko” (429): <strong>{{ przebieg.stats.zaSzybko ?? 0 }}</strong> ·
                 zadania wydane: <strong>{{ przebieg.stats.zadaniaWydane ?? 0 }}</strong>.
             </p>
+            {#- ⚠ Pozycja pokazuje się TYLKO wtedy, gdy connector użył wycofywanej drogi
+                (NIP w adresie zamiast w nagłówku `X-Nip`). Przy zerze nie ma o czym mówić,
+                a przy wartości większej od zera to jedyna informacja, że ten connector czeka
+                na aktualizację — i że nie wolno jeszcze wyłączyć obsługi `?nip=`. -#}
+            {% if (przebieg.stats.nipWAdresie ?? 0) > 0 %}
+                <p class="card__meta">Żądania z NIP-em w adresie zamiast w nagłówku: <strong>{{ przebieg.stats.nipWAdresie }}</strong> — connector korzysta z wycofywanej drogi i powinien zostać zaktualizowany.</p>
+            {% endif %}
         </div>
     </section>
 
