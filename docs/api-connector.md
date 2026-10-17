@@ -41,7 +41,24 @@ Authorization: Bearer <klucz-instalacji>
 X-Api-Key: <klucz-instalacji>          # ścieżka zapasowa, patrz niżej
 X-Protokol: 1
 X-Idempotency-Key: <uuid paczki>
+X-Nip: 1234567009                      # NIP firmy — przy GET stan i zadania
 ```
+
+⚠ **NIP firmy idzie w nagłówku `X-Nip`, nie w adresie** (od 17.10.2026). W operacjach `POST`
+siedzi tam, gdzie siedział — w treści żądania. Zmiana dotyczy dwóch operacji `GET`
+(`stan`, `zadania`), bo tylko tam NIP stał w adresie.
+Powód jest zmierzony: **adresy trafiają do logu dostępu serwera WWW i do logów proxy po drodze**,
+więc przy cyklu co godzinę log tenanta zapełniał się NIP-ami firm klienta w jawnej postaci.
+To ta sama zasada, co dla kluczy — identyfikator w nagłówku, nigdy w adresie.
+
+⚠ **Okres przejściowy: `?nip=` w adresie dalej działa.** Connector u klienta aktualizuje się
+osobno od tenanta, więc tenant przyjmuje jedno i drugie. `?nip=` jest **przestarzałe** i zostanie
+usunięte osobnym etapem, po przejściu connectorów.
+⚠ **Oba naraz i różne → `400 NIP_NIESPOJNY`.** Tenant nie zgaduje, który numer jest prawdziwy:
+rozbieżność znaczy, że po drugiej stronie coś się rozjechało, a wybranie jednego po cichu
+dałoby synchronizację NIE TEJ firmy. Porównanie idzie **po normalizacji**, więc
+`PL525-252-50-06` i `5252525006` to ten sam numer, a nie niespójność.
+⚠ Protokół zostaje **`1`** — zmiana jest addytywna: stare żądanie działa bez zmian.
 
 ⚠ **Nie ma jednego adresu dla wszystkich klientów.** Aplikacja jest instalowana u każdego klienta
 osobno, więc adresem bazowym jest **domena tego klienta**, wpisywana w konfigurację connectora
@@ -132,7 +149,8 @@ Odpowiada na pytanie „czy klucz działa i co z moją firmą”. To **inne pyta
 dlatego ma własną, wąską operację.
 
 ```
-GET /api/v1/sync/stan?nip=1234567009
+GET /api/v1/sync/stan
+X-Nip: 1234567009                      # opcjonalny; `?nip=1234567009` w adresie — przestarzałe
 ```
 
 ```json
@@ -144,8 +162,9 @@ GET /api/v1/sync/stan?nip=1234567009
 
 - ⚠ **Nie otwiera przebiegu, nie rusza kursorów i nie wchodzi do statystyki przebiegów.**
   Test połączenia robiony przez `start` wyglądał w historii jak cykl, który nic nie zrobił.
-- `nip` jest **opcjonalny**: bez niego wraca sam stan klucza (`firma` i `ostatniPrzebieg` to `null`),
-  więc connector może sprawdzić poświadczenia, zanim pozna NIP firmy.
+- NIP jest **opcjonalny**: bez niego wraca sam stan klucza (`firma` i `ostatniPrzebieg` to `null`),
+  więc connector może sprawdzić poświadczenia, zanim pozna NIP firmy. Przysyła się go w nagłówku
+  `X-Nip`; `?nip=` w adresie działa przez okres przejściowy (§1).
 - `firma.stan`: `ok` | `firma_nieznana` | `firma_zgloszona` | `firma_poza_zakresem` — te same
   wartości co pole `stan` w `403 FIRMA_NIEZATWIERDZONA` (§3.1). **Nazwy firmy odpowiedź nie zawiera.**
 - Zły albo wygasły klucz → `401`, tak samo jak w pozostałych operacjach. Zła suma kontrolna NIP-u → `422`.
@@ -404,7 +423,8 @@ klientowi kalendarz.
 ### 3.4 `GET /api/v1/sync/zadania` — faza 3, co zapisać w kadrach
 
 ```
-GET /api/v1/sync/zadania?nip=1234567009&przebiegId=4f2c…&limit=20
+GET /api/v1/sync/zadania?przebiegId=4f2c…&limit=20
+X-Nip: 1234567009                      # `&nip=1234567009` w adresie — przestarzałe
 ```
 
 ```json

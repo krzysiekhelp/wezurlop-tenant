@@ -20,7 +20,8 @@ X-Idempotency-Key: 4c7a1f2e-…        # tylko przy POST
 ### 1.0 `GET /api/v1/sync/stan` — test połączenia
 
 ```
-GET /api/v1/sync/stan?nip=1234567009
+GET /api/v1/sync/stan
+X-Nip: 1234567009
 ```
 
 ```json
@@ -168,7 +169,8 @@ wartość zapasową 480 min — działa, ale jest odnotowane w opisie przebiegu 
 ### 1.3 `GET /api/v1/sync/zadania`
 
 ```
-GET /api/v1/sync/zadania?nip=1234567009&przebiegId=8d41e0b2-…&limit=20
+GET /api/v1/sync/zadania?przebiegId=8d41e0b2-…&limit=20
+X-Nip: 1234567009
 ```
 
 ```json

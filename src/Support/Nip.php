@@ -32,6 +32,22 @@ final class Nip
     }
 
     /**
+     * NIP do LOGU: `525…006`, czyli trzy pierwsze i trzy ostatnie cyfry (zlecenie Z16, 17.10.2026).
+     *
+     * ⚠ To nie jest anonimizacja i nie udaje nią być — cztery ukryte cyfry plus suma kontrolna
+     * zawężają numer do kilkuset kandydatów. Chodzi o co innego: **log aplikacji nie ma być listą
+     * NIP-ów klienta gotową do skopiowania**, a do diagnozy wystarczy odróżnić jedną firmę od
+     * drugiej. Tam, gdzie firmę znamy u siebie, do logu i tak idzie jej identyfikator.
+     * ⚠ Wartość z nagłówka `X-Nip` ani z `?nip=` nie trafia do logu w innej postaci niż ta.
+     */
+    public static function doLogu(string $raw): string
+    {
+        $nip = self::normalize($raw);
+
+        return strlen($nip) === 10 ? substr($nip, 0, 3) . '…' . substr($nip, 7, 3) : 'niepoprawny';
+    }
+
+    /**
      * NIP w postaci do czytania: `525 252 50 06` (docs/system-wizualny.md §5.1).
      * ⚠ Wyłącznie do wyświetlenia — w bazie, w API i w porównaniach zostaje ciąg dziesięciu cyfr.
      */

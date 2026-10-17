@@ -14,12 +14,14 @@ use Wezurlop\Service\Sync\ApiBody;
 use Wezurlop\Service\Sync\ApiError;
 use Wezurlop\Service\Sync\SyncService;
 use Wezurlop\Support\Logger;
+use Wezurlop\Support\Nip;
 
 /**
  * API dla connectora: /api/v1/sync/{stan,start,dane,przeglad,zadania,wyniki,koniec,zgloszenie-firmy}
  * (docs/api-connector.md). STREFA JAWNA. Kontroler tylko przyjmuje żądanie, woła SyncService i zwraca JSON.
  *
  * X-Idempotency-Key (tylko POST): powtórzona paczka zwraca tę samą odpowiedź bez ponownego zapisu.
+ * X-Nip (GET stan i zadania): NIP firmy — zalecany; `?nip=` w adresie działa dalej, ale jest przestarzały.
  */
 final class SyncController
 {
@@ -53,11 +55,15 @@ final class SyncController
     {
         $key = $request->attribute(ApiKeyAuth::ATTRIBUTE);
         $query = [];
-        foreach (['nip', 'przebiegId', 'limit'] as $name) {
+        foreach (['przebiegId', 'limit'] as $name) {
             $value = $request->query($name);
             if (is_string($value)) {
                 $query[$name] = $value;
             }
+        }
+        $nip = self::nip($request);
+        if ($nip !== null) {
+            $query['nip'] = $nip;
         }
 
         try {
@@ -76,9 +82,47 @@ final class SyncController
     public function stan(Request $request, array $params): Response
     {
         $key = $request->attribute(ApiKeyAuth::ATTRIBUTE);
-        $nip = $request->query('nip');
+        $nip = self::nip($request);
 
-        return Response::json($this->sync->stan($key, is_string($nip) ? ['nip' => $nip] : []));
+        return Response::json($this->sync->stan($key, $nip !== null ? ['nip' => $nip] : []));
+    }
+
+    /**
+     * **NIP operacji: nagłówek `X-Nip` (zalecany) albo `?nip=` w adresie (przestarzały).**
+     *
+     * ⚠ Powód zmiany jest zmierzony, nie estetyczny: NIP w adresie ląduje w logu dostępu serwera WWW
+     * (17.10.2026 w logu vhosta stały NIP-y obu firm klienta, w jawnej postaci, przy każdym cyklu
+     * co godzinę) — a także w logach proxy po drodze. To ta sama zasada, co dla kluczy w CLAUDE.md
+     * §13: identyfikator idzie w nagłówku, nigdy w adresie.
+     *
+     * ⚠ **Okres przejściowy jest obowiązkowy, nie uprzejmy**: connector u klienta aktualizuje się
+     * osobno od tenanta, więc żądanie bez nagłówka musi dalej działać. Usunięcie `?nip=` to osobny
+     * etap, po przejściu connectora.
+     *
+     * ⚠ Gdy przyjdą OBA i się różnią — `400 NIP_NIESPOJNY`. Nie zgadujemy, który jest prawdziwy:
+     * rozbieżność znaczy, że po drugiej stronie coś się rozjechało (dwie wersje konfiguracji, proxy
+     * dokładające nagłówek), a wybranie jednego cicho dałoby synchronizację NIE TEJ firmy.
+     * Porównujemy po normalizacji (`PL`, spacje, myślniki), bo `PL525-252-50-06` i `5252525006`
+     * to ten sam numer zapisany dwoma sposobami, a nie niespójność.
+     *
+     * ⚠ Sprawdzenie sumy kontrolnej zostaje w `SyncService` (422 `NIP_NIEPOPRAWNY`) — tutaj numer
+     * jest wyłącznie przekazywany, więc błędny numer dostaje ten sam kod co dotąd, bez względu
+     * na to, którą drogą przyszedł.
+     */
+    private static function nip(Request $request): ?string
+    {
+        $zNaglowka = $request->header('X-Nip');
+        $zAdresu = $request->query('nip');
+        $zNaglowka = is_string($zNaglowka) && trim($zNaglowka) !== '' ? trim($zNaglowka) : null;
+        $zAdresu = is_string($zAdresu) && trim($zAdresu) !== '' ? trim($zAdresu) : null;
+
+        if ($zNaglowka !== null && $zAdresu !== null && Nip::normalize($zNaglowka) !== Nip::normalize($zAdresu)) {
+            throw new ApiError(400, 'NIP_NIESPOJNY',
+                'Nagłówek X-Nip i parametr nip wskazują różne firmy — przyślij tylko jedno',
+                [], [], ['naglowek' => Nip::doLogu($zNaglowka), 'adres' => Nip::doLogu($zAdresu)]);
+        }
+
+        return $zNaglowka ?? $zAdresu;
     }
 
     /**

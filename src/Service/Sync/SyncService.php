@@ -155,7 +155,7 @@ final class SyncService
 
         throw new ApiError(403, 'TOZSAMOSC_ZMIENIONA',
             'Connector zgłasza inną tożsamość osób niż dotychczas — strumień tej firmy zatrzymany do decyzji administratora',
-            ['odcisk' => $sent], [], ['nip' => $company['nip'], 'znany' => $known['fingerprint'], 'nowy' => $sent]);
+            ['odcisk' => $sent], [], ['nip' => Nip::doLogu($company['nip']), 'znany' => $known['fingerprint'], 'nowy' => $sent]);
     }
 
     /**
@@ -609,7 +609,7 @@ final class SyncService
             default => ['firma_nieznana', 'Firma nie jest jeszcze zgłoszona — wyślij zgloszenie-firmy'],
         };
 
-        throw new ApiError(403, 'FIRMA_NIEZATWIERDZONA', $komunikat, ['stan' => $stan], [], ['nip' => $nip, 'stan' => $stan]);
+        throw new ApiError(403, 'FIRMA_NIEZATWIERDZONA', $komunikat, ['stan' => $stan], [], ['nip' => Nip::doLogu($nip), 'stan' => $stan]);
     }
 
     /**

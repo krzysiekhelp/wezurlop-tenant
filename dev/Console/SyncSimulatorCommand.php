@@ -563,7 +563,7 @@ final class SyncSimulatorCommand
 
         // 3.7 — niezgodna wersja protokołu; brak nagłówka = wersja 1
         $this->check->example('3.7', $c->post('start', ['nip' => self::NIP_A], null, ['X-Protokol' => '2']), 409, $this->ex->get('3.7', 0), $err);
-        $r = $http->request('GET', '/api/v1/sync/zadania?nip=' . self::NIP_A . '&przebiegId=' . $c->runId, null, ['X-Api-Key' => $c->key]);
+        $r = $http->request('GET', '/api/v1/sync/zadania?przebiegId=' . $c->runId, null, ['X-Api-Key' => $c->key, 'X-Nip' => self::NIP_A]);
         $this->check->that($r['status'] === 200, 'brak X-Protokol i Authorization (sam X-Api-Key) → obsłużone jak wersja 1');
         $c->koniec();
 
@@ -1087,6 +1087,33 @@ final class SyncSimulatorCommand
         $zly = new Connector($http, str_repeat('0', 64), self::NIP_A);
         $r = $zly->get('stan', ['nip' => self::NIP_A]);
         $this->check->that($r['status'] === 401 && ($r['json']['blad']['kod'] ?? '') === 'KLUCZ_NIEPRAWIDLOWY', 'zły klucz → 401', $r['body']);
+
+        // ⚠ NIP w nagłówku `X-Nip` (zlecenie Z16): wszystkie sprawdzenia wyżej już nim jadą, bo
+        // `Connector::get()` przenosi `nip` z adresu do nagłówka. Trzy poniżej pilnują OKRESU
+        // PRZEJŚCIOWEGO — bez nich zmiana wyglądałaby na udaną, a zepsułaby connectory u klientów.
+        $r = $c->get('stan', ['nip' => self::NIP_A], [], true);
+        $this->check->that($r['status'] === 200 && ($r['json']['firma']['stan'] ?? '') === 'ok',
+            'stary connector: NIP w adresie, bez nagłówka → dalej działa', $r['body']);
+
+        $r = $c->get('stan', ['nip' => self::NIP_A], ['X-Nip' => self::NIP_A], true);
+        $this->check->that($r['status'] === 200 && ($r['json']['firma']['stan'] ?? '') === 'ok',
+            'nagłówek i adres zgodne → przechodzi', $r['body']);
+
+        $r = $c->get('stan', ['nip' => self::NIP_A], ['X-Nip' => self::NIP_LOAD], true);
+        $this->check->that($r['status'] === 400 && ($r['json']['blad']['kod'] ?? '') === 'NIP_NIESPOJNY',
+            'nagłówek i adres wskazują różne firmy → 400 NIP_NIESPOJNY', $r['body']);
+        $this->check->that(!str_contains($r['body'], self::NIP_LOAD) && !str_contains($r['body'], self::NIP_A),
+            'odpowiedź 400 nie powtarza żadnego z numerów');
+
+        // Normalizacja: `PL` i myślniki to ten sam numer, a nie niespójność.
+        $r = $c->get('stan', ['nip' => self::NIP_A], ['X-Nip' => 'PL' . substr(self::NIP_A, 0, 3) . '-' . substr(self::NIP_A, 3)], true);
+        $this->check->that($r['status'] === 200 && ($r['json']['firma']['stan'] ?? '') === 'ok',
+            'ten sam numer zapisany z PL i myślnikiem → nie jest niespójnością', $r['body']);
+
+        $r = $c->get('zadania', ['nip' => self::NIP_A, 'przebiegId' => '8d41e0b2-3c77-4a51-9f02-77b1c6e4a910'],
+            ['X-Nip' => self::NIP_LOAD], true);
+        $this->check->that($r['status'] === 400 && ($r['json']['blad']['kod'] ?? '') === 'NIP_NIESPOJNY',
+            'zadania: niespójny NIP też daje 400, przed szukaniem przebiegu', $r['body']);
 
         // ostatniPrzebieg pojawia się dopiero po domkniętym cyklu
         $c->start();

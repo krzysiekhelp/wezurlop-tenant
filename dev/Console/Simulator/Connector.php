@@ -56,12 +56,26 @@ final class Connector
     }
 
     /**
+     * GET: **NIP wychodzi z adresu do nagłówka `X-Nip`** (zlecenie Z16, 17.10.2026) — tak zachowuje się
+     * connector od tej zmiany, więc symulator musi robić to samo, inaczej testowałby wycofywaną drogę.
+     *
+     * ⚠ `$nipWAdresie` zostawia numer w adresie i NIE wysyła nagłówka — to jest przebieg „stary
+     * connector", czyli dowód, że okres przejściowy działa. `$headers` pozwala dołożyć własny
+     * `X-Nip` (przypadek „oba naraz i różne").
+     *
      * @param array<string, scalar> $query
+     * @param array<string, string> $headers dodatkowe/nadpisane nagłówki
      * @return array{status: int, body: string, json: mixed, headers: array<string, string>, ms: float}
      */
-    public function get(string $operation, array $query): array
+    public function get(string $operation, array $query, array $headers = [], bool $nipWAdresie = false): array
     {
-        $r = $this->http->request('GET', '/api/v1/sync/' . $operation . '?' . http_build_query($query), null, $this->headers());
+        $base = $this->headers();
+        if (!$nipWAdresie && isset($query['nip'])) {
+            $base['X-Nip'] = (string) $query['nip'];
+            unset($query['nip']);
+        }
+        $adres = '/api/v1/sync/' . $operation . ($query === [] ? '' : '?' . http_build_query($query));
+        $r = $this->http->request('GET', $adres, null, array_merge($base, $headers));
         $this->times[] = $r['ms'];
 
         return $r;
