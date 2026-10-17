@@ -64,7 +64,6 @@
    warstwie co bloki. I nie więcej niż 4: pasek komunikatów ma 9, belka górna 10 — panel ma się
    wsuwać pod nie, a nie na nie. */
 .card--panel { overflow: visible; position: relative; z-index: 4; }
-.card__sub { font-size: var(--t-small); color: var(--c-text-3); }
 /* Nagłówek karty BEZ tytułu — została sama akcja, więc staje po prawej, tam gdzie stała wcześniej.
    ⚠ `space-between` z jednym dzieckiem wyrzuciłby przycisk na lewą krawędź (§4d: jeden tytuł
    na ekran — karta z jedyną tabelą nie ma własnego nagłówka, ale bywa, że ma akcję). */
@@ -1483,83 +1482,108 @@ body:has(dialog.modal[open]) { overflow: hidden; }
    ⚠ **24 px, nie 22 px z prototypu.** Odstępy w tym projekcie pochodzą wyłącznie z tokenów
    (`system-wizualny.md` §1, reguła blokująca), a 22 px nie jest żadnym z nich; `--s-5` to
    dokładnie ta kolumna, w której stoi treść niżej. Różnica 2 px, cena — zero. */
-.kal-nav {
+/* ⚠ **Blok nagłówka to JEDNA KARTA O DWÓCH WIERSZACH, rozdzielonych kreską** (zlecenie Z8
+   z 17.10.2026, prototyp zatwierdzony przez Krzysztofa). Wiersz pierwszy mówi, CO oglądasz
+   (nazwa okresu) i co znaczą kolory (legenda); drugi — czym to przestawiasz. Kreska rozdziela
+   dwie różne rzeczy, a nie zdobi: do 17.10 stały w jednym wierszu i czytały się jako jeden pasek
+   sterowania, w którym tytuł jest najdłuższym przyciskiem.
+   ⚠ Wyściółki są niesymetryczne i to z prototypu: `--s-5` od zewnątrz (góra pierwszego wiersza,
+   dół drugiego) i `--s-4` przy kresce. Kreska dostaje mniej miejsca, bo rozdziela rzeczy należące
+   do tego samego pudełka — równe odstępy robiłyby z niej granicę dwóch kart. */
+.kal-nav { display: flex; flex-direction: column; container-type: inline-size; container-name: kalnav; }
+.kal-nav__gora {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-6);
+  flex-wrap: wrap;
+  padding: var(--s-5) var(--s-5) var(--s-4);
+  border-bottom: 1px solid var(--c-line);
+}
+.kal-nav__dol {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  /* Prototyp dawał 40 px; to NAJMNIEJSZY odstęp obu grup, a nie ich odległość — przy
-     `space-between` prawdziwy odstęp jest resztą szerokości karty. `--s-6` (32 px) to
-     najbliższy token. */
   gap: var(--s-6);
   flex-wrap: wrap;
-  padding: var(--s-5);
+  padding: var(--s-4) var(--s-5) var(--s-5);
 }
-.kal-nav__okres { display: flex; align-items: center; gap: var(--s-3); min-width: 0; }
-/* ⚠ **Nazwa okresu i zdanie o nim to JEDEN blok** (zlecenie 13.10 §1): tytuł 20 px / 600,
-   a pod nim podpis 13 px. Przed zmianą zdanie stało w osobnym pojemniku pod całym wierszem
-   i miało tę samą wagę, co kontrolki po prawej — ekran nie miał tematu.
-   ⚠ **20 px (`--t-h2`), nie 22 px z prototypu**: 22 px nie jest tokenem typografii (§3.2 ma
-   30 / 20 / 16 / 14 / 13 / 12 / 11), a `.card__title` jest komponentem całej aplikacji — zmiana
-   jego rozmiaru dla jednego ekranu przestawiłaby nagłówki wszystkich kart. Hierarchia, o którą
-   szło w prototypie (tytuł nad podpisem, waga 600), wychodzi z układu, nie z dwóch pikseli. */
-.kal-nav__tytul { display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; }
-/* ⚠ **Strzałki są PARĄ, nie dwoma przyciskami po dwóch stronach napisu** (to samo zgłoszenie).
-   Rozdzielone nazwą okresu przestawały być jedną kontrolką o dwóch kierunkach — a przeskok
-   o okres w tył i w przód to jedna czynność. Odstęp 4 px, czyli mniejszy niż odstęp pary
-   od nazwy (12 px): o tym, co jest z czym, mówi bliskość, nie ramka. */
-.kal-nav__strzalki { display: inline-flex; align-items: center; gap: var(--s-1); }
-/* ⚠ **Dwa przełączniki to DWIE OSIE, nie jeden pasek o pięciu pozycjach** (zlecenie 13.10 §1).
-   Dzieliło je 8 px (zmierzone: 1648 → 1656) i czytały się jako jedna kontrolka, w której dwie
-   pozycje są białe — a to skala czasu i to, czyj kalendarz widać. Stąd odstęp `--s-5` (24 px;
-   prototyp miał 22) i włosowa kreska w połowie tego odstępu.
-   ⚠ Odstęp niesie znaczenie, więc kreska liczy się Z NIEGO (`calc(var(--s-5) / -2)`), a nie
-   z wpisanej liczby: dwie kopie tej samej wartości rozjechałyby się przy pierwszej zmianie. */
-.kal-nav__kontrolki { display: flex; align-items: center; gap: var(--s-5); flex-wrap: wrap; justify-content: flex-end; }
-.kal-nav__kontrolki > .segmented + .segmented { position: relative; }
-.kal-nav__kontrolki > .segmented + .segmented::before {
-  content: "";
-  position: absolute;
-  left: calc(var(--s-5) / -2);
-  top: var(--s-1);
-  bottom: var(--s-1);
-  width: 1px;
-  background: var(--c-line);
-}
+/* Lewa strona drugiego wiersza: strzałki okresu i — na „Zespole"/„Firmie" — kontrolka wyboru osób.
+   ⚠ Obie dotyczą ZAKRESU (co pokazujemy), w odróżnieniu od prawej strony, która dotyczy KSZTAŁTU
+   (skala czasu i czyj kalendarz). Stąd podział na dwie strony, a nie jeden rząd ośmiu kontrolek. */
+.kal-nav__lewa { display: flex; align-items: center; gap: var(--s-4); flex-wrap: wrap; min-width: 0; }
+.kal-nav__prawa { display: flex; align-items: center; gap: var(--s-6); flex-wrap: wrap; justify-content: flex-end; }
+/* ⚠ Grupa trzyma przyciski jednej osi razem — odstęp W GRUPIE (`--s-2`) jest cztery razy mniejszy
+   niż MIĘDZY grupami (`--s-6`). O tym, co jest z czym, mówi bliskość, nie ramka: do 17.10 grupy
+   rozdzielała włosowa kreska, bo dzieliło je 8 px i czytały się jako jeden pasek. Kreska była
+   lekarstwem na zły odstęp i wypada razem z nim. */
+.kal-grupa { display: flex; gap: var(--s-2); }
 
-
-/* ⚠ **Objaśnienia pod kalendarzem NIE SĄ KARTĄ** (zlecenie 13.10 §3). Do 13.10.2026 stały we
-   własnej `.card`, z tą samą ramką i tą samą wagą, co kalendarz nad nimi — a to komentarz,
-   nie dana. Zwykły tekst na tle strony; długość wiersza ogranicza `.card__meta` (`--measure`).
-   ⚠ Bez wyściółki po bokach: tekst bez ramki należy do kolumny strony, więc jego lewa krawędź
-   stoi tam, gdzie krawędzie bloków nad nim, a nie 24 px w głębi nieistniejącego pudełka. */
-.objasnienia { display: flex; flex-direction: column; gap: var(--s-2); }
-
-/* ⚠ Przycisk z samą ikoną. Wysokość z `--control-h-sm` (32 px), czyli **tej samej co
-   `.segmented`** — inaczej wiersz nawigacji miałby dwie różne wysokości kontrolek obok siebie.
-   ⚠ `aria-label` i `title` są w szablonie **obowiązkowe**: przycisk bez tekstu i bez etykiety
-   jest dla czytnika ekranu pustym odnośnikiem. Treść etykiety zależy od skali („Poprzedni rok"
-   kontra „Poprzedni miesiąc") — tego nie widać na obrazku, więc rozstrzyga to szablon. */
-.ikona-btn {
-  display: inline-flex;
+/* ⚠ **Przycisk kalendarza: KWADRAT z ikoną nad podpisem.** To osobny komponent, nie wariant
+   `.segmented` — tamta pigułka stoi na czterech innych ekranach (przełącznik roku na pulpicie
+   i w wykazie nieobecności, zakres uprawnień osoby) i ma tam zostać taka, jaka jest.
+   ⚠ Strzałki mają TEN SAM kształt (64 × 64, ta sama ramka i promień), tylko bez podpisu:
+   wcześniej były mniejszymi przyciskami ikonowymi i w jednym rzędzie z większymi kontrolkami
+   wyglądały jak element innego ekranu.
+   ⚠ Stan wybrany niesie **tło i ramka w `--c-accent-soft` plus tekst w `--c-accent-text`**,
+   a nie samo pogrubienie: przy ośmiu kwadratach obok siebie sama waga fontu nie wystarcza,
+   żeby wzrok trafił w bieżący stan bez czytania wszystkich podpisów. */
+.kal-btn {
+  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: var(--control-h-sm);
-  height: var(--control-h-sm);
+  /* 2 px między ikoną a podpisem — to odstęp WEWNĄTRZ kontrolki, nie odstęp układu; ta sama
+     klasa wartości co `gap: 1px` w nagłówku osi czasu. */
+  gap: 2px;
+  width: 64px;
+  height: 64px;
   border: 1px solid var(--c-line);
-  border-radius: var(--radius);
+  border-radius: var(--radius-card);
   background: var(--c-surface);
-  color: var(--c-text-2);
+  color: var(--c-text-3);
+  font-size: var(--t-caption);
+  font-weight: var(--w-medium);
+  line-height: 1.1;
+  white-space: nowrap;
   text-decoration: none;
   cursor: pointer;
 }
-.ikona-btn:hover { background: var(--c-surface-hover); color: var(--c-text); }
+.kal-btn:hover { background: var(--c-surface-hover); color: var(--c-text); }
+.kal-btn--on {
+  background: var(--c-accent-soft);
+  border-color: var(--c-accent-soft);
+  color: var(--c-accent-text);
+  font-weight: var(--w-semibold);
+}
+.kal-btn--on:hover { background: var(--c-accent-soft); color: var(--c-accent-text); }
+/* Strzałka ma samą ikonę, więc jest ciemniejsza od podpisanych: w kwadracie bez napisu to ikona
+   jest jedyną treścią i musi mieć wagę treści, a nie etykiety. */
+.kal-btn--ikona { color: var(--c-text-2); }
+.kal-btn__etykieta { display: block; }
+
+/* ⚠ **Wąski ekran: kwadraty maleją, zanim cokolwiek wyjedzie za kartę.** Próg policzony,
+   nie wzięty z oka: prawa strona to dwie grupy po trzy kwadraty (3 × 64 + 2 × 8 = 208 px każda)
+   plus `--s-6` między nimi, czyli **448 px**; lewa to para strzałek (136 px) i kontrolka wyboru
+   osób (ok. 180 px) z odstępem `--s-4`, czyli **332 px**; razem z odstępem między stronami
+   **812 px**. Poniżej tego wiersz i tak się zawija (`flex-wrap`), ale kwadraty 64 px zaczynają
+   wypychać grupy do trzeciej linii — przy 48 px te same dwie grupy mieszczą się w 352 px.
+   ⚠ Kontener to sam nagłówek, bo pasek nie leży w `.card__body` — nie ma nad sobą kontenera
+   `karta`. */
+@container kalnav (max-width: 812px) {
+  .kal-btn { width: 48px; height: 48px; gap: 1px; font-size: var(--t-label); }
+  .kal-nav__prawa { gap: var(--s-4); }
+}
+/* Przeglądarka bez zapytań kontenerowych dostaje próg od okna — gorzej dobrany, ale nigdy
+   kwadraty wypychające grupy poza kartę. */
+@supports not (container-type: inline-size) {
+  @media (max-width: 1100px) { .kal-btn { width: 48px; height: 48px; gap: 1px; font-size: var(--t-label); } }
+}
 
 /* ⚠ Ikona OBOK podpisu w przełączniku, nie zamiast niego: w 16 px sylwetka jednej osoby i grupy
    są bardzo podobne, a pomyłka znaczy, że człowiek patrzy na inne dane, niż myśli.
    ⚠ 6 px to odstęp ikony od podpisu **wewnątrz kontrolki**, nie odstęp układu — ta sama klasa
    wartości co `border-radius: 6px` dwie reguły wyżej w tym samym komponencie. */
-.segmented__item { gap: 6px; }
-.segmented__item .ico { width: 16px; height: 16px; }
 
 /* ——— kalendarz zespołu: wiersze to osoby, kolumny to dni ————————————————————
    ⚠ Dlaczego nie kilka siatek miesiąca obok siebie: przy planowaniu urlopów pytanie brzmi

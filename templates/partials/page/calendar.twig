@@ -43,13 +43,11 @@
         zaokrąglenia rogów czyni element kontenerem przewijanym, a wtedy przyklejony nagłówek dni
         przykleja się do niego i zjeżdża pod pierwsze nazwisko (zmierzone na prototypie). -#}
     <div class="bloki">
-        {#- ⚠ **Nazwa okresu i zdanie o nieobecnościach są w JEDNYM BLOKU TYTUŁU** — od 13.10.2026
-            dosłownie w jednym pudełku (`kal-nav__tytul`), a nie w dwóch pojemnikach jeden pod drugim
-            (zlecenie `2026-10-13-kalendarz-naglowek-i-ksztalt-miesiaca.md` §1). Zdanie jedzie do wiersza
-            nawigacji jako `podtytul`, a `card__head` z tej gałęzi **zniknęło**: po przeniesieniu treści
-            zostawał pusty pojemnik z samą wyściółką (28 px zmierzone na `widok=ja`). ⚠ `:empty` go nie
-            łapie, bo zawiera biały znak — więc pojemnik ma się NIE RENDEROWAĆ, a nie być ukrywany
-            arkuszem: ukrycie regułą wróciłoby przy pierwszej zmianie szablonu.
+        {#- ⚠ **Cały blok nagłówka powstaje w JEDNYM partialu** (`naglowek-kalendarza.twig`,
+            od 17.10.2026): nazwa okresu i legenda w pierwszym wierszu, strzałki, kontrolka wyboru osób,
+            skala i widok w drugim, a między nimi kreska. Ten partial nie dostaje już żadnych parametrów —
+            **zdanie o liczbie nieobecności zniknęło** (decyzja Krzysztofa, zlecenie Z8), a razem z nim
+            `podtytul` i klasa `.card__sub`. Liczby zostają w modelu, bo mierzy je bramka.
             ⚠ Ten sam blok w tej samej kolejności w KAŻDEJ gałęzi ekranu (Miesiąc, Rok, Lista,
             Zespół, Firma): dwa układy zależne od skali to ta sama niespójność, którą rozpad
             na bloki miał usunąć.
@@ -59,47 +57,31 @@
             (zmierzone — uzasadnienie przy regule w `30-components.css`). -#}
         {#- ⚠ Bez dopisku „— cała firma" / „— zespół": o tym, czyje nieobecności widać,
             mówią już przełącznik widoku, znacznik firmy w belce i zdanie pod siatką.
-            ⚠ Nazwy okresu tu NIE MA — stoi raz, w bloku tytułu nad tym zdaniem.
-            ⚠ **Liczba nieobecności W POKAZANYM ZAKRESIE** (§4a.2 zlecenia z 08.10). Bez niej
-            administrator z pytaniem „kto wypada w tym miesiącu" musiał przewinąć trzydzieści
-            pustych wierszy, żeby znaleźć jedyną nieobecność w 29. wierszu. „Brak nieobecności"
-            mówimy wprost — pusto, bo nikogo nie ma, nie może wyglądać tak samo jak pusto,
-            bo nie doszedłem do wiersza z danymi. -#}
-        {% set podtytul %}{% if zespol.nieobecnosci == 0 %}Brak nieobecności w tym miesiącu u {{ zespol.osob_pokazanych }} {{ odmiana_osob_d(zespol.osob_pokazanych) }} na liście.{% else %}{{ zespol.nieobecnosci }} {{ odmiana_nieobecnosci(zespol.nieobecnosci) }} w tym miesiącu u {{ zespol.osob_z_nieobecnoscia }} {{ odmiana_osob_d(zespol.osob_z_nieobecnoscia) }} z {{ zespol.osob_pokazanych }} pokazanych.{% endif %}{% endset %}
+            ⚠ **Zdanie o liczbie nieobecności zniknęło 17.10.2026** (Z8). Stało tu od 08.10 i miało
+            dobry powód — administrator z pytaniem „kto wypada w tym miesiącu" musiał przewinąć
+            trzydzieści pustych wierszy, żeby znaleźć jedyną nieobecność w 29. wierszu. Decyzja
+            Krzysztofa jest nowsza; `zespol.nieobecnosci` i `osob_z_nieobecnoscia` zostają
+            w modelu, bo mierzy je bramka, ale na ekranie ich nie ma. -#}
         <section class="card card--panel">
-            {% include 'partials/nawigacja-kalendarza.twig' with {'podtytul': podtytul} %}
-            {#- ⚠ **Legenda stoi w BLOKU NAGŁÓWKA, w tym samym miejscu we wszystkich czterech
-                widokach** (zlecenie Z7 z 17.10.2026, decyzja Krzysztofa po prototypie). Odwraca to
-                §2 zlecenia z 13.10, które kazało jej stać „przy tym, czego dotyczy" — nad siatką
-                na Zespole i pod listą wpisów w Miesiącu. Nowe rozstrzygnięcie: legenda opisuje
-                **rodzaje nieobecności**, a te są wspólne dla wszystkich skal i widoków, więc stoi
-                tam, gdzie reszta rzeczy wspólnych. Jeden partial, jedno miejsce, zero kopii.
-                `card__body--tight` zdejmuje górną wyściółkę, bo odstęp dał już wiersz nawigacji. -#}
-            <div class="card__body card__body--tight">
-                {% include 'partials/legenda-kalendarza.twig' %}
-            </div>
-            {#- ⚠ `card__body--tight` i tutaj z tego samego powodu: nad kontrolką wyboru osób stoi
-                już legenda z własną wyściółką. -#}
-            <div class="card__body card__body--tight">
-                {#- Kontrolka wyboru osób: natywne `<details>`, więc działa bez JavaScriptu.
-                    ⚠ Lista zawiera WYŁĄCZNIE osoby, które wolno oglądać — powstaje po stronie
-                    serwera z hierarchii. Zaznaczenie to filtr, nie uprawnienie: serwer sprawdza
-                    zakres przy każdym żądaniu, więc podmieniona wartość niczego nie doda. -#}
-                <details class="menu menu--wybor">
-                    <summary class="menu__trigger menu__trigger--tekst">{% if ukryci > 0 or obciete > 0 %}Widać {{ wybrane|length }} z {{ w_zasiegu }} {{ odmiana_osob_d(w_zasiegu) }}{% else %}Wszystkie osoby: {{ w_zasiegu }}{% endif %}</summary>
-                    {% include 'fragments/calendar-picker.twig' with {'htmx': htmx|default(false)} %}
-                </details>
-                {#- ⚠ **TRZY POWODY NIEPEŁNEJ LISTY = TRZY RÓŻNE ZDANIA** (zlecenie §4.4). Jedno
-                    zdanie na trzy przypadki to ten sam błąd co „pusto z filtra i pusto z braku
-                    danych wyglądają tak samo": człowiek nie wie, czy czegoś nie widzi, bo sam to
-                    odznaczył, bo lista jest przycięta, czy bo dalej nie sięga. -#}
-                {% if obciete > 0 %}
-                    <p class="notice" role="status">Pokazuję {{ wybrane|length }} z {{ w_zasiegu }} {{ odmiana_osob_d(w_zasiegu) }} — zawęź wybór w kontrolce powyżej. To limit wyświetlania, nie filtr: nikogo nie ukryto na stałe.</p>
-                {% endif %}
-                {% if ukryci > 0 %}
-                    <p class="notice" role="status">Filtr ukrył {{ ukryci }} z {{ w_zasiegu }} {{ odmiana_osob_d(w_zasiegu) }} w Twoim zasięgu. Zaznacz je w kontrolce powyżej, żeby wróciły na kalendarz.</p>
-                {% endif %}
-            </div>
+            {% include 'partials/naglowek-kalendarza.twig' %}
+            {#- ⚠ **Kontrolka wyboru osób wyszła do nagłówka** (drugi wiersz, za strzałkami —
+                zlecenie Z8); tutaj zostają same komunikaty o niepełnej liście.
+                ⚠ Pojemnik powstaje TYLKO wtedy, gdy któryś z nich ma się pokazać — inaczej
+                zostałaby pusta wyściółka pod kreską, a `:empty` jej nie łapie (biały znak).
+                ⚠ **TRZY POWODY NIEPEŁNEJ LISTY = TRZY RÓŻNE ZDANIA** (zlecenie §4.4 z 08.10).
+                Jedno zdanie na trzy przypadki to ten sam błąd co „pusto z filtra i pusto z braku
+                danych wyglądają tak samo": człowiek nie wie, czy czegoś nie widzi, bo sam to
+                odznaczył, bo lista jest przycięta, czy bo dalej nie sięga. -#}
+            {% if obciete > 0 or ukryci > 0 %}
+                <div class="card__body card__body--tight">
+                    {% if obciete > 0 %}
+                        <p class="notice" role="status">Pokazuję {{ wybrane|length }} z {{ w_zasiegu }} {{ odmiana_osob_d(w_zasiegu) }} — zawęź wybór w kontrolce powyżej. To limit wyświetlania, nie filtr: nikogo nie ukryto na stałe.</p>
+                    {% endif %}
+                    {% if ukryci > 0 %}
+                        <p class="notice" role="status">Filtr ukrył {{ ukryci }} z {{ w_zasiegu }} {{ odmiana_osob_d(w_zasiegu) }} w Twoim zasięgu. Zaznacz je w kontrolce powyżej, żeby wróciły na kalendarz.</p>
+                    {% endif %}
+                </div>
+            {% endif %}
         </section>
         {% if zespol.wiersze is empty %}
             {#- Siatka z nagłówkiem kolumn i bez ani jednego wiersza wygląda jak usterka układu,
@@ -182,29 +164,17 @@
             · objaśnienia. Blok to zwyczajna `.card` — nie nowy komponent; pojemnik `.bloki` nie
             rysuje już ani tła, ani ramki. -#}
         <div class="bloki">
-        {#- ⚠ **Nazwa okresu i zdanie o nieobecnościach są w JEDNYM BLOKU TYTUŁU** — od 13.10.2026
-            dosłownie w jednym pudełku (`kal-nav__tytul`), a nie w dwóch pojemnikach jeden pod
-            drugim (zlecenie `2026-10-13-kalendarz-naglowek-i-ksztalt-miesiaca.md` §1). Zdanie
-            jedzie do wiersza nawigacji jako `podtytul`, a `card__head` z tej gałęzi **zniknęło**:
-            po przeniesieniu treści zostawał pusty pojemnik z samą wyściółką (28 px zmierzone).
-            ⚠ `:empty` go nie łapie, bo zawiera biały znak — więc pojemnik ma się NIE RENDEROWAĆ,
-            a nie być ukrywany arkuszem: ukrycie regułą wróciłoby przy pierwszej zmianie szablonu.
+        {#- ⚠ **Cały blok nagłówka powstaje w JEDNYM partialu** (`naglowek-kalendarza.twig`,
+            od 17.10.2026): nazwa okresu i legenda w pierwszym wierszu, strzałki, skala i widok w drugim,
+            a między nimi kreska. Partial nie dostaje żadnych parametrów — **zdanie o liczbie nieobecności
+            zniknęło** (decyzja Krzysztofa, zlecenie Z8), a razem z nim `podtytul` i klasa `.card__sub`.
+            Liczby zostają w modelu, bo mierzy je bramka.
             ⚠ Ten sam blok w tej samej kolejności w KAŻDEJ gałęzi ekranu (Miesiąc, Rok, Lista,
             Zespół, Firma): dwa układy zależne od skali to ta sama niespójność, którą rozpad
             na bloki miał usunąć. -#}
         {#- ⚠ Nazwy okresu („Rok 2026") w tym zdaniu NIE MA — stoi raz, w tytule nad nim. -#}
-        {% set podtytul %}{% if rok.nieobecnosci == 0 %}Nie masz nieobecności w tym roku.{% else %}{{ rok.nieobecnosci }} {{ odmiana_nieobecnosci(rok.nieobecnosci) }} w tym roku · {{ rok.dni_robocze }} {{ rok.dni_robocze == 1 ? 'dzień roboczy' : 'dni roboczych' }}.{% endif %}{% endset %}
         <section class="card">
-            {% include 'partials/nawigacja-kalendarza.twig' with {'podtytul': podtytul} %}
-            {#- ⚠ **Legenda ZOSTAJE W BLOKU NAGŁÓWKA — tylko tu, w skali Roku.** Na „Zespole"
-                wyszła 13.10.2026 nad siatkę, bo tam opisuje jedną siatkę pod spodem; tutaj
-                siatek jest dwanaście i legenda dotyczy wszystkich. ⚠ Nie ruszam jej także
-                dlatego, że §4a zlecenia z 13.10 jest w tej sprawie dosłowny: „nie zmieniaj
-                kalendarza w wersji rok bo jest dobry". `card__body--tight` zdejmuje górną
-                wyściółkę, bo odstęp dał już wiersz nawigacji. -#}
-            <div class="card__body card__body--tight">
-                {% include 'partials/legenda-kalendarza.twig' %}
-            </div>
+            {% include 'partials/naglowek-kalendarza.twig' %}
         </section>
         {#- ⚠ `card--os` także tutaj: dwanaście pudełek nie przewija się samo, ale zakaz
             `overflow: hidden` obowiązuje w całej rodzinie bloków kalendarza — jeden wyjątek
@@ -238,23 +208,16 @@
             wykonanie zostawiło Miesiąc i Listę jedną kartą, bo zlecenie wymieniało Zespół i Rok;
             skutek był taki, że **jeden ekran miał dwa układy zależne od skali**. -#}
         <div class="bloki">
-        {#- ⚠ **Nazwa okresu i zdanie o nieobecnościach są w JEDNYM BLOKU TYTUŁU** — od 13.10.2026
-            dosłownie w jednym pudełku (`kal-nav__tytul`), a nie w dwóch pojemnikach jeden pod
-            drugim (zlecenie `2026-10-13-kalendarz-naglowek-i-ksztalt-miesiaca.md` §1). Zdanie
-            jedzie do wiersza nawigacji jako `podtytul`, a `card__head` z tej gałęzi **zniknęło**:
-            po przeniesieniu treści zostawał pusty pojemnik z samą wyściółką (28 px zmierzone).
-            ⚠ `:empty` go nie łapie, bo zawiera biały znak — więc pojemnik ma się NIE RENDEROWAĆ,
-            a nie być ukrywany arkuszem: ukrycie regułą wróciłoby przy pierwszej zmianie szablonu.
+        {#- ⚠ **Cały blok nagłówka powstaje w JEDNYM partialu** (`naglowek-kalendarza.twig`,
+            od 17.10.2026): nazwa okresu i legenda w pierwszym wierszu, strzałki, skala i widok w drugim,
+            a między nimi kreska. Partial nie dostaje żadnych parametrów — **zdanie o liczbie nieobecności
+            zniknęło** (decyzja Krzysztofa, zlecenie Z8), a razem z nim `podtytul` i klasa `.card__sub`.
+            Liczby zostają w modelu, bo mierzy je bramka.
             ⚠ Ten sam blok w tej samej kolejności w KAŻDEJ gałęzi ekranu (Miesiąc, Rok, Lista,
             Zespół, Firma): dwa układy zależne od skali to ta sama niespójność, którą rozpad
             na bloki miał usunąć. -#}
-        {% set podtytul %}{% if lista_roku.nieobecnosci == 0 %}Nie masz nieobecności w tym roku.{% else %}{{ lista_roku.nieobecnosci }} {{ odmiana_nieobecnosci(lista_roku.nieobecnosci) }} w tym roku · {{ lista_roku.dni_robocze }} {{ lista_roku.dni_robocze == 1 ? 'dzień roboczy' : 'dni roboczych' }}.{% endif %}{% endset %}
         <section class="card">
-            {% include 'partials/nawigacja-kalendarza.twig' with {'podtytul': podtytul} %}
-            {#- ⚠ **Legenda w tym samym miejscu, co w pozostałych trzech widokach** (Z7). -#}
-            <div class="card__body card__body--tight">
-                {% include 'partials/legenda-kalendarza.twig' %}
-            </div>
+            {% include 'partials/naglowek-kalendarza.twig' %}
         </section>
         {#- ⚠ Blok z tabelą **obcina treść** (zwyczajna `.card`, bez `card--os`): tabela dochodzi
             do krawędzi bloku, więc jej narożniki muszą być przycięte promieniem. Wyjątek
@@ -286,26 +249,16 @@
         dat i liczbę dni roboczych musi nieść lista stojąca przy niej. Rozdzielone na dwa
         pudełka były jedną informacją w dwóch miejscach (zlecenie 13.10 §2). -#}
     <div class="bloki">
-    {#- ⚠ **Nazwa okresu i zdanie o nieobecnościach są w JEDNYM BLOKU TYTUŁU** — od 13.10.2026
-        dosłownie w jednym pudełku (`kal-nav__tytul`), a nie w dwóch pojemnikach jeden pod
-        drugim (zlecenie `2026-10-13-kalendarz-naglowek-i-ksztalt-miesiaca.md` §1). Zdanie
-        jedzie do wiersza nawigacji jako `podtytul`, a `card__head` z tej gałęzi **zniknęło**:
-        po przeniesieniu treści zostawał pusty pojemnik z samą wyściółką (28 px zmierzone).
-        ⚠ `:empty` go nie łapie, bo zawiera biały znak — więc pojemnik ma się NIE RENDEROWAĆ,
-        a nie być ukrywany arkuszem: ukrycie regułą wróciłoby przy pierwszej zmianie szablonu.
+    {#- ⚠ **Cały blok nagłówka powstaje w JEDNYM partialu** (`naglowek-kalendarza.twig`,
+        od 17.10.2026): nazwa okresu i legenda w pierwszym wierszu, strzałki, skala i widok w drugim,
+        a między nimi kreska. Partial nie dostaje żadnych parametrów — **zdanie o liczbie nieobecności
+        zniknęło** (decyzja Krzysztofa, zlecenie Z8), a razem z nim `podtytul` i klasa `.card__sub`.
+        Liczby zostają w modelu, bo mierzy je bramka.
         ⚠ Ten sam blok w tej samej kolejności w KAŻDEJ gałęzi ekranu (Miesiąc, Rok, Lista,
         Zespół, Firma): dwa układy zależne od skali to ta sama niespójność, którą rozpad
         na bloki miał usunąć. -#}
-    {% set podtytul %}{% if ja.nieobecnosci == 0 %}Nie masz nieobecności w tym miesiącu.{% else %}{{ ja.nieobecnosci }} {{ odmiana_nieobecnosci(ja.nieobecnosci) }} w tym miesiącu.{% endif %}{% endset %}
     <section class="card">
-        {% include 'partials/nawigacja-kalendarza.twig' with {'podtytul': podtytul} %}
-        {#- ⚠ **Legenda wróciła do bloku nagłówka 17.10.2026** (Z7) — cztery dni wcześniej zeszła
-            stąd pod listę wpisów „przy tym, czego dotyczy". Nowe rozstrzygnięcie: opisuje rodzaje
-            nieobecności, wspólne dla wszystkich widoków, więc stoi tam, gdzie rzeczy wspólne.
-            Pojemnik nie jest już pusty, bo legenda jest jego treścią. -#}
-        <div class="card__body card__body--tight">
-            {% include 'partials/legenda-kalendarza.twig' %}
-        </div>
+        {% include 'partials/naglowek-kalendarza.twig' %}
     </section>
     {#- ⚠ **Zwyczajna `.card`, BEZ `card--os`.** Wyjątek `card--os` (brak `overflow: hidden`)
         należy do bloku z OSIĄ CZASU, gdzie nagłówek dni się przykleja i gdzie przycięcie

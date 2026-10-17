@@ -1,0 +1,147 @@
+{#- **Blok nagłówka kalendarza — JEDNA karta, DWA wiersze rozdzielone kreską** (zlecenie Z8
+    z 17.10.2026, prototyp powstawał w kilku krokach w przeglądarce Krzysztofa).
+
+    Wiersz 1: nazwa okresu po lewej, legenda rodzajów po prawej.
+    Wiersz 2: strzałki okresu (i kontrolka wyboru osób) po lewej, skala czasu i widok po prawej.
+
+    ⚠ **Plik zmienił nazwę z `nawigacja-kalendarza.twig`**, bo zmienił zakres: do 17.10 renderował
+    sam wiersz sterowania, teraz jest CAŁĄ treścią bloku nagłówka — z legendą i kontrolką wyboru
+    osób włącznie. Nazwa mówiąca „nawigacja" kłamałaby o trzech czwartych zawartości.
+
+    ⚠ **Zdania pod tytułem już nie ma** („Nie masz nieobecności w tym miesiącu", „36 nieobecności
+    u 27 osób z 53 pokazanych"). Decyzja Krzysztofa; liczby zostają w modelu, bo mierzy je bramka,
+    ale z nagłówka schodzą. Razem ze zdaniem znikł parametr `podtytul` i klasa `.card__sub`.
+
+    ⚠ **Przyciski są OSOBNYMI KWADRATAMI, nie pigułką `.segmented`** — i to nie jest zmiana
+    komponentu, tylko inny komponent: `.segmented` stoi na czterech innych ekranach (przełącznik
+    roku na pulpicie i w wykazie nieobecności, zakres uprawnień osoby) i tam ma zostać taki, jaki
+    jest. Kwadraty z ikoną i podpisem to `.kal-btn`, rodzina `.kal-*` razem z tym nagłówkiem.
+
+    ⚠ **Strzałki mają TEN SAM kształt, co pozostałe przyciski** (64 × 64, ta sama ramka i promień),
+    tylko bez podpisu. Wcześniej były mniejszymi `.ikona-btn` i w jednym rzędzie z większymi
+    kontrolkami wyglądały jak element innego ekranu.
+    ⚠ Strzałki **obok siebie, po lewej**: przeskok o okres w tył i w przód to jedna czynność,
+    a nazwa okresu ma zmienną szerokość — para postawiona przy nazwie przesuwałaby się przy
+    każdym kliknięciu (zgłoszenie Krzysztofa z 11.10.2026).
+
+    ⚠ **Etykieta strzałki mówi o tym, co naprawdę przeskakuje.** W skali Rok i Lista krok to ROK
+    (`okres()` liczy go z bieżącej skali), więc „Poprzedni miesiąc" byłby nieprawdą — i nieprawdą
+    niewidoczną na obrazku, bo ikona jest ta sama.
+
+    ⚠ **Nazwa okresu jedzie w OBU wariantach powłoki, reszta tylko w webowym.** Powłoka mobilna
+    nie ma tej nawigacji (pasek akcji stał w `fragments/calendar.twig`, którego ona nie dołącza)
+    i nie dostaje jej w tej turze — wiersz ośmiu kwadratów na 374 px to osobna decyzja. Ale nazwa
+    okresu była tam nagłówkiem karty, więc gdyby wyjechała razem ze strzałkami, mobilny ekran
+    straciłby miesiąc, czyli jedyną informację o tym, co pokazuje siatka.
+    ⚠ Dlatego **drugi wiersz powstaje tylko wtedy, gdy ma co pokazać**: w powłoce mobilnej jest
+    w nim wyłącznie kontrolka wyboru osób, a na „Tylko ja" nie ma jej wcale — wtedy wiersza nie ma.
+
+    Zmienne z kontekstu: okres, widok, skala, skale, pozycji_widoku, zatrudnienie, ma_zespol,
+    ma_firme, wybrane, w_zasiegu, ukryci, obciete; opcjonalnie `htmx`. -#}
+{% import 'partials/ikony.twig' as ikony %}
+{% set hx_cel = '#kalendarz' %}
+{% set hx_sposob = 'innerHTML show:none' %}
+{#- ⚠ **Bez `&spolka=`** (zlecenie `2026-10-10-globalny-wybor-spolki.md` §1): spółkę niesie
+    znacznik w belce, więc odnośnik okresu i widoku nie może być drugim źródłem tej samej prawdy.
+    Przychodzące `?spolka=` nadal honorujemy — przez jedno żądanie, jako widok. -#}
+{#- ⚠ Skala jedzie w KAŻDYM adresie tego ekranu: bez tego kliknięcie „Następny" w skali roku
+    wracałoby do miesiąca, czyli przełącznik gubiłby stan przy pierwszym użyciu. -#}
+{% set ogon = skala != 'miesiac' ? '&skala=' ~ skala : '' %}
+{% set adres_poprz = url('/kalendarz') ~ '?widok=' ~ widok ~ '&miesiac=' ~ okres.poprzedni ~ ogon %}
+{% set adres_nast = url('/kalendarz') ~ '?widok=' ~ widok ~ '&miesiac=' ~ okres.nastepny ~ ogon %}
+{% set okres_slowo = skala in ['rok', 'lista'] ? 'rok' : 'miesiąc' %}
+<div class="kal-nav">
+    <div class="kal-nav__gora">
+        <h2 class="card__title">{{ okres.nazwa|capitalize }}</h2>
+        {% include 'partials/legenda-kalendarza.twig' %}
+    </div>
+    {% if variant == 'web' or widok != 'ja' %}
+        <div class="kal-nav__dol">
+            <div class="kal-nav__lewa">
+                {% if variant == 'web' %}
+                    <div class="kal-grupa">
+                        <a class="kal-btn kal-btn--ikona" href="{{ adres_poprz }}"
+                           aria-label="Poprzedni {{ okres_slowo }}" title="Poprzedni {{ okres_slowo }}"
+                           hx-get="{{ adres_poprz }}" hx-target="{{ hx_cel }}" hx-swap="{{ hx_sposob }}"
+                           hx-push-url="true">{{ ikony.szewron_lewo() }}</a>
+                        <a class="kal-btn kal-btn--ikona" href="{{ adres_nast }}"
+                           aria-label="Następny {{ okres_slowo }}" title="Następny {{ okres_slowo }}"
+                           hx-get="{{ adres_nast }}" hx-target="{{ hx_cel }}" hx-swap="{{ hx_sposob }}"
+                           hx-push-url="true">{{ ikony.szewron() }}</a>
+                    </div>
+                {% endif %}
+                {#- ⚠ **Kontrolka wyboru osób stoi ZA STRZAŁKAMI, w lewej części drugiego wiersza** —
+                    rozstrzygnięcie moje, zlecenie zostawiło je do decyzji. Powód: to kontrolka
+                    ZAKRESU, czyli tej samej klasy co strzałki (co pokazujemy), a nie kształtu
+                    (jak skala i widok po prawej). Po prawej rozpychałaby grupę przycisków
+                    i przy wąskim ekranie zawijała się razem z nimi, mieszając dwie osie.
+                    ⚠ Natywne `<details>`, więc działa bez JavaScriptu. Lista zawiera WYŁĄCZNIE
+                    osoby, które wolno oglądać — powstaje po stronie serwera z hierarchii.
+                    Zaznaczenie to filtr, nie uprawnienie: serwer sprawdza zakres przy każdym
+                    żądaniu, więc podmieniona wartość niczego nie doda. -#}
+                {% if widok != 'ja' %}
+                    <details class="menu menu--wybor">
+                        <summary class="menu__trigger menu__trigger--tekst">{% if ukryci > 0 or obciete > 0 %}Widać {{ wybrane|length }} z {{ w_zasiegu }} {{ odmiana_osob_d(w_zasiegu) }}{% else %}Wszystkie osoby: {{ w_zasiegu }}{% endif %}</summary>
+                        {% include 'fragments/calendar-picker.twig' with {'htmx': htmx|default(false)} %}
+                    </details>
+                {% endif %}
+            </div>
+            {#- ⚠ Prawa strona powstaje TYLKO wtedy, gdy ma co pokazać. Na „Firmie" oglądanej
+                z konta bez zatrudnienia nie ma ani skali (serwer i tak wraca do miesiąca), ani
+                przełącznika widoku (jedna pozycja to przycisk bez działania) — a pusty pojemnik
+                z `justify-content: flex-end` zostawiał w drugim wierszu dziurę o wysokości 0,
+                która przy pierwszym dołożeniu czegokolwiek zamieniłaby się w widoczny odstęp
+                (zmierzone: `kal-nav__prawa h=0` na `widok=firma`). -#}
+            {% if variant == 'web' and (skale is not empty or pozycji_widoku > 1) %}
+                <div class="kal-nav__prawa">
+                    {#- ⚠ **Skala stoi tylko przy „Tylko ja"**, bo tylko tam coś zmienia — przy zespole
+                        i firmie serwer i tak wraca do miesiąca. Pozycje przychodzą gotowe
+                        z kontrolera (`skale`); szablon nie rozstrzyga, które stany ekranu istnieją. -#}
+                    {% if skale is not empty %}
+                        <div class="kal-grupa" role="group" aria-label="Skala czasu">
+                            {% for s in skale %}
+                                {% set adres_s = url('/kalendarz') ~ '?widok=ja&miesiac=' ~ okres.miesiac ~ (s.kod != 'miesiac' ? '&skala=' ~ s.kod : '') %}
+                                <a class="kal-btn{{ skala == s.kod ? ' kal-btn--on' : '' }}" href="{{ adres_s }}"
+                                   hx-get="{{ adres_s }}" hx-target="{{ hx_cel }}" hx-swap="{{ hx_sposob }}"
+                                   hx-push-url="true"{% if skala == s.kod %} aria-current="true"{% endif %}>{#- ⚠ Ikona wybierana JAWNYM warunkiem, nie wywołaniem makra po nazwie ze zmiennej:
+                                       trzy gałęzie widać w pliku i da się je wygrepować, a `attribute(ikony, …)`
+                                       to dynamiczne wywołanie po napisie — ta sama rodzina co zakaz
+                                       `{% include zmienna %}` z CLAUDE.md §5. -#}{% if s.kod == 'miesiac' %}{{ ikony.skala_miesiac() }}{% elseif s.kod == 'rok' %}{{ ikony.skala_rok() }}{% else %}{{ ikony.skala_lista() }}{% endif %}<span class="kal-btn__etykieta">{{ s.nazwa }}</span></a>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    {#- ⚠ **Przełącznik istnieje od DWÓCH pozycji**, nie od jednej (§3 zlecenia z wieczora
+                        06.10): kontrolka z jedną pozycją „Firma" to przycisk bez działania. Każda
+                        pozycja istnieje tylko wtedy, gdy ma treść — „Tylko ja" przy zatrudnieniu,
+                        „Zespół" przy podwładnych, „Firma" przy nadanym poziomie widoczności.
+                        O dostępie decyduje serwer, nie obecność przycisku.
+                        ⚠ **Ikona NAD podpisem, nie zamiast niego**: w 18 px sylwetka jednej osoby
+                        i grupy są bardzo podobne, a pomyłka znaczy, że człowiek patrzy na inne dane,
+                        niż myśli. -#}
+                    {% if pozycji_widoku > 1 %}
+                        {% set adres_ja = url('/kalendarz') ~ '?widok=ja&miesiac=' ~ okres.miesiac ~ ogon %}
+                        {% set adres_zespol = url('/kalendarz') ~ '?widok=zespol&miesiac=' ~ okres.miesiac %}
+                        {% set adres_firma = url('/kalendarz') ~ '?widok=firma&miesiac=' ~ okres.miesiac %}
+                        <div class="kal-grupa" role="group" aria-label="Czyj kalendarz">
+                            {% if zatrudnienie is not null %}
+                                <a class="kal-btn{{ widok == 'ja' ? ' kal-btn--on' : '' }}" href="{{ adres_ja }}"
+                                   hx-get="{{ adres_ja }}" hx-target="{{ hx_cel }}" hx-swap="{{ hx_sposob }}"
+                                   hx-push-url="true"{% if widok == 'ja' %} aria-current="true"{% endif %}>{{ ikony.konto() }}<span class="kal-btn__etykieta">Tylko ja</span></a>
+                            {% endif %}
+                            {% if ma_zespol %}
+                                <a class="kal-btn{{ widok == 'zespol' ? ' kal-btn--on' : '' }}" href="{{ adres_zespol }}"
+                                   hx-get="{{ adres_zespol }}" hx-target="{{ hx_cel }}" hx-swap="{{ hx_sposob }}"
+                                   hx-push-url="true"{% if widok == 'zespol' %} aria-current="true"{% endif %}>{{ ikony.zespol() }}<span class="kal-btn__etykieta">Zespół</span></a>
+                            {% endif %}
+                            {% if ma_firme %}
+                                <a class="kal-btn{{ widok == 'firma' ? ' kal-btn--on' : '' }}" href="{{ adres_firma }}"
+                                   hx-get="{{ adres_firma }}" hx-target="{{ hx_cel }}" hx-swap="{{ hx_sposob }}"
+                                   hx-push-url="true"{% if widok == 'firma' %} aria-current="true"{% endif %}>{{ ikony.firma() }}<span class="kal-btn__etykieta">Firma</span></a>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>
