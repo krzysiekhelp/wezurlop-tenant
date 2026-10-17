@@ -64,7 +64,7 @@ card__body--tight	30-components.css		TYLKO_NOWY	2	2		partials/page/calendar.twig
 card__foot	10-base.css 20-layout-mobile.css 30-components.css		TYLKO_NOWY	10	1		fragments/employee-absences.twig,fragments/hierarchy-person.twig,page/install/installer.twig,page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/data-employees.twig,…
 card__head	20-layout-mobile.css 30-components.css		TYLKO_NOWY	19	2		fragments/employee-absences.twig,fragments/hierarchy-person.twig,page/install/installer.twig,page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/connect.twig,…
 card__head--akcja	30-components.css		TYLKO_NOWY	1	2		partials/page/requests.twig
-card__meta	30-components.css		TYLKO_NOWY	15	2		fragments/hierarchy-person.twig,page/web/admin-integration.twig,page/web/data-calendar.twig,page/web/data-employee.twig,page/web/data-sync-run.twig,page/web/group.twig,…
+card__meta	30-components.css		TYLKO_NOWY	16	2		fragments/hierarchy-person.twig,page/web/admin-integration.twig,page/web/data-calendar.twig,page/web/data-employee.twig,page/web/data-sync-run.twig,page/web/group.twig,…
 card__title	30-components.css		TYLKO_NOWY	13	2		fragments/employee-absences.twig,fragments/hierarchy-person.twig,page/web/admin-integration.twig,page/web/connect.twig,page/web/data-calendar.twig,page/web/data-employee.twig,…
 cell--kontrolka	30-components.css		TYLKO_NOWY	3	1		fragments/person-row.twig,page/web/admin-accounts.twig,page/web/settings-companies.twig
 cell--osoba	30-components.css		TYLKO_NOWY	2	1		fragments/person-row.twig,page/web/settings-companies.twig
@@ -226,7 +226,7 @@ kafel__reszta	30-components.css		TYLKO_NOWY	1	2		partials/page/dashboard.twig
 kafel__wartosc	30-components.css		TYLKO_NOWY	1	2		partials/page/dashboard.twig
 kafel__wartosc--brak	30-components.css		TYLKO_NOWY	1	2		partials/page/dashboard.twig
 kafel__wartosc--odchylenie	30-components.css		TYLKO_NOWY	1	2		partials/page/dashboard.twig
-kafle	20-layout-mobile.css 30-components.css		TYLKO_NOWY	1	2		partials/page/dashboard.twig
+kafle	30-components.css		TYLKO_NOWY	1	2		partials/page/dashboard.twig
 kal-btn	30-components.css		TYLKO_NOWY	1	2		partials/naglowek-kalendarza.twig
 kal-btn--ikona	30-components.css		TYLKO_NOWY	1	2		partials/naglowek-kalendarza.twig
 kal-btn--on	30-components.css		MARTWA_REGULA	0	0		

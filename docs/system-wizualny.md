@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.1, 17.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.2, 17.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -10,6 +10,23 @@ co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej ju
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
 
+> **Zmiany 1.18.1 → 1.18.2:**
+> **(1)** **`.kafle` NIE JEST kartą.** Pasek kafli na pulpicie nie ma tła, ramki, cienia ani
+> wyściółki — kafle stoją wprost na tle strony, a krawędzie skrajnych równają się z krawędziami
+> kart niżej. Karta wokół kafli-kart to ramka w ramce: białe tło paska i białe tło kafelka zlewały
+> się w jedną plamę, a 2 × 24 px wyściółki zjadało szerokość kafli. Zmierzone po zmianie: kafelek
+> rośnie z 242 do 250 px przy 1920, z 157 do 343 px przy 1366 (trzy kolumny) i ze 149 do 165 px
+> w powłoce telefonu, a wysokość paska spada ze 164 do 114 px. Odstęp pod paskiem daje `gap`
+> kolumny `.page`, więc jest taki sam, co między kartami — bez własnej reguły.
+> **(2)** ⚠ **W napisach dla użytkownika używamy wyłącznie znaków, które SA w hostowanym podzbiorze
+> kroju.** Zmierzone 17.10.2026: podzbiór IBM Plex Sans nie ma glifów ← → ≠ ≥ ⚠ ✕ — wszystkie
+> rysują się jako pusty prostokąt (`.notdef`), a `unicode-range` w arkuszu jest tu bez winy, bo
+> pliku z tymi glifami po prostu nie ma. Strzałki zastępuje słowo („Ustawienia, w sekcji Poczta"),
+> krzyżyk — `×` (U+00D7, jest w podzbiorze), a znak uwagi znika z treści. **Lista dozwolonych
+> znaków rozszerza się świadomie, osobnym zleceniem** (podzbiór trzeba zbudować od nowa
+> z oryginalnego kroju) — nie przy okazji pisania zdania. W komentarzach kodu ⚠ zostaje: tam nic
+> się nie renderuje.
+>
 > **Zmiana 1.18 → 1.18.1:** z §1 znika zapowiedź arkusza **`40-screens.css`** („wyjątki per
 > ekran"). Nigdy nie powstał i nie jest potrzebny: wyjątki ekranowe stoją w `30-components.css`,
 > przy komponencie, którego dotyczą, i mają tam komentarz z powodem — czyli dokładnie to, co

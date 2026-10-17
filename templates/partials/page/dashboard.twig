@@ -15,10 +15,16 @@
         </div>
     </section>
 {% else %}
-    {#- **Pasek sześciu kafli — JEDNA karta, w środku sześć osobnych pudełek** (zlecenie Z15
-        z 17.10.2026, prototyp w przeglądarce Krzysztofa). Komponent `.kafle` / `.kafel`, rodzina
+    {#- **Pasek sześciu kafli — sześć osobnych pudełek wprost na tle strony** (Z15 i Z20
+        z 17.10.2026, prototypy w przeglądarce Krzysztofa). Komponent `.kafle` / `.kafel`, rodzina
         `.kafel-*`, język wizualny ten sam co `.kal-btn` z nagłówka kalendarza: ramka 1 px,
-        promień 10 px, tło karty.
+        promień 10 px, tło karty — ale na KAFLU, nie wokół paska.
+
+        ⚠ **`.kafle` NIE JEST kartą** i brak klasy `card` nie jest przeoczeniem (Z20): karta wokół
+        kafli-kart to ramka w ramce — białe tło paska i białe tło kafelka zlewały się w jedną plamę,
+        a 2 × 24 px wyściółki zjadało szerokość kafli. Krawędzie skrajnych kafli równają się
+        z krawędziami kart niżej, bo pasek i karty są rodzeństwem w tej samej kolumnie `.page`,
+        a odstęp pod paskiem daje jej `gap` — ten sam, co między kartami.
 
         ⚠ **To NIE jest `.stats` z modyfikatorem.** Do 17.10 pasek stał na `.stats stats--duze`,
         czyli na komponencie z PIONOWYMI KRESKAMI między polami i bez ikon. Modyfikator rósł
@@ -33,7 +39,7 @@
         który rysunek należy do którego kafelka, i da się to wygrepować.
         ⚠ Kolejność kafli jest kolejnością z serwisu (`pulpit.kafelki`), a nie z tego pliku —
         szablon nie rozstrzyga, co jest ważniejsze. -#}
-    <section class="card kafle" aria-label="Podsumowanie urlopów">
+    <section class="kafle" aria-label="Podsumowanie urlopów">
         {% for k in pulpit.kafelki %}
             <div class="kafel">
                 <span class="kafel__glowa">{% if k.kod == 'pozostalo' %}{{ ikony.kartka_kalendarza() }}{% elseif k.kod == 'wykorzystane' %}{{ ikony.zegar() }}{% elseif k.kod == 'najblizsza' %}{{ ikony.termin() }}{% elseif k.kod == 'nieobecnosci' %}{{ ikony.kalendarz_wiersze() }}{% elseif k.kod == 'wnioski' %}{{ ikony.wnioski() }}{% elseif k.kod == 'synchronizacja' %}{{ ikony.odswiezenie() }}{% endif %}<span class="kafel__etykieta">{{ k.klucz }}</span></span>

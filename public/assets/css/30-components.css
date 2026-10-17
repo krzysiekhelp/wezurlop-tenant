@@ -3276,12 +3276,16 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 
    ⚠ Język wizualny jest TEN SAM co `.kal-btn` z nagłówka kalendarza (Z8): ramka 1 px `--c-line`,
    promień `--radius-card`, tło `--c-surface`. Dwa paski na dwóch ekranach mają wyglądać na
-   rodzeństwo, a nie na dwie epoki tego samego systemu. */
+   rodzeństwo, a nie na dwie epoki tego samego systemu.
+
+   ⚠ **Pasek NIE JEST kartą** (Z20, 17.10.2026): bez tła, ramki, cienia i wyściółki. Karta wokół
+   kafli-kart to ramka w ramce — białe tło paska i białe tło kafelka zlewały się w jedną plamę,
+   a 2 × 24 px wyściółki zjadało szerokość kafli. Element zostaje, bo nosi `container-type`
+   i siatkę; odstęp pod paskiem daje `gap` kolumny `.page`, więc jest taki sam, jak między kartami. */
 .kafle {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: var(--s-3);
-  padding: var(--s-5);
 }
 .kafel {
   display: flex;
