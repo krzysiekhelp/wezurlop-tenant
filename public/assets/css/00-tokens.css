@@ -63,6 +63,24 @@
   --c-pasek-kadrowe-tlo:     #E7EAEF;
   --c-pasek-kadrowe-tekst:   #4A5160;
   --c-neutral-soft:   #F0F2F5;   /* plakietka stanu obojętnego */
+
+  /* ——— błękit „DZIŚ" ———————————————————————————————————————————————————————
+     ⚠ **Jedyne zastosowanie błękitu w całej aplikacji** (1.18.4, 17.10.2026, prototyp
+     zatwierdzony przez Krzysztofa). Zieleń znaczy AKCJĘ, bursztyn i czerwień znaczą STAN,
+     pastele kalendarza znaczą RODZAJ nieobecności — dzień dzisiejszy nie jest żadną z tych
+     rzeczy, więc dostaje własną barwę, której nie wolno użyć do niczego innego. Użycie go
+     w drugim miejscu znaczy, że „dziś" przestaje być rozpoznawalne jednym spojrzeniem.
+     Zmierzone kontrasty (policzone z tych wartości, nie z oka): numer `--c-dzis-text` na tle
+     `--c-dzis-bg` **7,55** (próg tekstu 4,5), a ramka „dziś" w `--c-dzis-text` na tłach rodzaju:
+     urlop **7,44**, zwolnienie **7,59**, kadrowe **7,35**, dzień wolny **7,90**, kratka zwykła
+     **8,64** (próg znaku graficznego 3,0 — WCAG 1.4.11).
+     ⚠ Samo tło `--c-dzis-bg` ma do kratki zwykłej kontrast ~1,1, czyli tyle, co pastele rodzajów
+     (1,12–1,21). To NIE jest niedopatrzenie, tylko ta sama klasa znaku: wypełnienie mówi „ten
+     dzień jest inny", a czytelność niesie TEKST na nim — dokładnie jak w nazwanym wyjątku 1.14
+     systemu wizualnego. Rozpoznawalność „dziś" bierze się z barwy, której nie ma nigdzie indziej. */
+  --c-dzis-bg:        #E3EEFB;   /* tło kratki dnia dzisiejszego — i nic innego */
+  --c-dzis-line:      #BBD3F2;   /* ramka tej kratki */
+  --c-dzis-text:      #1B4A86;   /* numer dnia dzisiejszego i ramka na tle rodzaju */
   /* ⚠ **Token `--c-dzis` (#EDEFF2) został usunięty 11.10.2026 wieczorem** i jest to zapisane
      tutaj, a nie przemilczane, bo jego historia jest regułą na przyszłość. Powstał rano jako
      obwódka dnia dzisiejszego, z warunkiem liczbowym: kontrast do tła wiersza **1,152** wobec

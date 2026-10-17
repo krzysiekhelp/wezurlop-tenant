@@ -1902,7 +1902,10 @@ body:has(dialog.modal[open]) { overflow: hidden; }
      Drugie pudełko tej samej wysokości to `.team-grid__numer`. */
   width: 26px;
   height: 26px;
-  color: var(--c-accent-text);
+  /* ⚠ Numer dnia dzisiejszego w błękicie „dziś" (Z23), nie w zieleni akcji: zieleń znaczy
+     AKCJĘ, a dzisiejsza data nie jest niczym, co się klika. Ten sam kolor niesie ramka
+     na dniu z nieobecnością, więc znacznik jest jedną rzeczą w dwóch postaciach. */
+  color: var(--c-dzis-text);
   font-weight: var(--w-semibold);
 }
 
@@ -1929,26 +1932,22 @@ body:has(dialog.modal[open]) { overflow: hidden; }
    Pseudoelement nie potrzebuje `relative`: komórka jest kontenerem zapytania
    (`container-type: inline-size`), co samo w sobie czyni ją blokiem zawierającym dla potomków
    pozycjonowanych bezwzględnie. */
-.team-grid__head--dzis { color: var(--c-accent-text); }
+.team-grid__head--dzis { color: var(--c-dzis-text); }
 /* ⚠ Skrót dnia tygodnia ma WŁASNY kolor (`--c-text-4`), więc nie dziedziczy akcentu z komórki —
    a dzień dzisiejszy bywa dniem wolnym (dziś, 17.10.2026, jest sobotą) i wtedy `--free` wygasza
    go jeszcze mocniej. Obie rzeczy nadpisujemy wprost, zamiast liczyć na kolejność reguł. */
 .team-grid__head--dzis .team-grid__dow,
 .team-grid__head--dzis.team-grid__head--free,
-.team-grid__head--dzis.team-grid__head--free .team-grid__dow { color: var(--c-accent-text); }
-/* ⚠ Ten sam znacznik, co w siatce miesiąca i roku — przerywany, bo „dziś" ma wyglądać wszędzie
-   tak samo (Z21). Tu zostaje pseudoelement zamiast `outline`, bo komórka nagłówka jest
-   `position: sticky` i obrys na niej wędrowałby razem z przyklejeniem.
-   ⚠ `inset: 3px`, nie 4 px jak przesunięcie w siatce: kolumna dnia ma 26 px szerokości, a przy
-   4 px linia dotykała dwucyfrowego numeru (zmierzone). Różnica jednego piksela jest niewidoczna
-   obok siebie, a kolizja była widoczna od razu. */
-.team-grid__head--dzis::after {
-  content: "";
-  position: absolute;
-  inset: 3px;
-  border: 1.5px dashed var(--c-accent);
-  border-radius: 6px;
-  pointer-events: none;
+.team-grid__head--dzis.team-grid__head--free .team-grid__dow { color: var(--c-dzis-text); }
+/* ⚠ Ten sam znacznik, co w siatce miesiąca i roku: **błękitne tło i ramka na samej komórce**
+   (Z23). Pseudoelement zniknął — tło nie potrzebuje warstwy nad treścią, a jedna rzecz mniej
+   to jedna rzecz mniej do utrzymania przy `position: sticky`.
+   ⚠ W nagłówku NIE MA wypełnienia rodzaju (rodzaje są w komórkach pod nim), więc nie ma czemu
+   oddawać pierwszeństwa; dzień wolny maluje tu wyłącznie kolor tekstu, który i tak nadpisujemy
+   niżej. Dlatego w nagłówku błękit zostaje także w sobotę i niedzielę. */
+.team-grid__head--dzis {
+  background: var(--c-dzis-bg);
+  box-shadow: inset 0 0 0 1px var(--c-dzis-line);
 }
 
 /* ⚠ **Pasek w osi czasu ma WYPEŁNIENIE W KOLORZE RODZAJU** — zlecenie
@@ -3139,18 +3138,33 @@ body:has(dialog.modal[open]) { overflow: hidden; }
    na każdym z pięciu teł kratki (biel, szarość dnia wolnego, trzy pastele rodzaju).
    ⚠ Promień NIE jest podawany — kratka ma swój (`--radius` w Roku, `--radius-card` w Miesiącu)
    i cień wewnętrzny bierze go sam. Osobna wartość byłaby drugim miejscem do rozjechania się. */
-/* ⚠ **Znacznik „dziś" to PRZERYWANA linia wewnątrz kratki** (Z21, 17.10.2026, decyzja Krzysztofa
-   po porównaniu trzech wariantów na żywo). Pełna obwódka 2 px czytała się jak ZAZNACZENIE albo
-   jak ramka kontrolki — przerywana mówi „to jest dziś", a nie „to jest wybrane".
-   ⚠ `outline`, nie `box-shadow` i nie `border`: obrys nie wchodzi w układ (nie przesuwa treści
-   kratki, jak zrobiłby `border`) i rysuje się NAD wypełnieniem rodzaju, więc widać go także
-   na pokolorowanym dniu. Ujemny `outline-offset` wciąga linię do środka — bez tego obrys
-   wychodziłby poza kratkę i zderzał się z sąsiadką o 1 px odstępu.
-   ⚠ Kolor `--c-accent`, nie `--c-accent-text`: ten pierwszy ma zmierzony kontrast ≥ 3:1 do
-   wszystkich pięciu teł kratki (zwykłe, dzień wolny, urlop, zwolnienie, kadrowe). */
+/* ⚠ **Znacznik „dziś" to BŁĘKITNE TŁO kratki** (Z23, 17.10.2026, prototyp zatwierdzony przez
+   Krzysztofa po porównaniu trzech wariantów na żywo: pełna obwódka → przerywana → tło).
+   Obwódka — i pełna, i przerywana — czytała się jak ZAZNACZENIE albo jak ramka kontrolki;
+   wypełnienie mówi „ten dzień jest inny" tym samym językiem, co pastele rodzajów, tylko barwą,
+   której nie ma nigdzie indziej w aplikacji (`--c-dzis-*`, patrz 00-tokens.css).
+
+   ⚠ **Wypełnienie RODZAJU ma pierwszeństwo** (zlecenie Z23): gdy dziś wypada w dzień
+   z nieobecnością albo w dzień wolny, tło zostaje tamto, a „dziś" niesie wtedy sama ramka 1 px
+   w `--c-dzis-text` i numer w tym samym kolorze. Inaczej błękit zasłaniałby RODZAJ nieobecności,
+   czyli daną, a znacznik nawigacyjny nie ma prawa wygrywać z daną (nazwany wyjątek 1.14).
+   ⚠ Selektory łączone (dwie klasy) są tu konieczne, nie ozdobne: reguły rodzajów stoją w pliku
+   WYŻEJ i mają tę samą swoistość, więc samo `--dzis` nadpisałoby je kolejnością. */
 .msiatka__kratka--dzis {
-  outline: 1.5px dashed var(--c-accent);
-  outline-offset: -4px;
+  background: var(--c-dzis-bg);
+  box-shadow: inset 0 0 0 1px var(--c-dzis-line);
+  color: var(--c-dzis-text);
+}
+.msiatka__kratka--dzis.msiatka__kratka--wolny   { background: var(--c-neutral-soft); }
+.msiatka__kratka--dzis.msiatka__kratka--urlop   { background: var(--c-pasek-urlop-tlo); }
+.msiatka__kratka--dzis.msiatka__kratka--zasilek { background: var(--c-pasek-zwolnienie-tlo); }
+.msiatka__kratka--dzis.msiatka__kratka--kadrowe { background: var(--c-pasek-kadrowe-tlo); }
+.msiatka__kratka--dzis.msiatka__kratka--wolny,
+.msiatka__kratka--dzis.msiatka__kratka--urlop,
+.msiatka__kratka--dzis.msiatka__kratka--zasilek,
+.msiatka__kratka--dzis.msiatka__kratka--kadrowe {
+  box-shadow: inset 0 0 0 1px var(--c-dzis-text);
+  color: var(--c-dzis-text);
 }
 
 /* ——— MIESIĄC dla jednej osoby: siatka tygodniowa + lista wpisów obok ————————————

@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.3, 17.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.4, 17.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -10,6 +10,35 @@ co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej ju
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
 
+> **Zmiana 1.18.3 → 1.18.4: znacznik „dziś” to BŁĘKITNE TŁO kratki** — trzeci i ostatni
+> kształt tego znacznika w ciągu jednego dnia (pełna obwódka → przerywana → tło), wybrany przez
+> Krzysztofa po porównaniu wszystkich trzech na żywo. Obwódka — i pełna, i przerywana — czytała
+> się jak ZAZNACZENIE albo ramka kontrolki; wypełnienie mówi „ten dzień jest inny” tym samym
+> językiem, co pastele rodzajów.
+> **Nowe tokeny:** `--c-dzis-bg` `#E3EEFB`, `--c-dzis-line` `#BBD3F2`, `--c-dzis-text` `#1B4A86`.
+> ⚠ **Błękit jest JEDYNYM zastosowaniem tej barwy w aplikacji i nie wolno go użyć do niczego
+> innego.** Zieleń znaczy akcję, bursztyn i czerwień znaczą stan, pastele znaczą rodzaj
+> nieobecności — dzień dzisiejszy nie jest żadną z tych rzeczy, więc dostaje własną barwę.
+> Użycie jej w drugim miejscu odbiera „dziś” rozpoznawalność jednym spojrzeniem.
+> ⚠ **Wypełnienie RODZAJU ma pierwszeństwo.** Gdy dziś wypada w dzień z nieobecnością albo
+> w dzień wolny, tło zostaje tamto, a „dziś” niesie **sama ramka 1 px w `--c-dzis-text`**
+> i numer w tym samym kolorze. Znacznik nawigacyjny nie ma prawa zasłonić danej — to ta sama
+> zasada, co w nazwanym wyjątku 1.14.
+> ⚠ **Zmierzone kontrasty** (próg tekstu 4,5; próg znaku graficznego 3,0 — WCAG 1.4.11):
+>
+> | co | na czym | kontrast |
+> |---|---|---|
+> | numer `--c-dzis-text` | tło `--c-dzis-bg` | **7,55** |
+> | ramka `--c-dzis-text` | urlop | **7,44** |
+> | ramka `--c-dzis-text` | zwolnienie | **7,59** |
+> | ramka `--c-dzis-text` | kadrowe | **7,35** |
+> | ramka `--c-dzis-text` | dzień wolny | **7,90** |
+> | ramka `--c-dzis-text` | kratka zwykła | **8,64** |
+> | wypełnienie `--c-dzis-bg` | kratka zwykła | 1,10 |
+>
+> Ostatni wiersz jest niski świadomie: wypełnienie należy do tej samej klasy znaków, co pastele
+> rodzajów (1,12–1,21), a czytelność niesie TEKST na nim — dokładnie jak w wyjątku 1.14.
+>
 > **Zmiana 1.18.2 → 1.18.3:** znacznik „dziś” to **linia PRZERYWANA wewnątrz kratki**, nie pełna
 > obwódka (decyzja Krzysztofa po porównaniu trzech wariantów na żywo). Pełna obwódka 2 px czytała
 > się jak ZAZNACZENIE albo ramka kontrolki; przerywana mówi „to jest dziś”, a nie „to jest

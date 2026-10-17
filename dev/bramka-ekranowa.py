@@ -213,6 +213,58 @@ def sciezki_web() -> list[str]:
 # ⚠ Strzałki okresu nie mają TEKSTU od Z8 — mają `aria-label` („Poprzedni miesiąc", „Poprzedni
 # rok"), bo etykieta zależy od skali. Dlatego selektor idzie po `aria-label`, nie po treści,
 # i nie po `.page__actions`, którego w ogóle już nie ma.
+# ——— kontrola negatywna ————————————————————————————————————————————————————
+# ⚠ **Kryterium, którego nikt nie złamał, jest ozdobą, nie bramką** (tura Z22, 17.10.2026).
+# Dziesięć kryteriów świeciło czerwono przez tydzień i nikt tego nie zauważył — bo czerwień
+# bez dowodu, że kryterium W OGÓLE potrafi zapalić się z właściwego powodu, niczego nie znaczy.
+# Dlatego każde przepięte kryterium ma tu **wstrzykiwaną usterkę**: skrypt wykonywany przed
+# kodem strony, który psuje dokładnie tę jedną rzecz, o którą kryterium pyta. Tryb `kontrola`
+# uruchamia je po kolei i wymaga, żeby każde kryterium z usterką dało `ok: False`.
+#
+# ⚠ Usterka wchodzi przez `add_init_script`, a nie przez `<style>` ani atrybut `style=`:
+# nagłówek CSP aplikacji nie dopuszcza stylów w znaczniku (§13 CLAUDE.md), więc wstrzyknięcie
+# arkusza blokowałaby przeglądarka i „kontrola" mierzyłaby CSP zamiast kryterium. CSSOM
+# (`insertRule`) i zmiana klas są poza CSP, bo nie są treścią dokumentu.
+USTERKI: dict[str, str] = {}
+
+
+def nowy_kontekst(b, usterka: str | None = None, **kwargs):
+    """Kontekst przeglądarki, opcjonalnie z wstrzykniętą usterką (tryb `kontrola`)."""
+    ctx = b.new_context(**kwargs)
+    if usterka:
+        if usterka not in USTERKI:
+            raise KeyError(f"nieznana usterka kontrolna: {usterka}")
+        ctx.add_init_script(USTERKI[usterka])
+    return ctx
+
+
+def _usterka(nazwa: str, cialo: str) -> None:
+    """Rejestruje usterkę: ciało wykonuje się po zbudowaniu DOM-u i po każdej wymianie fragmentu."""
+    USTERKI[nazwa] = (
+        "(() => { const psuj = () => { try {" + cialo + "} catch (e) {} };\n"
+        "  if (document.readyState !== 'loading') { psuj(); }\n"
+        "  document.addEventListener('DOMContentLoaded', psuj);\n"
+        "  window.addEventListener('load', psuj);\n"
+        "  document.addEventListener('htmx:afterSwap', psuj); })();"
+    )
+
+
+# Znacznik „dziś": drugi dzień dostaje tę samą klasę — „dziś" przestaje być jednym dniem.
+_usterka("znacznik_dzis", """
+    const kratki = document.querySelectorAll('.msiatka__kratka');
+    const dzis = document.querySelector('.msiatka__kratka--dzis');
+    if (dzis) {
+      const inna = [...kratki].find(k => k !== dzis && !k.className.includes('--poza'));
+      if (inna) { inna.classList.add('msiatka__kratka--dzis'); }
+    }
+    const naglowki = document.querySelectorAll('.team-grid__head');
+    const nd = document.querySelector('.team-grid__head--dzis');
+    if (nd) {
+      const inny = [...naglowki].find(h => h !== nd && !h.className.includes('--person'));
+      if (inny) { inny.classList.add('team-grid__head--dzis'); }
+    }
+""")
+
 SEL_POPRZEDNI = ".kal-nav a.kal-btn[aria-label^='Poprzedni']"
 SEL_NASTEPNY = ".kal-nav a.kal-btn[aria-label^='Następny']"
 # Dowolny odnośnik okresu w nagłówku kalendarza (strzałka albo przycisk skali).
@@ -3914,64 +3966,91 @@ POMIAR_DZIS = r"""() => {
             pr: r.height > 0 ? Math.round(r.width / r.height * 100) / 100 : null};
   };
 
-  // Tło odniesienia: komórka/kratka bez nieobecności i bez znacznika dnia.
-  const czysta = [...document.querySelectorAll('.team-grid__cell, .kwartal__kratka, .rok__dzien')]
-    .find(e => !/--(urlop|zasilek|kadrowe|dzis|poza)/.test(e.className));
+  // ⚠ Tło odniesienia: kratka BEZ rodzaju i BEZ znacznika dnia — to wobec niej mierzymy,
+  // czy „dziś" w ogóle widać. W osi czasu rolę kratki pełni komórka dnia.
+  const czysta = [...document.querySelectorAll('.msiatka__kratka, .team-grid__cell')]
+    .find(e => !/--(urlop|zasilek|kadrowe|dzis|wolny|poza)/.test(e.className));
   const tlo = czysta ? efektywne(czysta) : 'rgb(255, 255, 255)';
 
-  const znacznik = document.querySelector(
-    '.team-grid__cell--dzis, .kwartal__kratka--dzis, .rok__dzien--dzis');
-  const nieobecnosc = document.querySelector(
-    '.team-grid__bar, .kwartal__kratka--urlop, .kwartal__kratka--zasilek, .kwartal__kratka--kadrowe, '
-    + '.rok__dzien--urlop, .rok__dzien--zasilek, .rok__dzien--kadrowe');
+  // ⚠ **Znacznik „dziś" to WYPEŁNIENIE kratki** (Z23, 17.10.2026) — wcześniej była obwódka,
+  // więc kolor czytano z `box-shadow`. Teraz czytamy OBA: tło niesie rozpoznanie, a ramka
+  // (`box-shadow: inset`) obrysowuje je i przejmuje całą robotę na dniu z nieobecnością.
+  const kratkiDzis = [...document.querySelectorAll('.msiatka__kratka--dzis')];
+  const naglowkiDzis = [...document.querySelectorAll('.team-grid__head--dzis')];
+  const znacznik = kratkiDzis[0] || naglowkiDzis[0] || null;
+  const opis = (el) => {
+    if (!el) { return null; }
+    const st = getComputedStyle(el);
+    const n = el.querySelector('.dzien-dzis');
+    const ramka = kolorCienia(el);
+    const tloEl = efektywne(el);
+    return {
+      tlo: tloEl,
+      ramka,
+      numer_kolor: n ? getComputedStyle(n).color : st.color,
+      // Numer czytamy NA JEGO WŁASNYM tle (wypełnienie kratki), bo tam go widać.
+      kontrast_numeru: kontrast(n ? getComputedStyle(n).color : st.color, tloEl),
+      // Ramka wobec tła kratki — to ona oddziela „dziś" od rodzaju pod spodem.
+      kontrast_ramki: ramka ? kontrast(ramka, tloEl) : null,
+      // Wypełnienie wobec kratki zwykłej — czy „dziś" w ogóle odróżnia się od sąsiadów.
+      kontrast_wypelnienia: kontrast(tloEl, tlo),
+    };
+  };
 
-  // ⚠ **Sonda nieobecności** — bo znacznik „dziś" istnieje tylko w BIEŻĄCYM miesiącu, a dane
-  // nieobecności są tam, gdzie je zapisały kadry: zmierzone na koncie pomiarowym, że październik
-  // 2026 i IV kwartał nie mają ani jednej nieobecności, więc porównanie „znacznik kontra pasek"
-  // nie miałoby w tych widokach drugiej strony. Sonda to element wstawiony w PRAWDZIWY kontener
-  // siatki — czyta ten sam arkusz, i jest usuwana. Ta sama droga, co przy kontraście pasteli.
-  const sondy = {};
-  const gniazdo = document.querySelector('.rok') ? ['.rok', 'div', 'rok__dzien']
-    : (document.querySelector('.kwartal__siatka') ? ['.kwartal__siatka', 'div', 'kwartal__kratka']
-    : (document.querySelector('.team-grid__cell') ? ['.team-grid__cell', 'span', 'team-grid__bar'] : null));
-  if (gniazdo) {
-    const rodzic = document.querySelector(gniazdo[0]);
-    ['urlop', 'zasilek', 'kadrowe'].forEach(r => {
-      const el = document.createElement(gniazdo[1]);
-      el.className = gniazdo[2] + ' ' + gniazdo[2] + '--' + r;
-      rodzic.appendChild(el);
-      sondy[r] = kontrast(efektywne(el), tlo);
-      el.remove();
+  // ⚠ **Pierwszeństwo rodzaju** (Z23): gdy dziś wypada w dzień z nieobecnością albo wolny,
+  // wypełnienie ma zostać RODZAJU, a „dziś" niesie sama ramka. Sprawdzamy to podstawieniem klasy
+  // na żywej kratce — tego nie da się zmierzyć czekaniem, aż kalendarz sam taki dzień pokaże.
+  const naRodzaju = {};
+  if (kratkiDzis[0]) {
+    const k = kratkiDzis[0];
+    const byly = k.className;
+    ['urlop', 'zasilek', 'kadrowe', 'wolny'].forEach(r => {
+      k.className = byly + ' msiatka__kratka--' + r;
+      const wzor = document.createElement('div');
+      wzor.className = 'msiatka__kratka msiatka__kratka--' + r;
+      k.parentElement.appendChild(wzor);
+      const tloRodzaju = efektywne(wzor);
+      wzor.remove();
+      const o = opis(k);
+      naRodzaju[r] = {
+        tlo: o.tlo,
+        tlo_rodzaju: tloRodzaju,
+        // Reguła: tło kratki „dziś" z rodzajem = tło samego rodzaju (rodzaj wygrywa).
+        rodzaj_wygrywa: o.tlo === tloRodzaju,
+        ramka: o.ramka,
+        numer_kolor: o.numer_kolor,
+        kontrast_ramki: o.kontrast_ramki,
+        kontrast_numeru: o.kontrast_numeru,
+      };
     });
+    k.className = byly;
   }
-  const naglowek = document.querySelector('.team-grid__head--dzis');
+
+  const naglowek = naglowkiDzis[0] || null;
   const inneNaglowki = [...document.querySelectorAll('.team-grid__head')]
     .filter(e => !e.classList.contains('team-grid__head--dzis')
                  && !e.classList.contains('team-grid__head--person'));
 
   // Kratka do pomiaru kształtu: pierwsza prawdziwa (nie „poza miesiącem").
-  const kratka = document.querySelector('.kwartal__kratka:not(.kwartal__kratka--poza)')
-              || document.querySelector('.rok__dzien:not(.rok__dzien--poza)')
+  const kratka = document.querySelector('.msiatka__kratka:not(.msiatka__kratka--poza)')
               || document.querySelector('.team-grid__cell');
 
   return {
     tlo_odniesienia: tlo,
-    sondy_nieobecnosci: sondy,
-    znacznik_jest: !!znacznik,
-    znacznik_kolor: znacznik ? kolorCienia(znacznik) : null,
-    znacznik_kontrast: znacznik && kolorCienia(znacznik) ? kontrast(kolorCienia(znacznik), tlo) : null,
-    nieobecnosc_kontrast: nieobecnosc ? kontrast(efektywne(nieobecnosc), tlo) : null,
+    // ⚠ **Dokładnie jeden znacznik na widok** (tura kryteriów Z22): dwa znaczniki znaczą, że
+    // „dziś" przestało być jednym dniem — a to najczęstszy objaw błędu w wyliczaniu zakresu.
+    znacznikow_w_siatce: kratkiDzis.length,
+    znacznikow_w_naglowku: naglowkiDzis.length,
+    znacznik: opis(znacznik),
+    na_rodzaju: naRodzaju,
     naglowek_dzis: !!naglowek,
     // ⚠ Nie wystarczy, że klasa jest: nagłówek musi się **różnić** od pozostałych nagłówków —
     // klasa bez reguły w arkuszu przeszłaby sprawdzenie na samej obecności.
     naglowek_rozni_sie: !!naglowek && inneNaglowki.length > 0 && (
-      getComputedStyle(naglowek).boxShadow !== getComputedStyle(inneNaglowki[0]).boxShadow
-      || getComputedStyle(naglowek).fontWeight !== getComputedStyle(inneNaglowki[0]).fontWeight),
+      efektywne(naglowek) !== efektywne(inneNaglowki[0])
+      || getComputedStyle(naglowek).boxShadow !== getComputedStyle(inneNaglowki[0]).boxShadow),
     kratka: kratka ? pros(kratka) : null,
     kratka_font: kratka ? getComputedStyle(kratka).fontSize : null,
-    wysokosc_dokumentu: document.documentElement.scrollHeight,
-    okno: window.innerHeight,
-    przewija_w_pionie: document.documentElement.scrollHeight > window.innerHeight + 1,
     przewija_w_poziomie: document.documentElement.scrollWidth > document.documentElement.clientWidth,
   };
 }"""
@@ -3998,36 +4077,36 @@ def nazwy_znacznika_dzis() -> dict:
     return rdzenie
 
 
-def sprawdz_znacznik_dzis(b) -> dict:
-    """**Znacznik „dziś" i kształt kratki dnia** (zlecenie `2026-10-11-poprawki-skale-i-znacznik-dzis.md`).
+def sprawdz_znacznik_dzis(b, usterka: str | None = None) -> dict:
+    """**Znacznik „dziś": jeden na widok, czytelny i ustępujący rodzajowi** (Z23 + tura Z22).
 
-    ⚠ **Pięć twierdzeń, każde łamane osobno** (§3 zlecenia):
-      1. `slabszy_od_danej` — w KAŻDYM z trzech widoków kontrast znacznika „dziś" do tła jest
-         **mniejszy** od kontrastu nieobecności do tła. ⚠ Z pułapem w drugą stronę: znacznik
-         o kontraście 1,0 (zniknięty) też jest błędem. Powód tej usterki był zmierzony: dawny
-         znacznik miał **1,430** przy pasku 1,191 — wskazówka nawigacyjna była najmocniejszym
-         znakiem na ekranie, którego treścią są nieobecności,
-      2. `jedna_nazwa` — w szablonach i arkuszach jest **jedna** nazwa klasy znacznika
-         (`--dzis`), a nie dwie (`--today` zero wystąpień). Liczone w całych katalogach,
-      3. `w_naglowku` — na osi czasu numer dnia dzisiejszego jest wyróżniony **w nagłówku**,
-         i to różnicą wobec pozostałych nagłówków, nie samą obecnością klasy,
-      4. `kratka_ksztalt` — kratka Kwartału i Roku mieści się w pasmie proporcji wokół dnia
-         z Miesiąca; mierzone **obie** granice,
-      5. `rok_bez_przewijania` — widok Roku mieści się bez **pionowego** przewijania strony
-         przy szerokich oknach bramki (1920 × 1080 i 1440 × 900). ⚠ Przy 374 × 812 podajemy
-         liczbę, a nie warunek: na powłoce mobilnej przewija się każdy ekran i wymaganie
-         „bez przewijania" byłoby nieprawdziwe wobec całej reszty aplikacji.
+    ⚠ **Sześć twierdzeń, każde łamane osobno.** Kryterium mierzy REGUŁĘ, nie liczbę z dnia:
+    nie „tło ma być #E3EEFB", tylko „numer da się przeczytać, ramka widać, rodzaj wygrywa
+    z błękitem, a znacznik jest dokładnie jeden".
+      1. `numer_czytelny` — kontrast numeru do jego własnego tła ≥ 4,5 (próg tekstu) w KAŻDYM
+         z trzech widoków i na każdym tle rodzaju,
+      2. `ramka_widoczna` — kontrast ramki „dziś" do tła, na którym leży, ≥ 3,0 (WCAG 1.4.11,
+         ten sam próg co przy paskach w Z6),
+      3. `rodzaj_wygrywa` — gdy dziś wypada w dzień z nieobecnością albo wolny, **wypełnienie
+         zostaje rodzaju**, a „dziś" niesie sama ramka. Mierzone podstawieniem klasy na żywej
+         kratce: inaczej trzeba by czekać, aż kalendarz sam taki dzień pokaże,
+      4. `jeden_znacznik` — dokładnie JEDEN znacznik na widok. Dwa znaczą, że „dziś" przestało
+         być jednym dniem, a to najczęstszy objaw błędu w wyliczaniu zakresu dat,
+      5. `jedna_nazwa` — w szablonach i arkuszach jedna nazwa klasy (`--dzis`), zero `--today`,
+      6. `w_naglowku` — na osi czasu dzień dzisiejszy jest wyróżniony w nagłówku i **różni się**
+         od pozostałych nagłówków, nie tylko ma klasę.
+
+    ⚠ `rok_bez_przewijania` **skasowane** (tura Z22): przewijanie w poziomie mierzy teraz
+    `sprawdz_skale_czasu` na czterech szerokościach, a dwa kryteria pilnujące tej samej rzeczy
+    kompensują się — jedno świeci czerwono, drugie zielono i nie wiadomo, które mówi prawdę.
     """
     haslo = HASLO3 or haslo_dev(LOGIN3)
     if not haslo:
         return {"ok": False, "powod": f"brak hasła konta {LOGIN3} — pomiaru NIE wykonano"}
     nazwy = nazwy_znacznika_dzis()
-    # ⚠ Miesiąc z nieobecnością ORAZ z dniem dzisiejszym: znacznik „dziś" jest tylko w miesiącu
-    # bieżącym, więc pomiar idzie na bieżącym miesiącu, a nie na miesiącu z danymi.
+    # ⚠ Miesiąc BIEŻĄCY: znacznik „dziś" istnieje tylko w nim.
     from datetime import date
     biezacy = date.today().strftime("%Y-%m")
-    # Ta sama ostrożność co w `skale_czasu`: adres niesie spółkę tego zatrudnienia, więc pomiar
-    # nie zależy od kontekstu zostawionego przez inne sprawdzenie.
     try:
         spolka_ja = int(zatrudnienia_pracownika().get("spolka") or 0)
     except Exception:  # noqa: BLE001
@@ -4035,7 +4114,8 @@ def sprawdz_znacznik_dzis(b) -> dict:
     ogon_spolki = f"&spolka={spolka_ja}" if spolka_ja > 0 else ""
     ctx = None
     try:
-        ctx = b.new_context(viewport={"width": 1920, "height": 1080}, ignore_https_errors=True)
+        ctx = nowy_kontekst(b, usterka, viewport={"width": 1920, "height": 1080},
+                            ignore_https_errors=True)
         pg = ctx.new_page()
         pg.goto(BAZA + "/logowanie", wait_until="networkidle")
         pg.fill("#login-email", LOGIN3)
@@ -4049,64 +4129,96 @@ def sprawdz_znacznik_dzis(b) -> dict:
         pomiary = {}
         for etyk, szer, wys in (("1920", 1920, 1080), ("1440", 1440, 900), ("374", 374, 812)):
             pg.set_viewport_size({"width": szer, "height": wys})
-            for skala in ("miesiac", "kwartal", "rok"):
-                ogon = "" if skala == "miesiac" else f"&skala={skala}"
+            for skala in ("miesiac", "rok"):
+                ogon = "" if skala == "miesiac" else "&skala=rok"
                 pg.goto(BAZA + f"/kalendarz?widok=ja&miesiac={biezacy}{ogon}{ogon_spolki}",
                         wait_until="networkidle")
                 pomiary[f"{etyk}-{skala}"] = pg.evaluate(POMIAR_DZIS)
 
-        # 1. znacznik słabszy od danej — w każdym widoku, gdzie oba są na ekranie
-        # ⚠ Porównujemy z **sondą** (trzy rodzaje, ten sam arkusz), a nie tylko z nieobecnością
-        # obecną na ekranie: znacznik „dziś" jest wyłącznie w bieżącym miesiącu, a dane bywają
-        # w innym (zmierzone: październik 2026 bez nieobecności u konta pomiarowego). Tam, gdzie
-        # nieobecność JEST na ekranie, dodatkowo sprawdzamy, że sonda nie kłamie.
-        pary = {k: v for k, v in pomiary.items() if v["znacznik_kontrast"] is not None}
-        slabszy_od_danej = (
-            pary != {}
-            and len({k.split("-")[1] for k in pary}) == 3
-            and all(v["sondy_nieobecnosci"] != {} for v in pary.values())
-            and all(1.0 < v["znacznik_kontrast"] < min(v["sondy_nieobecnosci"].values())
-                    for v in pary.values())
-            and all(abs(v["nieobecnosc_kontrast"] - min(v["sondy_nieobecnosci"].values())) < 0.08
-                    for v in pary.values() if v["nieobecnosc_kontrast"] is not None)
-        )
+        # ⚠ Oś czasu stoi na koncie Z NADANYM poziomem — konto pracownika bez podwładnych
+        # widoku firmy nie dostaje, więc nagłówka „dziś" nie byłoby czym zmierzyć.
+        os_czasu = None
+        spolka_adm = int(dane_paskow().get("spolka") or 0)
+        haslo_adm = HASLO or haslo_dev(LOGIN)
+        if spolka_adm > 0 and haslo_adm:
+            poziom_przed = poziom_kalendarza(spolka_adm, None, LOGIN).get("przed", 0)
+            try:
+                poziom_kalendarza(spolka_adm, 2, LOGIN)
+                ctx_adm = nowy_kontekst(b, usterka, viewport={"width": 1920, "height": 1080},
+                                        ignore_https_errors=True)
+                adm = ctx_adm.new_page()
+                adm.goto(BAZA + "/logowanie", wait_until="networkidle")
+                adm.fill("#login-email", LOGIN)
+                adm.fill("#login-password", haslo_adm)
+                adm.click("button[type=submit]")
+                adm.wait_for_load_state("networkidle")
+                adm.goto(BAZA + f"/kalendarz?widok=firma&miesiac={biezacy}&spolka={spolka_adm}",
+                         wait_until="networkidle")
+                os_czasu = adm.evaluate(POMIAR_DZIS)
+                ctx_adm.close()
+            finally:
+                try:
+                    poziom_kalendarza(spolka_adm, poziom_przed, LOGIN)
+                except Exception:  # noqa: BLE001
+                    pass
+
+        wszystkie = list(pomiary.values()) + ([os_czasu] if os_czasu else [])
+        zeZnacznikiem = [p for p in wszystkie if p["znacznik"] is not None]
+        numery = [p["znacznik"]["kontrast_numeru"] for p in zeZnacznikiem]
+        numery += [r["kontrast_numeru"] for p in zeZnacznikiem for r in p["na_rodzaju"].values()]
+        ramki = [p["znacznik"]["kontrast_ramki"] for p in zeZnacznikiem
+                 if p["znacznik"]["kontrast_ramki"] is not None]
+        ramki_rodzaj = [r["kontrast_ramki"] for p in zeZnacznikiem
+                        for r in p["na_rodzaju"].values() if r["kontrast_ramki"] is not None]
+
+        numer_czytelny = zeZnacznikiem != [] and all(k >= 4.5 for k in numery)
+        # ⚠ Ramka na własnym, błękitnym tle jest SŁABA z założenia (to obrys wypełnienia, nie
+        # znak sam w sobie) — próg 3:1 obowiązuje tam, gdzie ramka JEST znacznikiem, czyli
+        # na dniu z rodzajem. Na kratce zwykłej wymagamy tylko, żeby wypełnienie się odróżniało.
+        ramka_widoczna = ramki_rodzaj != [] and all(k >= 3.0 for k in ramki_rodzaj)
+        wypelnienie_widac = all(p["znacznik"]["kontrast_wypelnienia"] > 1.03 for p in zeZnacznikiem)
+        rodzaj_wygrywa = zeZnacznikiem != [] and all(
+            r["rodzaj_wygrywa"] and r["numer_kolor"] == p["znacznik"]["numer_kolor"]
+            for p in zeZnacznikiem for r in p["na_rodzaju"].values()
+        ) and all(p["na_rodzaju"] != {} for p in pomiary.values())
+        jeden_znacznik = all(p["znacznikow_w_siatce"] == 1 for p in pomiary.values()) and (
+            os_czasu is None or os_czasu["znacznikow_w_naglowku"] == 1)
         jedna_nazwa = nazwy["--today"] == 0 and nazwy["--dzis"] > 0
-        w_naglowku = all(pomiary[f"{e}-miesiac"]["naglowek_dzis"]
-                         and pomiary[f"{e}-miesiac"]["naglowek_rozni_sie"]
-                         for e in ("1920", "1440", "374"))
+        w_naglowku = os_czasu is not None and os_czasu["naglowek_dzis"] and os_czasu["naglowek_rozni_sie"]
         kratki = {k: v["kratka"] for k, v in pomiary.items()
-                  if k.split("-")[1] in ("kwartal", "rok") and v["kratka"] is not None}
+                  if k.endswith("-rok") and v["kratka"] is not None}
         kratka_ksztalt = kratki != {} and all(
             KRATKA_PR_MIN <= v["pr"] <= KRATKA_PR_MAX for v in kratki.values())
-        rok_bez_przewijania = all(
-            pomiary[f"{e}-rok"]["przewija_w_pionie"] is False for e in ("1920", "1440")
-        ) and all(pomiary[f"{e}-rok"]["przewija_w_poziomie"] is False
-                  for e in ("1920", "1440", "374"))
 
         return {
-            "ok": slabszy_od_danej and jedna_nazwa and w_naglowku and kratka_ksztalt
-                  and rok_bez_przewijania,
-            "slabszy_od_danej": slabszy_od_danej,
+            "ok": (numer_czytelny and ramka_widoczna and wypelnienie_widac and rodzaj_wygrywa
+                   and jeden_znacznik and jedna_nazwa and w_naglowku and kratka_ksztalt),
+            "numer_czytelny": numer_czytelny,
+            "ramka_widoczna": ramka_widoczna,
+            "wypelnienie_widac": wypelnienie_widac,
+            "rodzaj_wygrywa": rodzaj_wygrywa,
+            "jeden_znacznik": jeden_znacznik,
             "jedna_nazwa": jedna_nazwa,
             "w_naglowku": w_naglowku,
             "kratka_ksztalt": kratka_ksztalt,
-            "rok_bez_przewijania": rok_bez_przewijania,
             "nazwy_klas": nazwy,
             "miesiac_pomiaru": biezacy,
-            "kontrasty": {k: {"znacznik": v["znacznik_kontrast"], "nieobecnosc": v["nieobecnosc_kontrast"],
-                              "sondy": v["sondy_nieobecnosci"],
-                              "tlo": v["tlo_odniesienia"], "kolor": v["znacznik_kolor"]}
+            "kontrast_numeru": {"min": min(numery) if numery else None, "wszystkie": sorted(set(numery))},
+            "kontrast_ramki_na_rodzaju": {"min": min(ramki_rodzaj) if ramki_rodzaj else None,
+                                          "wszystkie": sorted(set(ramki_rodzaj))},
+            "kontrast_ramki_na_blekicie": sorted(set(ramki)),
+            "na_rodzaju": (zeZnacznikiem[0]["na_rodzaju"] if zeZnacznikiem else {}),
+            "znaczniki": {k: {"w_siatce": v["znacznikow_w_siatce"],
+                              "w_naglowku": v["znacznikow_w_naglowku"],
+                              "tlo": (v["znacznik"] or {}).get("tlo"),
+                              "ramka": (v["znacznik"] or {}).get("ramka"),
+                              "numer": (v["znacznik"] or {}).get("numer_kolor")}
                           for k, v in pomiary.items()},
+            "os_czasu": None if os_czasu is None else {
+                "naglowkow_dzis": os_czasu["znacznikow_w_naglowku"],
+                "rozni_sie": os_czasu["naglowek_rozni_sie"],
+                "tlo": (os_czasu["znacznik"] or {}).get("tlo")},
             "kratki": kratki,
-            "fonty_kratek": {k: v["kratka_font"] for k, v in pomiary.items()
-                             if k.split("-")[1] in ("kwartal", "rok")},
-            "wysokosc_roku": {e: {"dokument": pomiary[f"{e}-rok"]["wysokosc_dokumentu"],
-                                  "okno": pomiary[f"{e}-rok"]["okno"],
-                                  "przewija_w_pionie": pomiary[f"{e}-rok"]["przewija_w_pionie"]}
-                              for e in ("1920", "1440", "374")},
-            "naglowek": {e: {"jest": pomiary[f"{e}-miesiac"]["naglowek_dzis"],
-                             "rozni_sie": pomiary[f"{e}-miesiac"]["naglowek_rozni_sie"]}
-                         for e in ("1920", "1440", "374")},
         }
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "powod": str(e)}
