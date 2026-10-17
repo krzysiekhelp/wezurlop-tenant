@@ -1,7 +1,7 @@
 {#- **Blok nagłówka kalendarza — JEDNA karta, DWA wiersze rozdzielone kreską** (zlecenie Z8
     z 17.10.2026, prototyp powstawał w kilku krokach w przeglądarce Krzysztofa).
 
-    Wiersz 1: nazwa okresu po lewej, legenda rodzajów po prawej.
+    Wiersz 1: nazwa okresu po lewej, legenda rodzajów po prawej (poza skalą „Lista" — patrz niżej).
     Wiersz 2: strzałki okresu (i kontrolka wyboru osób) po lewej, skala czasu i widok po prawej.
 
     ⚠ **Plik zmienił nazwę z `nawigacja-kalendarza.twig`**, bo zmienił zakres: do 17.10 renderował
@@ -60,7 +60,16 @@
 <div class="kal-nav">
     <div class="kal-nav__gora">
         <h2 class="card__title">{{ okres.nazwa|capitalize }}</h2>
-        {% include 'partials/legenda-kalendarza.twig' %}
+        {#- ⚠ **Na skali „Lista" legendy NIE MA** (decyzja Krzysztofa, 17.10.2026). Nie jest to
+            wyjątek estetyczny: Lista to tabela, w której rodzaj nieobecności stoi SŁOWEM
+            („urlop wypoczynkowy", „zwolnienie lekarskie") i nie ma na niej ani jednej
+            pokolorowanej kratki czy paska. Legenda opisywałaby tam cztery kolory, których
+            na ekranie nie ma — czyli dokładnie to, przed czym ostrzega jej własny opis.
+            Na Roku, Miesiącu, Zespole i Firmie zostaje bez zmian, bo tam kolor NIESIE
+            znaczenie i bez legendy jest nieczytelny. -#}
+        {% if skala != 'lista' %}
+            {% include 'partials/legenda-kalendarza.twig' %}
+        {% endif %}
     </div>
     {#- ⚠ **Drugi wiersz jedzie w OBU powłokach — od 17.10.2026 (Z10).** Do tego dnia strzałki
         i przełączniki były wyłącznie webowe, bo powłoka mobilna nigdy nie miała paska akcji;
