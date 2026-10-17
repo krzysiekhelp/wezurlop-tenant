@@ -316,6 +316,46 @@ final class SyncFixtureRepository
     }
 
     /** @return array<string, mixed>|null */
+    /**
+     * Cofnięcie wszystkich domkniętych przebiegów firmy w czasie — tak wygląda firma, która
+     * przestała się synchronizować. Bez tego alert o ciszy dałoby się sprawdzić tylko czekaniem.
+     */
+    public function cofnijPrzebiegiFirmy(int $companyId, int $godzin): void
+    {
+        $stmt = $this->db->pdo()->prepare(
+            'UPDATE sync_run SET started_at = started_at - INTERVAL :g1 HOUR,
+                 updated_at = updated_at - INTERVAL :g2 HOUR,
+                 finished_at = finished_at - INTERVAL :g3 HOUR
+             WHERE company_id = :company AND finished_at IS NOT NULL'
+        );
+        $stmt->bindValue('g1', max(1, $godzin), \PDO::PARAM_INT);
+        $stmt->bindValue('g2', max(1, $godzin), \PDO::PARAM_INT);
+        $stmt->bindValue('g3', max(1, $godzin), \PDO::PARAM_INT);
+        $stmt->bindValue('company', $companyId, \PDO::PARAM_INT);
+        $stmt->execute();
+    }
+
+    /** Cofnięcie ostatniego użycia klucza — tak wygląda connector, który zamilkł w całości. */
+    public function cofnijUzycieKlucza(int $keyId, int $godzin): void
+    {
+        $stmt = $this->db->pdo()->prepare(
+            'UPDATE api_key SET last_used_at = last_used_at - INTERVAL :godzin HOUR WHERE id = :id'
+        );
+        $stmt->bindValue('godzin', max(1, $godzin), \PDO::PARAM_INT);
+        $stmt->bindValue('id', $keyId, \PDO::PARAM_INT);
+        $stmt->execute();
+    }
+
+    /** Znacznik ostatniego alertu o ciszy firmy (`sync_stream.idle_alert_at`). */
+    public function znacznikCiszy(int $companyId): string
+    {
+        $stmt = $this->db->pdo()->prepare('SELECT idle_alert_at FROM sync_stream WHERE company_id = :company');
+        $stmt->execute(['company' => $companyId]);
+        $value = $stmt->fetchColumn();
+
+        return is_string($value) ? $value : '';
+    }
+
     public function run(string $uuid): ?array
     {
         $stmt = $this->db->pdo()->prepare('SELECT status, phase, stats, connector_summary FROM sync_run WHERE run_uuid = :u');

@@ -512,6 +512,40 @@ i potrafi go wywrócić na limicie czasu. Dlatego wysyłka trafia do kolejki, a 
 (cron, porcjami, z zapamiętaniem miejsca przerwania) ją opróżnia. W Etapie 3 tą samą kolejką
 pójdą eskalacje, alerty i push — i wtedy nie trzeba już nic przebudowywać.
 
+### Alerty o ciszy — dwa różne stany, dwie różne wiadomości
+
+Alerty idą z kolejki zadań na **jeden adres**: `alert_email` w `tenant_setting` (ustawia go
+instalator; pusty znaczy, że alerty zostaną tylko w dzienniku zdarzeń — i mówi o tym trwała
+pozycja na `/diagnostyka`, razem z przypadkiem adresu **niepoprawnego**, bo wysyłka odrzuca go
+tym samym `filter_var()` i kończy się cicho).
+
+Zadanie `maintenance.key_idle_check` (co godzinę, `JobRunner`) sprawdza **trzy** rzeczy, każdą
+osobno, bo każda znaczy co innego i wymaga innego ruchu:
+
+| Co | Próg | Od czego liczony | Zdarzenie | Co znaczy |
+|---|---|---|---|---|
+| klucz wydany i **nigdy** nieużyty | `key_unused_alert_hours` (72 h) | `api_key.created_at` | `integration.key_unused` | nikt nie wkleił klucza do connectora; dotychczasowy działa dalej |
+| **klucz zamilkł** | `key_idle_alert_hours` (24 h) | `api_key.last_used_at` | `integration.key_idle` | connector nie chodzi — maszyna, usługa, sieć |
+| **jedna firma zamilkła** | ten sam `key_idle_alert_hours` | ostatni **domknięty przebieg** tej firmy (`sync_run.finished_at`) | `integration.company_idle` | connector chodzi, stoi strumień tej jednej firmy |
+
+⚠ **Trzeci przypadek dochodzi 17.10.2026 i bez niego był ślepy punkt**: jeden klucz obsługuje
+u klienta odniesienia dwie firmy, więc gdy strumień jednej stoi (np. zatrzymany rozjazdem
+tożsamości), `last_used_at` klucza jest świeże od drugiej i alert o ciszy klucza nie zauważa
+niczego. Liczymy od **domkniętego przebiegu**, nie od żądania — connector, który się łączy,
+a którego przebiegi padają, odnawiałby znacznik żądania w nieskończoność.
+
+⚠ **Przy ciszy całego klucza NIE wychodzą listy o jego firmach.** Alert o firmie sprawdza
+wyłącznie firmy klucza, który się odzywa; inaczej jedna awaria dawałaby trzy wiadomości o tym
+samym, a adresat nauczyłby się kasować wszystkie.
+
+⚠ Firma, która **nigdy** nie miała domkniętego przebiegu, jest pomijana świadomie: to nie cisza,
+tylko połączenie, które się jeszcze nie zaczęło — mówi o nim `key_unused` i ekran integracji.
+
+Jedna wiadomość **na epizod**: znacznik ciszy klucza stoi w `tenant_setting`
+(`key_idle_alert_last_at`), a znacznik ciszy firmy w `sync_stream.idle_alert_at` — slot zajmowany
+warunkowym UPDATE-em, więc dwa równoległe przebiegi crona nie wyślą dwóch listów. Powrót
+synchronizacji kasuje znacznik, więc następna cisza znów wyśle jedną wiadomość.
+
 ### Sekret TOTP
 
 Szyfrowany kluczem z `.env` (`APP_KEY`, 32 bajty, base64) przez `sodium_crypto_secretbox`

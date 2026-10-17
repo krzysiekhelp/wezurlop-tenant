@@ -146,6 +146,7 @@ final class KodyZdarzen
         'auth.login_delayed', '2fa.delayed', 'access.revoked', 'account.unblocked_manually',
         'account.invitation_resend_refused',
         'employment.deactivated_by_sync', 'integration.key_idle', 'integration.key_unused',
+        'integration.company_idle',
         'sync.review_requested', 'sync.identity_changed', 'sync.foreign_connector_entry',
         'leave.r2_warning', 'sync.limit_removed_with_requests', 'sync.kadrowe_with_length',
     ];

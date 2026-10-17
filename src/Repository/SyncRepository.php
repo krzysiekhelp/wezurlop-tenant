@@ -15,6 +15,9 @@ use Wezurlop\Db\Connection;
  */
 final class SyncRepository
 {
+    /** „Alertu jeszcze nie było” — ta sama stała, co przy znaczniku ciszy klucza. */
+    public const ALERT_RESET = '1970-01-01 00:00:00';
+
     public function __construct(private readonly Connection $db)
     {
     }
@@ -275,6 +278,38 @@ final class SyncRepository
     {
         $this->db->pdo()->prepare('UPDATE sync_stream SET review_required = 0, last_review_at = UTC_TIMESTAMP() WHERE company_id = :company')
             ->execute(['company' => $companyId]);
+    }
+
+    /**
+     * Zajęcie slotu alertu o ciszy JEDNEJ firmy — najwyżej jeden alert na podany okres.
+     *
+     * ⚠ Ten sam wzorzec co `TenantSettingRepository::claimAlertSlot()`: warunek siedzi w UPDATE,
+     * więc dwa równoległe przebiegi crona nie wyślą dwóch wiadomości o tej samej firmie. Różni się
+     * tylko miejscem znacznika — wiersz firmy w `sync_stream` zamiast wiersza ustawienia, bo
+     * znaczników per firma nie da się założyć migracją (firmy powstają po instalacji).
+     */
+    public function claimIdleAlertSlot(int $companyId, int $periodSeconds): bool
+    {
+        $stmt = $this->db->pdo()->prepare(
+            "UPDATE sync_stream SET idle_alert_at = UTC_TIMESTAMP()
+             WHERE company_id = :company AND idle_alert_at < UTC_TIMESTAMP() - INTERVAL :period SECOND"
+        );
+        $stmt->execute(['company' => $companyId, 'period' => $periodSeconds]);
+
+        return $stmt->rowCount() === 1;
+    }
+
+    /**
+     * Firma znów się synchronizuje — kasujemy znacznik, żeby NASTĘPNA cisza znów wysłała alert.
+     *
+     * ⚠ Warunek `idle_alert_at > :reset` nie jest ozdobą: bez niego każdy przebieg crona pisałby
+     * do wiersza strumienia każdej zdrowej firmy, co godzinę i bez powodu.
+     */
+    public function clearIdleAlert(int $companyId): void
+    {
+        $this->db->pdo()->prepare(
+            'UPDATE sync_stream SET idle_alert_at = :reset WHERE company_id = :company AND idle_alert_at > :reset2'
+        )->execute(['reset' => self::ALERT_RESET, 'company' => $companyId, 'reset2' => self::ALERT_RESET]);
     }
 
     // --- rejestr rekordów ------------------------------------------------------------------------------

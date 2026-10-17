@@ -271,11 +271,45 @@ final class DiagnosticsController
                 $ostatnia === null ? CheckResult::WARN : CheckResult::OK,
                 $ostatnia === null ? 'jeszcze nic nie wyszło' : $ostatnia . ' UTC',
                 $ostatnia === null ? 'znacznik stawia kolejka po udanej wysyłce — jeśli poczta jest skonfigurowana, wyślij wiadomość próbną' : ''),
-            new CheckResult('Poczta', 'Skrzynka na alerty',
-                $this->settings->get('alert_email') === '' ? CheckResult::WARN : CheckResult::OK,
-                $this->settings->get('alert_email') ?: 'brak',
-                $this->settings->get('alert_email') === '' ? 'alerty bezpieczeństwa nie mają adresata' : ''),
+            $this->skrzynkaAlertowa(),
         ];
+    }
+
+    /**
+     * Skrzynka alertowa — **trwała pozycja**, bo od niej zależy, czy KTÓRYKOLWIEK alert dojdzie.
+     *
+     * ⚠ Sprawdzamy nie tylko pustkę, ale i **poprawność adresu** (zlecenie Z18). Każda metoda
+     * `AccountMailService::deliver*Alert()` odrzuca adres niepoprawny tym samym `filter_var()`
+     * i kończy się cicho — `kadry@firma` bez domeny wyglądało na ekranie jak adres ustawiony,
+     * a nie wyszłaby pod niego ani jedna wiadomość. Stan obniżony ma być widoczny, nie przemilczany.
+     *
+     * ⚠ Lista alertów w podpowiedzi jest konkretna, bo z tej jednej skrzynki idzie kilka różnych
+     * spraw: cisza connectora, cisza pojedynczej firmy, klucz wydany i nieużyty, rozjazd tożsamości
+     * i podejrzane logowania. „Alerty bezpieczeństwa” mówiło o jednej z nich.
+     * ⚠ Odnośnik jest SŁOWNY („Ustawienia, sekcja Poczta”): podpowiedź jedzie do szablonu jako
+     * tekst i Twig ją escapuje, więc znacznik `<a>` z PHP-a byłby złamaniem §5 i §6 CLAUDE.md,
+     * a nie ułatwieniem.
+     * ⚠ **Bez strzałki „→”**, której używają sąsiednie podpowiedzi: krojem hostujemy u siebie
+     * podzbiór IBM Plex Sans, a jego `unicode-range` obejmuje U+2191 i U+2193, ale **nie U+2192**.
+     * Zmierzone na zrzucie z `/diagnostyka`: w miejscu strzałki wychodzi pusty prostokąt. Pozostałe
+     * napisy ze strzałką są starsze od tej pozycji i zgłoszone osobno — tu po prostu jej nie dokładam.
+     */
+    private function skrzynkaAlertowa(): CheckResult
+    {
+        $adres = $this->settings->get('alert_email');
+        $poprawny = $adres !== '' && filter_var($adres, FILTER_VALIDATE_EMAIL) !== false;
+        $alerty = 'cisza connectora, cisza pojedynczej firmy, klucz nieużyty, rozjazd tożsamości, podejrzane logowania';
+
+        return new CheckResult('Poczta', 'Skrzynka na alerty',
+            $poprawny ? CheckResult::OK : CheckResult::WARN,
+            $adres === '' ? 'brak' : $adres,
+            match (true) {
+                $poprawny => '',
+                $adres === '' => 'skrzynka alertowa nie jest ustawiona — alerty (' . $alerty
+                    . ') trafią TYLKO do dziennika zdarzeń; ustaw adres na ekranie Ustawienia, sekcja Poczta',
+                default => 'adres jest niepoprawny, więc wysyłka jest pomijana — alerty (' . $alerty
+                    . ') trafią TYLKO do dziennika zdarzeń; popraw adres na ekranie Ustawienia, sekcja Poczta',
+            });
     }
 
     /**

@@ -127,6 +127,65 @@ final class AccountMailService
      *
      * @param array<string, mixed> $payload
      */
+    /**
+     * Cisza JEDNEJ firmy przy działającym connectorze (zlecenie Z18, 17.10.2026).
+     *
+     * ⚠ Pierwsze zdanie mówi, czym to się RÓŻNI od ciszy connectora, bo adresat dostaje oba listy
+     * z tej samej skrzynki: tam nie działa cały connector, tu nie synchronizuje się jedna firma,
+     * a reszta chodzi. Dwa listy o tym samym brzmieniu nauczyłyby czytelnika kasować oba.
+     * ⚠ Bez NIP-u i bez danych osobowych — w liście jest nazwa firmy i liczby.
+     *
+     * @param array<string, mixed> $payload
+     */
+    public function deliverCompanyIdleAlert(array $payload, MailTransport $transport): bool
+    {
+        $to = $this->settings->get('alert_email');
+        if ($to === '' || filter_var($to, FILTER_VALIDATE_EMAIL) === false) {
+            return false;
+        }
+        $firma = is_string($payload['firma'] ?? null) ? $payload['firma'] : '(bez nazwy)';
+        $prog = is_int($payload['prog_godzin'] ?? null) ? $payload['prog_godzin'] : 24;
+        $godzin = is_int($payload['godzin'] ?? null) ? $payload['godzin'] : $prog;
+        $ostatni = is_string($payload['ostatni_przebieg'] ?? null) ? $payload['ostatni_przebieg'] : null;
+        $strefa = $this->settings->get('timezone', Strefa::DOMYSLNA);
+        $kiedy = $ostatni === null ? 'nieznany' : Strefa::czas($ostatni, $strefa) . ' (' . $strefa . ')';
+        $transport->send(new MailMessage(
+            $to,
+            'wezurlop: jedna firma przestala sie synchronizowac',
+            "Connector działa, ale dane jednej firmy stoją.
+
+"
+            . "Firma: {$firma}
+"
+            . "Ostatni domknięty przebieg: {$kiedy}, czyli {$godzin} h temu (próg {$prog} h).
+
+"
+            . "To NIE jest cisza całego connectora — pozostałe firmy tej instalacji synchronizują się "
+            . "dalej, więc maszyna i usługa connectora działają. Stoi strumień tej jednej firmy.
+
+"
+            . "Co sprawdzić po kolei:
+"
+            . "  1. ekran {$this->config->appUrl}/admin/integracja — czy ta firma nie czeka na decyzję "
+            . "(zmieniony odcisk tożsamości zatrzymuje strumień do czasu potwierdzenia),
+"
+            . "  2. czy klucz instalacji ma tę firmę w zakresie,
+"
+            . "  3. czy connector ma połączenie z bazą kadrową TEJ firmy — druga firma może mieć inną,
+"
+            . "  4. dziennik zdarzeń: wpisy `integration.company_idle` i `sync.*` tej firmy.
+
+"
+            . "Dane kadrowe tej firmy w wezurlop są w tym czasie nieaktualne — limity i nieobecności "
+            . "pokazują stan sprzed ostatniego domkniętego przebiegu.
+"
+            . "Kolejny alert o tej firmie dopiero wtedy, gdy znów się zsynchronizuje i zamilknie ponownie.
+",
+        ));
+
+        return true;
+    }
+
     public function deliverUnusedKeyAlert(array $payload, MailTransport $transport): bool
     {
         $to = $this->settings->get('alert_email');

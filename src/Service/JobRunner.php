@@ -56,6 +56,13 @@ final class JobRunner
     public const JOB_KEY_IDLE_ALERT = 'integration.key_idle_alert';
     /** Klucz wydany i nieużyty dłużej niż własny próg — inna sprawa niż cisza działającego connectora. */
     public const JOB_KEY_UNUSED_ALERT = 'integration.key_unused_alert';
+    /**
+     * Cisza JEDNEJ firmy przy działającym kluczu (zlecenie Z18). To inna awaria niż cisza klucza:
+     * connector żyje, ale strumień tej firmy stoi — np. zatrzymany rozjazdem tożsamości albo
+     * zepsutym połączeniem z tą jedną bazą kadrową. Przy ciszy CAŁEGO klucza ten alert się nie
+     * odzywa — patrz `checkCompanyIdle()`.
+     */
+    public const JOB_COMPANY_IDLE_ALERT = 'integration.company_idle_alert';
     private const ALERT_RESET = '1970-01-01 00:00:00';
 
     public function __construct(
@@ -177,15 +184,29 @@ final class JobRunner
             return true;
         }
         $milczace = [];
+        $podZywymKluczem = [];
         foreach ($this->apiKeys->all() as $key) {
+            if ($key['status'] !== 'active') {
+                continue;
+            }
             // ⚠ Alert dotyczy klucza, który ZAMILKŁ. Klucz nigdy nieużyty czeka na wklejenie
             // w connectorze i widać go na ekranie — nie jest powodem do wysyłania alarmu.
-            if ($key['status'] === 'active' && $key['last_used_at'] !== null
-                && Cisza::przekroczona($key['last_used_at'], (string) $key['created_at'], $prog)) {
+            $milczy = $key['last_used_at'] !== null
+                && Cisza::przekroczona($key['last_used_at'], (string) $key['created_at'], $prog);
+            if ($milczy) {
                 $milczace[$key['name']] = Cisza::godziny((string) $key['last_used_at']);
+
+                continue;
+            }
+            // ⚠ Firmy klucza, który się odzywa — tylko one mogą dostać alert o ciszy JEDNEJ firmy.
+            // Firmy klucza milczącego opisuje już alert wyżej i drugi list byłby tą samą wiadomością
+            // powiedzianą dwa razy (zlecenie Z18: przy ciszy całego klucza nie wychodzą trzy maile).
+            foreach ($this->apiKeys->nips($key['id']) as $nip) {
+                $podZywymKluczem[$nip] = true;
             }
         }
         $this->checkKeyUnused();
+        $this->checkCompanyIdle($prog, $podZywymKluczem);
         if ($milczace === []) {
             // Connector znów się odzywa — następna cisza ma prawo wysłać alert od nowa.
             if ($this->settings->get('key_idle_alert_last_at', self::ALERT_RESET) !== self::ALERT_RESET) {
@@ -204,6 +225,62 @@ final class JobRunner
         $this->logger->info('Cisza connectora', ['prog_godzin' => $prog, 'klucze' => $milczace]);
 
         return true;
+    }
+
+    /**
+     * Cisza JEDNEJ firmy: klucz się odzywa, a ta firma nie ma domkniętego przebiegu od progu.
+     *
+     * ⚠ **To jest inna awaria niż cisza klucza i dlatego ma własny alert.** Cisza klucza znaczy
+     * „connector nie chodzi” — sprawdza się maszynę i usługę. Cisza jednej firmy przy żywym kluczu
+     * znaczy „connector chodzi, ale TEN strumień stoi” — sprawdza się ekran integracji tej firmy
+     * (zatrzymany rozjazd tożsamości, zerwane połączenie z jedną bazą kadrową). Przy jednym kluczu
+     * na dwie firmy — a tak stoi u klienta odniesienia — pierwszy alert nie zauważyłby niczego,
+     * bo `last_used_at` klucza jest świeże od drugiej firmy.
+     *
+     * ⚠ Liczymy od **domkniętego przebiegu**, nie od żądania: connector, który się łączy, a którego
+     * przebiegi padają, odnawiałby znacznik żądania w nieskończoność i cisza nigdy by nie wyszła.
+     *
+     * ⚠ Firma, która **nigdy** nie miała domkniętego przebiegu, jest pomijana świadomie: to nie jest
+     * cisza, tylko połączenie, które się jeszcze nie zaczęło — mówi o niej `key_unused` i ekran
+     * integracji. Alarmowanie o niej zrobiłoby z każdej nowej firmy awarię.
+     *
+     * @param array<string, true> $podZywymKluczem NIP-y firm obsługiwanych przez klucz, który się odzywa
+     */
+    private function checkCompanyIdle(int $prog, array $podZywymKluczem): void
+    {
+        if ($prog <= 0 || $podZywymKluczem === []) {
+            return;
+        }
+        foreach ($this->sync->streams() as $firma) {
+            if (!isset($podZywymKluczem[$firma['nip']])) {
+                continue;
+            }
+            $ostatni = $this->sync->lastClosedRunAt($firma['id']);
+            if ($ostatni === null) {
+                continue;
+            }
+            $godzin = Cisza::godziny($ostatni);
+            if ($godzin < $prog) {
+                // Firma znów się synchronizuje — następna cisza ma prawo wysłać alert od nowa.
+                $this->sync->clearIdleAlert($firma['id']);
+
+                continue;
+            }
+            // Slot zajmowany warunkowym UPDATE-em na wierszu strumienia: jedna wiadomość na epizod
+            // i na firmę, także przy dwóch równoległych przebiegach crona.
+            if (!$this->sync->claimIdleAlertSlot($firma['id'], max(1, $prog) * 3600)) {
+                continue;
+            }
+            $this->events->record('integration.company_idle', null, null, 'system', 'company', $firma['id'], $firma['id'],
+                ['prog_godzin' => $prog, 'godzin' => $godzin]);
+            $this->jobs->enqueue(self::JOB_COMPANY_IDLE_ALERT, [
+                'firma' => $firma['name'],
+                'godzin' => $godzin,
+                'prog_godzin' => $prog,
+                'ostatni_przebieg' => $ostatni,
+            ]);
+            $this->logger->info('Cisza firmy', ['firma_id' => $firma['id'], 'godzin' => $godzin, 'prog_godzin' => $prog]);
+        }
     }
 
     /**
@@ -266,6 +343,7 @@ final class JobRunner
                 self::JOB_KEY_IDLE_CHECK            => $this->checkKeyIdle(),
                 self::JOB_KEY_IDLE_ALERT            => $this->accountMail->deliverIntegrationAlert($job['payload'], $this->transport()),
                 self::JOB_KEY_UNUSED_ALERT          => $this->accountMail->deliverUnusedKeyAlert($job['payload'], $this->transport()),
+                self::JOB_COMPANY_IDLE_ALERT        => $this->accountMail->deliverCompanyIdleAlert($job['payload'], $this->transport()),
                 Sync\SyncService::JOB_SPLIT_ALERT    => $this->accountMail->deliverIdentitySplitAlert($job['payload'], $this->transport()),
                 default => throw new \DomainException('Nieznany typ zadania: ' . $job['type']),
             };

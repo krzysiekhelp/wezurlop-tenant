@@ -20,6 +20,7 @@ use Wezurlop\Dev\Console\Simulator\OpenApi;
 use Wezurlop\Repository\SyncDomainRepository;
 use Wezurlop\Dev\Repository\SyncFixtureRepository;
 use Wezurlop\Service\Calendar\WorkingCalendar;
+use Wezurlop\Service\JobRunner;
 use Wezurlop\Service\Sync\TaskService;
 use Wezurlop\Support\Config;
 use Wezurlop\Support\EnvFile;
@@ -62,7 +63,7 @@ final class SyncSimulatorCommand
     /** Baza z --baza=; null = baza z .env. Paczka musi stać na tej samej, inaczej żądania i dane się rozjeżdżają. */
     private ?string $database = null;
 
-    private const SCENARIOS = ['przyklady', 'przebieg', 'niezmiennik', 'klucze', 'przeglad', 'powtorki', 'pracownik', 'okno', 'stan', 'pola', 'tozsamosc', 'pomiar'];
+    private const SCENARIOS = ['przyklady', 'przebieg', 'niezmiennik', 'klucze', 'przeglad', 'powtorki', 'pracownik', 'okno', 'stan', 'pola', 'tozsamosc', 'cisza', 'pomiar'];
     private const NIP_A = '1234567009';
     private const NIP_B_SIGNUP = '9876543210';
     private const NIP_LOAD = '5252525006';
@@ -79,8 +80,11 @@ final class SyncSimulatorCommand
     /** Zbiory poza `nieobecnosc` — do potwierdzenia kursorów pustą paczką. */
     private const ZBIORY_BEZ_NIEOBECNOSCI = ['firma', 'pracownik', 'zatrudnienie', 'limit', 'slownik', 'kalendarz'];
     private const YEAR = 2026; // rok przykładów z dokumentu
+    /** „Alertu o ciszy jeszcze nie było” — ta sama stała, co w `SyncRepository`. */
+    private const ALERT_RESET = '1970-01-01 00:00:00';
 
     private Services $s;
+    private Logger $log;
     private SyncFixtureRepository $fx;
     private SyncDomainRepository $domain;
     private Examples $ex;
@@ -104,6 +108,7 @@ final class SyncSimulatorCommand
 
     public function __invoke(Services $services, Logger $logger): int
     {
+        $this->log = $logger;
         if (!$services->config->isDev()) {
             fwrite($this->out, "Symulator odtwarza bazę z seeda — działa wyłącznie przy APP_ENV=dev.\n");
 
@@ -218,6 +223,7 @@ final class SyncSimulatorCommand
                     'stan'      => $this->connectionState($http),
                     'pola'      => $this->clientFields($http),
                     'tozsamosc' => $this->identityFingerprint($http),
+                    'cisza'     => $this->silenceAlerts($http),
                     'pomiar'    => $this->measure($http, $target, $records),
                 };
                 fwrite($this->out, sprintf("  (scenariusz %s: %.1f s)\n", $scenario, (hrtime(true) - $t) / 1e9));
@@ -1137,6 +1143,130 @@ final class SyncSimulatorCommand
         $this->check->that(is_string($r['json']['ostatniPrzebieg'] ?? null) && str_ends_with((string) $r['json']['ostatniPrzebieg'], 'Z'),
             'po domkniętym cyklu: ostatniPrzebieg w UTC (…Z)', $r['body']);
         $this->check->that($this->fx->count('runs', $this->companyA) === $runs + 1, 'przebieg policzony raz — z cyklu, nie z testu połączenia');
+    }
+
+    // --- alerty o ciszy ----------------------------------------------------------------------------------
+
+    /**
+     * Alerty o ciszy: JEDNEJ firmy przy działającym kluczu oraz CAŁEGO klucza (zlecenie Z18).
+     *
+     * ⚠ Scenariusz sprawdza to, czego nie sprawdzi żaden pomiar na żywym connectorze: żeby zobaczyć
+     * ciszę, trzeba czekać dobę. Tutaj cofamy znaczniki w bazie testowej i uruchamiamy ten sam
+     * runner, który chodzi z crona — żadnej atrapy.
+     *
+     * ⚠ Sedno sprawdzenia to NIE to, że alert wyszła, tylko że wyszła **raz na epizod i raz
+     * na firmę**, i że przy ciszy całego klucza NIE wychodzi dodatkowo list o każdej jego firmie.
+     * Alert, który przy jednej awarii wysyła trzy listy, uczy adresata kasować wszystkie.
+     */
+    private function silenceAlerts(HttpClient $http): void
+    {
+        $this->check->scope('alerty o ciszy (jedna firma i cały klucz)');
+        $c = $this->connector($http, 'cisza', [self::NIP_A, self::NIP_B_SIGNUP]);
+        // Ten sam klucz, druga firma — tak wygląda instalacja klienta odniesienia.
+        $cB = new Connector($http, $c->key, self::NIP_B_SIGNUP);
+        $cB->keyId = $c->keyId;
+        $firmaA = (int) ($this->domain->companyByNip(self::NIP_A)['id'] ?? 0);
+        $firmaB = (int) ($this->domain->companyByNip(self::NIP_B_SIGNUP)['id'] ?? 0);
+        // ⚠ Bez adresu `deliver*Alert()` odmawia cicho — i cały ten scenariusz przechodziłby na zielono
+        // nie wysyłając niczego. Ustawiamy go w bazie TESTOWEJ.
+        $this->s->settings->set('alert_email', 'alerty@example.test', null);
+        $prog = (int) $this->s->settings->get('key_idle_alert_hours', '24');
+        // ⚠ Kolejka bywa niepusta: wcześniejsze scenariusze zostawiają w niej własne wiadomości
+        // (alert kadrowy, rozjazd tożsamości). Bez opróżnienia liczyłbym TU ich listy i scenariusz
+        // pokazywałby sześć zamiast jednego — zmierzone przy pierwszym pełnym przebiegu.
+        $this->runJobs();
+
+        $c->start();
+        $c->koniec();
+        $cB->start();
+        $cB->koniec();
+        $this->check->that($this->fx->znacznikCiszy($firmaA) === self::ALERT_RESET
+            && $this->fx->znacznikCiszy($firmaB) === self::ALERT_RESET,
+            'obie firmy mają domknięty przebieg i czysty znacznik ciszy');
+
+        // 1. Cisza JEDNEJ firmy przy działającej drugiej.
+        $this->fx->cofnijPrzebiegiFirmy($firmaA, $prog + 2);
+        $wynik = $this->runJobs();
+        $this->check->that($wynik['maile'] === 1 && $wynik['company_idle'] === 1 && $wynik['key_idle'] === 0,
+            sprintf('cisza jednej firmy: 1 list, 1 zdarzenie company_idle, 0 key_idle (było %d/%d/%d)',
+                $wynik['maile'], $wynik['company_idle'], $wynik['key_idle']));
+        $this->check->that(str_contains($wynik['tresc'], 'jednej firmy') || str_contains($wynik['tresc'], 'Firma:'),
+            'list mówi o POJEDYNCZEJ firmie, nie o całym connectorze');
+        $this->check->that(!str_contains($wynik['tresc'], self::NIP_A), 'list nie niesie NIP-u');
+        $this->check->that($this->fx->znacznikCiszy($firmaB) === self::ALERT_RESET,
+            'druga firma, która się synchronizuje, nie dostała znacznika');
+
+        // 2. Powtórzony przebieg crona w tej samej ciszy — ani jednego listu więcej.
+        $wynik = $this->runJobs();
+        $this->check->that($wynik['maile'] === 0 && $wynik['company_idle'] === 0,
+            sprintf('ta sama cisza nie wysyła drugiego listu (listy: %d)', $wynik['maile']));
+
+        // 3. Firma wraca — znacznik kasowany.
+        $c->start();
+        $c->koniec();
+        $this->runJobs();
+        $this->check->that($this->fx->znacznikCiszy($firmaA) === self::ALERT_RESET,
+            'powrót przebiegu kasuje znacznik ciszy firmy');
+
+        // 4. Druga cisza tej samej firmy — nowy epizod, nowy list.
+        $this->fx->cofnijPrzebiegiFirmy($firmaA, $prog + 2);
+        $wynik = $this->runJobs();
+        $this->check->that($wynik['maile'] === 1 && $wynik['company_idle'] === 1,
+            sprintf('druga cisza tej samej firmy wysyła kolejny list (listy: %d)', $wynik['maile']));
+
+        // 5. Milczy CAŁY klucz — jeden list o kluczu, zero listów o firmach.
+        $c->start();
+        $c->koniec();
+        $cB->start();
+        $cB->koniec();
+        $this->runJobs();
+        $this->fx->cofnijPrzebiegiFirmy($firmaA, $prog + 4);
+        $this->fx->cofnijPrzebiegiFirmy($firmaB, $prog + 4);
+        $this->fx->cofnijUzycieKlucza($c->keyId, $prog + 4);
+        $wynik = $this->runJobs();
+        $this->check->that($wynik['maile'] === 1 && $wynik['key_idle'] === 1 && $wynik['company_idle'] === 0,
+            sprintf('cisza całego klucza: 1 list o kluczu i ZERO listów o firmach (było %d/%d/%d)',
+                $wynik['maile'], $wynik['key_idle'], $wynik['company_idle']));
+    }
+
+    /**
+     * Jeden przebieg kolejki zadań — ten sam `JobRunner`, który chodzi z crona.
+     *
+     * Zwraca różnice: ile listów przybyło w `var/mail`, ile zdarzeń każdego rodzaju i treść
+     * ostatniego listu (do sprawdzenia, o czym mówi).
+     *
+     * @return array{maile: int, company_idle: int, key_idle: int, tresc: string}
+     */
+    private function runJobs(): array
+    {
+        $katalog = $this->s->config->mailDumpPath();
+        $przed = glob($katalog . '/*.eml') ?: [];
+        $zdarzenPrzed = [
+            'company_idle' => $this->fx->count('events', 0, 'integration.company_idle'),
+            'key_idle' => $this->fx->count('events', 0, 'integration.key_idle'),
+        ];
+        $this->s->jobs->enqueue(JobRunner::JOB_KEY_IDLE_CHECK, []);
+        $this->s->jobRunner($this->log)->run(10.0);
+        $this->s->jobRunner($this->log)->run(10.0);
+        $po = glob($katalog . '/*.eml') ?: [];
+        $nowe = array_values(array_diff($po, $przed));
+        // ⚠ Treść bierzemy z listu o ciszy, nie z „ostatniego w katalogu": kolejność plików nie jest
+        // kolejnością wysyłki, a w katalogu leżą też listy innych scenariuszy.
+        $tresc = '';
+        foreach ($nowe as $plik) {
+            $zawartosc = (string) file_get_contents((string) $plik);
+            if (str_contains($zawartosc, 'ciszy') || str_contains($zawartosc, 'Firma:')
+                || str_contains($zawartosc, 'synchronizowac') || str_contains($zawartosc, 'odzywac')) {
+                $tresc = $zawartosc;
+            }
+        }
+
+        return [
+            'maile' => count($nowe),
+            'company_idle' => $this->fx->count('events', 0, 'integration.company_idle') - $zdarzenPrzed['company_idle'],
+            'key_idle' => $this->fx->count('events', 0, 'integration.key_idle') - $zdarzenPrzed['key_idle'],
+            'tresc' => $tresc,
+        ];
     }
 
     // --- odcisk tożsamości -------------------------------------------------------------------------------
