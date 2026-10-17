@@ -1549,14 +1549,21 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   text-decoration: none;
   cursor: pointer;
 }
-.kal-btn:hover { background: var(--c-surface-hover); color: var(--c-text); }
 .kal-btn--on {
   background: var(--c-accent-soft);
   border-color: var(--c-accent-soft);
   color: var(--c-accent-text);
   font-weight: var(--w-semibold);
 }
-.kal-btn--on:hover { background: var(--c-accent-soft); color: var(--c-accent-text); }
+/* ⚠ `:hover` **tylko przy prawdziwym wskaźniku** (zlecenie Z10 — od 17.10.2026 te przyciski
+   stoją też na telefonie). Na ekranie dotykowym stan najechania zostaje po puknięciu i przycisk
+   wygląda na wybrany, choć nim nie jest — a obok stoi `--on`, czyli prawdziwy stan wybrany,
+   więc pomyłka kosztuje. Ta sama osłona co przy zebrze w tabeli i pozostałych trzynastu
+   miejscach w tym arkuszu; nie wymyślam konwencji, tylko stosuję istniejącą. */
+@media (hover: hover) {
+  .kal-btn:hover { background: var(--c-surface-hover); color: var(--c-text); }
+  .kal-btn--on:hover { background: var(--c-accent-soft); color: var(--c-accent-text); }
+}
 /* Strzałka ma samą ikonę, więc jest ciemniejsza od podpisanych: w kwadracie bez napisu to ikona
    jest jedyną treścią i musi mieć wagę treści, a nie etykiety. */
 .kal-btn--ikona { color: var(--c-text-2); }
@@ -2307,7 +2314,9 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   color: var(--c-text-2);
   white-space: nowrap;
 }
-.menu__trigger--osoby:hover { background: var(--c-surface-hover); color: var(--c-text); }
+@media (hover: hover) {
+  .menu__trigger--osoby:hover { background: var(--c-surface-hover); color: var(--c-text); }
+}
 .menu--wybor[open] > .menu__trigger--osoby {
   background: var(--c-surface-hover);
   border-color: var(--c-line-strong);
