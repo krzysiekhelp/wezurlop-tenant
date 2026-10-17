@@ -561,10 +561,6 @@
    To ta sama zasada co w `.stats__value--odchylenie`: kolor i waga mówią o STANIE wartości. */
 .stats__value--brak { color: var(--c-text-3); font-weight: var(--w-regular); }
 
-/* Podpis pod wartością w osobnym wierszu — przy dwóch małych napisach w jednej linii
-   („10 dni 2 godz. z 34 dni") nie da się odczytać, co jest wartością, a co objaśnieniem. */
-.stats__note { display: block; }
-
 
 /* ——— pary etykieta/wartość ————————————————————————————————————————————— */
 
@@ -3268,86 +3264,134 @@ body:has(dialog.modal[open]) { overflow: hidden; }
    `:has()` pokaże tę jedną linię; nic poza nią się nie psuje. */
 .table tbody tr:has(+ .table__row--sub) > td { border-bottom: 0; }
 
-/* ——— pasek kafelków na pulpicie: większa skala ——————————————————————————————
-   (zlecenie Z5 z 17.10.2026, prototyp zatwierdzony przez Krzysztofa w przeglądarce)
+/* ——— pasek kafli na pulpicie ———————————————————————————————————————————————
+   (zlecenie Z15 z 17.10.2026, prototyp zatwierdzony przez Krzysztofa w przeglądarce)
 
-   ⚠ **MODYFIKATOR, nie zmiana komponentu** — i to jest sprawdzone w szablonach, nie założone:
-   `.stats` stoi na pięciu ekranach, a na dwóch z nich wartość kafelka **nie jest liczbą**
-   („Connector 1.2 · R2 Płatnik 4.5" na `/admin/integracja`, nazwa rozkładu czasu pracy
-   na `/dane/pracownik/{id}`). Przy 30 px takie wartości łamią się w pół, a na integracji
-   w `stats__key` siedzi całe zdanie ostrzeżenia, które przy wzmocnionej etykiecie zaczyna
-   krzyczeć. Ta typografia jest dla PASKA LICZB i tylko tam wchodzi. */
-.stats--duze .stats__item { gap: var(--s-2); }
-.stats--duze .stats__key { font-size: var(--t-small); color: var(--c-text-2); }
-/* ⚠ `white-space: nowrap` na WARTOŚCI: „20.09.2026" i „27 dni 6 godz." złamane w pół czytają się
-   jak dwie różne dane. Podpis pod spodem zawijać się musi, więc odzyskuje `normal` niżej. */
-.stats--duze .stats__value {
-  font-size: var(--t-h1);
+   ⚠ **OSOBNY komponent, nie modyfikator `.stats`.** Do 17.10 pasek stał na `.stats stats--duze`
+   i ten modyfikator doszedł do 82 linii: własna typografia, własne progi zawijania i obramowania
+   liczone `nth-child` — więcej kodu niż sam komponent, który modyfikował. A `.stats` stoi jeszcze
+   na czterech ekranach (`/dane/pracownik/{id}`, `/admin/integracja`, `/konta`, hierarchia), gdzie
+   wartość kafelka bywa TEKSTEM („Connector 1.2 · R2 Płatnik 4.5"), nie liczbą. Każda zmiana
+   pulpitu groziła tamtymi ekranami. `.kafle` / `.kafel` kosztuje własny blok i zdejmuje to ryzyko.
+
+   ⚠ Język wizualny jest TEN SAM co `.kal-btn` z nagłówka kalendarza (Z8): ramka 1 px `--c-line`,
+   promień `--radius-card`, tło `--c-surface`. Dwa paski na dwóch ekranach mają wyglądać na
+   rodzeństwo, a nie na dwie epoki tego samego systemu. */
+.kafle {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--s-3);
+  padding: var(--s-5);
+}
+.kafel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  /* ⚠ `min-width: 0` na dziecku siatki: bez tego `minmax(0, 1fr)` w kolumnach i tak nie zmusi
+     kafelka do zwężenia się poniżej swojej treści, a wtedy siatka wyjeżdża poza kartę. */
+  min-width: 0;
+  padding: var(--s-4);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
+  background: var(--c-surface);
+}
+/* Głowa: ikona i etykieta w jednej linii, oba w kolorze danej drugorzędnej — etykieta nazywa
+   kafelek, nie konkuruje z liczbą pod nią. */
+.kafel__glowa {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  color: var(--c-text-3);
+}
+/* Typografia siedzi na ETYKIECIE, nie na głowie: głowa jest układem (i kolorem, który dziedziczy
+   ikona przez `currentColor`), a rozmiar pisma dotyczy tekstu. */
+.kafel__etykieta { font-size: var(--t-small); line-height: var(--lh-tight); }
+/* ⚠ Ikona nie wolno jej się zwężać ani rozciągać: `flex: 0 0 auto` zamiast domyślnego `0 1 auto`,
+   bo przy długiej etykiecie („Najbliższa nieobecność") kalendarz zrobiłby się owalny. */
+.kafel__glowa .ico { flex: 0 0 auto; }
+/* Dana i jej opis stoją bliżej siebie (`--s-1`) niż głowa i dana (`--s-2`) — opis należy
+   do liczby, a nie do kafelka. Stąd osobny pojemnik, a nie trzy dzieci z jednym odstępem. */
+.kafel__dana { display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; }
+/* ⚠ `white-space: nowrap` na danej: „17.10.2026" i „27 dni 6 godz." złamane w pół czytają się
+   jak dwie różne dane. Przy najwęższym progu wraca `normal` — patrz niżej. */
+.kafel__wartosc {
+  font-size: var(--t-stat);
   font-weight: var(--w-semibold);
   line-height: var(--lh-tight);
+  color: var(--c-text);
   white-space: nowrap;
 }
 /* Część godzinowa („6 godz.") zostaje W TEJ SAMEJ LINII co dni — spadnięta do osobnego wiersza
    czyta się jak opis, a jest częścią tej samej liczby. */
-.stats--duze .stats__value > small {
-  margin-left: var(--s-1);
-  font-size: var(--t-lead);
+.kafel__reszta {
+  font-size: var(--t-body);
   font-weight: var(--w-medium);
   color: var(--c-text-2);
 }
-/* ⚠ Podpis jest też elementem `small` w środku wartości, więc musi mieć WYŻSZĄ swoistość
-   niż reguła wyżej — inaczej dostałby 16 px i wyrównanie w linii. */
-.stats--duze .stats__value > small.stats__note {
-  margin-left: 0;
-  margin-top: var(--s-1);
+.kafel__opis {
+  display: block;
   font-size: var(--t-small);
-  font-weight: var(--w-regular);
   color: var(--c-text-3);
   line-height: var(--lh-body);
-  white-space: normal;
 }
+/* Kolor i waga mówią o STANIE wartości — te same dwa stany, co w `.stats__value--brak`
+   i `--odchylenie`: „nie wiemy" ma być cichsze od liczby, a odchylenie ostrzegawcze. */
+.kafel__wartosc--brak { color: var(--c-text-3); font-weight: var(--w-regular); }
+.kafel__wartosc--odchylenie { color: var(--c-warn-text); }
 
-/* ⚠ **Sześć kafelków zawija się PROGIEM KONTENERA, nie samym `flex-wrap`.** Pasek nie leży
+/* ⚠ **Sześć kafli zawija się PROGIEM KONTENERA, nie szerokością okna.** Pasek nie leży
    w `.card__body`, więc nie ma nad sobą kontenera `karta` — kontenerem jest on sam.
+   ⚠ Zapytanie mierzy POLE TREŚCI kontenera, czyli bez jego wyściółki `2 × --s-5` — progi niżej
+   są już policzone w tej skali i nie wolno do nich dodawać 48 px drugi raz.
 
-   ⚠ **Progi są POLICZONE z najszerszej liczby, nie wzięte z oka.** Zmierzone w przeglądarce przy
-   tej skali typografii: „20.09.2026" (data synchronizacji) potrzebuje **162 px**, „11 dni 7 godz."
-   — 152 px, pozostałe od 23 px. Kafelek ma 2 × 24 px wyściółki, więc podłoga to 162 + 48 = 210 px;
-   biorę **220 px** na zaokrąglenia i dłuższą datę. Stąd progi: sześć w rzędzie wymaga
-   6 × 220 = **1320 px**, trzy — **660**, dwa — **440**, niżej jeden.
-   ⚠ Podłoga `min-width` jest tu WIĘKSZA niż w komponencie (180 px) i to jest cała różnica między
-   „zawija się" a „data wychodzi z kafelka": przy 180 px trzy kafelki wchodzą już od 540 px,
-   a wtedy na liczbę zostaje 132 px przy potrzebnych 162.
-
-   ⚠ `nth-child` jest tu UPRAWNIONY, w odróżnieniu od siatki kalendarza: kafelek to zawsze jedno
-   dziecko i jedna komórka, nic nie rozciąga się na kilka kolumn, więc `3n+1` naprawdę znaczy
-   „pierwszy w rzędzie". W kalendarzu znaczyło co innego (pasek wielodniowy to jedno dziecko
-   na kilka kolumn) i dlatego stamtąd wypadł. */
-.stats--duze { container-type: inline-size; container-name: kafle; }
-.stats--duze .stats__item { min-width: 220px; }
-@container kafle (max-width: 1320px) {
-  .stats--duze .stats__item { flex: 1 1 33.333%; }
-  .stats--duze .stats__item:nth-child(3n+1) { border-left: 0; }
-  .stats--duze .stats__item:nth-child(n+4) { border-top: 1px solid var(--c-line-soft); }
+   ⚠ **Progi POLICZONE z najszerszej treści, ZMIERZONEJ w przeglądarce** (17.10.2026, `--t-stat`
+   24 px, etykieta `--t-small` 13 px): o szerokości kafelka decyduje nie liczba, a GŁOWA —
+   „Ostatnia synchronizacja" z ikoną i odstępem to 18 + 8 + 137 = **163 px**, przy 2 × 16 px
+   wyściółki i 2 × 1 px ramki **197 px**. Najszersza dana („17.10.2026") potrzebuje 126 + 34 =
+   **160 px**, czyli MNIEJ — i dlatego progi liczy etykieta, nie data.
+   Stąd: sześć w rzędzie wymaga 6 × 197 + 5 × 12 = **1242 px** pola treści, trzy — 3 × 197 +
+   2 × 12 = **615 px**. Zmierzone pola treści: 1510 px przy oknie 1920 (sześć), 1004 px przy 1366
+   (trzy), 292 px w powłoce telefonu (dwa).
+   ⚠ **Nie ma progu jednej kolumny** i to jest decyzja z zlecenia, nie przeoczenie: na telefonie
+   pasek ma być 2 × 3. Jedna kolumna dałaby sześć kafli w pionie, czyli ekran przewijania zamiast
+   paska podsumowania. Dlatego najwęższy stan to dwie kolumny i on obowiązuje też na 374 px. */
+.kafle { container-type: inline-size; container-name: kafle; }
+/* ⚠ **Zawijanie zmienia ROZPIĘTOŚĆ kafelka, nie liczbę kolumn siatki** — i to nie jest wybór
+   stylu, tylko jedyna droga: `@container` pyta o NAJBLIŻSZEGO PRZODKA-kontener, nigdy o sam
+   element, więc `.kafle { grid-template-columns: … }` w zapytaniu `kafle` nie zadziała nigdy.
+   Zmierzone 17.10.2026: reguła z taką postacią nie weszła w ogóle (sześć kolumn po 38,7 px
+   w powłoce telefonu i 52 px treści poza kartą). Siatka ma więc stale szcześć kolumn,
+   a zapytanie przestawia `grid-column` KAFLI — one są potomkami kontenera i o nie wolno pytać.
+   Przy sześciu równych kolumnach `span 2` daje dokładnie trzy kafle w rzędzie, `span 3` — dwa,
+   bo rozpiętość zabiera też odstęp między kolumnami. */
+@container kafle (max-width: 1241px) {
+  .kafel { grid-column: span 2; }
 }
-@container kafle (max-width: 660px) {
-  .stats--duze .stats__item { flex: 1 1 50%; }
-  .stats--duze .stats__item:nth-child(3n+1) { border-left: 1px solid var(--c-line-soft); }
-  .stats--duze .stats__item:nth-child(odd) { border-left: 0; }
-  .stats--duze .stats__item:nth-child(n+3) { border-top: 1px solid var(--c-line-soft); }
+@container kafle (max-width: 614px) {
+  .kafel { grid-column: span 3; }
+  /* ⚠ Przy dwóch kolumnach dana MUSI móc się zawinąć. Stany słowne („nie jest założony",
+     „brak danych") są dłuższe od każdej liczby, a `nowrap` wypchnąłby je poza kafelek —
+     zmierzone, nie przewidziane. Daty i liczby nie mają w sobie spacji, więc nie łamią się
+     mimo `normal`. */
+  .kafel__wartosc { white-space: normal; overflow-wrap: break-word; }
 }
-@container kafle (max-width: 440px) {
-  .stats--duze .stats__item { flex: 1 1 100%; }
-  /* ⚠ `:nth-child(n)` nie zawęża niczego — wyrównuje SWOISTOŚĆ do reguły z progu 660 px, która
-     dalej obowiązuje i zapala lewą krawędź przy `3n+1`. Bez tego czwarty kafelek zostawał
-     z kreską po lewej na początku własnego wiersza (zmierzone: 1 taka kreska przy 430 px). */
-  .stats--duze .stats__item:nth-child(n) { border-left: 0; }
-  .stats--duze .stats__item + .stats__item { border-top: 1px solid var(--c-line-soft); }
+/* ⚠ Dana spada do `--t-h2`, gdy przy dwóch kolumnach 24 px już nie mieści daty — czyli
+   na telefonie (zlecenie Z15: „wartość tam `--t-h2`, jeśli 24 px się nie mieści"). Próg jest
+   z pomiaru tej samej daty, nie z nazwy urządzenia: ten sam efekt ma wąska karta na komputerze.
+   Rachunek: dwie kolumny dają kafelek (pole treści − 12) / 2, a data przy 24 px potrzebuje
+   160 px — czyli 24 px mieści się do 332 px pola treści. Niżej wchodzi 20 px, przy którym
+   ta sama data potrzebuje 139 px, a kafelek w powłoce telefonu (292 px pola treści) ma 140 px.
+   ⚠ Zapas jest jednopikselowy i to jest **zmierzone, nie przeoczone**: poniżej 332 px dana
+   i tak musi zmaleć, a przy ekranie węższym niż 374 px (np. 320 px) data złamie się w pół,
+   bo `overflow-wrap: break-word` wyżej woli złamanie niż wyjście poza kafelek. Trzeci rozmiar
+   typografii dla telefonów, których w zleceniu nie ma, byłby zgadywaniem. */
+@container kafle (max-width: 331px) {
+  .kafel__wartosc { font-size: var(--t-h2); }
 }
 /* Przeglądarka bez zapytań kontenerowych dostaje próg od okna — gorzej dobrany, ale nigdy
-   liczba wychodząca z kafelka. */
+   dana wychodząca z kafelka. */
 @supports not (container-type: inline-size) {
-  @media (max-width: 1600px) { .stats--duze .stats__item { flex: 1 1 33.333%; } }
-  @media (max-width: 900px) { .stats--duze .stats__item { flex: 1 1 50%; } }
-  @media (max-width: 640px) { .stats--duze .stats__item { flex: 1 1 100%; border-left: 0; } }
+  @media (max-width: 1600px) { .kafel { grid-column: span 2; } }
+  @media (max-width: 900px) { .kafel { grid-column: span 3; } }
+  @media (max-width: 560px) { .kafel__wartosc { font-size: var(--t-h2); white-space: normal; } }
 }

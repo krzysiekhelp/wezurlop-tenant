@@ -7,6 +7,7 @@
 
     ⚠ Zero logiki liczącej. Wszystkie liczby, ich stany i podpisy przychodzą gotowe
     z `PulpitPracownika` — szablon wybiera tylko klasę odpowiadającą stanowi. -#}
+{% import 'partials/ikony.twig' as ikony %}
 {% if zatrudnienie is null %}
     <section class="card">
         <div class="card__body">
@@ -14,20 +15,36 @@
         </div>
     </section>
 {% else %}
-    {#- ⚠ **`stats--duze` to MODYFIKATOR, nie zmiana komponentu** (zlecenie Z5 §4, sprawdzone
-        w szablonach): `.stats` stoi na pięciu ekranach, a na dwóch z nich wartość kafelka jest
-        TEKSTEM, nie liczbą — „Connector 1.2 · R2 Płatnik 4.5" na `/admin/integracja` i nazwa
-        rozkładu czasu pracy na `/dane/pracownik/{id}`. Przy 30 px te wartości łamałyby się
-        w pół, a na integracji w `stats__key` siedzi całe zdanie ostrzeżenia, które przy
-        wzmocnionej etykiecie zaczęłoby krzyczeć. Typografia z prototypu pasuje do PASKA LICZB,
-        a tamte kafelki liczbami nie są.
-        ⚠ Szósty kafelek („Ostatnia synchronizacja") niesie stan danych, który wcześniej stał
-        w linii pod kartami — przy długiej liście nieobecności trzeba było po niego przewijać. -#}
-    <section class="card stats stats--duze" aria-label="Podsumowanie urlopów">
+    {#- **Pasek sześciu kafli — JEDNA karta, w środku sześć osobnych pudełek** (zlecenie Z15
+        z 17.10.2026, prototyp w przeglądarce Krzysztofa). Komponent `.kafle` / `.kafel`, rodzina
+        `.kafel-*`, język wizualny ten sam co `.kal-btn` z nagłówka kalendarza: ramka 1 px,
+        promień 10 px, tło karty.
+
+        ⚠ **To NIE jest `.stats` z modyfikatorem.** Do 17.10 pasek stał na `.stats stats--duze`,
+        czyli na komponencie z PIONOWYMI KRESKAMI między polami i bez ikon. Modyfikator rósł
+        (typografia, progi zawijania, obramowania liczone `nth-child`) do rozmiaru większego niż
+        sam komponent, a `.stats` stoi jeszcze na czterech ekranach, gdzie ma zostać taki, jaki
+        jest. Osobny komponent kosztuje jeden plik CSS więcej i zdejmuje ryzyko, że zmiana
+        pulpitu ruszy `/dane/pracownik/{id}` albo `/admin/integracja`.
+
+        ⚠ **Ikonę wybiera JAWNY WARUNEK po kodzie kafelka**, nie wywołanie makra po napisie
+        z PHP-a: `attribute(ikony, k.ikona)()` to dynamiczne wywołanie po danych, ta sama rodzina
+        co zakazany `{% include zmienna %}` (CLAUDE.md §5). Przy sześciu kaflach widać w pliku,
+        który rysunek należy do którego kafelka, i da się to wygrepować.
+        ⚠ Kolejność kafli jest kolejnością z serwisu (`pulpit.kafelki`), a nie z tego pliku —
+        szablon nie rozstrzyga, co jest ważniejsze. -#}
+    <section class="card kafle" aria-label="Podsumowanie urlopów">
         {% for k in pulpit.kafelki %}
-            <div class="stats__item">
-                <span class="stats__key">{{ k.klucz }}</span>
-                <span class="stats__value{% if k.stan == 'brak' %} stats__value--brak{% elseif k.stan == 'odchylenie' %} stats__value--odchylenie{% endif %}">{{ k.wartosc }}{% if k.reszta is not null %} <small>{{ k.reszta }}</small>{% endif %}{% if k.podpis is not null %}<small class="stats__note">{{ k.podpis }}</small>{% endif %}</span>
+            <div class="kafel">
+                <span class="kafel__glowa">{% if k.kod == 'pozostalo' %}{{ ikony.kartka_kalendarza() }}{% elseif k.kod == 'wykorzystane' %}{{ ikony.zegar() }}{% elseif k.kod == 'najblizsza' %}{{ ikony.termin() }}{% elseif k.kod == 'nieobecnosci' %}{{ ikony.kalendarz_wiersze() }}{% elseif k.kod == 'wnioski' %}{{ ikony.wnioski() }}{% elseif k.kod == 'synchronizacja' %}{{ ikony.odswiezenie() }}{% endif %}<span class="kafel__etykieta">{{ k.klucz }}</span></span>
+                <span class="kafel__dana">
+                    {#- ⚠ Stan wartości zostaje przy wartości, nie przy kaflu: „brak danych" ma być
+                        cichsze od liczby, a odchylenie — ostrzegawcze. To te same dwa stany, które
+                        niosła `.stats__value--brak` i `--odchylenie`; zniknięcie ich razem
+                        z `.stats--duze` zrównałoby „nie wiemy" z „wiemy, że zero". -#}
+                    <span class="kafel__wartosc{% if k.stan == 'brak' %} kafel__wartosc--brak{% elseif k.stan == 'odchylenie' %} kafel__wartosc--odchylenie{% endif %}">{{ k.wartosc }}{% if k.reszta is not null %} <small class="kafel__reszta">{{ k.reszta }}</small>{% endif %}</span>
+                    {% if k.podpis is not null %}<span class="kafel__opis">{{ k.podpis }}</span>{% endif %}
+                </span>
             </div>
         {% endfor %}
     </section>

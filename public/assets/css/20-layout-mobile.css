@@ -165,6 +165,13 @@
    o nieobecnościach weszło do bloku tytułu, `card__head` zniknęło), więc wyściółkę telefonu
    musi dostać on — inaczej jedna karta na ekranie ma 16 px z boków, a nagłówek 24 px. */
 .m-content .kal-nav { padding: var(--s-4); }
+/* ⚠ Pasek kafli pulpitu dostaje tę samą wyściółkę telefonu z tego samego powodu, co `card__body`
+   i `kal-nav`: sam niesie wyściółkę karty, bo nie leży w `card__body`. Tu nie chodzi o wygląd —
+   przy 24 px z obu stron kafelek w układzie 2 × 3 ma 140 px, z czego na treść zostaje 106 px,
+   a data „17.10.2026" przy 20 px potrzebuje więcej i ŁAMIE SIĘ W POŁOWIE („17.10.202 / 6").
+   Zmierzone 17.10.2026 na 374 px: 16 px wyściółki daje kafelek 149 px i 115 px na treść,
+   czyli datę w jednym kawałku i godziny w jednej linii z dniami. */
+.m-content .kafle { padding: var(--s-4); }
 .m-content .card__foot { padding: var(--s-3) var(--s-4); }
 /* ⚠ Podsumowanie na telefonie idzie W KOLUMNIE, jedna pozycja pod drugą. Zmierzone przy 376 px:
    trzy pozycje w rzędzie dawały 113 px szerokości każda, czyli etykieta „Wnioski oczekujące"

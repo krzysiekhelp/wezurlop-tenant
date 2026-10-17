@@ -59,3 +59,19 @@
     już były (menu), `firma()` dochodzi, bo przełącznik z dwiema ikonami na trzy pozycje wygląda
     na niedokończony, a nie na decyzję. -#}
 {% macro firma() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M4.4 16.6V4.6a.8.8 0 0 1 .8-.8h5.2a.8.8 0 0 1 .8.8v12"/><path d="M11.2 8.6h3.6a.8.8 0 0 1 .8.8v7.2M2.8 16.6h14.4M7 6.8h1.6M7 9.8h1.6M7 12.8h1.6"/></svg>{% endmacro %}
+
+{#- **Ikony kafli pulpitu** (zlecenie Z15 z 17.10.2026). Jedna na kafelek, w głowie kafelka,
+    w kolorze `--c-text-3` — mają ROZPOZNAWAĆ kafelek z odległości, nie zdobić go.
+
+    ⚠ Szósty kafelek dostaje `wnioski()`, która już była w pliku (menu „Wnioski") — bo to ta sama
+    rzecz: dokument wniosku. Druga ikona dokumentu znaczyłaby, że dwa rysunki mówią o jednym.
+    ⚠ `kalendarz_wiersze()` jest OSOBNA od `kalendarz()` i `skala_miesiac()`, choć wszystkie trzy
+    są kalendarzem: ta ma wiersze wpisów (liczba nieobecności), tamta jest pusta (menu), a trzecia
+    ma kropki dni (skala miesiąca). Różnica jest w tym, co kafelek liczy.
+    ⚠ Kreski i promienie dobrane tak, żeby rysunek mieścił się w tym samym polu 13,6 px co reszta
+    rodziny — inaczej jedna ikona w rzędzie sześciu wygląda na większą, mimo tego samego `.ico`. -#}
+{% macro kartka_kalendarza() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M4.5 6.5a1.6 1.6 0 0 1 1.6-1.6h7.8a1.6 1.6 0 0 1 1.6 1.6v6.4l-3.5 3.6H6.1a1.6 1.6 0 0 1-1.6-1.6Z"/><path d="M4.5 8.6h11M15.5 12.9h-1.9a1.6 1.6 0 0 0-1.6 1.6v1.9"/></svg>{% endmacro %}
+{% macro zegar() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle cx="10" cy="10" r="6.6"/><path d="M10 6.2V10l2.8 1.8"/></svg>{% endmacro %}
+{% macro termin() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M3.4 10h8.2M8.6 7 11.6 10l-3 3M15.8 4.6v10.8"/></svg>{% endmacro %}
+{% macro kalendarz_wiersze() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><rect x="3.2" y="4.5" width="13.6" height="12" rx="1.6"/><path d="M3.2 8.3h13.6M7 3v3M13 3v3M6.2 11.4h7.6M6.2 13.8h5"/></svg>{% endmacro %}
+{% macro odswiezenie() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M15.9 12.1a6.3 6.3 0 1 1-1.5-6.6l3.3 3.1"/><path d="M17.7 4.4v4.2h-4.2"/></svg>{% endmacro %}

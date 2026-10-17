@@ -122,11 +122,19 @@ final class PulpitPracownika
         ?string $synchronizacja,
         string $strefa
     ): array {
+        // ⚠ **`kod` to TOŻSAMOŚĆ kafelka, nie nazwa ikony** (zlecenie Z15 z 17.10.2026).
+        // Serwis wie, który to kafelek; szablon wie, jaka ikona mu odpowiada — i wybiera ją
+        // jawnym warunkiem, nie wywołaniem makra po napisie (ta sama zasada co przy skalach
+        // w nagłówku kalendarza, CLAUDE.md §5). Gdyby kod nazywał ikonę („zegar"), zmiana
+        // rysunku wymagałaby zmiany w PHP, czyli w warstwie, która o rysunkach nie wie.
+        // Kody dokłada się tutaj, a nie w każdej gałęzi helperów: `kafelekPozostalo()` ma pięć
+        // wyjść i każde z nich jest TYM SAMYM kafelkiem.
         return [
-            self::kafelekPozostalo($rok, $urlopowy),
-            self::kafelekWykorzystane($urlopowy),
-            self::kafelekNajblizsza($najblizsza),
+            self::kafelekPozostalo($rok, $urlopowy) + ['kod' => 'pozostalo'],
+            self::kafelekWykorzystane($urlopowy) + ['kod' => 'wykorzystane'],
+            self::kafelekNajblizsza($najblizsza) + ['kod' => 'najblizsza'],
             [
+                'kod' => 'nieobecnosci',
                 'klucz' => 'Nieobecności w ' . $rok,
                 'wartosc' => (string) $podsumowanie['liczba'],
                 'reszta' => null,
@@ -138,22 +146,25 @@ final class PulpitPracownika
             [
                 // ⚠ Podpis jest jednowierszowy świadomie: wysokość paska bierze się z najwyższego
                 // kafelka, a makieta ma 122 px. Dłuższe zdanie rozpycha pasek na wszystkich ekranach.
+                'kod' => 'wnioski',
                 'klucz' => 'Wnioski oczekujące',
                 'wartosc' => '—',
                 'reszta' => null,
                 'podpis' => 'wnioski dojdą w kolejnym etapie',
                 'stan' => 'brak',
             ],
-            self::kafelekSynchronizacji($synchronizacja, $strefa),
+            self::kafelekSynchronizacji($synchronizacja, $strefa) + ['kod' => 'synchronizacja'],
         ];
     }
 
     /**
      * Kafelek „Ostatnia synchronizacja”: data jako wartość, godzina i wiek jako podpis.
      *
-     * ⚠ **Wiek liczony w DNIACH KALENDARZOWYCH strefy tenanta** (`Strefa::dniTemu`), nie
-     * w dobach: „wczoraj o 23:50” ma być wczoraj, choć od teraz dzieli je kilka godzin.
-     * Odmiana jest trzystopniowa, bo „0 dni temu” nie jest zdaniem po polsku.
+     * ⚠ **Podpis to SAMA GODZINA, bez „· dziś" i bez „N dni temu"** (zlecenie Z15 z 17.10.2026,
+     * decyzja Krzysztofa po prototypie). Wiek liczony w dniach kalendarzowych strefy tenanta
+     * stał tu od Z5 i był poprawny, ale mówił to samo, co data obok: przy przebiegu co godzinę
+     * „dziś" nie dodaje niczego, czego nie widać z daty, a przy przestoju liczbę dni czyta się
+     * z daty równie dobrze. Dwa zapisy jednego faktu w kaflu wysokim na trzy wiersze to szum.
      *
      * ⚠ Brak przebiegu to NIE jest „0 dni temu” ani „—” bez wyjaśnienia: connector mógł się
      * jeszcze nie połączyć ani razu i to jest inna informacja niż „połączył się dawno”.
@@ -162,8 +173,7 @@ final class PulpitPracownika
      */
     private static function kafelekSynchronizacji(?string $utc, string $strefa): array
     {
-        $dni = Strefa::dniTemu($utc, $strefa);
-        if ($dni === null) {
+        if ($utc === null || trim($utc) === '') {
             return [
                 'klucz' => 'Ostatnia synchronizacja',
                 'wartosc' => '—',
@@ -179,11 +189,7 @@ final class PulpitPracownika
             'reszta' => null,
             // ⚠ `Strefa::godzina()` daje `H:i:s` (jest do tabel, gdzie liczą się sekundy przebiegu),
             // a tutaj zlecenie prosi o `GG:MM` — więc format jawnie, nie przez tamten skrót.
-            'podpis' => Strefa::czas($utc, $strefa, 'H:i') . ' · ' . match (true) {
-                $dni === 0 => 'dziś',
-                $dni === 1 => 'wczoraj',
-                default => $dni . ' dni temu',
-            },
+            'podpis' => Strefa::czas($utc, $strefa, 'H:i'),
             'stan' => 'liczba',
         ];
     }

@@ -83,6 +83,10 @@
   /* ——— typografia ——— */
   --f-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --t-h1:      30px;   /* nagłówek strony */
+  /* ⚠ **Dana kafelka na pulpicie** (1.18, 17.10.2026). Nie `--t-h1`: liczba w kaflu nie jest
+     nagłówkiem strony, a przy 30 px pasek sześciu kafli wymagał 1320 px, żeby zmieścić się
+     w jednym rzędzie — czyli na 1366 px zawijał się od razu. 24 px to rozmiar DANEJ. */
+  --t-stat:    24px;   /* dana kafelka na pulpicie */
   --t-h2:      20px;   /* nagłówek sekcji / karty */
   --t-lead:    16px;   /* wyróżniona treść, tytuł karty */
   --t-body:    14px;   /* treść i KAŻDA komórka tabeli */
