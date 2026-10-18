@@ -303,14 +303,24 @@ final class ApiKeyRepository
         return $stmt->rowCount() === 1;
     }
 
-    /** @return list<array{id: int, nip: string, name: string, status: string, created_at: string, api_key_id: ?int}> */
+    /**
+     * ⚠ `decided_at` jedzie razem ze zgłoszeniem, bo przy zgłoszeniu ODRZUCONYM to jedyna data,
+     * która coś znaczy: `created_at` mówi, kiedy connector je przysłał, a nie kiedy ktoś je
+     * odrzucił — a to drugie jest tym, co administrator musi zobaczyć, żeby wiedzieć, czyją
+     * decyzję cofa (zlecenie Z39).
+     *
+     * @return list<array{id: int, nip: string, name: string, status: string, created_at: string, decided_at: ?string, api_key_id: ?int}>
+     */
     public function signups(): array
     {
         return array_map(static fn (array $r): array => [
             'id' => (int) $r['id'], 'nip' => (string) $r['nip'], 'name' => (string) $r['name'], 'status' => (string) $r['status'],
-            'created_at' => (string) $r['created_at'], 'api_key_id' => $r['api_key_id'] === null ? null : (int) $r['api_key_id'],
+            'created_at' => (string) $r['created_at'],
+            'decided_at' => $r['decided_at'] === null ? null : (string) $r['decided_at'],
+            'api_key_id' => $r['api_key_id'] === null ? null : (int) $r['api_key_id'],
         ], $this->db->pdo()->query(
-            "SELECT id, nip, name, status, created_at, api_key_id FROM company_signup ORDER BY status = 'pending' DESC, created_at DESC"
+            "SELECT id, nip, name, status, created_at, decided_at, api_key_id FROM company_signup
+              ORDER BY status = 'pending' DESC, created_at DESC"
         )->fetchAll());
     }
 

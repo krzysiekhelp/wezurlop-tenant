@@ -4711,6 +4711,34 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   font-size: var(--t-caption);
   line-height: var(--lh-body);
 }
+/* ⚠ **Odrzucone zgłoszenie: zwykła linia, bez ramki i bez barwy** (zlecenie Z39). Wiersz
+   oczekującego zgłoszenia obok ma ramkę `--c-warn-line` i żółte tło, bo CZEKA na decyzję;
+   odrzucone już jej nie wymaga — to stan zamknięty z drogą powrotu. Gdyby dostało taką samą
+   oprawę, okno zakresu świeciłoby na pomarańczowo przy kluczu, w którym nie ma nic do zrobienia,
+   i ostrzeżenie przestałoby cokolwiek znaczyć. */
+/* ⚠ **Rząd NIE zawija się na biurku** (`flex-wrap` zostaje `nowrap`): zawijanie w kontenerze
+   ma pierwszeństwo nad ściskaniem elementu, więc przy `wrap` opis szerszy niż wolne miejsce
+   zrzucał przycisk do następnego rzędu — zmierzone na 1920 px, gdzie rząd ma 510 px, a sam
+   opis 450. Bez zawijania opis ściska się do 415 px i zawija w sobie, a przycisk zostaje
+   po prawej. Zawijanie CAŁEGO rzędu włącza się dopiero na telefonie (blok ≤560 px). */
+.zakres__odrzucone {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2) var(--s-3);
+}
+/* ⚠ `flex: 1 1 auto` z `min-width: 0` — opis ODDAJE miejsce przyciskowi i zawija się sam,
+   zamiast zepchnąć go do następnego rzędu. Bez tego (`flex: 0 1 auto`) nazwa prawna z NIP-em
+   i datą ma 450 px przy 510 px rzędu, więc razem z przyciskiem (83 px) nie mieści się
+   w jednej linii i „po prawej" wychodziło „pod spodem" już na 1920 px. Ucinania nazwy
+   wielokropkiem nie robimy: po uciętej nazwie nie poznaje się, czyje odrzucenie się cofa. */
+.zakres__odrzucone-opis {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--t-small);
+  color: var(--c-text-3);
+  line-height: var(--lh-body);
+}
 
 /* ——— okno kreatora: pasek czterech kroków ——— */
 .modal--kreator { width: min(620px, calc(100vw - 2 * var(--s-4))); }
@@ -4822,8 +4850,12 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   .kroki { grid-template-columns: repeat(2, 1fr); }
   /* Okna na pełną szerokość z marginesem `--s-4` — tak samo jak pozostałe okna tenanta. */
   .modal--zakres, .modal--kreator { width: calc(100vw - 2 * var(--s-4)); }
-  .zakres__zgloszenie, .kreator__zgloszenie, .zakres__firma { flex-wrap: wrap; }
+  .zakres__zgloszenie, .kreator__zgloszenie, .zakres__firma, .zakres__odrzucone { flex-wrap: wrap; }
   .zakres__decyzja { width: 100%; justify-content: flex-end; }
+  /* ⚠ Opis zajmuje CAŁY wiersz, więc „Przywróć" schodzi pod nazwę firmy, zamiast ściskać ją
+     do kilku znaków: nazwa prawna spółki z NIP-em i datą nie zmieści się w jednej linii obok
+     przycisku przy 375 px, a ucięta nazwa nie mówi, czyje odrzucenie się cofa. */
+  .zakres__odrzucone-opis { flex: 1 1 100%; }
 }
 
 /* ——— /admin/dziennik: lista zdań zamiast tabeli (zlecenie Z36) ——————————————————————

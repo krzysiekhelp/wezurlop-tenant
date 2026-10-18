@@ -1,7 +1,8 @@
 {#- Okno „Zakres klucza" (zlecenie Z35 §4, 18.10.2026 — prototyp zaakceptowany przez Krzysztofa).
     Zastępuje dwie karty z dawnego ekranu: „Zakres kluczy" i „Zgłoszenia firm". Zmienne:
     k (klucz), firmy (zatwierdzone firmy tenanta), zgloszenia (oczekujące zgłoszenia tego klucza),
-    otwarte (czy okno ma przyjść otwarte — ścieżka bez JavaScriptu).
+    odrzucone (odrzucone zgłoszenia tego klucza), otwarte (czy okno ma przyjść otwarte —
+    ścieżka bez JavaScriptu).
 
     ⚠ **Okno jest OSADZONE w stronie, nie dociągane htmx-em** — tak samo jak okno nazw firm (Z29).
     Powód jest ten sam: „Zakres" to zwykły odnośnik na ten ekran z `?okno=zakres&klucz=<id>`,
@@ -72,6 +73,28 @@
             {% else %}
                 <p class="table__empty">Żadna firma nie jest jeszcze zatwierdzona. Pierwsza pojawi się tu jako zgłoszenie, gdy connector się połączy.</p>
             {% endfor %}
+
+            {% if odrzucone is not empty %}
+                {#- ⚠ Sekcja istnieje, bo odrzucenie NIE JEST nieodwracalne (zlecenie Z39,
+                    odpowiedź na pytanie z Z35): w bazie wraca jednym `UPDATE`, więc interfejs
+                    nie ma prawa pokazywać go jako decyzji ostatecznej. Po przebudowie ekranu
+                    trasa `…/przywroc` istniała, ale nie prowadził do niej żaden odnośnik.
+                    ⚠ Bez ramki ostrzeżenia i bez barwnego tła — odrzucone zgłoszenie to stan
+                    zamknięty, a nie rzecz wymagająca uwagi. Czerwony pasek w oknie zakresu
+                    znaczyłby „coś jest nie tak", a nie jest. -#}
+                <p class="zakres__etykieta">Odrzucone</p>
+                {% for s in odrzucone %}
+                    <div class="zakres__odrzucone">
+                        <span class="zakres__odrzucone-opis">Odrzucone: {{ s.name }} · NIP {{ nip_grupami(s.nip) }} · {{ czas_data(s.decided_at) }}</span>
+                        {#- Ten sam chwyt, co przy „Zatwierdź": `formaction` wysyła TEN SAM formularz
+                            pod inny adres, więc jest POST z tokenem CSRF bez drugiego formularza
+                            i bez JavaScriptu. Akcja czyta identyfikator ze ścieżki, a `?okno=zakres`
+                            wraca do tego samego otwartego okna. -#}
+                        <button type="submit" class="btn btn--akcja btn--sm zakres__przywroc"
+                                formaction="{{ url('/admin/integracja/zgloszenia/' ~ s.id ~ '/przywroc') }}?okno=zakres&amp;klucz={{ k.id }}">Przywróć</button>
+                    </div>
+                {% endfor %}
+            {% endif %}
 
             <p class="zakres__notka">Zatwierdzenie zgłoszenia tworzy firmę w aplikacji i dodaje ją do zakresu klucza. Ręcznie zmieniaj zakres tylko wyjątkowo.</p>
         </div>

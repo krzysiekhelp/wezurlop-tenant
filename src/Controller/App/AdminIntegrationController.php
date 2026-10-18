@@ -225,13 +225,32 @@ final class AdminIntegrationController
         return $this->showOnce($request, $key);
     }
 
-    /** @param array<string, string> $params */
+    /**
+     * Cofnięcie odrzucenia zgłoszenia firmy — zgłoszenie wraca do decyzji.
+     *
+     * ⚠ **Wracamy do OTWARTEGO okna zakresu**, gdy „Przywróć" przyszło właśnie z niego
+     * (zlecenie Z39). Przywrócone zgłoszenie pojawia się wtedy w sekcji „Czeka na decyzję"
+     * nad tą samą listą — a nie na ekranie z zamkniętym oknem, gdzie widać wyłącznie
+     * zielony pasek i trzeba wejść w „Zakres" jeszcze raz, żeby sprawdzić skutek.
+     * ⚠ Identyfikator klucza to LICZBA z adresu i przechodzi przez tę samą białą listę,
+     * co `?okno=zakres` (`render()` sprawdza, czy klucz należy do tenanta) — do nagłówka
+     * `Location` nie trafia nic z żądania poza nią (CLAUDE.md §11, zakaz open redirect).
+     *
+     * @param array<string, string> $params
+     */
     public function reopen(Request $request, array $params): Response
     {
         $admin = $this->admin($request);
         $id = self::id($params);
         if ($admin === null || $id === null || !$this->service->reopenSignup($id, $admin->accountId())) {
             return $this->errors->errorPage(404, null, $request->isHtmx());
+        }
+        $klucz = $request->queryString('okno', 16) === 'zakres' ? (int) $request->query('klucz') : 0;
+        if ($klucz > 0 && !self::fromWizard($request)) {
+            return Response::redirectFor(
+                $request,
+                $this->urls->to('/admin/integracja') . '?ok=przywrocona&okno=zakres&klucz=' . $klucz,
+            );
         }
 
         return $this->done($request, 'przywrocona');
@@ -526,6 +545,32 @@ final class AdminIntegrationController
         }
 
         return $godzin === null ? null : ['godzin' => $godzin, 'prog' => $prog];
+    }
+
+    /**
+     * Zgłoszenia rozdzielone po kluczach — jedna lista na klucz, gotowa dla okna zakresu.
+     *
+     * ⚠ **Zgłoszenie BEZ przypisanego klucza trafia do każdego klucza**, a nie do żadnego.
+     * `company_signup.api_key_id` ma `ON DELETE SET NULL`, więc skasowanie klucza zrywa to
+     * powiązanie — a zgłoszenie niepokazane przy żadnym kluczu czekałoby w bazie bez śladu
+     * w interfejsie. Przy oczekujących znaczy to zgubioną decyzję, przy odrzuconych zgubioną
+     * drogę powrotu; w obu razach tę samą usterkę, więc i ta sama metoda (zlecenie Z39).
+     *
+     * @param list<array<string, mixed>> $keys wiersze kluczy z repozytorium
+     * @param list<array<string, mixed>> $signups zgłoszenia w jednym stanie (oczekujące albo odrzucone)
+     * @return array<int, list<array<string, mixed>>>
+     */
+    private static function perKey(array $keys, array $signups): array
+    {
+        $out = [];
+        foreach ($keys as $k) {
+            $out[(int) $k['id']] = array_values(array_filter(
+                $signups,
+                static fn (array $s): bool => $s['api_key_id'] === (int) $k['id'] || $s['api_key_id'] === null,
+            ));
+        }
+
+        return $out;
     }
 
     /** Znacznik z bazy (UTC) w strefie tenanta — potwierdzenia też są dla człowieka (docs §10). */
@@ -872,21 +917,8 @@ final class AdminIntegrationController
                     : null,
             ], $keys),
             // Jedna cisza dla całego ekranu: najdłużej milczący klucz aktywny (zwykle jedyny).
-            // Zgłoszenia przypisane do klucza — gotowe dla okna zakresu (Z35 §4). ⚠ Zgłoszenie
-            // BEZ przypisanego klucza trafia do każdego czynnego klucza: niepokazane nigdzie
-            // czekałoby w bazie bez śladu w interfejsie, a decyzja o firmie jest obowiązkowa.
-            'zgloszenia_kluczy' => array_reduce(
-                $keys,
-                static function (array $acc, array $k) use ($signupsPending): array {
-                    $acc[(int) $k['id']] = array_values(array_filter(
-                        $signupsPending,
-                        static fn (array $s): bool => $s['api_key_id'] === (int) $k['id'] || $s['api_key_id'] === null,
-                    ));
-
-                    return $acc;
-                },
-                [],
-            ),
+            // Zgłoszenia przypisane do klucza — gotowe dla okna zakresu (Z35 §4).
+            'zgloszenia_kluczy' => self::perKey($keys, $signupsPending),
             // Które okno zakresu ma przyjść otwarte (ścieżka bez JavaScriptu). Zero = żadne.
             // ⚠ Biała lista: identyfikator z adresu musi należeć do kluczy tego tenanta,
             // inaczej `?okno=zakres&klucz=999` kazałoby szablonowi szukać klucza, którego nie ma.
@@ -897,7 +929,15 @@ final class AdminIntegrationController
             'rozjazd'  => $this->rozjazdOdciskow($keys),
             'osob_w_wielu_firmach' => $this->domain->peopleInManyCompanies(),
             'signups'  => $signupsPending,
-            'rejected' => array_values(array_filter($this->keys->signups(), static fn (array $s): bool => $s['status'] === 'rejected')),
+            // ⚠ Zgłoszenia ODRZUCONE też idą do okna zakresu (zlecenie Z39, odpowiedź na pytanie
+            // z Z35): po przebudowie ekranu trasa `…/przywroc` istniała, ale nic do niej nie
+            // prowadziło — odrzucenie było wtedy decyzją nieodwracalną przez interfejs, choć
+            // w bazie jest odwracalna jednym `UPDATE`. Lista jest grupowana tą samą metodą,
+            // co oczekujące, więc zgłoszenie bez klucza nie gubi się tu ani tam.
+            'odrzucone_kluczy' => self::perKey(
+                $keys,
+                array_values(array_filter($this->keys->signups(), static fn (array $s): bool => $s['status'] === 'rejected')),
+            ),
             'streams'  => array_map(static fn (array $s): array => [
                 'id' => $s['id'], 'name' => $s['name'], 'nip' => $s['nip'], 'review_required' => $s['review_required'],
                 'identity' => $s['identity'], 'identity_pending' => $s['identity_pending'],

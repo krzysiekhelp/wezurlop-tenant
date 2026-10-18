@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.18, 18.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.19, 18.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,43 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.18 → 1.18.19: w oknie „Zakres klucza" wraca droga do „Cofnij odrzucenie"**
+> (zlecenie Z39, 18.10.2026 — odpowiedź na pytanie otwarte z Z35).
+> Okno zakresu dostaje trzecią sekcję, **„ODRZUCONE"**, widoczną tylko wtedy, gdy klucz ma choć
+> jedno odrzucone zgłoszenie: jedna linia na zgłoszenie (13 px, `--c-text-3`) i przycisk
+> „Przywróć" (`.btn--akcja .btn--sm`, 32 px) po prawej.
+> ⚠ **To nie jest dodanie funkcji, tylko przywrócenie drogi, którą przebudowa ekranu odcięła.**
+> Trasa `POST /admin/integracja/zgloszenia/{id}/przywroc` istniała od Z21 i działała, ale po Z35
+> **nie prowadził do niej żaden odnośnik** — a ekran potwierdzenia odrzucenia przez cały ten czas
+> obiecywał: „Decyzję można cofnąć na tym ekranie". Interfejs pokazywał odrzucenie jako decyzję
+> ostateczną, choć w bazie wraca jednym `UPDATE`. Tak wygląda regres, którego nie widać ani
+> w testach, ani w bramce: nic nie jest zepsute, po prostu czegoś nie ma.
+> ⚠ **Bez ramki ostrzeżenia i bez barwnego tła** — inaczej niż wiersz zgłoszenia oczekującego
+> (`--c-warn-line`, żółte tło). Oczekujące **czeka na decyzję**; odrzucone jest stanem zamkniętym
+> z drogą powrotu. Gdyby dostało tę samą oprawę, okno świeciłoby na pomarańczowo przy kluczu,
+> w którym nie ma nic do zrobienia, i ostrzeżenie przestałoby cokolwiek znaczyć.
+> ⚠ **Rząd NIE zawija się na biurku.** Przy `flex-wrap: wrap` zawijanie kontenera ma pierwszeństwo
+> nad ściskaniem elementu, więc opis szerszy niż wolne miejsce **zrzucał przycisk pod spodem
+> już przy 1920 px** (rząd 510 px, sam opis 450). Bez zawijania opis ściska się do 415 px
+> i zawija w sobie, a „Przywróć" zostaje po prawej; zawijanie całego rzędu włącza się dopiero
+> w bloku ≤ 560 px, gdzie `flex: 1 1 100%` na opisie świadomie spycha przycisk pod nazwę.
+> ⚠ **`decided_at` dojechało do szablonu razem ze zgłoszeniem**: przy odrzuconym `created_at`
+> mówi, kiedy connector je przysłał, a nie kiedy ktoś je odrzucił — a to drugie jest tym,
+> co administrator musi zobaczyć, zanim cofnie cudzą decyzję.
+> ⚠ **Przywrócenie wraca do OTWARTEGO okna** (`?ok=przywrocona&okno=zakres&klucz=<id>`):
+> inaczej skutek operacji widać dopiero po ponownym wejściu w „Zakres". Identyfikator klucza
+> to liczba przechodząca przez tę samą białą listę, co `?okno=zakres`.
+> **Pomiar (klucz „test", zgłoszenie próbne, dane zastępcze)**: brak odrzuconych → sekcji nie ma
+> (0 elementów, etykiety: „W zakresie klucza"); po odrzuceniu → 1 linia, etykiety „W zakresie
+> klucza" + „Odrzucone", znacznik na „Zakres" znika; „Przywróć" → zgłoszenie w „Czeka na decyzję",
+> znacznik **1**, okno otwarte. 1920 px: rząd `[705, 630, 510, 40]`, opis 415 px, przycisk
+> `[1132, 644, 83, 32]` — w tym samym rzędzie, pismo 13 px, ramka 0 px, tło przezroczyste.
+> 375 px: opis na całą szerokość (291 px), przycisk pod nim `[42, 605, 83, 32]`.
+> `scrollWidth` = `clientWidth` na obu szerokościach, 0 błędów JS.
+> **Bez JavaScriptu ta sama droga działa w całości**: `?okno=zakres` daje `<dialog open>`,
+> „Odrzuć" prowadzi na pełny ekran potwierdzenia, a „Przywróć" wysyła ten sam formularz przez
+> `formaction` (POST z tokenem CSRF, bez drugiego formularza) i wraca do otwartego okna.
 
 > **Zmiana 1.18.17 → 1.18.18: menu „⋯" karty w drzewie idzie w róg na wąskim ekranie**
 > (zlecenie Z38, 18.10.2026).
@@ -1095,6 +1132,7 @@ ale NIE blokuje przewijania — blokadę na czas chwytu robi `touchmove` w `modu
 `.table--przebiegi` `.przebieg-czas` `.przebieg-czas__godzina` `.przebieg-czas__data` `.przebieg-liczba`
 `.modal--zakres` `.zakres__etykieta` `.zakres__zgloszenie` `.zakres__dane` `.zakres__nazwa`
 `.zakres__meta` `.zakres__decyzja` `.zakres__odrzuc` `.zakres__firma` `.zakres__notka`
+`.zakres__odrzucone` `.zakres__odrzucone-opis` (1.18.19, zlecenie Z39)
 `.modal--kreator` `.kreator` `.kreator__stan` `.kreator__teraz` `.kreator__co-dalej`
 `.kreator__form` `.kreator__zgloszenie` `.kreator__czekam` `.kroki` `.krok` (`--zrobione` `--biezacy`)
 `.krok__kolko` `.krok__nazwa` `.krok__stan`
