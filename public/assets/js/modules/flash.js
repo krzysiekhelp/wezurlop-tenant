@@ -52,9 +52,24 @@
     }
   });
 
+  /* ⚠ Serwer może PODAĆ powód odmowy zamiast kodu — i wtedy on wygrywa nad napisem z tablicy
+     wyżej. Warunek jest wąski celowo: wyłącznie `text/plain`, wyłącznie 4xx. Treść wstawia
+     `show()` przez `textContent`, więc nie ma tu drogi na HTML (CLAUDE.md §6), a odpowiedzi
+     z fragmentem HTML (`text/html`) dalej nie trafiają na pasek — od nich jest podmiana treści.
+     Bez tego odmowa „ten adres ma już inna osoba" wyglądałaby jak „dane są nieprawidłowe”,
+     czyli komunikat, po którym nie wiadomo, co poprawić (zlecenie Z40). */
+  function powodZOdpowiedzi(xhr) {
+    if (!xhr || xhr.status < 400 || xhr.status >= 500) {
+      return '';
+    }
+    var typ = (xhr.getResponseHeader('Content-Type') || '').toLowerCase();
+    var tekst = typeof xhr.responseText === 'string' ? xhr.responseText.trim() : '';
+    return typ.indexOf('text/plain') === 0 && tekst !== '' && tekst.length <= 300 ? tekst : '';
+  }
+
   document.addEventListener('htmx:responseError', function (event) {
     var xhr = event.detail && event.detail.xhr;
-    show(messageFor(xhr ? xhr.status : 500), 'error');
+    show(powodZOdpowiedzi(xhr) || messageFor(xhr ? xhr.status : 500), 'error');
   });
 
   document.addEventListener('htmx:sendError', function () {

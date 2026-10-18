@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace Wezurlop\Repository;
 
 use PDO;
+use PDOException;
+use PDOStatement;
 use Wezurlop\Db\Connection;
+use Wezurlop\Support\AdresKontaktowy;
 use Wezurlop\Support\NazwaOsoby;
 
 /**
@@ -492,7 +495,7 @@ final class PersonRepository
         $stmt->bindValue('person', $personId, PDO::PARAM_INT);
         $stmt->bindValue('company_all', $companyId === null ? 1 : 0, PDO::PARAM_INT);
         $stmt->bindValue('company', $companyId ?? 0, PDO::PARAM_INT);
-        $stmt->execute();
+        self::zapiszZAdresem($stmt);
 
         return $this->rowForAdmin($personId, $companyId) !== null;
     }
@@ -546,6 +549,76 @@ final class PersonRepository
     }
 
     /**
+     * Zapis, w którym duplikat adresu jest ODMOWĄ, a nie awarią (zlecenie Z40).
+     *
+     * ⚠ Sprawdzenie przed zapisem odpowiada na pytanie „czy adres jest wolny TERAZ", a klucz
+     * unikalny — „czy był wolny W CHWILI ZAPISU". Między jednym a drugim mieści się drugi
+     * administrator zapisujący ten sam adres, więc bez tego tłumaczenia wyścig kończyłby się
+     * stroną błędu zamiast zdaniem, co poprawić.
+     */
+    private static function zapiszZAdresem(PDOStatement $stmt, ?array $params = null): void
+    {
+        try {
+            $stmt->execute($params);
+        } catch (PDOException $e) {
+            if (AdresKontaktowy::duplikat($e)) {
+                throw new AdresZajetyException('Adres e-mail należy już do innej osoby albo konta.');
+            }
+
+            throw $e;
+        }
+    }
+
+    /**
+     * Kto już ma ten adres — osoba z adresu kontaktowego ALBO właściciel konta o tym loginie
+     * (zlecenie Z40, 18.10.2026). Zwraca pierwszą kolizję albo `null`.
+     *
+     * ⚠ **Pytamy o OBIE kolumny naraz**, bo adres kontaktowy osoby staje się loginem w dniu
+     * zaproszenia (`InvitationService::inviteExisting()`). Sprawdzanie samego `person` puściłoby
+     * adres, którym ktoś już się loguje — a zaproszenie tej osoby odbiłoby się dopiero
+     * o `UNIQUE` na `account.email` i wyglądałoby na usterkę zaproszeń, nie na duplikat.
+     * ⚠ **Szukamy BEZ ZAKRESU spółki, a nazwisko podajemy tylko w zakresie.** Duplikat jest
+     * duplikatem niezależnie od tego, czyje kadry widzi ten administrator — zawężenie zapytania
+     * zakresem przepuściłoby zapis, który i tak odbije się o klucz unikalny, czyli zamieniłoby
+     * czytelną odmowę na błąd 500. Ale nazwisko osoby spoza zakresu **nie jest dla tego
+     * administratora** (CLAUDE.md §10), więc wraca wtedy sama informacja, że adres jest zajęty.
+     * ⚠ Porównanie po `LOWER(TRIM(...))`, choć kolacja `utf8mb4_unicode_ci` i tak nie rozróżnia
+     * wielkości liter ani ogona spacji: warunek ma mówić, co porównujemy, a nie opierać się
+     * na ustawieniu kolumny, które przy przeprowadzce bazy potrafi się zmienić.
+     *
+     * @return array{id: int, nazwa: string, w_zakresie: bool}|null
+     */
+    public function ktoMaAdres(string $adres, int $pomijanaOsoba, ?int $companyId): ?array
+    {
+        $stmt = $this->db->pdo()->prepare(
+            'SELECT p.id, p.first_name, p.last_name, ' . self::ZAKRES . ' AS w_zakresie
+             FROM person p
+             LEFT JOIN account a ON a.person_id = p.id
+             WHERE p.id <> :pomijana
+               AND (LOWER(TRIM(p.email_private)) = :adres_osoby OR LOWER(TRIM(a.email)) = :adres_konta)
+             ORDER BY p.id LIMIT 1'
+        );
+        // ⚠ Dwa nazwane parametry na jedną wartość: przy `ATTR_EMULATE_PREPARES => false`
+        // ten sam `:nazwa` użyty dwa razy kończy się błędem HY093 (CLAUDE.md §4).
+        $stmt->bindValue('adres_osoby', $adres);
+        $stmt->bindValue('adres_konta', $adres);
+        $stmt->bindValue('pomijana', $pomijanaOsoba, PDO::PARAM_INT);
+        $stmt->bindValue('company_all', $companyId === null ? 1 : 0, PDO::PARAM_INT);
+        $stmt->bindValue('company', $companyId ?? 0, PDO::PARAM_INT);
+        $stmt->execute();
+        $r = $stmt->fetch();
+        if (!is_array($r)) {
+            return null;
+        }
+
+        return [
+            'id' => (int) $r['id'],
+            'nazwa' => NazwaOsoby::imieNazwisko((string) $r['first_name'], (string) $r['last_name']),
+            'w_zakresie' => (bool) $r['w_zakresie'],
+        ];
+    }
+
+    /**
      * Adres kontaktowy wpisany przez administratora.
      *
      * ⚠ Piszemy do `person.email_private`, kolumny, której **nic dotąd nie zapisywało** — czytały
@@ -565,7 +638,7 @@ final class PersonRepository
         $stmt->bindValue('person', $personId, PDO::PARAM_INT);
         $stmt->bindValue('company_all', $companyId === null ? 1 : 0, PDO::PARAM_INT);
         $stmt->bindValue('company', $companyId ?? 0, PDO::PARAM_INT);
-        $stmt->execute();
+        self::zapiszZAdresem($stmt);
 
         // ⚠ `rowCount()` nie wystarcza: zapis tej samej wartości daje 0 zmienionych wierszy,
         // a to nie jest „osoby nie ma". Dlatego istnienie sprawdzamy osobno, tym samym zakresem.

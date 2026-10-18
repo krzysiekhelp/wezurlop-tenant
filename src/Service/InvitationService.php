@@ -6,6 +6,7 @@ namespace Wezurlop\Service;
 
 use InvalidArgumentException;
 use Wezurlop\Repository\AccountRepository;
+use Wezurlop\Repository\AdresZajetyException;
 use Wezurlop\Repository\EventLogRepository;
 use Wezurlop\Repository\InvitationRepository;
 use Wezurlop\Repository\JobRepository;
@@ -49,7 +50,7 @@ final class InvitationService
      *
      * ```
      * POST /admin/konta/zapros  osoby[]=107   (konto #12 `niezaproszone`, ten sam adres)
-     * → „adres jest już użyty przez inne konto"
+     * → „adres jest już użyty przez inną osobę lub konto"
      * ```
      *
      * Skutek u klienta: osoba, której nadano dostęp **przed** zaproszeniem, była nie do
@@ -130,17 +131,32 @@ final class InvitationService
         if ($this->adresZajetyPrzezInneKonto($email)) {
             throw new InvalidArgumentException('Konto z tym adresem już istnieje');
         }
+        // ⚠ DRUGIE pytanie, nie powtórzenie pierwszego (zlecenie Z40): wyżej pytamy, czy adres
+        // jest już czyimś LOGINEM, tutaj — czy jest już czyimś adresem w KARTOTECE. Adres
+        // kontaktowy staje się loginem w dniu zaproszenia, więc bez tego warunku zakładalibyśmy
+        // konto na adresie, którym za chwilę nie da się zaprosić osoby, przy której już stoi.
+        // ⚠ `0` jako „osoba pomijana": tutaj osoba dopiero powstanie, więc nie ma czego pomijać.
+        if ($this->people->ktoMaAdres($email, 0, null) !== null) {
+            throw new InvalidArgumentException('Ten adres ma już inna osoba');
+        }
 
-        $accountId = $this->db->transaction(function () use ($firstName, $lastName, $email, $invitedBy): int {
-            $personId = $this->people->create($firstName, $lastName, true);
-            $accountId = $this->accounts->createInvited($personId, $email);
-            // ⚠ Rozdziału z §8c ta droga nie łamie z definicji: osoba powstaje TUTAJ, świeża,
-            // z `outside_hr = 1`, więc nie ma zatrudnienia. Warunek i tak stoi w `assignRole()`
-            // — żeby trzymał także wtedy, gdy kiedyś zaprosimy osobę już istniejącą.
-            $this->permissions->assignRole($accountId, PermissionRepository::ROLA_ADMIN, 0, $invitedBy);
+        // ⚠ Sprawdzenie wyżej mówi „adres jest wolny TERAZ", klucz unikalny — „był wolny
+        // W CHWILI ZAPISU". Między jednym a drugim mieści się drugi administrator zapraszający
+        // ten sam adres, więc wyścig ma dać tę samą odmowę, a nie stronę błędu (zlecenie Z40).
+        try {
+            $accountId = $this->db->transaction(function () use ($firstName, $lastName, $email, $invitedBy): int {
+                $personId = $this->people->create($firstName, $lastName, true);
+                $accountId = $this->accounts->createInvited($personId, $email);
+                // ⚠ Rozdziału z §8c ta droga nie łamie z definicji: osoba powstaje TUTAJ, świeża,
+                // z `outside_hr = 1`, więc nie ma zatrudnienia. Warunek i tak stoi w `assignRole()`
+                // — żeby trzymał także wtedy, gdy kiedyś zaprosimy osobę już istniejącą.
+                $this->permissions->assignRole($accountId, PermissionRepository::ROLA_ADMIN, 0, $invitedBy);
 
-            return $accountId;
-        });
+                return $accountId;
+            });
+        } catch (AdresZajetyException) {
+            throw new InvalidArgumentException('Konto z tym adresem już istnieje');
+        }
         // ⚠ Kolejkowanie i dziennik POZA transakcją — zadanie wrzucone w środku mogłoby zostać
         // podjęte przez runnera, zanim konto zostanie zatwierdzone.
         $this->mail->queueInvitation($accountId, $invitedBy);
@@ -156,7 +172,7 @@ final class InvitationService
      */
     public const POWOD_BRAK_ADRESU = 'brak adresu e-mail';
     public const POWOD_MA_KONTO = 'ma już konto';
-    public const POWOD_ADRES_ZAJETY = 'adres jest już użyty przez inne konto';
+    public const POWOD_ADRES_ZAJETY = 'adres jest już użyty przez inną osobę lub konto';
     public const POWOD_BRAK_OSOBY = 'osoby już nie ma w kartotece';
 
     /**
@@ -186,29 +202,35 @@ final class InvitationService
         }
         // ⚠ `pomijanaOsoba`: konto TEJ osoby nie jest „innym kontem". Bez tego ścieżka
         // `niezaproszone → invited` niżej była martwa (patrz `adresZajetyPrzezInneKonto()`).
-        if ($this->adresZajetyPrzezInneKonto($email, pomijanaOsoba: $personId)) {
+        if ($this->adresZajetyPrzezInneKonto($email, pomijanaOsoba: $personId)
+            || $this->people->ktoMaAdres($email, $personId, null) !== null) {
             return ['powod' => self::POWOD_ADRES_ZAJETY, 'account' => null];
         }
 
-        $wynik = $this->db->transaction(function () use ($personId, $email): array {
-            if (!$this->accounts->personExists($personId)) {
-                return ['powod' => self::POWOD_BRAK_OSOBY, 'account' => null];
-            }
-            $konto = $this->accounts->findForPersonForUpdate($personId);
-            if ($konto === null) {
-                return ['powod' => null, 'account' => $this->accounts->createInvited($personId, $email)];
-            }
+        try {
+            $wynik = $this->db->transaction(function () use ($personId, $email): array {
+                if (!$this->accounts->personExists($personId)) {
+                    return ['powod' => self::POWOD_BRAK_OSOBY, 'account' => null];
+                }
+                $konto = $this->accounts->findForPersonForUpdate($personId);
+                if ($konto === null) {
+                    return ['powod' => null, 'account' => $this->accounts->createInvited($personId, $email)];
+                }
             // ⚠ Konto `niezaproszone` już istnieje — powstało przy nadaniu dostępu (§4 zlecenia),
             // więc zaproszenie go NIE ZAKŁADA, tylko przestawia stan i dopisuje adres, który
             // od tej chwili jest loginem. Bez tego gałęzi administrator, który najpierw nadał
             // dostęp, dostawałby na własne konto odmowę „ma już konto".
-            if ($konto['status'] === AccountRepository::STAN_NIEZAPROSZONE
-                && $this->accounts->promoteToInvited($konto['id'], $email)) {
-                return ['powod' => null, 'account' => $konto['id']];
-            }
+                if ($konto['status'] === AccountRepository::STAN_NIEZAPROSZONE
+                    && $this->accounts->promoteToInvited($konto['id'], $email)) {
+                    return ['powod' => null, 'account' => $konto['id']];
+                }
 
-            return ['powod' => self::POWOD_MA_KONTO, 'account' => null];
-        });
+                return ['powod' => self::POWOD_MA_KONTO, 'account' => null];
+            });
+        } catch (AdresZajetyException) {
+            // Wyścig dwóch zaproszeń na ten sam adres — ta sama odmowa, co ze sprawdzenia wyżej.
+            return ['powod' => self::POWOD_ADRES_ZAJETY, 'account' => null];
+        }
         if ($wynik['powod'] !== null) {
             return $wynik;
         }
@@ -365,11 +387,16 @@ final class InvitationService
         if ($stary === $email) {
             return null;
         }
-        if ($this->adresZajetyPrzezInneKonto($email, pomijaneKonto: $accountId)) {
+        if ($this->adresZajetyPrzezInneKonto($email, pomijaneKonto: $accountId)
+            || $this->people->ktoMaAdres($email, (int) $account['person_id'], null) !== null) {
             return self::POWOD_ADRES_ZAJETY;
         }
-        if (!$this->accounts->changeEmailBeforeActivation($accountId, $email)) {
-            return self::POWOD_AKTYWNE;
+        try {
+            if (!$this->accounts->changeEmailBeforeActivation($accountId, $email)) {
+                return self::POWOD_AKTYWNE;
+            }
+        } catch (AdresZajetyException) {
+            return self::POWOD_ADRES_ZAJETY;
         }
         // Adres kontaktowy osoby idzie razem z loginem — inaczej panel pokazywałby dwie wartości.
         $this->people->updateContactEmail((int) $account['person_id'], $email, null);

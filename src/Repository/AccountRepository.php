@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Wezurlop\Repository;
 
+use PDOException;
+use PDOStatement;
 use Wezurlop\Db\Connection;
+use Wezurlop\Support\AdresKontaktowy;
 use Wezurlop\Support\NazwaOsoby;
 
 /**
@@ -286,7 +289,7 @@ final class AccountRepository
         $stmt = $this->db->pdo()->prepare(
             "UPDATE account SET email = :email WHERE id = :id AND status <> 'active'"
         );
-        $stmt->execute(['email' => $email, 'id' => $accountId]);
+        self::zapiszZAdresem($stmt, ['email' => $email, 'id' => $accountId]);
 
         return $stmt->rowCount() === 1;
     }
@@ -296,7 +299,7 @@ final class AccountRepository
         $stmt = $this->db->pdo()->prepare(
             'UPDATE account SET email = :email, status = :nowy WHERE id = :id AND status = :stary'
         );
-        $stmt->execute([
+        self::zapiszZAdresem($stmt, [
             'email' => $email,
             'nowy'  => self::STAN_ZAPROSZONE,
             'id'    => $accountId,
@@ -441,13 +444,34 @@ final class AccountRepository
         return $stmt->rowCount() === 1;
     }
 
+    /**
+     * Zapis, w którym duplikat adresu jest ODMOWĄ, a nie awarią (zlecenie Z40).
+     *
+     * ⚠ Sprawdzenie przed zapisem odpowiada na pytanie „czy adres jest wolny TERAZ", a klucz
+     * unikalny — „czy był wolny W CHWILI ZAPISU". Między jednym a drugim mieści się drugi
+     * administrator zapisujący ten sam adres, więc bez tego tłumaczenia wyścig kończyłby się
+     * stroną błędu zamiast zdaniem, co poprawić.
+     */
+    private static function zapiszZAdresem(PDOStatement $stmt, ?array $params = null): void
+    {
+        try {
+            $stmt->execute($params);
+        } catch (PDOException $e) {
+            if (AdresKontaktowy::duplikat($e)) {
+                throw new AdresZajetyException('Adres e-mail należy już do innej osoby albo konta.');
+            }
+
+            throw $e;
+        }
+    }
+
     /** Konto w stanie „zaproszone”, bez hasła. */
     public function createInvited(int $personId, string $email): int
     {
         $stmt = $this->db->pdo()->prepare(
             "INSERT INTO account (person_id, email, status) VALUES (:person, :email, 'invited')"
         );
-        $stmt->execute(['person' => $personId, 'email' => $email]);
+        self::zapiszZAdresem($stmt, ['person' => $personId, 'email' => $email]);
 
         return (int) $this->db->pdo()->lastInsertId();
     }

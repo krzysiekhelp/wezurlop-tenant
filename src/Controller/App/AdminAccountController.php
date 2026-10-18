@@ -9,6 +9,7 @@ use Wezurlop\Entity\CurrentUser;
 use Wezurlop\Http\Middleware\Authenticate;
 use Wezurlop\Http\Request;
 use Wezurlop\Http\Response;
+use Wezurlop\Repository\AdresZajetyException;
 use Wezurlop\Repository\AccountRepository;
 use Wezurlop\Repository\EventLogRepository;
 use Wezurlop\Repository\JobRepository;
@@ -25,6 +26,7 @@ use Wezurlop\Service\DeviceService;
 use Wezurlop\Service\InvitationService;
 use Wezurlop\Service\KontekstSpolki;
 use Wezurlop\Service\TwoFactorService;
+use Wezurlop\Support\AdresKontaktowy;
 use Wezurlop\Support\UrlGenerator;
 use Wezurlop\Support\ErrorHandler;
 use Wezurlop\Support\View;
@@ -184,8 +186,24 @@ final class AdminAccountController
             // wpisywać od nowa — a komunikat pokazuje wspólna obsługa `htmx:responseError`.
             return Response::html('', 422);
         }
-        if (!$this->people->updateContactEmail($personId, $email === '' ? null : $email, $companyId)) {
-            return $this->errors->errorPage(404, null, $request->isHtmx());
+        // ⚠ Jeden adres = jedna osoba (zlecenie Z40). Sprawdzenie jest PO STRONIE SERWERA,
+        // bo pole w wierszu nie wie nic o pozostałych osobach, a adres kontaktowy staje się
+        // loginem w dniu zaproszenia — duplikat ujawniłby się dopiero wtedy, jako zaproszenie,
+        // którego nie da się wysłać.
+        $odmowa = $this->odmowaAdresu($email, $personId, $companyId);
+        if ($odmowa !== null) {
+            // ⚠ Treść jedzie jako `text/plain`, bo pasek komunikatu wstawia ją przez `textContent`
+            // (CLAUDE.md §6). Bez tego wiersz pokazywałby ogólne „dane są nieprawidłowe”,
+            // czyli komunikat, po którym nie wiadomo, co poprawić.
+            return Response::text($odmowa, 422);
+        }
+        try {
+            if (!$this->people->updateContactEmail($personId, $email === '' ? null : $email, $companyId)) {
+                return $this->errors->errorPage(404, null, $request->isHtmx());
+            }
+        } catch (AdresZajetyException) {
+            return Response::text($this->odmowaAdresu($email, $personId, $companyId)
+                ?? AdresKontaktowy::ODMOWA_BEZ_NAZWISKA, 422);
         }
         $this->events->record(
             'person.email_set',
@@ -453,6 +471,11 @@ final class AdminAccountController
                 . 'której dziś nie ma.',
                 ['telefon' => $telefon]);
         }
+        $odmowa = $this->odmowaAdresu($email, $personId, $companyId);
+        if ($odmowa !== null) {
+            return $this->panelZBledem($personId, $companyId, $admin, $odmowa,
+                ['email' => $email, 'telefon' => $telefon]);
+        }
         if ($zmianaLoginu) {
             $powod = $this->invitations->changeEmail(
                 (int) $row['account_id'], $email, $admin->accountId(), $admin->displayName,
@@ -463,8 +486,14 @@ final class AdminAccountController
             }
         }
         $adresDoZapisu = $przedZaproszeniem ? ($email === '' ? null : $email) : ($zmianaLoginu ? $email : $row['email']);
-        if (!$this->people->updateContact($personId, $adresDoZapisu, $telefon === '' ? null : $telefon, $companyId)) {
-            return $this->errors->errorPage(404, null, $request->isHtmx());
+        try {
+            if (!$this->people->updateContact($personId, $adresDoZapisu, $telefon === '' ? null : $telefon, $companyId)) {
+                return $this->errors->errorPage(404, null, $request->isHtmx());
+            }
+        } catch (AdresZajetyException) {
+            return $this->panelZBledem($personId, $companyId, $admin,
+                $this->odmowaAdresu($email, $personId, $companyId) ?? AdresKontaktowy::ODMOWA_BEZ_NAZWISKA,
+                ['email' => $email, 'telefon' => $telefon]);
         }
         $this->events->record(
             'person.contact_changed',
@@ -605,6 +634,24 @@ final class AdminAccountController
      *
      * @param array<string, string> $wpisane
      */
+    /**
+     * Czy ten adres jest już czyjś — i jak to powiedzieć administratorowi (zlecenie Z40).
+     *
+     * ⚠ Pusty adres NIE jest duplikatem: brak adresu to brak wartości, a kont i osób bez adresu
+     * może być dowolnie wiele (`UNIQUE` pomija `NULL` — ta sama zasada co w migracji
+     * `20260921140001`). Bez tego warunku wyczyszczenie pola odbijałoby się o „adres zajęty”.
+     *
+     * @return string|null gotowa treść odmowy albo `null`, gdy adres jest wolny
+     */
+    private function odmowaAdresu(string $email, int $personId, ?int $companyId): ?string
+    {
+        if ($email === '') {
+            return null;
+        }
+
+        return AdresKontaktowy::odmowa($this->people->ktoMaAdres($email, $personId, $companyId));
+    }
+
     private function panelZBledem(int $personId, ?int $companyId, CurrentUser $admin, string $blad, array $wpisane = []): Response
     {
         $dane = $this->panelData($personId, $companyId, $admin);

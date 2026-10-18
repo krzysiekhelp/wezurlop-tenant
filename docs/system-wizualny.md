@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.19, 18.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.20, 18.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,20 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.19 → 1.18.20: pasek komunikatu pokazuje POWÓD odmowy, gdy serwer go poda**
+> (zlecenie Z40, 18.10.2026).
+> `flash.js` przy odpowiedzi **4xx typu `text/plain`** pokazuje jej treść zamiast napisu
+> dobranego po kodzie stanu. Warunek jest wąski celowo: tylko `text/plain`, tylko 4xx, do 300
+> znaków — odpowiedzi z fragmentem HTML dalej idą do podmiany treści, a nie na pasek.
+> Treść wstawia `textContent`, więc ta droga nie przenosi HTML-a (CLAUDE.md §6).
+> ⚠ Powód: zapis adresu w wierszu listy osób zwracał dotąd `422` z pustym ciałem, a pasek
+> pokazywał „Wpisane dane są nieprawidłowe" — zdanie, po którym nie wiadomo, co poprawić.
+> Przy duplikacie adresu ma stać „Ten adres ma już inna osoba: <imię i nazwisko>.".
+> ⚠ **Nazwisko pada tylko wtedy, gdy administrator i tak widzi tę osobę na swojej liście.**
+> Kolizja z osobą spoza jego zakresu daje „Ten adres ma już inna osoba." bez nazwy — odmowa
+> musi paść zawsze, ale nazwisko spoza zakresu jest daną, do której nie ma dostępu. Pilnuje
+> tego `tests/adres-osoby.php` (sprawdzenie „nazwisko spoza zakresu NIE wycieka").
 
 > **Zmiana 1.18.18 → 1.18.19: w oknie „Zakres klucza" wraca droga do „Cofnij odrzucenie"**
 > (zlecenie Z39, 18.10.2026 — odpowiedź na pytanie otwarte z Z35).
