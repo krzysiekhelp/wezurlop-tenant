@@ -85,7 +85,7 @@
                 <p class="zakres__etykieta">Odrzucone</p>
                 {% for s in odrzucone %}
                     <div class="zakres__odrzucone">
-                        <span class="zakres__odrzucone-opis">Odrzucone: {{ s.name }} · NIP {{ nip_grupami(s.nip) }} · {{ czas_data(s.decided_at) }}</span>
+                        <span class="zakres__odrzucone-opis">{{ s.name }} · NIP {{ nip_grupami(s.nip) }} · {{ czas_data(s.decided_at) }}</span>
                         {#- Ten sam chwyt, co przy „Zatwierdź": `formaction` wysyła TEN SAM formularz
                             pod inny adres, więc jest POST z tokenem CSRF bez drugiego formularza
                             i bez JavaScriptu. Akcja czyta identyfikator ze ścieżki, a `?okno=zakres`

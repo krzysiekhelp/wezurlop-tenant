@@ -1796,6 +1796,19 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 
 /* Stopka listy: sama informacja o zakresie strony, ciszej niż treść. */
 .card__foot--lista { font-size: var(--t-caption); color: var(--c-text-3); }
+/* ⚠ Stopka, w której stoi SAMA NOTKA W RAMCE — wtedy wcięcie stopki jest wcięciem podwójnym:
+   notka ma już własne. Zmierzone przy 1920 przed zmianą: tabela 1558 px, notka 1071 px, czyli
+   487 px węższa od tego, czego dotyczy. Zostaje sam odstęp 4 px nad ramką; tło i linia odpadają,
+   bo ramka notki sama odcina ją od wiersza. */
+.card__foot--notka {
+  /* ⚠ `block`, nie odziedziczony `flex`: dziecko `.card__foot` bez `flex-grow` bierze szerokość
+     ze swojej TREŚCI, więc przy 1920 notka miała 1071 px zamiast 1558 i sama zmiana wcięcia
+     niczego nie dała — zmierzone. W stopce stoi jedna rzecz, więc nie ma czego rozkładać. */
+  display: block;
+  padding: var(--s-1) 0 0;
+  background: none;
+  border-top: 0;
+}
 
 /* Plakietka z kropką — kropka bierze barwę z napisu, więc nie powstaje ani jeden nowy token. */
 .chip__kropka {
@@ -4059,11 +4072,60 @@ body:has(dialog.modal[open]) { overflow: hidden; }
    zmierzone przy oknie 1440 trzy przyciski potrzebują 287 px, a 21% dawało 196 px i rząd
    zawijał się na dwie linie (112 px wysokości zamiast 72). „Stanowi" dalej nie zabieramy nic:
    tam granicą jest plakietka, która nie może się złamać. */
-.col--klucz-nazwa  { width: 18%; }
-.col--klucz-zakres { width: 9%; }
-.col--klucz-czas   { width: 11%; }
-.col--klucz-stan   { width: 22%; }
-.col--klucz-akcja  { width: 29%; }
+/* ⚠ **Przeliczone trzeci raz (Z41), bo podpisy kolumn przestały zawijać** — a podpis z `nowrap`
+   ma własną szerokość minimalną, której wcześniej nie miał. Zmierzone szerokości minimalne
+   (tekst podpisu plus wcięcia komórki): „Firmy w zakresie" 144 px, „Ostatnie użycie" 136,
+   „Utworzony" 106, „Działania" 105, „Nazwa" 82, „Stan" 61 — razem 634 px. Do tego treść:
+   trzy przyciski w jednej linii potrzebują 401 px, nazwa z kwadratem i początkiem klucza 156 px,
+   plakietka „unieważniony przez administratora" 229 px.
+
+   ⚠ **Przy 1366 px to się nie spina i nie ma takiego rozdania, które by spięło**: tabela ma
+   wtedy 1052 px, a same minima podpisów, plakietki, nazwy i przycisków w jednej linii to
+   1120 px. Dlatego dwa rozdania, a nie jedno:
+   - szerokie (domyślne) trzyma WSZYSTKO w jednej linii — przy 1920 px kolumna działań ma
+     483 px wobec 401 potrzebnych, więc trzy przyciski stoją obok siebie i wiersz ma 78 px,
+   - wąskie (≤ 1600 px) oddaje linijkę przyciskom, a chroni podpisy, początek klucza
+     i plakietkę: te trzy rzeczy albo wyglądają poprawnie, albo wyglądają na zepsute,
+     a rząd przycisków w dwóch czy trzech linijkach to tylko wyższy wiersz.
+   ⚠ „Stan" zostaje 22% w obu rozdaniach — 231 px przy 1366 wobec 229 potrzebnych. Plakietki
+   nie wolno złamać (ma `white-space: nowrap` i ma je zachować). */
+.col--klucz-nazwa     { width: 13%; }
+.col--klucz-zakres    { width: 13%; }
+/* ⚠ Dwie klasy na dwie kolumny z datą, bo ich PODPISY mają różną długość: jedna klasa 11%
+   starczała „Utworzonemu" (106 px) i zostawiała „Ostatnie użycie" (136 px) 20 px za krótkie. */
+.col--klucz-utworzony { width: 9%; }
+.col--klucz-uzycie    { width: 12%; }
+.col--klucz-stan      { width: 22%; }
+.col--klucz-akcja     { width: 31%; }
+/* ⚠ Próg 1600 px wzięty z POMIARU, nie z listy popularnych ekranów: przy oknie 1601 px tabela
+   ma 1287 px i to jest ostatnia szerokość, przy której kolumna działań (31%) daje 399 px, czyli
+   tyle, ile potrzebują trzy przyciski. Niżej i tak zawijają, więc niżej ich szerokość przestaje
+   być warta cokolwiek — i wraca do kolumn, które trzymają treść nietłukącą się. */
+@media (max-width: 1600px) {
+  .col--klucz-nazwa     { width: 14%; }
+  .col--klucz-zakres    { width: 14%; }
+  .col--klucz-utworzony { width: 10%; }
+  .col--klucz-uzycie    { width: 13%; }
+  .col--klucz-akcja     { width: 27%; }
+}
+/* ⚠ Trzecie rozdanie i próg 1430 px biorą się z BRAMKI, nie z upodobania: `sprawdz_kasowanie_klucza`
+   mierzy rząd działań przy 1440 px i wymaga najwyżej dwóch linijek (≤ 72 px), a przy 1920 px
+   jednej. Kolumna działań musi więc mieć przy 1440 px co najmniej ~284 px — stąd 27% w rozdaniu
+   wyżej. Przy 1366 px te same 27% nie zostawiają już 106 px na podpis „Utworzony" ani 156 px
+   na początek klucza, więc poniżej progu bramki przyciskom wolno zejść na trzecią linijkę:
+   wiersz jest wtedy wyższy (145 px), ale żaden podpis nie nachodzi na sąsiada i żaden fragment
+   klucza nie jest przełamany. Próg stoi 10 px pod 1440, żeby pomiar bramki trafiał w rozdanie
+   z dwiema linijkami, a nie w to z trzema. */
+@media (max-width: 1430px) {
+  /* ⚠ Ułamki procenta są tu celowe: przy 1366 px całe punkty dawały podpisowi „Ostatnie użycie"
+     1 px zapasu, a pół punktu to już 6 px. Nadwyżka pochodzi z kolumny działań, która w tym
+     rozdaniu i tak zawija przyciski. */
+  .col--klucz-nazwa     { width: 15%; }
+  .col--klucz-zakres    { width: 14.5%; }
+  .col--klucz-utworzony { width: 11%; }
+  .col--klucz-uzycie    { width: 13.5%; }
+  .col--klucz-akcja     { width: 24%; }
+}
 /* /dane — lista firm. */
 .col--firma-nazwa  { width: 26%; }
 .col--firma-nip    { width: 14%; }
@@ -4583,8 +4645,12 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   width: 34px;
   height: 34px;
   border-radius: var(--radius-card);
-  background: var(--c-accent-soft);
-  color: var(--c-accent-text);
+  /* ⚠ Barwy OBOJĘTNE, nie zielone (Z41): zieleń w tym systemie znaczy „zgoda / dobry stan"
+     (system-wizualny.md §3.1), a ten kwadrat jest ozdobą wiersza — stał w nim przy kluczu
+     unieważnionym i przy kluczu, który milczy, czyli obiecywał stan, o którym nic nie wie.
+     Stan klucza mówi plakietka w kolumnie „Stan" i tylko ona. */
+  background: var(--c-neutral-soft);
+  color: var(--c-text-3);
 }
 .klucz-wiersz__znak .ico { width: 18px; height: 18px; }
 .klucz-wiersz__dane { display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; }
@@ -4629,7 +4695,41 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   .btn--akcja-groznie:hover { background: var(--c-danger-soft); border-color: var(--c-danger); color: var(--c-danger-text); }
 }
 .klucz-akcje { flex-wrap: wrap; justify-content: flex-end; }
-.table--klucze td { vertical-align: top; }
+/* ⚠ Treść komórek tego wiersza ma RÓŻNE wysokości: 46 px nazwa z początkiem klucza, 32 px rząd
+   przycisków, 22 px plakietka, 18 px data. Przy `vertical-align: top` i stałej wysokości wiersza
+   z `.table td` każda z nich wisiała u góry, a wiersz nie wyglądał jak jedna rzecz — zmierzone
+   odchylenie środka treści od środka komórki: 13,5 px przy 1920 i 25,75 px przy 1366 (kolumna
+   „Utworzony").
+   ⚠ Odstęp daje `padding-block`, nie większe `height`: wysokość ma wynikać z treści, bo w stanie
+   „czeka na pierwsze użycie" pod plakietką stoi jeszcze `.cell__sub`, a wiersz z wpisaną na sztywno
+   wysokością rozjechałby się właśnie tam. */
+.table--klucze tbody td { padding-block: var(--s-4); vertical-align: middle; }
+/* ⚠ Nagłówki wracają do `nowrap`. `table--zawija` pozwala zawijać TREŚĆ (nazwy spółek, NIP-y) —
+   i ma pozwalać — ale zabrało to `white-space: nowrap` także podpisom kolumn: „Firmy w zakresie"
+   łamało się przy 1920, „Ostatnie użycie" dochodziło przy 1366, więc nagłówek czytał się jak
+   dwupoziomowy. Podpis kolumny nie jest treścią i nie ma prawa zawijać. */
+.table--klucze thead th { white-space: nowrap; }
+/* ⚠ Poniżej 1340 px podpisy wracają do zawijania — i to nie jest ustępstwo, tylko jedyne
+   wyjście: przy tabeli węższej niż ~966 px nie istnieje rozdanie, w którym każdy podpis
+   z `nowrap` mieści się w swojej kolumnie (same minima podpisów to 634 px, a plakietka „Stanu"
+   zabiera 229 i nie wolno jej złamać). Podpis WYCHODZĄCY za kolumnę nachodzi na podpis sąsiada,
+   czyli jest gorszy niż podpis w dwóch linijkach. Zmierzone: przy 1300 px „Firmy w zakresie"
+   mają 9 px zapasu, a przy 1350 px już brakuje — podpis wychodzi za kolumnę o 1 px i rośnie
+   z każdym pikselem w dół. Próg stoi więc 1 px pod 1366 px, czyli pod najwęższym ekranem z listy
+   odbioru: dokładnie tam, gdzie rozdanie przestaje się spinać.
+   ⚠ Reguła stoi TUŻ ZA `nowrap`, nie przy szerokościach kolumn: obie mają tę samą specyficzność
+   (0,2,1), więc rozstrzyga kolejność w pliku — zapytanie postawione wyżej przegrywało z regułą
+   bazową i przy 1200 px podpisy dalej nie zawijały (zmierzone). */
+@media (max-width: 1365px) {
+  .table--klucze thead th { white-space: normal; }
+}
+/* ⚠ Plakietka wyrównana `middle`, nie do linii pisma. `vertical-align: middle` na komórce
+   wyśrodkowuje LINIĘ TEKSTU, a plakietka jest w niej pudełkiem wiszącym na linii pisma, więc
+   po wyśrodkowaniu komórki zostawała 1,09 px nad środkiem (zmierzone) — przy kryterium 1 px
+   to jedyna komórka, która nie wchodziła. Mierzone warianty z `line-height: 0` i `font-size: 0`
+   na komórce dawały 0,25 px, ale obie psują komórki z samym tekstem: data w „Ostatnim użyciu"
+   zawija się przy 1366 na dwie linie i te linie by na siebie nachodziły. */
+.table--klucze tbody td > .chip { vertical-align: middle; }
 
 /* ——— notka w ramce ze znakiem ——— */
 .notka-info, .notka-gotowe {
@@ -4801,7 +4901,15 @@ body:has(dialog.modal[open]) { overflow: hidden; }
     background: var(--c-surface);
   }
   .table--klucze tr + tr { margin-top: var(--s-3); }
-  .table--klucze td { padding: 0; border: 0; }
+  /* ⚠ Odstęp pionowy z `.table--klucze tbody td` jest dla UKŁADU TABELI i tutaj musi zniknąć:
+     przy `box-sizing: border-box` i `height: var(--row-h)` z `.table td` wcięcie 16 px zabiera
+     treści wysokość, więc nazwa klucza (46 px) wychodziła za komórkę i nachodziła na następną.
+     Selektor z `tbody`, bo bez niego reguła z układu tabeli ma wyższą specyficzność i wygrywa. */
+  /* ⚠ `height: auto` razem z zerowym wcięciem: `.table td` daje komórce 48 px wysokości, a tu
+     komórka jest BLOKIEM, więc treść wyższa od 48 px (rząd trzech przycisków ma 112) wychodziła
+     poza nią i nachodziła na to, co stoi niżej. Dotąd zasłaniało to wcięcie stopki; po zejściu
+     odstępu nad notką do 4 px (Z41) „Unieważnij" wszedł pod ramkę notki — zmierzone na zrzucie. */
+  .table--klucze tbody td { padding: 0; border: 0; height: auto; }
   .table--klucze td + td { margin-top: var(--s-2); }
   .klucz-akcje { justify-content: flex-start; }
   /* Przebiegi tak samo: godzina z datą i firma, pod spodem wynik i liczby w jednej linii. */

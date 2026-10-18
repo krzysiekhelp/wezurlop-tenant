@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.20, 18.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.21, 18.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,49 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.20 → 1.18.21: wiersz klucza na `/admin/integracja` wyśrodkowany, podpisy kolumn
+> w jednej linii, notka na szerokość tabeli** (zlecenie Z41, 18.10.2026).
+> - **Komórki wiersza**: `padding-block: 16px` i `vertical-align: middle` (`.table--klucze tbody td`).
+>   Wiersz ma przy 1920 px **78 px** zamiast 48. ⚠ Odstęp daje wcięcie, a **nie** większe
+>   `height`: w stanie „czeka na pierwsze użycie" pod plakietką stoi jeszcze `.cell__sub`,
+>   więc wysokość musi wynikać z treści. Zmierzone odchylenie środka treści od środka komórki
+>   spadło z **13,5 px → 0,59 px** przy 1920 i z **25,75 px → 0,59 px** przy 1366 (próg: 1 px).
+>   ⚠ Ostatnie 1,09 px zdjęło `vertical-align: middle` **na plakietce**: wyśrodkowanie komórki
+>   środkuje linię pisma, a plakietka wisi w tej linii jak pudełko. Warianty z `line-height: 0`
+>   i `font-size: 0` na komórce dawały 0,25 px i **są odrzucone** — psują komórkę z samym
+>   tekstem, bo data w „Ostatnim użyciu" zawija się przy 1366 na dwie linie.
+> - **Kwadrat 34 px przy kluczu w barwach obojętnych** (`--c-neutral-soft` / `--c-text-3`)
+>   zamiast zielonych. Zieleń w tym systemie znaczy „zgoda / dobry stan" (§3.1), a ten kwadrat
+>   stał tak samo przy kluczu unieważnionym i przy kluczu, który milczy. Stan mówi plakietka.
+> - **Podpisy kolumn `white-space: nowrap`** (`table--zawija` zabrało je razem z treścią):
+>   było 1 podpis w dwóch liniach przy 1920 i 2 przy 1366, jest **0** przy obu.
+> - **Notka w stopce na szerokość wnętrza karty** — `.card__foot--notka` (`display: block`,
+>   wcięcie `4px 0 0`, bez tła i bez górnej linii). Zmierzone przy 1920: tabela 1558 px,
+>   notka **1071 → 1558 px**; odstęp nad notką **17 → 4 px**. ⚠ `display: block` jest konieczne:
+>   dziecko `.card__foot` (flex) bez `flex-grow` bierze szerokość ze swojej treści, więc samo
+>   zdjęcie wcięcia niczego nie dało.
+>
+> ⚠ **Szerokości kolumn przeliczone trzeci raz i rozbite na dwa rozdania** — bo podpis
+> z `nowrap` ma własną szerokość minimalną, której wcześniej nie miał. Zmierzone minima:
+> „Firmy w zakresie" 144 px, „Ostatnie użycie" 136, „Utworzony" 106, „Działania" 105,
+> „Nazwa" 82, „Stan" 61 — razem **634 px**. Do tego treść: trzy przyciski w jednej linii 401 px,
+> nazwa z kwadratem i początkiem klucza 156, plakietka „unieważniony przez administratora" 229.
+> **Przy 1366 px (tabela 1052 px) nie ma rozdania, które to spina** — same minima to 1120 px.
+> Stąd: rozdanie szerokie (13/13/9/12/22/31) trzyma wszystko w jednej linii do ~1650 px,
+> a wąskie (≤ 1600 px: 16/15/11/14/22/22) chroni podpisy, początek klucza i plakietkę,
+> oddając linijkę rzędowi przycisków — przy 1366 px stoją w trzech linijkach, a wiersz ma 145 px.
+> ⚠ Poniżej **1280 px** podpisy wracają do zawijania: przy tabeli węższej niż ~966 px nie da się
+> ich zmieścić, a podpis wychodzący za kolumnę nachodzi na podpis sąsiada i jest gorszy
+> niż podpis w dwóch liniach. Dwie klasy na dwie kolumny z datą (`.col--klucz-utworzony`,
+> `.col--klucz-uzycie`), bo ich podpisy mają różną długość; `.col--klucz-czas` znika.
+> ⚠ **Telefon**: komórka-blok dostaje `height: auto`. `.table td` dawało jej 48 px, więc rząd
+> trzech przycisków (112 px) wychodził poza komórkę — dotąd zasłaniało to wcięcie stopki,
+> a po zejściu odstępu nad notką do 4 px „Unieważnij" wszedł pod ramkę notki. Wiersz-blok
+> przy 375 px ma **272 px** zamiast 354 i niczego nie przykrywa.
+>
+> ⚠ Przy okazji zdjęty **przedrostek „Odrzucone:"** z linii w sekcji ODRZUCONE okna zakresu
+> (1.18.19): etykieta sekcji mówi to samo, a przedrostek powtarzał ją w każdej linii.
 
 > **Zmiana 1.18.19 → 1.18.20: pasek komunikatu pokazuje POWÓD odmowy, gdy serwer go poda**
 > (zlecenie Z40, 18.10.2026).
@@ -1076,6 +1119,7 @@ wymyśli drugi raz** — dokładnie tak powstały dwa paski komunikatu (§4b) i 
 
 *Karta i treść*
 `.card` `.card__head` `.card__title` `.card__meta` `.card__body` `.card__body--tight` `.card__foot`
+`.card__foot--notka` (1.18.21, zlecenie Z41 — stopka, w której stoi sama notka w ramce)
 `.stack` `.stack--sm` `.stack--lg` `.divider` `.empty-state` `.disclosure` `.disclosure__body`
 
 *Tabela i lista rekordów*
@@ -1147,6 +1191,7 @@ ale NIE blokuje przewijania — blokadę na czas chwytu robi `touchmove` w `modu
 `.modal--zakres` `.zakres__etykieta` `.zakres__zgloszenie` `.zakres__dane` `.zakres__nazwa`
 `.zakres__meta` `.zakres__decyzja` `.zakres__odrzuc` `.zakres__firma` `.zakres__notka`
 `.zakres__odrzucone` `.zakres__odrzucone-opis` (1.18.19, zlecenie Z39)
+`.col--klucz-utworzony` `.col--klucz-uzycie` (1.18.21, zlecenie Z41 — zamiast `.col--klucz-czas`)
 `.modal--kreator` `.kreator` `.kreator__stan` `.kreator__teraz` `.kreator__co-dalej`
 `.kreator__form` `.kreator__zgloszenie` `.kreator__czekam` `.kroki` `.krok` (`--zrobione` `--biezacy`)
 `.krok__kolko` `.krok__nazwa` `.krok__stan`
