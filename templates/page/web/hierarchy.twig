@@ -9,26 +9,11 @@
 {% endblock %}
 
 {% block content %}
-    <div class="page__head">
-        <div class="page__title">
-            {#- ⚠ Drugie zdanie dochodzi tylko kontu z rolą tenantową i tylko przy więcej niż
-                jednej spółce — inaczej byłoby zdaniem o wyborze, którego nie ma. Powód jego
-                istnienia: ta sama kontrolka spółek w kalendarzu pokazuje WYŁĄCZNIE spółki
-                z nadanym podglądem (uprawnienie per spółka), a tutaj wszystkie (uprawnienie
-                tenantowe). Bez tego zdania dwa ekrany z identyczną kontrolką wyglądają
-                na sprzeczne (zlecenie 08.10 §4, wariant a). -#}
-            <p class="page__sub">Kto komu zatwierdza urlop. Struktura jest osobna dla każdej firmy — przełożony musi być z tej samej firmy.{% if caly_tenant %} Jako administrator tenanta prowadzisz hierarchię <strong>wszystkich spółek</strong> — dlatego widzisz je tu wszystkie, także te, w których nie masz podglądu kalendarza.{% endif %}</p>
-            {% if spolka is not null %}
-                <p class="page__sub">Struktura firmy: <strong>{{ spolka.nazwa }}</strong>{% if z_adresu %} — firma z adresu, na jedno wyświetlenie; znacznik w belce nadal pokazuje Twój wybór{% elseif fallback %} — firma wybrana w belce jest poza zakresem tego ekranu albo już niedostępna, więc pokazujemy pierwszą dozwoloną{% endif %}.</p>
-            {% endif %}
-        </div>
-        {#- ⚠ **Kontrolka wyboru spółki zniknęła z tego ekranu** (zlecenie
-            `2026-10-10-globalny-wybor-spolki.md` §1): spółkę wybiera jeden znacznik w górnej
-            belce, widoczny na każdym ekranie. Dwie kontrolki do jednego wyboru rozjeżdżają się
-            przy pierwszej zmianie — to był cel tej zmiany, nie efekt uboczny. Zdanie o tym,
-            którą spółkę widzisz, stoi pod tytułem, bo przy znaczniku nie ma miejsca
-            na wyjaśnienie zakresu. -#}
-    </div>
+{% import 'partials/ikony.twig' as ikony %}
+{#- ⚠ **Bez `.page__head`** (zlecenie Z34 §1): nazwa firmy zeszła do podpisu pierwszego kafla,
+    bo to ona mówi, czego dotyczą liczby, a zdanie o „wszystkich spółkach" zniknęło — administrator
+    tenanta i tak widzi w belce, którą firmę prowadzi. Zdanie o tym, czym jest hierarchia, stoi
+    teraz w nagłówku prawego panelu, przy strukturze, której dotyczy. -#}
 
     {% if error is not null %}<p class="notice notice--danger" role="alert">{{ error }}</p>{% endif %}
     {% if notice is not null %}<p class="notice" role="status">{{ notice }}</p>{% endif %}
@@ -36,68 +21,88 @@
     {% if spolka is null %}
         <p class="empty-state">To konto nie ma firmy, w której mogłoby ustawiać strukturę. Hierarchię prowadzi się w obrębie firmy, do której masz dostęp.</p>
     {% else %}
-        {#- Pasek liczb — rodzina `.stats`, ta sama co kafelki na `/admin/konta`.
+        {#- ⚠ Pasek kafli — ten sam komponent, co na pulpicie, `/ustawienia`, `/admin/konta`
+            i `/admin/grupy` (`.kafle--auto`). Zastąpił `.card.stats` (Z34 §2).
 
-            ⚠ Był tu `.defs` (lista definicyjna) wrzucony wprost w `.card`, który z założenia
-            nie ma wyściółki — treść stała 1 px od obrysu, liczby miały 14 px/400, czyli
-            dokładnie tyle co zwykły tekst, kresek nie było, a na liczbę pięciu kolumn musiał
-            powstać wariant `--piec`. Dwa ekrany pokazywały tę samą rzecz dwoma komponentami;
-            to jest ta choroba, dla której powstał system wizualny (§0).
+            ⚠ **„Bez przełożonego" i „Na szczycie" to DWIE różne liczby** i tylko pierwsza jest
+            do zrobienia — to cały powód, dla którego szczyt jest jawną decyzją.
 
-            ⚠ „Nieustawionych" i „Na szczycie" to DWIE różne liczby i tylko pierwsza jest
-            do zrobienia — to cały powód, dla którego szczyt jest jawną decyzją. -#}
-        <section class="card stats">
-            <div class="stats__item">
-                <span class="stats__key">Zatrudnionych w firmie</span>
-                <span class="stats__value" data-hier-liczba="zatrudnionych">{{ struktura.liczby.zatrudnionych }}</span>
+            ⚠ Atrybuty `data-hier-liczba` zostają: `modules/hierarchia.js` przelicza te liczby
+            po każdym przeciągnięciu, bez przeładowania ekranu. Zmienił się tylko znacznik
+            i nazwa klasy odchylenia, nie mechanizm. -#}
+        <section class="kafle kafle--auto" aria-label="Stan struktury firmy">
+            <div class="kafel">
+                <span class="kafel__glowa">{{ ikony.zespol() }}<span class="kafel__etykieta">Zatrudnionych w firmie</span></span>
+                <span class="kafel__dana">
+                    <span class="kafel__wartosc" data-hier-liczba="zatrudnionych">{{ struktura.liczby.zatrudnionych }}</span>
+                    {#- Dopiski o firmie z adresu i o firmie poza zakresem zostają: bez nich znacznik
+                        w belce i liczba na ekranie mówiłyby co innego, bez wyjaśnienia dlaczego. -#}
+                    <span class="kafel__opis">w firmie {{ spolka.nazwa }}{% if z_adresu %} (firma z adresu, na jedno wyświetlenie){% elseif fallback %} (firma z belki jest poza zakresem tego ekranu){% endif %}</span>
+                </span>
             </div>
-            <div class="stats__item">
-                <span class="stats__key">Nieustawionych</span>
-                {#- ⚠ Odchylenie to KOLOR WARTOŚCI, nie plakietka: liczba ma zostać liczbą
-                    tej samej wielkości co pozostałe. -#}
-                <span class="stats__value{{ struktura.liczby.nieustawionych > 0 ? ' stats__value--odchylenie' : '' }}"
-                      data-hier-liczba="nieustawionych">{{ struktura.liczby.nieustawionych }}</span>
+            <div class="kafel">
+                <span class="kafel__glowa">{{ ikony.osoba_bez() }}<span class="kafel__etykieta">Bez przełożonego</span></span>
+                <span class="kafel__dana">
+                    {#- ⚠ Odchylenie to KOLOR WARTOŚCI, nie plakietka: liczba ma zostać liczbą
+                        tej samej wielkości co pozostałe. -#}
+                    <span class="kafel__wartosc{{ struktura.liczby.nieustawionych > 0 ? ' kafel__wartosc--odchylenie' : '' }}"
+                          data-hier-liczba="nieustawionych">{{ struktura.liczby.nieustawionych }}</span>
+                    <span class="kafel__opis">do przypisania w strukturze</span>
+                </span>
             </div>
-            <div class="stats__item">
-                <span class="stats__key">Na szczycie hierarchii</span>
-                <span class="stats__value" data-hier-liczba="szczytow">{{ struktura.liczby.szczytow }}</span>
+            <div class="kafel">
+                <span class="kafel__glowa">{{ ikony.drzewo() }}<span class="kafel__etykieta">Na szczycie hierarchii</span></span>
+                <span class="kafel__dana">
+                    <span class="kafel__wartosc" data-hier-liczba="szczytow">{{ struktura.liczby.szczytow }}</span>
+                    <span class="kafel__opis">nie podlegają nikomu</span>
+                </span>
             </div>
-            <div class="stats__item">
-                <span class="stats__key">Najgłębszy poziom</span>
-                <span class="stats__value" data-hier-liczba="najglebszy">{{ struktura.liczby.najglebszy }}</span>
+            <div class="kafel">
+                <span class="kafel__glowa">{{ ikony.prostokaty() }}<span class="kafel__etykieta">Najgłębszy poziom</span></span>
+                <span class="kafel__dana">
+                    <span class="kafel__wartosc" data-hier-liczba="najglebszy">{{ struktura.liczby.najglebszy }}</span>
+                    <span class="kafel__opis">poziomy podległości</span>
+                </span>
             </div>
-            <div class="stats__item">
-                <span class="stats__key">Wymaga uwagi</span>
-                {#- ⚠ Objaśnienie stoi W TEJ pozycji, której dotyczy, a nie akapitem pod siatką:
-                    liczba, która czegoś nie liczy, musi o tym mówić tam, gdzie stoi.
-                    ⚠ Jeden wiersz, nie dwa: przy dwóch wartość rosła do 50 px, pasek do 122 px
-                    (kontra 97 px na `/admin/konta` — ten sam komponent), a pod czterema liczbami
-                    zostawało 49 px pustki. Wycięta jest połowa mówiąca, CO DOJDZIE PÓŹNIEJ —
-                    „bez roli przełożonego" to kategoria, której administrator nigdy nie widział;
-                    to zdanie było dla nas, nie dla niego. Zostaje to, co mówi, że liczba
-                    jest niepełna. -#}
-                <span class="stats__value{{ struktura.liczby.uwagi > 0 ? ' stats__value--odchylenie' : '' }}"
-                      data-hier-liczba="uwagi">{{ struktura.liczby.uwagi }}
-                    {%- if not struktura.rola_znana %} <small>tylko zablokowane konta</small>{% endif %}
+            <div class="kafel">
+                <span class="kafel__glowa">{{ ikony.klodka() }}<span class="kafel__etykieta">Wymaga uwagi</span></span>
+                <span class="kafel__dana">
+                    <span class="kafel__wartosc{{ struktura.liczby.uwagi > 0 ? ' kafel__wartosc--odchylenie' : '' }}"
+                          data-hier-liczba="uwagi">{{ struktura.liczby.uwagi }}</span>
+                    {#- ⚠ Podpis mówi, CZEGO liczba nie liczy, i mówi to w kaflu, którego dotyczy:
+                        przy nieznanej roli przełożonego liczy wyłącznie zablokowane konta. -#}
+                    <span class="kafel__opis">
+                        {{- struktura.liczby.uwagi == 0 ? 'brak problemów w strukturze'
+                            : (struktura.rola_znana ? 'zablokowane konta i brak roli przełożonego' : 'zablokowane konta') -}}
+                    </span>
                 </span>
             </div>
         </section>
 
         <div class="hier">
             <section class="card hier__panel">
-                <div class="card__head">
-                    <h2 class="card__title">Nieustawieni</h2>
-                    <span class="card__meta">{{ struktura.liczby.nieustawionych }} z {{ struktura.liczby.zatrudnionych }}</span>
+                {#- ⚠ Nagłówek ze znakiem w barwie OSTRZEŻENIA (Z34 §4): ten panel jest listą zadań,
+                    a nie zestawieniem — dopóki ktoś tu stoi, jego wniosek nie ma do kogo pójść.
+                    Zdanie przeniosło się z akapitu pod nagłówkiem do samego nagłówka, bo mówi,
+                    czym jest ta lista, a nie co z nią zrobić. -#}
+                <div class="card__head card__head--znak">
+                    <span class="card__znak card__znak--uwaga">{{ ikony.osoba_bez() }}</span>
+                    <div class="card__tytuly">
+                        <h2 class="card__title">Bez przełożonego</h2>
+                        <p class="card__opis">Tu trafia każdy nowy pracownik z programu kadrowego. Przeciągnij go na kartę przełożonego w strukturze.</p>
+                    </div>
+                    <span class="chip chip--warn hier__licznik">{{ struktura.liczby.nieustawionych }} z {{ struktura.liczby.zatrudnionych }}</span>
                 </div>
                 <div class="card__body">
-                    <p class="field__hint">Tu trafia każdy nowy pracownik z R2. Dopóki ktoś tu stoi, jego wniosek nie ma do kogo pójść — i nikt tego nie zauważy, bo wniosku jeszcze nie ma.</p>
                     {#- ⚠ Kontrolki filtrowania są UKRYTE bez JavaScriptu (`hidden` zdejmuje je
                         z układu), bo bez niego nie mają czego filtrować — a przycisk, który nic
                         nie robi, jest gorszy od jego braku. Bez JS zostaje pełna lista i ścieżka
                         „⋯": degradacja, nie awaria. -#}
-                    <label class="field" id="hier-filtr-panel" hidden>
-                        <span class="field__label">Szukaj w nieustawionych</span>
-                        <input class="input" type="search" data-hier-filtr="hier-nieustawieni" maxlength="100" placeholder="nazwisko albo imię">
+                    <label class="field pole-szukania" id="hier-filtr-panel" hidden>
+                        <span class="field__label visually-hidden">Szukaj osoby bez przełożonego</span>
+                        {{ ikony.lupa() }}
+                        <input class="input" type="search" data-hier-filtr="hier-nieustawieni" maxlength="100"
+                               placeholder="szukaj osoby bez przełożonego">
                     </label>
                     {#- ⚠ Filtr MUSI mówić, ilu ukrył: panel pusty z powodu filtra i panel pusty,
                         bo robota skończona, nie mają prawa wyglądać tak samo — a to jedyny
@@ -118,26 +123,30 @@
                     {% if struktura.nieustawieni is empty %}
                         <p class="empty-state">Nikogo — każde zatrudnienie ma rozstrzygniętą pozycję.</p>
                     {% else %}
-                        <p class="hier__drop hier__drop--panel">Upuść tutaj, żeby zdjąć ze struktury</p>
+                        <p class="hier__drop hier__drop--panel">{{ ikony.strzalka_w_dol() }}Upuść tutaj, żeby zdjąć ze struktury</p>
                     {% endif %}
                 </div>
             </section>
 
             <section class="card hier__tree">
-                <div class="card__head">
-                    <h2 class="card__title">Struktura — {{ spolka.nazwa }}</h2>
-                    <span class="card__meta">przeciągnij kartę na kartę: „ta osoba jest przełożonym"</span>
+                <div class="card__head card__head--znak">
+                    <span class="card__znak">{{ ikony.drzewo() }}</span>
+                    <div class="card__tytuly">
+                        <h2 class="card__title">Struktura</h2>
+                        <p class="card__opis">Przeciągnij kartę na kartę osoby, która ma być przełożonym.</p>
+                    </div>
                 </div>
                 <div class="card__body">
                     <div class="toolbar" id="hier-narzedzia" hidden>
-                        <label class="field">
-                            <span class="field__label">Szukaj w strukturze</span>
-                            <input class="input" type="search" data-hier-filtr="hier-drzewo" maxlength="100" placeholder="nazwisko albo imię">
+                        <label class="field pole-szukania">
+                            <span class="field__label visually-hidden">Szukaj w strukturze</span>
+                            {{ ikony.lupa() }}
+                            <input class="input" type="search" data-hier-filtr="hier-drzewo" maxlength="100" placeholder="szukaj w strukturze">
                         </label>
                         {#- Stanu zwinięcia nie zapamiętujemy między wejściami — żadnego
                             ustawienia użytkownika na coś, co jest wygodą jednego spojrzenia. -#}
-                        <button type="button" class="btn btn--ghost" id="hier-zwin">Zwiń wszystko</button>
-                        <button type="button" class="btn btn--ghost" id="hier-rozwin">Rozwiń wszystko</button>
+                        <button type="button" class="btn btn--ghost btn--akcja" id="hier-zwin">Zwiń wszystko</button>
+                        <button type="button" class="btn btn--ghost btn--akcja" id="hier-rozwin">Rozwiń wszystko</button>
                         <span class="toolbar__spacer"></span>
                         <span class="toolbar__result" data-hier-ukryte="hier-drzewo"></span>
                     </div>
@@ -145,7 +154,9 @@
                         który ciągnie kartę palcem i nic się nie dzieje, zgłasza usterkę.
                         Jedno zdanie zamiast planszy — ścieżka „⋯" działa dalej. -#}
                     <p class="notice hier__tylko-komputer" role="status">Ten ekran jest przeznaczony na komputer — przeciąganie kart nie działa palcem. Strukturę ustawisz menu (trzy kropki) przy karcie.</p>
-                    <p class="hier__drop" data-hier-drop="szczyt">Upuść tutaj, żeby zapisać, że ta osoba nie podlega nikomu</p>
+                    {#- ⚠ Strefa upuszczania z ikoną i przerywaną ramką (Z34 §5): bez znaku czytało
+                        się to jak zdanie informacyjne, a to jest CEL upuszczenia. -#}
+                    <p class="hier__drop" data-hier-drop="szczyt">{{ ikony.strzalka_w_dol() }}Upuść tutaj, żeby osoba nie podlegała nikomu (szczyt struktury)</p>
                     {% if struktura.wezly is empty %}
                         <p class="empty-state">W tej firmie nie ma czynnych zatrudnień.</p>
                     {% else %}

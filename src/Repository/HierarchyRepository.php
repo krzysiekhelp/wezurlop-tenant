@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Wezurlop\Repository;
 
 use Wezurlop\Db\Connection;
+use Wezurlop\Support\NazwaOsoby;
 
 /**
  * Hierarchia przełożonych — odczyt struktury jednej spółki i zapis pojedynczej krawędzi.
@@ -88,7 +89,15 @@ final class HierarchyRepository
         return array_map(static fn (array $r): array => [
             'id'            => (int) $r['id'],
             'person_id'     => (int) $r['person_id'],
-            'osoba'         => trim((string) $r['last_name'] . ' ' . (string) $r['first_name']),
+            // ⚠ **Nazwa przez `NazwaOsoby`, a nie surowa z bazy** (zlecenie Z34): program kadrowy
+            // przysyła nazwiska WERSALIKAMI, a karta hierarchii pokazuje je obok siebie w drzewie,
+            // gdzie wersaliki czyta się dwa razy wolniej i krzyczą z każdego poziomu. Zamiana robi
+            // się na serwerze, raz, a nie `text-transform` w arkuszu — bo to **dana**, nie wygląd:
+            // tak samo trafia do `title`, do wyszukiwania w panelu i do paska zmian.
+            // ⚠ `doWyswietlenia()` zostawia nietknięte nazwiska zapisane świadomie małą literą
+            // („von Neumann") — nie jest to zwykłe `ucfirst` (patrz komentarz w tej klasie).
+            'osoba'         => NazwaOsoby::doWyswietlenia((string) $r['last_name'])
+                . ' ' . NazwaOsoby::doWyswietlenia((string) $r['first_name']),
             'numer'         => $r['employee_number'] === null ? null : (string) $r['employee_number'],
             'hired_at'      => $r['hired_at'] === null ? null : (string) $r['hired_at'],
             'supervisor_id' => $r['supervisor_employment_id'] === null
@@ -162,7 +171,8 @@ final class HierarchyRepository
         return [
             'osoby' => array_map(static fn (array $r): array => [
                 'id'    => (int) $r['id'],
-                'osoba' => trim((string) $r['last_name'] . ' ' . (string) $r['first_name']),
+                'osoba' => NazwaOsoby::doWyswietlenia((string) $r['last_name'])
+                    . ' ' . NazwaOsoby::doWyswietlenia((string) $r['first_name']),
             ], $stmt->fetchAll()),
             'razem' => $razem,
         ];

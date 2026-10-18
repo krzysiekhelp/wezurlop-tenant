@@ -111,3 +111,10 @@
     ⚠ Kosz jest JEDYNĄ ikoną w rodzinie o znaczeniu niebezpiecznym — stąd pokrywa i korpus
     rysowane osobno, żeby przy 16 px nie zlały się w prostokąt. -#}
 {% macro kosz() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M4.6 6.4h10.8"/><path d="M6.4 6.4V5a1.2 1.2 0 0 1 1.2-1.2h4.8A1.2 1.2 0 0 1 13.6 5v1.4"/><path d="M6.1 6.4l.6 9a1.2 1.2 0 0 0 1.2 1.1h4.2a1.2 1.2 0 0 0 1.2-1.1l.6-9"/><path d="M8.8 9.2v4.4M11.2 9.2v4.4"/></svg>{% endmacro %}
+
+{#- ══════════ Hierarchia (zlecenie Z34) ══════════
+    ⚠ `drzewo` to struktura podległości, a nie katalog plików: korzeń u góry, dwa odgałęzienia —
+    taki sam kształt, jaki rysują linie w drzewie na ekranie. `strzalka_w_dol` jest wyłącznie
+    dla strefy upuszczania, dlatego ma grot, a nie szewron (szewron już znaczy „rozwiń"). -#}
+{% macro drzewo() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><rect x="7.6" y="3.2" width="4.8" height="3.6" rx="1"/><rect x="3" y="13.2" width="4.8" height="3.6" rx="1"/><rect x="12.2" y="13.2" width="4.8" height="3.6" rx="1"/><path d="M10 6.8v3.4M5.4 13.2v-1.6h9.2v1.6"/></svg>{% endmacro %}
+{% macro strzalka_w_dol() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M10 4.4v11.2"/><path d="m5.6 11.2 4.4 4.4 4.4-4.4"/></svg>{% endmacro %}

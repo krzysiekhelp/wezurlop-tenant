@@ -47,7 +47,7 @@
                     </form>
                 </li>
                 <li class="settings-list__row">
-                    <span class="settings-list__copy">Zdejmij ze struktury — wróci na listę „Nieustawieni"</span>
+                    <span class="settings-list__copy">Zdejmij ze struktury — wróci na listę „Bez przełożonego"</span>
                     <form method="post" action="{{ url('/admin/hierarchia/zapisz') }}"
                           data-hier-wybor data-hier-osoba-id="{{ osoba.id }}" data-hier-cel="zdejmij">
                         {% include 'partials/csrf.twig' %}

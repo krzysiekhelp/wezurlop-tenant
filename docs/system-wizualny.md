@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.13, 18.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.14, 18.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,43 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.13 → 1.18.14: `/admin/hierarchia` w układzie pulpitu, „Nieustawieni" to
+> „Bez przełożonego"** (zlecenie Z34, 18.10.2026).
+> **(1)** Znika `.page__head`: nazwa firmy do podpisu pierwszego kafla (to ona mówi, czego dotyczą
+> liczby), zdanie o „wszystkich spółkach" skasowane, a zdanie o tym, czym jest hierarchia, zeszło
+> do nagłówka prawego panelu — przy strukturze, której dotyczy.
+> **(2)** Pasek pięciu kafli (`.kafle--auto`) zamiast `.card.stats`. ⚠ Atrybuty `data-hier-liczba`
+> zostają: `modules/hierarchia.js` przelicza te liczby po każdym przeciągnięciu, bez przeładowania
+> ekranu — zmieniła się tylko nazwa klasy odchylenia (`.kafel__wartosc--odchylenie`), nie mechanizm.
+> **(3)** ⚠ **NAZEWNICTWO: „Nieustawieni"/„Nieustawionych" → „Bez przełożonego"** wszędzie
+> w interfejsie tego ekranu (kafel, panel, okno „Zmień przełożonego"). Zmierzone po zmianie:
+> **0 wystąpień** „Nieustawion…" w widocznym tekście.
+> **(4)** Lewy panel: nagłówek ze znakiem w **barwie ostrzeżenia** (`.card__znak--uwaga`) —
+> ten panel jest listą zadań, nie zestawieniem; zdanie „Tu trafia każdy nowy pracownik…" weszło
+> do nagłówka (było osobnym akapitem), po prawej bursztynowa plakietka „N z M". Z kart w tym
+> panelu znika plakietka „nie ustawiono": powtarzała nazwę panelu, w którym stoją.
+> **(5)** Prawy panel: znak z ikoną drzewa, tytuł „Struktura", zdanie o przeciąganiu; strefa
+> upuszczania z ikoną strzałki, przerywaną ramką 1,5 px (1 px ginie przy przerywaniu, 2 px czyta
+> się jak ramka karty) i tłem `--c-surface-mute`.
+> **(6)** Karta osoby: kółko 30 px z inicjałami, nazwisko 14 px 600 **zwykłymi literami**
+> (`NazwaOsoby::doWyswietlenia` w repozytorium — to **dana**, nie wygląd, więc tak samo trafia
+> do `title`, do wyszukiwania i do paska zmian; wersaliki z programu kadrowego czyta się dwa razy
+> wolniej i krzyczą z każdego poziomu drzewa), pod spodem „zatrudniony od DD.MM.RRRR" z dotychczasowymi
+> dopiskami. Plakietki z kropką: „bez konta" szara, „szczyt" zielona (było „nie podlega nikomu" —
+> w drzewie zdanie powtarzało to, co widać), a liczba podwładnych **błękitna i bez kropki**, bo
+> niesie liczbę, a nie stan. ⚠ Skrypt tworzy te plakietki w DOKŁADNIE tej samej postaci, inaczej
+> karta przeciągnięta wyglądałaby inaczej niż ta sama karta po przeładowaniu.
+> **(7)** W panelu plakietki schodzą pod nazwisko, a menu „⋯" idzie w prawy górny róg: panel ma
+> 340 px i nazwisko z trzema plakietkami zawijało się w cztery linie. W drzewie zostaje jeden
+> wiersz, menu 32 px.
+> ⚠ Treść karty bierze całą wolną szerokość i stoi DO LEWEJ — bez tego `justify-content:
+> space-between` stawiał nazwisko pośrodku wiersza, co widać było dopiero na szerokim drzewie.
+> **Pomiar**: 1920 i 1366 px — 5 kafli w jednym rzędzie, karta panelu 270 × 98, karta w drzewie
+> 1134 × 68 (1366: 628 × 68), inicjały 30 × 30, pole szukania 290 × 38 z lupą w polu;
+> 375 px — kafle po 2 w rzędzie, panele jeden pod drugim („Bez przełożonego" pierwszy), karta
+> 273 × 108, wcięcie gałęzi 8 + 8 px zamiast 24 + 16 (przy dawnym cztery poziomy zjadały 160 px
+> z 343 px szerokości). Zero przewijania w poziomie na wszystkich trzech szerokościach.
 
 > **Zmiana 1.18.12 → 1.18.13: zwolnienie to PRZEKREŚLONE nazwisko, nie dopisek**
 > (zlecenie Z32, 18.10.2026). Na `/admin/konta` znika „· zwolniony" z komórki osoby.
@@ -860,6 +897,11 @@ innych ekranach (przełącznik roku, zakres uprawnień) i tam zostaje taki, jaki
 `.card__znak--cichy` `.bez-grupy__tytuly` `.bez-grupy__opis` `.bez-grupy__siatka`
 `.bez-grupy__osoba` `.bez-grupy__imie` `.modal--grupa` `.chip--mala` `.assign__hurt`
 `.ikona-akcja` `.ikona-akcja--edycja` `.ikona-akcja--usun` `.ikona-akcja__form`
+
+*Hierarchia (1.18.14, zlecenie Z34)*
+`.inicjaly--hier` `.card__znak--uwaga` `.hier__licznik`
+⚠ Plakietki karty: „szczyt" zielona z kropką, liczba podwładnych błękitna bez kropki,
+„bez konta" szara z kropką. Skrypt `hierarchia.js` tworzy je w tej samej postaci co szablon.
 `.card__znak--niebezpieczny` (1.18.12, Z33)
 ⚠ `.stos` i `.inicjaly--stos` **usunięte w 1.18.12** — nie szukaj ich na ekranie.
 ⚠ `data-zaznacz` na polu w oknie każe `ui.js` zaznaczyć jego treść po otwarciu.

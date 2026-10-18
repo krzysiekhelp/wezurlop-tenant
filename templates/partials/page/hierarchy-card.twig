@@ -1,4 +1,5 @@
 {%- import 'partials/ikony.twig' as ikony -%}
+{%- import 'partials/inicjaly.twig' as znak -%}
 {#- Karta jednego zatrudnienia w drzewie hierarchii.
 
     ⚠ **Karta to ZATRUDNIENIE, nie człowiek.** Osoba pracująca w dwóch spółkach ma dwie karty,
@@ -26,28 +27,38 @@
          wnioskowanie o stanie z jego własnego obrazu. -#}
      data-hier-zablokowane="{{ w.zablokowane ? '1' : '0' }}"
      data-hier-brak-roli="{{ w.brak_roli ? '1' : '0' }}">
+    {#- ⚠ Kółko z inicjałami (Z34 §6) stoi PRZED nazwiskiem i jest wyłącznie znakiem graficznym —
+        pełna nazwa czyta się obok, więc czytnik ekranu inicjałów nie dostaje. -#}
+    {{ znak.kolko(w.osoba, 'inicjaly--hier') }}
     <div class="hier__card-main">
         <span class="hier__osoba">{{ w.osoba }}</span>
         <span class="hier__fakty">
+            {#- ⚠ „zatrudniony od" słowem, a nie samym „od" (Z34 §6): karta nie ma stanowiska,
+                więc data jest jedyną rzeczą, która mówi, od kiedy ta osoba tu jest — i musi
+                powiedzieć, czego dotyczy. Numer pracownika i druga firma zostają. -#}
             {%- if w.numer %}nr {{ w.numer }}{% endif %}
-            {%- if w.hired_at %}{{ w.numer ? ' · ' : '' }}od {{ czas_data(w.hired_at ~ ' 00:00:00') }}{% endif %}
+            {%- if w.hired_at %}{{ w.numer ? ' · ' : '' }}zatrudniony od {{ czas_data(w.hired_at ~ ' 00:00:00') }}{% endif %}
             {%- if w.druga_spolka %}{{ w.numer or w.hired_at ? ' · ' : '' }}także w {{ w.druga_spolka }}{% endif %}
         </span>
     </div>
     <div class="hier__card-chips">
         {#- Plakietka odświeżana przez skrypt po każdej zmianie struktury — stąd atrybut,
             nie szukanie „pierwszej plakietki w karcie". -#}
+        {#- ⚠ Liczba podwładnych **bez kropki i w błękicie** (Z34 §6): to jedyna plakietka na
+            karcie, która niesie LICZBĘ, a nie stan — kropka obiecywałaby stan. -#}
         {% if w.podwladnych > 0 %}
-            <span class="chip" data-hier-chip="podwladnych">{{ w.podwladnych }} {{ w.podwladnych == 1 ? 'podwładny' : 'podwładnych' }}{% if w.zespol > w.podwladnych %} · zespół {{ w.zespol }}{% endif %}</span>
+            <span class="chip chip--dzis" data-hier-chip="podwladnych">{{ w.podwladnych }} {{ w.podwladnych == 1 ? 'podwładny' : 'podwładnych' }}{% if w.zespol > w.podwladnych %} · zespół {{ w.zespol }}{% endif %}</span>
         {% endif %}
-        {% if w.szczyt %}<span class="chip" data-hier-chip="szczyt">nie podlega nikomu</span>{% endif %}
-        {#- ⚠ Plakietka oznaczona atrybutem, bo JavaScript zdejmuje ją po przeciągnięciu:
-            karta stojąca już pod przełożonym, ale wołająca „nie ustawiono", przeczy sama sobie.
-            Stan i tak rozstrzyga zapis — po odmowie ekran renderuje się od nowa z bazy. -#}
-        {% if w.nieustawiony %}<span class="chip chip--warn" data-hier-chip="nieustawiony">nie ustawiono</span>{% endif %}
-        {% if w.brak_roli %}<span class="chip chip--warn">bez roli przełożonego</span>{% endif %}
-        {% if w.zablokowane %}<span class="chip chip--warn">konto zablokowane</span>{% endif %}
-        {% if w.konto_status is null %}<span class="chip">bez konta</span>{% endif %}
+        {#- „szczyt" zamiast „nie podlega nikomu" (Z34 §6): w drzewie, gdzie karta i tak stoi
+            na samej górze, zdanie powtarzało to, co widać — została nazwa stanu. -#}
+        {% if w.szczyt %}<span class="chip chip--accent" data-hier-chip="szczyt"><span class="chip__kropka"></span>szczyt</span>{% endif %}
+        {#- ⚠ Plakietki „nie ustawiono" NIE MA (Z34 §4): karta bez przełożonego stoi w panelu
+            o tej samej nazwie, więc plakietka powtarzała nagłówek panelu. `modules/hierarchia.js`
+            dalej woła o nią przy przeciąganiu — jego funkcja jest odporna na brak plakietki,
+            więc nie trzeba było ruszać skryptu. -#}
+        {% if w.brak_roli %}<span class="chip chip--warn"><span class="chip__kropka"></span>bez roli przełożonego</span>{% endif %}
+        {% if w.zablokowane %}<span class="chip chip--warn"><span class="chip__kropka"></span>konto zablokowane</span>{% endif %}
+        {% if w.konto_status is null %}<span class="chip"><span class="chip__kropka"></span>bez konta</span>{% endif %}
 
         {#- ⚠ Ścieżka bez myszki jest częścią zakresu, nie dodatkiem (§8): przeciąganie nie działa
             z klawiatury, źle działa palcem i nie działa wcale przy czytniku ekranu. Menu wywołuje

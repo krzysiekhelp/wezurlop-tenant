@@ -151,9 +151,15 @@
     }
     if (!pokaz) { return; }
     var nowy = document.createElement('span');
-    nowy.className = 'chip';
+    /* ⚠ Ta sama postać, co w szablonie karty (Z34 §6): zielona plakietka z kropką i słowem
+       „szczyt". Gdyby skrypt tworzył ją inaczej, karta przeciągnięta wyglądałaby inaczej niż
+       ta sama karta po przeładowaniu — i nikt by nie skojarzył, że to jedno miejsce w JS. */
+    nowy.className = 'chip chip--accent';
     nowy.setAttribute('data-hier-chip', 'szczyt');
-    nowy.textContent = 'nie podlega nikomu';
+    var kropka = document.createElement('span');
+    kropka.className = 'chip__kropka';
+    nowy.appendChild(kropka);
+    nowy.appendChild(document.createTextNode('szczyt'));
     var miejsce = k.querySelector('.hier__card-chips');
     if (miejsce) { miejsce.insertBefore(nowy, miejsce.firstChild); }
   }
@@ -502,7 +508,8 @@
     }
     if (!chip) {
       chip = document.createElement('span');
-      chip.className = 'chip';
+      /* Błękitna plakietka bez kropki — tak samo, jak renderuje ją szablon (Z34 §6). */
+      chip.className = 'chip chip--dzis';
       chip.setAttribute('data-hier-chip', 'podwladnych');
       var miejsce = k.querySelector('.hier__card-chips');
       if (!miejsce) { return; }
@@ -516,7 +523,10 @@
     var el = document.querySelector('[data-hier-liczba="' + klucz + '"]');
     if (!el) { return; }
     el.textContent = String(wartosc);
-    el.classList.toggle('stats__value--odchylenie', odchylenie === true && wartosc > 0);
+    /* ⚠ Od Z34 liczby stoją w kaflach (`.kafel__wartosc`), nie w pasku `.stats` — klasa
+       odchylenia zmieniła nazwę razem z komponentem. Mechanizm ten sam: liczba przelicza się
+       z DOM-u po każdym przeciągnięciu, bez przeładowania ekranu. */
+    el.classList.toggle('kafel__wartosc--odchylenie', odchylenie === true && wartosc > 0);
   }
 
   function przelicz() {

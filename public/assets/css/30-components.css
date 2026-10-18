@@ -3361,6 +3361,93 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   text-align: center;
 }
 .hier__drop--panel { border-style: dashed; }
+
+/* ——— hierarchia: karta osoby i panele (zlecenie Z34) ——————————————————————————— */
+
+.inicjaly--hier { --inicjaly-bok: 30px; }
+/* Znak panelu „Bez przełożonego" — barwa ostrzeżenia, bo panel jest listą zadań, nie zestawieniem. */
+.card__znak--uwaga { background: var(--c-warn-soft); color: var(--c-warn-text); }
+.hier__licznik { flex: none; }
+
+/* ⚠ Karta: promień KARTY, nie kontrolki, i wyraźniejsza reakcja na kursor (Z34 §6) — kartę się
+   tutaj chwyta, więc musi wyglądać na chwytalną. `cursor: grab` zostaje z poprzedniej wersji. */
+.hier__card { border-radius: var(--radius-card); }
+@media (hover: hover) {
+  .hier__card:hover { background: var(--c-surface-hover); border-color: var(--c-line-strong); }
+}
+/* ⚠ Treść karty bierze CAŁĄ wolną szerokość i stoi do lewej (Z34 §6). Bez tego `.hier__card`
+   z `justify-content: space-between` i trzema dziećmi stawiał nazwisko POŚRODKU wiersza —
+   widać to było dopiero na szerokim drzewie, gdzie między znakiem a plakietkami zostaje metr
+   pustego miejsca. */
+.hier__card-main { flex: 1 1 auto; justify-items: start; text-align: left; }
+.hier__osoba { font-size: var(--t-body); font-weight: var(--w-semibold); }
+/* ⚠ Fakty pod nazwiskiem w `--t-caption`, nie `--fs-sm` (tego tokenu nie ma w zestawie —
+   przeglądarka brała wtedy rozmiar odziedziczony, czyli ten sam co nazwisko). */
+.hier__fakty { font-size: var(--t-caption); color: var(--c-text-3); }
+
+/* ⚠ **W panelu plakietki schodzą POD nazwisko, a menu idzie w prawy górny róg** (Z34 §6):
+   panel ma 340 px, więc nazwisko, trzy plakietki i „⋯" w jednym wierszu zawijały się w cztery
+   linie o różnej wysokości. W drzewie zostaje jeden wiersz — tam karta ma całą szerokość. */
+.hier__panel .hier__card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: 'znak tresc menu' '. chipy chipy';
+  align-items: start;
+  gap: var(--s-2) var(--s-3);
+}
+.hier__panel .hier__card > .inicjaly { grid-area: znak; }
+.hier__panel .hier__card-main { grid-area: tresc; }
+.hier__panel .hier__card-chips { grid-area: chipy; }
+.hier__panel .hier__card-chips > .menu { position: absolute; top: var(--s-2); right: var(--s-2); }
+.hier__panel .hier__card { position: relative; }
+
+/* W drzewie menu jest kwadratem 32 px — mniejszym niż w wierszu grupy, bo karta jest niższa. */
+.hier__card-chips .menu__trigger {
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ⚠ Strefa upuszczania: ikona i tekst w jednym wierszu, ramka przerywana 1,5 px (Z34 §5).
+   1,5 px, bo 1 px ginie przy przerywaniu, a 2 px czyta się jak ramka karty. */
+.hier__drop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  border: 1.5px dashed var(--c-line-strong);
+  background: var(--c-surface-mute);
+}
+.hier__drop .ico { flex: none; color: var(--c-text-3); }
+
+/* ⚠ Pole szukania w panelu i w pasku drzewa jest ETYKIETĄ (`.field`), więc `display: flex`
+   z `.pole-szukania` przestawiał je w RZĄD i lupa lądowała OBOK pola, a nie w nim (ta sama
+   pułapka, co w oknie członków grupy). Blok plus centrowanie pionowe ikony. */
+.hier__panel .pole-szukania,
+#hier-narzedzia .pole-szukania { display: block; position: relative; }
+.hier__panel .pole-szukania .input,
+#hier-narzedzia .pole-szukania .input { width: 100%; padding-left: calc(var(--s-3) + 16px + var(--s-2)); }
+.hier__panel .pole-szukania .ico,
+#hier-narzedzia .pole-szukania .ico { top: 50%; transform: translateY(-50%); }
+
+/* ⚠ Telefon: panele jeden pod drugim, „Bez przełożonego" PIERWSZY (to lista zadań), a drzewo
+   z mniejszym wcięciem — przy 20 px na poziom cztery poziomy nie mieściły się w 343 px. */
+@media (max-width: 560px) {
+  .hier { grid-template-columns: minmax(0, 1fr); }
+  .hier__panel { order: 1; }
+  .hier__tree { order: 2; }
+  .hier__card { grid-template-columns: auto minmax(0, 1fr) auto; }
+  /* ⚠ Wcięcie gałęzi z 24+16 px na 8+8 px: przy czterech poziomach dawne wcięcie zjadało 160 px
+     z 343 px szerokości i karta czwartego poziomu zostawała z 60 px na nazwisko. Łokieć linii
+     liczy się z tej samej zmiennej, więc skraca się razem z nią. */
+  .hier__branch:not(.hier__branch--root) { margin-left: var(--s-2); padding-left: var(--s-2); }
+  .hier__branch:not(.hier__branch--root) > .hier__node::before {
+    left: calc(-1 * var(--s-2));
+    width: var(--s-2);
+  }
+}
 /* Pasek zmian: przyklejony do dołu, bo decyzja o zapisie musi być pod ręką na każdej
    wysokości drzewa. `hidden` zdejmuje go z układu całkowicie (reguła z §4b). */
 .hier__bar {
