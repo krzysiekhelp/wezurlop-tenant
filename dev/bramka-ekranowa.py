@@ -660,7 +660,20 @@ def sprawdz_nakladki(b, sciezki: list[str]) -> list[dict]:
                         # który otwiera się poprawnie.
                         if selektor != "details > summary":
                             pg.evaluate(OTWORZ_MENU, cel)
-                        pg.click(cel)
+                        # ⚠ **Nakładka otwarta PRZEZ SERWER nie wymaga kliknięcia — i nie da się
+                        # jej kliknąć.** Od Z29 `/ustawienia/spolki` przekierowuje na
+                        # `/ustawienia?okno=nazwy`, gdzie okno przychodzi z `<dialog open>`
+                        # i zaraz staje się modalne; reszta dokumentu jest wtedy `inert`, więc
+                        # klik w wyzwalacz za oknem czeka do timeoutu. Zmierzone: trzy z 45
+                        # sprawdzeń padły na „NIE OTWARŁA SIĘ" przy oknie, które było OTWARTE.
+                        # Pomiar i tak dotyczy geometrii nakładki, a ta jest już na ekranie.
+                        juz_otwarta = pg.evaluate(
+                            f"() => {{ const d = document.getElementById('{okno_id}');"
+                            " const s = d ? d.closest('details') : null;"
+                            " return !!d && (d.tagName === 'DIALOG' ? d.open"
+                            "   : (s ? s.open : !d.hidden)); }")
+                        if not juz_otwarta:
+                            pg.click(cel)
                         # ⚠ „Otwarta" znaczy co innego dla dialogu (`open`) i dla warstwy
                         # (`hidden` zdjęte) — bramka sprawdza jedno i drugie, bo kryterium
                         # dotyczy warstwy, nie tagu.
@@ -2996,12 +3009,23 @@ def sprawdz_nazwe_wyswietlana(b) -> dict:
         pg.wait_for_load_state("networkidle")
 
         def zapisz(wartosc: str) -> str:
+            # ⚠ **Od Z29 nazwy zapisuje OKNO, a nie wiersz tabeli** (`/ustawienia/spolki`
+            # przekierowuje na `/ustawienia?okno=nazwy`, gdzie serwer renderuje `<dialog open>`).
+            # Pole zostało z tym samym `aria-label`, więc selektor jest ten sam; zmienił się
+            # przycisk: jeden „Zapisz nazwy" dla całego zestawu zamiast guzika przy polu.
             pg.goto(BAZA + "/ustawienia/spolki", wait_until="networkidle")
             pole = pg.locator(f'input[aria-label="Nazwa wyświetlana dla {nazwa_r2}"]')
             pole.fill(wartosc)
-            pole.locator("xpath=following-sibling::button[1]").click()
+            pg.click("#okno-nazwy button[type=submit]")
             pg.wait_for_load_state("networkidle")
+            # ⚠ **Komunikat odmowy stoi PRZY POLU, nie w pasku strony** (od Z29): okno zapisuje
+            # kilka firm naraz, więc pasek może powiedzieć tylko „nic nie zapisano", a to, CO
+            # jest nie tak z konkretną nazwą, mówi zdanie pod jej polem. Kryterium pyta o drugie,
+            # bo to jego czyta człowiek, który właśnie wpisał kolidującą nazwę.
             return pg.evaluate("""() => {
+              const przy_polu = Array.from(document.querySelectorAll('.field--error .field__hint'))
+                .map(x => x.textContent.trim()).filter(t => t !== '');
+              if (przy_polu.length > 0) { return przy_polu[0]; }
               const n = Array.from(document.querySelectorAll('.notice'))
                 .map(x => x.textContent.trim()).filter(t => t !== '');
               return n.length > 0 ? n[0] : '';
@@ -5022,6 +5046,7 @@ def sprawdz_dziennik_i_zdania(b) -> dict:
         pg.wait_for_load_state("networkidle")
 
         def pole_nazwy():
+            # ⚠ Od Z29 ten adres przekierowuje do OKNA na `/ustawienia` (patrz `prawda_spolki`).
             pg.goto(BAZA + "/ustawienia/spolki", wait_until="networkidle")
             return pg.locator(f'input[aria-label="Nazwa wyświetlana dla {nazwa_r2}"]')
 
@@ -5030,9 +5055,16 @@ def sprawdz_dziennik_i_zdania(b) -> dict:
         def zapisz(wartosc: str) -> str:
             pole = pole_nazwy()
             pole.fill(wartosc)
-            pole.locator("xpath=following-sibling::button[1]").click()
+            pg.click("#okno-nazwy button[type=submit]")
             pg.wait_for_load_state("networkidle")
+            # ⚠ **Komunikat odmowy stoi PRZY POLU, nie w pasku strony** (od Z29): okno zapisuje
+            # kilka firm naraz, więc pasek może powiedzieć tylko „nic nie zapisano", a to, CO
+            # jest nie tak z konkretną nazwą, mówi zdanie pod jej polem. Kryterium pyta o drugie,
+            # bo to jego czyta człowiek, który właśnie wpisał kolidującą nazwę.
             return pg.evaluate("""() => {
+              const przy_polu = Array.from(document.querySelectorAll('.field--error .field__hint'))
+                .map(x => x.textContent.trim()).filter(t => t !== '');
+              if (przy_polu.length > 0) { return przy_polu[0]; }
               const n = Array.from(document.querySelectorAll('.notice'))
                 .map(x => x.textContent.trim()).filter(t => t !== '');
               return n.length > 0 ? n[0] : '';

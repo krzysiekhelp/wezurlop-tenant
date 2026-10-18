@@ -174,13 +174,30 @@
       // Bez tego administrator zamyka okno z napisem „Gotowe” i widzi pod spodem „Podłączenie w toku”.
       var done = dialog.querySelector('[data-kreator-gotowe]');
       var body = dialog.querySelector('.modal__body');
-      if (body) {
+      /* ⚠ **`data-modal-trwale` wyłącza sprzątanie treści.** Czyszczenie powstało dla okien, które
+         dociągają treść z serwera (kreator, panel osoby): tam treść zostawiona na drugie otwarcie
+         byłaby nieaktualna. Okno z treścią OSADZONĄ w stronie (nazwy firm, Z29) wyczyszczone
+         nie wróciłoby wcale — drugie otwarcie pokazałoby puste pudełko. */
+      if (body && !dialog.hasAttribute('data-modal-trwale')) {
         body.replaceChildren();
       }
       if (done) {
         window.location.reload();
       }
     });
+  });
+
+  /* ⚠ **Okno otwarte PRZEZ SERWER podnosimy do warstwy wierzchniej.** `<dialog open>` wyrenderowane
+     w HTML jest widoczne, ale NIE jest modalne: nie ma tła, nie zamyka się Escapem i treść pod nim
+     zostaje klikalna. Serwer renderuje je otwarte po to, żeby ekran działał bez JavaScriptu
+     (`/ustawienia?okno=nazwy`), a tu dokładamy to, czego sam HTML nie potrafi.
+     ⚠ `close()` przed `showModal()` jest obowiązkowe: `showModal()` na już otwartym oknie rzuca
+     `InvalidStateError`. Zamknięcie zdejmuje `open`, a że okno ma `data-modal-trwale`, obsługa
+     wyżej nie wyczyści przy tym jego treści — i to jest powód, dla którego ten blok stoi PO niej. */
+  document.querySelectorAll('dialog.modal[open]').forEach(function (dialog) {
+    if (typeof dialog.showModal !== 'function') { return; }
+    dialog.close();
+    dialog.showModal();
   });
 
   // Przyciski „Pokaż hasło” są w HTML ukryte i pojawiają się dopiero, gdy JS działa.

@@ -83,8 +83,13 @@ $shared = [
     // ⚠ Wysyłka próbna w żądaniu to świadomy wyjątek od „poczta tylko przez kolejkę": sens tego
     // przycisku polega na tym, że administrator widzi błąd SMTP od razu. Limit transportu 10 s.
     ['POST', '/ustawienia/poczta/proba',                 [SettingsController::class, 'testMail'],      'permission' => 'admin.settings', 'zakres' => 'tenant'],
+    // ⚠ Stary adres osobnego ekranu nazw — od Z29 przekierowuje na `/ustawienia?okno=nazwy`,
+    // czyli do tego samego okna, które otwiera przycisk „Zmień nazwy". Trasa zostaje, bo prowadzą
+    // do niej zakładki, zrzuty ekranu i kryterium bramki.
     ['GET',  '/ustawienia/spolki',                       [SettingsController::class, 'companies'],     'permission' => 'admin.settings', 'zakres' => 'tenant'],
-    ['POST', '/ustawienia/spolki/{id:\d+}/nazwa',        [SettingsController::class, 'saveCompanyName'], 'permission' => 'admin.settings', 'zakres' => 'tenant'],
+    // ⚠ JEDEN zapis dla wszystkich firm (Z29): jednoznaczność nazw dotyczy całego zestawu,
+    // więc zapis per wiersz odbijał się o klucz unikalny przy zwykłej zamianie dwóch nazw.
+    ['POST', '/ustawienia/spolki',                       [SettingsController::class, 'saveCompanyNames'], 'permission' => 'admin.settings', 'zakres' => 'tenant'],
     ['GET',  '/kontekst',                                [ContextController::class, 'choose'],         'permission' => 'app.use', 'exempt' => ['context'], 'zakres' => 'tenant'],
     ['POST', '/kontekst/{id:\d+}',                       [ContextController::class, 'switch'],         'permission' => 'app.use', 'exempt' => ['context'], 'zakres' => 'tenant'],
     // ⚠ **Drugi kształt tej samej drogi** (zlecenie 10.10.2026 §1): konto bez zatrudnienia

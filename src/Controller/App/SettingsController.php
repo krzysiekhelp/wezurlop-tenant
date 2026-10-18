@@ -46,8 +46,9 @@ final class SettingsController
             . 'odśwież ten ekran za kilka minut.',
         'poczta' => 'Ustawienia poczty zapisane. Wyślij wiadomość próbną, żeby sprawdzić, czy serwer je przyjmuje.',
         'haslo_wyczyszczone' => 'Hasło SMTP wyczyszczone. Serwer, który wymaga uwierzytelnienia, odrzuci teraz wysyłkę.',
-        'nazwa'  => 'Nazwa wyświetlana zapisana. Od teraz widać ją na liście kont, w kontrolce dostępu i w filtrze.',
-        'nazwa_wyczyszczona' => 'Nazwa wyświetlana wyczyszczona — pokazujemy nazwę z programu kadrowego.',
+        // ⚠ Jeden komunikat na cały zestaw (Z29): okno zapisuje wszystkie firmy jednym
+        // przyciskiem, więc „nazwa zapisana" w liczbie pojedynczej kłamałoby przy dwóch zmianach.
+        'nazwy'  => 'Nazwy wyświetlane zapisane. Od teraz widać je na liście kont, w kontroli dostępu i w filtrze.',
     ];
 
     public function __construct(
@@ -66,7 +67,11 @@ final class SettingsController
     /** @param array<string, string> $params */
     public function index(Request $request, array $params): Response
     {
-        return $this->render((string) $request->query('ok'), null);
+        return $this->render(
+            (string) $request->query('ok'),
+            null,
+            $request->queryString('okno', 16) === 'nazwy',
+        );
     }
 
     /**
@@ -95,91 +100,126 @@ final class SettingsController
     }
 
     /**
-     * Nazwy wyświetlane spółek (§8 zlecenia).
+     * `/ustawienia/spolki` — **stary adres osobnego ekranu, dziś przekierowanie** (zlecenie Z29).
      *
-     * ⚠ Powód istnienia tego ekranu: `BETA SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ` nie mieści
-     * się w kolumnie ani w kontrolce filtra, a skracać w locie nie ma czego — skrót musi wybrać
-     * człowiek. Nazwa z R2 zostaje nietknięta i tylko do odczytu.
+     * ⚠ Trasa zostaje, zamiast zniknąć: prowadzą do niej zakładki, nasze własne zrzuty ekranu
+     * i kryterium bramki. Martwy odnośnik w panelu administratora jest gorszy niż jedno
+     * przekierowanie — a parametr `okno` otwiera to samo okno, które otwiera przycisk.
      *
      * @param array<string, string> $params
      */
     public function companies(Request $request, array $params): Response
     {
-        return $this->renderCompanies((string) $request->query('ok'), null);
+        return Response::redirectFor($request, $this->urls->to('/ustawienia') . '?okno=nazwy');
     }
 
     /**
-     * Zapis nazwy wyświetlanej. Puste pole znaczy „pokazuj nazwę z R2".
+     * **Zapis nazw wyświetlanych WSZYSTKICH firm jednym żądaniem** (zlecenie Z29).
      *
-     * ⚠ Nazwa jest **danymi użytkownika** — do szablonu idzie przez Twiga jak każdy inny tekst
-     * (CLAUDE.md §5), a jednoznaczności pilnuje klucz unikalny w bazie, nie sprawdzenie przed
-     * zapisem (wyścig dwóch administratorów).
+     * ⚠ Jedno żądanie i jedna transakcja, bo jednoznaczność dotyczy CAŁEGO zestawu: zamiana nazw
+     * między dwiema firmami jest poprawna jako całość, a rozbita na dwa zapisy odbija się
+     * o klucz unikalny w połowie drogi (patrz `CompanyRepository::setDisplayNames()`).
+     *
+     * ⚠ Nazwy są **danymi użytkownika** — do szablonu wracają przez Twiga jak każdy inny tekst
+     * (CLAUDE.md §5), a identyfikatory firm biorą się z **białej listy** z bazy, nie z formularza:
+     * pętla chodzi po firmach, które istnieją, i czyta pola po ich identyfikatorach (§11).
+     *
+     * ⚠ **Długość sprawdzamy sami, na surowej wartości.** `postString()` zwraca pusty tekst dla
+     * pola dłuższego niż limit — a pusty tekst znaczy tu „pokazuj nazwę z programu kadrowego",
+     * czyli wklejenie 300 znaków **skasowałoby nazwę** zamiast pokazać błąd. Przy zapisie
+     * jednej firmy to był drobiazg; przy zapisie całego zestawu to cicha strata danych.
      *
      * @param array<string, string> $params
      */
-    public function saveCompanyName(Request $request, array $params): Response
+    public function saveCompanyNames(Request $request, array $params): Response
     {
-        $companyId = filter_var($params['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
-        // ⚠ Wiersz spółki trzymamy, a nie tylko sprawdzamy jego istnienie: **poprzednia nazwa
-        // wyświetlana jest potrzebna do dziennika** i to jest ten sam odczyt, nie drugi.
-        $spolka = $companyId === false ? null : $this->companies->find($companyId);
-        if ($companyId === false || $spolka === null) {
-            return $this->renderCompanies('', 'Nie znalazłem takiej firmy.');
+        $firmy = $this->companies->listWithCounts();
+        $wejscie = [];
+        $bledy = [];
+        foreach ($firmy as $firma) {
+            $surowa = $request->post('nazwa_' . $firma['id']);
+            if ($surowa !== null && !is_string($surowa)) {
+                $bledy[$firma['id']] = 'Nieprawidłowa wartość pola.';
+                continue;
+            }
+            $tekst = trim((string) ($surowa ?? ''));
+            if (mb_strlen($tekst) > 200) {
+                $bledy[$firma['id']] = 'Najwyżej 200 znaków.';
+                continue;
+            }
+            if (!mb_check_encoding($tekst, 'UTF-8')) {
+                $bledy[$firma['id']] = 'Nieprawidłowe znaki w nazwie.';
+                continue;
+            }
+            $wejscie[$firma['id']] = $tekst === '' ? null : $tekst;
         }
-        $nazwa = trim($request->postString('nazwa', 200));
-        if (mb_strlen($nazwa) > 200) {
-            return $this->renderCompanies('', 'Nazwa wyświetlana może mieć najwyżej 200 znaków.');
+
+        if ($bledy === []) {
+            $odmowy = $this->companies->setDisplayNames($wejscie);
+            foreach ($odmowy as $id => $powod) {
+                $bledy[$id] = match ($powod) {
+                    // ⚠ Osobny komunikat od „zajęta": kolizja jest z kolumną, której człowiek
+                    // w tym oknie nie edytuje — „nazwa jest już użyta" kazałoby mu szukać jej
+                    // wśród nazw wyświetlanych, gdzie jej nie ma.
+                    CompanyRepository::POWOD_KOLIZJA_Z_KADRAMI => 'Ta nazwa jest nazwą innej firmy w programie kadrowym — dwa identyczne wiersze na liście dostępu byłyby nie do rozróżnienia.',
+                    CompanyRepository::POWOD_ZAJETA => 'Tej nazwy używa już inna firma — nazwy wyświetlane muszą się różnić.',
+                    CompanyRepository::POWOD_NIEZNANA => 'Nie znalazłem takiej firmy.',
+                    default => 'Nie udało się zapisać tej nazwy.',
+                };
+            }
         }
-        $powod = $this->companies->setDisplayName($companyId, $nazwa === '' ? null : $nazwa);
-        if ($powod === CompanyRepository::POWOD_KOLIZJA_Z_KADRAMI) {
-            // ⚠ Osobny komunikat, bo kolizja jest z kolumną, której człowiek na tym ekranie
-            // nie edytuje — „nazwa jest już użyta" kazałoby mu szukać jej w nazwach wyświetlanych,
-            // gdzie jej nie ma. Powód: te same dwa wiersze stają potem na liście kont i w
-            // kontrolce dostępu, czyli tam, gdzie nadaje się uprawnienia do danych kadrowych.
-            return $this->renderCompanies('', 'Ta nazwa jest nazwą innej firmy w programie kadrowym — dwa identyczne wiersze na liście dostępu byłyby nie do rozróżnienia. Wybierz inną.');
+
+        if ($bledy !== []) {
+            // ⚠ Wracają WPISANE wartości, nie te z bazy: człowiek ma poprawić jedno pole,
+            // a nie wpisywać wszystko od nowa. Nic nie zostało zapisane.
+            $wpisane = [];
+            foreach ($firmy as $firma) {
+                $surowa = $request->post('nazwa_' . $firma['id']);
+                $wpisane[$firma['id']] = is_string($surowa) ? $surowa : '';
+            }
+
+            return $this->render('', null, true, $wpisane, $bledy);
         }
-        if ($powod === CompanyRepository::POWOD_ZAJETA) {
-            // ⚠ Dwie spółki o tej samej nazwie wyświetlanej byłyby nie do rozróżnienia
-            // na liście dostępu — a to jest lista, na której nadaje się uprawnienia.
-            return $this->renderCompanies('', 'Ta nazwa wyświetlana jest już użyta przez inną firmę — nazwy muszą się różnić.');
-        }
+
         $user = $request->attribute(Authenticate::USER);
         $accountId = $user instanceof CurrentUser ? $user->accountId() : null;
-        $this->events->record(
-            'tenant.company_display_name',
-            $accountId,
-            null,
-            $user instanceof CurrentUser ? $user->displayName : 'admin',
-            'company',
-            $companyId,
-            $companyId,
-            // ⚠ **Wartość PRZED i PO, nie `['ustawiono' => true]`** (zlecenie 08.10 §1).
-            // Dawny zapis był ostrożnością wziętą z §14 — ale §14 chroni dane osobowe, hasła
-            // i sekrety, a nazwa wyświetlana spółki to **konfiguracja tenanta**, nie dana osobowa.
-            // ⚠ Koszt tej ostrożności jest zmierzony i konkretny: 06.10.2026 skrypt pomiarowy
-            // nadpisał nazwę wpisaną ręcznie i **nie dało się jej odtworzyć z dziennika**,
-            // bo dziennik wiedział tylko, że „ustawiono". Wpis opisujący zmianę, który nie niesie
-            // wartości, jest rejestrem wyglądającym na działający.
-            ['z' => $spolka['nazwa_wyswietlana'], 'na' => $nazwa === '' ? null : $nazwa],
-        );
+        foreach ($firmy as $firma) {
+            $nowa = $wejscie[$firma['id']] ?? null;
+            if ($nowa === $firma['nazwa_wyswietlana']) {
+                continue;
+            }
+            $this->events->record(
+                'tenant.company_display_name',
+                $accountId,
+                null,
+                $user instanceof CurrentUser ? $user->displayName : 'admin',
+                'company',
+                $firma['id'],
+                $firma['id'],
+                // ⚠ **Wartość PRZED i PO, nie `['ustawiono' => true]`** (zlecenie 08.10 §1).
+                // Dawny zapis był ostrożnością wziętą z §14 — ale §14 chroni dane osobowe, hasła
+                // i sekrety, a nazwa wyświetlana spółki to **konfiguracja tenanta**, nie dana
+                // osobowa. ⚠ Koszt tej ostrożności jest zmierzony: 06.10.2026 skrypt pomiarowy
+                // nadpisał nazwę wpisaną ręcznie i **nie dało się jej odtworzyć z dziennika**,
+                // bo dziennik wiedział tylko, że „ustawiono".
+                ['z' => $firma['nazwa_wyswietlana'], 'na' => $nowa],
+            );
+        }
 
-        return Response::redirectFor(
-            $request,
-            $this->urls->to('/ustawienia/spolki') . '?ok=' . ($nazwa === '' ? 'nazwa_wyczyszczona' : 'nazwa'),
-        );
+        return Response::redirectFor($request, $this->urls->to('/ustawienia') . '?ok=nazwy');
     }
 
-    private function renderCompanies(string $notice, ?string $error): Response
-    {
-        return $this->view->render('page/web/settings-companies.twig', [
-            'spolki' => $this->companies->listWithCounts(),
-            'notice' => self::NOTICES[$notice] ?? null,
-            'error'  => $error,
-        ]);
-    }
-
-    private function render(string $notice, ?string $error): Response
-    {
+    /**
+     * @param array<int, string> $wpisaneNazwy id firmy → wartość z formularza (po odmowie zapisu)
+     * @param array<int, string> $bledyNazw    id firmy → komunikat przy polu
+     */
+    private function render(
+        string $notice,
+        ?string $error,
+        bool $oknoNazwy = false,
+        array $wpisaneNazwy = [],
+        array $bledyNazw = [],
+    ): Response {
         $strefa = $this->settings->get('timezone', Strefa::DOMYSLNA);
         $alertEmail = trim((string) $this->settings->get('alert_email', ''));
 
@@ -197,6 +237,14 @@ final class SettingsController
             // ⚠ Cron: te same dane, które czyta `/diagnostyka` (jedna klasa, dwa ekrany).
             // Tu odpowiadamy na inne pytanie: „co mam wpisać u hostingodawcy".
             'cron' => $this->cron->stan(),
+            // ⚠ Firmy jadą do okna „Nazwy wyświetlane firm" osadzonego w tym ekranie (Z29).
+            // Okno jest w stronie, a nie dociągane htmx-em, bo dzięki temu działa BEZ JavaScriptu:
+            // serwer renderuje `<dialog open>`, a skrypt tylko podnosi je do warstwy wierzchniej.
+            'spolki' => $this->companies->listWithCounts(),
+            // Otwarte, gdy prowadzi tu stary adres (`?okno=nazwy`) albo gdy zapis odmówił.
+            'okno_nazwy' => $oknoNazwy,
+            'wpisane_nazwy' => $wpisaneNazwy,
+            'bledy_nazw' => $bledyNazw,
             // ⚠ Adres alertów osobno, a nie tylko w grupie niżej: kafel na górze ekranu musi
             // ODRÓŻNIĆ „ustawiony" od „nieustawionego", a napis zastępczy („— nie ustawiono")
             // tego nie niesie — kafel pokazałby go jako zwykłą wartość (zlecenie Z27 §2).

@@ -143,9 +143,13 @@
     </div>
     <div class="card__body card__body--tight">
         <ul class="settings-list settings-list--akcje">
-            <li><a class="settings-list__row" href="{{ url('/ustawienia/spolki') }}">
+            {#- ⚠ Wiersz zostaje ODNOŚNIKIEM, a `data-modal-open` tylko przechwytuje kliknięcie
+                (zlecenie Z29). Bez JavaScriptu odnośnik prowadzi na `/ustawienia/spolki`, a ten
+                adres wraca tutaj z `?okno=nazwy` i serwer renderuje okno otwarte — czyli edycja
+                nazw działa bez skryptów tak samo, jak działała jako osobny ekran. -#}
+            <li><a class="settings-list__row" href="{{ url('/ustawienia/spolki') }}" data-modal-open="okno-nazwy">
                 <span class="settings-list__copy">
-                    <strong>Nazwy wyświetlane spółek</strong>
+                    <strong>Nazwy wyświetlane firm</strong>
                     <small>Jak firmy nazywają się w aplikacji</small>
                 </span>
                 <span class="btn btn--ghost btn--akcja settings-list__akcja">{{ ikony.olowek() }}Zmień nazwy<span class="settings-list__dalej" aria-hidden="true">›</span></span>
@@ -331,6 +335,10 @@
         </details>
     </div>
 </section>
+
+{#- ⚠ Okno nazw stoi POZA kartami i na końcu: `<dialog>` wchodzi do warstwy wierzchniej, więc
+    jego miejsce w dokumencie nie wpływa na wygląd, a tutaj nie zaśmieca czytania kart. -#}
+{% include 'partials/okno-nazwy-firm.twig' %}
 
 {#- ══════════ Trzy karty stanu (§7 zlecenia) ══════════
     ⚠ Obok siebie, bo to trzy krótkie odpowiedzi, a nie trzy tematy: jedna pod drugą zajmowały

@@ -1588,6 +1588,60 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 .ustaw-para__etykieta { font-size: var(--t-caption); color: var(--c-text-3); min-width: 0; }
 .ustaw-para__wartosc { font-size: var(--t-body); font-weight: var(--w-semibold); color: var(--c-text); white-space: nowrap; }
 
+/* ——— okno „Nazwy wyświetlane firm" (zlecenie Z29) —————————————————————————— */
+
+/* ⚠ Nagłówek okna z tym samym znakiem, co nagłówki kart ustawień — żeby okno czytało się jako
+   ciąg dalszy ekranu, a nie jako osobny program. `align-items: flex-start`, bo pod tytułem
+   stoi zdanie opisu, a krzyżyk ma zostać przy górnej krawędzi. */
+.modal__head--znak { align-items: flex-start; gap: var(--s-3); }
+.modal__head--znak .card__tytuly { flex: 1 1 auto; }
+
+/* ⚠ **Na telefonie okno ma margines `--s-4`, nie `--s-6`**: przy 375 px reguła bazowa zostawiała
+   po 32 px z każdej strony, czyli 311 px na okno, w którym stoi pole i nazwa firmy. Modyfikator,
+   a nie zmiana `.modal`, bo tamta klasa obsługuje osiem innych okien — przestawienie jej
+   wszystkim naraz jest decyzją zakresową, nie poprawką tego okna. */
+@media (max-width: 560px) {
+  .modal--nazwy { width: calc(100vw - 2 * var(--s-4)); }
+}
+
+.nazwy-lista { display: flex; flex-direction: column; }
+/* ⚠ Dwie kolumny: nazwa z kadr bierze resztę, pole ma stałe 260 px — nazwa firmy bywa długa
+   i to ona ma się zawijać, a nie kontrolka. Separator tylko MIĘDZY wierszami (pierwszy bez
+   kreski), bo kreska nad pierwszym wierszem udaje nagłówek tabeli, której tu nie ma. */
+.nazwy-wiersz {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: var(--s-5);
+  align-items: start;
+  padding: var(--s-4) 0;
+}
+.nazwy-wiersz + .nazwy-wiersz { border-top: 1px solid var(--c-line-soft); }
+.nazwy-wiersz__kadry { display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; }
+.nazwy-wiersz__nazwa {
+  font-size: var(--t-body);
+  font-weight: var(--w-semibold);
+  color: var(--c-text);
+  overflow-wrap: anywhere;
+}
+.nazwy-wiersz__meta { font-size: var(--t-caption); color: var(--c-text-3); }
+.nazwy-wiersz__pole { min-width: 0; }
+
+/* ⚠ Telefon: jedna kolumna, pole na całą szerokość. Próg jest ten sam, co przy szerokości okna —
+   dwie liczby dla jednej sytuacji rozjechałyby się przy pierwszej zmianie. */
+@media (max-width: 560px) {
+  .nazwy-wiersz { grid-template-columns: minmax(0, 1fr); gap: var(--s-2); }
+}
+
+/* Podpowiedź pod listą: szare pudełko, nie zdanie luzem — mówi o CAŁEJ liście, a nie o ostatnim
+   wierszu, obok którego by stało. */
+.nazwy-podpowiedz {
+  padding: var(--s-3);
+  border-radius: var(--radius);
+  background: var(--c-bg);
+  font-size: var(--t-caption);
+  color: var(--c-text-3);
+}
+
 @media (hover: hover) {
   .settings-list__row:is(a, button):hover { color: var(--c-text); text-decoration: none; }
   .settings-list__row:is(a, button):hover > span:last-child { color: var(--c-text-3); }

@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.8, 18.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.9, 18.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,33 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.8 → 1.18.9: nazwy wyświetlane firm edytuje się w OKNIE, nie na osobnym ekranie**
+> (zlecenie Z29, 18.10.2026). Przycisk „Zmień nazwy" na `/ustawienia` otwiera okno `.modal`
+> z listą wszystkich firm; `/ustawienia/spolki` przekierowuje na `/ustawienia?okno=nazwy`, więc
+> stare odnośniki i zakładki nie są martwe.
+> **(1)** ⚠ **Okno jest OSADZONE w stronie, nie dociągane htmx-em — i to jest decyzja o dostępności,
+> nie o wygodzie.** Osadzone działa bez JavaScriptu: serwer renderuje `<dialog open>`, gdy adres
+> niesie `?okno=nazwy` albo gdy zapis odmówił, a `ui.js` tylko **podnosi** je do warstwy
+> wierzchniej (`close()` + `showModal()`, bo `showModal()` na otwartym oknie rzuca wyjątek).
+> Wersja z htmx-em byłaby krótsza i **nieosiągalna bez skryptów**, czyli edycja nazw zniknęłaby
+> dla przeglądarki bez JS — a dotąd była osobną stroną.
+> **(2)** ⚠ **`data-modal-trwale`**: wspólna obsługa okien czyści `.modal__body` przy zamknięciu
+> (treść kreatora przychodzi z serwera i nie może zostać na drugie otwarcie). Okno z treścią
+> osadzoną w stronie wyczyszczone **nie wróciłoby** — drugie otwarcie pokazałoby puste pudełko.
+> Nowy atrybut wyłącza sprzątanie tam, gdzie treść nie jest dociągana.
+> **(3)** **Jeden zapis dla całego zestawu.** Jednoznaczność nazw dotyczy wszystkich firm naraz:
+> zamiana nazw między dwiema firmami jest poprawna jako całość, a rozbita na dwa żądania odbija
+> się o klucz unikalny w połowie drogi. Przy choćby jednej odmowie **nie zapisuje się nic**,
+> okno wraca otwarte z wpisanymi wartościami i komunikatem przy właściwym polu.
+> **(4)** Układ okna: nagłówek ze znakiem jak nagłówki kart `/ustawienia` (kwadrat 38 px,
+> `--c-accent-soft`, ikona 20 px), wiersz firmy w siatce `minmax(0, 1fr) 260px` z separatorem
+> `--c-line-soft` (pierwszy wiersz bez kreski), szara podpowiedź `--c-bg` pod listą, stopka
+> `--c-surface-mute` z „Anuluj" i „Zapisz nazwy". `autofocus` na pierwszym polu — bez niego
+> `showModal()` stawia fokus na krzyżyku, czyli okno otwiera się z zaznaczonym „wyjdź stąd".
+> **Pomiar**: 1920 i 1366 px — okno 720 × 487, kolumny wiersza `386px 260px`, pole 260 × 38;
+> 375 px — okno 341 px szerokości (margines `--s-4`), jedna kolumna, pole 291 × 38, stopka
+> widoczna, treść przewija się w `.modal__body`. Zero przewijania w poziomie na każdej szerokości.
 
 > **Zmiana 1.18.7 → 1.18.8: trzy małe karty na `/ustawienia` mają równą wysokość**
 > (zlecenie Z28, 18.10.2026). `.ustaw-trio` straciło `align-items: start` i zostaje przy
@@ -696,6 +723,12 @@ innych ekranach (przełącznik roku, zakres uprawnień) i tam zostaje taki, jaki
 `.kafle` `.kafel` `.kafel__glowa` `.kafel__etykieta` `.kafel__dana` `.kafel__wartosc`
 `.kafel__wartosc--brak` `.kafel__wartosc--odchylenie` `.kafel__reszta` `.kafel__opis`
 `.kafle--piec` (pasek pięciu kafli stanu instalacji — liczba kolumn z `auto-fit`, nie z progu)
+
+*Okno „Nazwy wyświetlane firm" (1.18.9, zlecenie Z29)*
+`.modal--nazwy` `.modal__head--znak` `.nazwy-lista` `.nazwy-wiersz` `.nazwy-wiersz__kadry`
+`.nazwy-wiersz__nazwa` `.nazwy-wiersz__meta` `.nazwy-wiersz__pole` `.nazwy-podpowiedz`
+⚠ `data-modal-trwale` na `<dialog>` wyłącza czyszczenie `.modal__body` przy zamknięciu —
+dla okien z treścią osadzoną w stronie, a nie dociąganą z serwera.
 
 *Ekran ustawień (1.18.7, zlecenie Z27)*
 `.card__head--znak` `.card__znak` `.card__tytuly` `.card__opis`

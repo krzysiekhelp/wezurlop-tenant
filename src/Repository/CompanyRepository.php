@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Wezurlop\Repository;
 
-use PDOException;
 use Wezurlop\Db\Connection;
 
 /**
@@ -32,6 +31,9 @@ final class CompanyRepository
      * obok, której nie edytuje.
      */
     public const POWOD_KOLIZJA_Z_KADRAMI = 'kolizja_kadry';
+
+    /** Odmowa zapisu: w bazie nie ma firmy o tym identyfikatorze. */
+    public const POWOD_NIEZNANA = 'nieznana';
 
     /**
      * Spółki z liczbą osób — do ekranu ustawień.
@@ -65,56 +67,144 @@ final class CompanyRepository
     }
 
     /**
-     * Zapis nazwy wyświetlanej. Puste wejście znaczy „pokazuj nazwę z R2" i zapisuje `NULL`.
+     * Zapis nazwy wyświetlanej JEDNEJ firmy. Puste wejście znaczy „pokazuj nazwę z R2".
      *
-     * ⚠ Jednoznaczność pilnuje **baza** (`uq_company_display_name`), a nie sprawdzenie przed
-     * zapisem: „policz, czy zajęta, potem zapisz" to wyścig, w którym dwóch administratorów
-     * ustawia tę samą nazwę dwóm spółkom i oba przechodzą. Łapiemy naruszenie klucza
-     * i zamieniamy je na czytelną odmowę.
-     *
-     * ⚠ `NULL`, nie `''`: kont… spółek bez nazwy wyświetlanej może być wiele, a `UNIQUE`
-     * nie liczy `NULL`-i. Zmierzone przed migracją: przy `''` druga taka spółka odbija się
-     * o `1062 Duplicate entry ''`.
+     * ⚠ Od Z29 to **cienka nakładka na `setDisplayNames()`**, a nie druga implementacja: ekran
+     * ustawień zapisuje wszystkie firmy jednym żądaniem, a ta metoda została dla wywołań
+     * jednostkowych (próbka kolizji w `dev/`). Dwa miejsca z tą samą regułą jednoznaczności
+     * rozjechałyby się przy pierwszej zmianie — i to nie teoretycznie, bo reguł jest trzy.
      *
      * @return string|null powód odmowy albo null przy zapisie
      */
     public function setDisplayName(int $companyId, ?string $nazwa): ?string
     {
-        $wartosc = $nazwa === null || trim($nazwa) === '' ? null : trim($nazwa);
+        return $this->setDisplayNames([$companyId => $nazwa])[$companyId] ?? null;
+    }
 
-        return $this->db->transaction(function () use ($companyId, $wartosc): ?string {
-            // ⚠ **Kolizja z nazwą z kadr INNEJ spółki — sprawdzenie w TEJ SAMEJ transakcji
-            // co zapis** (zlecenie 08.10 §5). `UNIQUE` tego nie pilnuje, bo porównanie idzie
-            // między dwiema różnymi kolumnami różnych wierszy, a sprawdzenie „policz, potem
-            // zapisz" poza transakcją byłoby wyścigiem — tym samym, przed którym broni się
-            // komentarz wyżej.
-            // ⚠ `FOR UPDATE` nie jest ozdobą: blokuje pasujący wiersz (a w InnoDB także lukę,
-            // gdy nic nie pasuje) do końca transakcji, więc drugi zapis tej samej nazwy czeka
-            // i widzi już nasz stan, zamiast przechodzić obok.
-            // ⚠ Czyszczenie nazwy (`null`) kolizji nie tworzy — wtedy ten odczyt pomijamy.
-            if ($wartosc !== null) {
-                $stmt = $this->db->pdo()->prepare(
-                    'SELECT id FROM company WHERE id <> :id AND name = :nazwa LIMIT 1 FOR UPDATE'
-                );
-                $stmt->execute(['id' => $companyId, 'nazwa' => $wartosc]);
-                if ($stmt->fetchColumn() !== false) {
-                    return self::POWOD_KOLIZJA_Z_KADRAMI;
+    /**
+     * **Zapis nazw wyświetlanych WIELU firm naraz — jedna transakcja, wszystko albo nic**
+     * (zlecenie Z29, 18.10.2026: okno „Nazwy wyświetlane firm" zapisuje cały zestaw jednym
+     * przyciskiem).
+     *
+     * ⚠ **Dlaczego zbiorczo, a nie pętlą po `setDisplayName()`:** jednoznaczność trzeba
+     * sprawdzić dla CAŁEGO zestawu po zmianie, a nie dla każdej firmy osobno. Zamiana nazw
+     * między dwiema firmami („ALFA" ↔ „BETA") w pętli odbija się o klucz unikalny na pierwszym
+     * zapisie, choć stan końcowy jest poprawny. I odwrotnie: dwa pola wypełnione tą samą nazwą
+     * przeszłyby pierwszy zapis i wywróciły się na drugim, zostawiając połowę zmian.
+     *
+     * ⚠ **Wszystkie wiersze firm idą pod blokadę** (`FOR UPDATE`) i dopiero wtedy liczymy stan
+     * docelowy: inaczej między sprawdzeniem a zapisem mieści się cudzy zapis. Sprawdzenie
+     * obejmuje też firmy **spoza formularza**, bo ich nazwy współtworzą zbiór, w którym
+     * ma panować jednoznaczność.
+     *
+     * ⚠ Porównania idą **bez wielkości liter** (`mb_strtolower`), bo tak porównuje je baza
+     * (`utf8mb4_unicode_ci`). Gdyby porównywać dokładnie, „alfa" przeszłoby nasze sprawdzenie
+     * i odbiło się dopiero o klucz unikalny — czyli błędem technicznym zamiast czytelną odmową.
+     *
+     * ⚠ Przy choćby jednej odmowie **nie zapisujemy NICZEGO** i wychodzimy przed pierwszym
+     * `UPDATE`. Transakcja domyka się wtedy pusta, co jest tańsze niż wycofanie, a dla
+     * wywołującego znaczy dokładnie to samo: stan bazy jest sprzed żądania.
+     *
+     * ⚠ Naruszenia klucza unikalnego **nie łapiemy tutaj**: po blokadzie wszystkich wierszy
+     * i sprawdzeniu całego zestawu 23000 może znaczyć już tylko prawdziwy wyścig na poziomie
+     * bazy, a nie pomyłkę człowieka. Wyjątek leci dalej, transakcja się wycofuje i administrator
+     * dostaje stronę błędu z identyfikatorem zdarzenia — uczciwiej niż „nazwa zajęta" przy polu,
+     * w którym nic złego nie wpisał.
+     *
+     * @param  array<int, ?string> $nazwy id firmy → nazwa wyświetlana (null albo '' = nazwa z R2)
+     * @return array<int, string>         id firmy → powód odmowy; pusta tablica = zapisano
+     */
+    public function setDisplayNames(array $nazwy): array
+    {
+        if ($nazwy === []) {
+            return [];
+        }
+
+        return $this->db->transaction(function () use ($nazwy): array {
+            $stmt = $this->db->pdo()->query('SELECT id, name, display_name FROM company FOR UPDATE');
+            /** @var array<int, array{nazwa: string, wyswietlana: ?string}> $firmy */
+            $firmy = [];
+            foreach ($stmt->fetchAll() as $wiersz) {
+                $firmy[(int) $wiersz['id']] = [
+                    'nazwa'       => (string) $wiersz['name'],
+                    'wyswietlana' => $wiersz['display_name'] === null ? null : (string) $wiersz['display_name'],
+                ];
+            }
+
+            $bledy = [];
+            foreach (array_keys($nazwy) as $id) {
+                if (!isset($firmy[$id])) {
+                    $bledy[$id] = self::POWOD_NIEZNANA;
+                }
+            }
+            if ($bledy !== []) {
+                return $bledy;
+            }
+
+            // Stan docelowy CAŁEGO zbioru: firmy z formularza biorą nową wartość, pozostałe
+            // zostają przy swojej — i jedne, i drugie wchodzą do sprawdzenia jednoznaczności.
+            $docelowe = [];
+            foreach ($firmy as $id => $firma) {
+                $docelowe[$id] = array_key_exists($id, $nazwy)
+                    ? (trim((string) $nazwy[$id]) === '' ? null : trim((string) $nazwy[$id]))
+                    : $firma['wyswietlana'];
+            }
+
+            $klucz = static fn (string $tekst): string => mb_strtolower($tekst);
+
+            // ⚠ **Kolejność sprawdzeń ma znaczenie i nie jest przypadkowa.** Nazwa potrafi
+            // kolidować na oba sposoby naraz — tak jest, gdy inna firma ma nazwę wyświetlaną
+            // równą swojej nazwie z kadr, a człowiek wpisze właśnie ją. Pierwszeństwo ma wtedy
+            // kolizja z programem kadrowym, bo ona jest mniej oczywista: kolidująca wartość stoi
+            // w kolumnie, której w oknie nie widać i której się nie edytuje. „Tej nazwy używa już
+            // inna firma" kazałoby szukać jej wśród nazw wyświetlanych, gdzie jej nie ma.
+            // 1. nazwa wyświetlana równa nazwie z programu kadrowego INNEJ firmy
+            foreach ($docelowe as $id => $wartosc) {
+                if ($wartosc === null) {
+                    continue;
+                }
+                foreach ($firmy as $innyId => $firma) {
+                    if ($innyId !== $id && $klucz($firma['nazwa']) === $klucz($wartosc)) {
+                        $bledy[$id] = self::POWOD_KOLIZJA_Z_KADRAMI;
+                        break;
+                    }
                 }
             }
 
-            $stmt = $this->db->pdo()->prepare('UPDATE company SET display_name = :nazwa WHERE id = :id');
-            try {
-                $stmt->execute(['nazwa' => $wartosc, 'id' => $companyId]);
-            } catch (PDOException $e) {
-                // 23000 = naruszenie ograniczenia; tu możliwe jest tylko jedno — klucz unikalny nazwy.
-                if ($e->getCode() === '23000') {
-                    return self::POWOD_ZAJETA;
+            // 2. dwie firmy z tą samą nazwą wyświetlaną
+            $zajete = [];
+            foreach ($docelowe as $id => $wartosc) {
+                if ($wartosc === null) {
+                    continue;
                 }
-
-                throw $e;
+                $k = $klucz($wartosc);
+                if (isset($zajete[$k])) {
+                    // ⚠ Błąd przypisujemy polu Z FORMULARZA: kolizję widać przy tym, co człowiek
+                    // właśnie wpisał, a nie przy firmie, której w oknie nie dotykał.
+                    $winny = array_key_exists($id, $nazwy) ? $id : $zajete[$k];
+                    if (!isset($bledy[$winny])) {
+                        $bledy[$winny] = self::POWOD_ZAJETA;
+                    }
+                    continue;
+                }
+                $zajete[$k] = $id;
             }
 
-            return null;
+            if ($bledy !== []) {
+                return $bledy;
+            }
+
+            $zapis = $this->db->pdo()->prepare('UPDATE company SET display_name = :nazwa WHERE id = :id');
+            foreach (array_keys($nazwy) as $id) {
+                // Wiersza bez zmiany nie dotykamy — inaczej dziennik zdarzeń dostawałby wpis
+                // „z X na X" za każdym kliknięciem „Zapisz nazwy".
+                if ($docelowe[$id] === $firmy[$id]['wyswietlana']) {
+                    continue;
+                }
+                $zapis->execute(['nazwa' => $docelowe[$id], 'id' => $id]);
+            }
+
+            return [];
         });
     }
 

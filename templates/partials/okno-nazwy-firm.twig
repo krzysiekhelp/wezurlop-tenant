@@ -1,0 +1,93 @@
+{#- Okno „Nazwy wyświetlane firm" (zlecenie Z29, 18.10.2026 — prototyp zaakceptowany przez
+    Krzysztofa). Zmienne: spolki, okno_nazwy, wpisane_nazwy, bledy_nazw.
+
+    ⚠ **Okno jest OSADZONE w stronie, nie dociągane htmx-em** — i to nie jest wybór wygody.
+    Osadzone działa **bez JavaScriptu**: przycisk „Zmień nazwy" jest zwykłym odnośnikiem do
+    `/ustawienia/spolki`, który wraca na ten ekran z `?okno=nazwy`, a serwer renderuje wtedy
+    `<dialog open>`. Ze skryptem `ui.js` podnosi to samo okno do warstwy wierzchniej (tło, Escape,
+    kliknięcie obok). Wersja z htmx-em byłaby krótsza w szablonie i **nieosiągalna bez skryptów**,
+    czyli ekran edycji nazw zniknąłby dla przeglądarki bez JS — a dotąd był osobną stroną.
+
+    ⚠ **`data-modal-trwale`**: wspólna obsługa okien czyści `.modal__body` przy zamknięciu
+    (treść kreatora przychodzi z serwera i nie może zostać na drugie otwarcie). Tutaj treść jest
+    z serwera przy renderowaniu strony — wyczyszczona nie wróciłaby, więc okno wyłącza sprzątanie.
+
+    ⚠ **`autofocus` na pierwszym polu, zamiast ustawiania fokusu skryptem**: `showModal()` szanuje
+    `autofocus`, a bez niego fokus trafia na pierwszy element, czyli krzyżyk „zamknij" — i okno
+    otwiera się z zaznaczonym „wyjdź stąd" (§5 zlecenia). Działa też bez JavaScriptu. -#}
+{#- ⚠ `{% import %}` jest LOKALNY dla szablonu: makra zaimportowane w `partials/page/settings.twig`
+    nie są tu widoczne, choć ten plik jest z niego dołączany. Bez tej linii ekran wywala się na
+    `strict_variables` z „Variable ikony does not exist". -#}
+{% import 'partials/ikony.twig' as ikony %}
+<dialog id="okno-nazwy" class="modal modal--nazwy" aria-labelledby="okno-nazwy-tytul"
+        data-modal-trwale{{ okno_nazwy ? ' open' : '' }}>
+    <div class="modal__head modal__head--znak">
+        <span class="card__znak">{{ ikony.firma() }}</span>
+        <div class="card__tytuly">
+            <h3 id="okno-nazwy-tytul">Nazwy wyświetlane firm</h3>
+            <p class="card__opis">Nazwa z programu kadrowego jest tylko do odczytu. Nazwa wyświetlana pojawia się na liście kont, w kontroli dostępu i w filtrze.</p>
+        </div>
+        <button type="button" class="modal__close" data-modal-close="okno-nazwy" aria-label="Zamknij okno">×</button>
+    </div>
+
+    {#- ⚠ JEDEN formularz na wszystkie firmy i jedno żądanie: jednoznaczność nazw dotyczy całego
+        zestawu, więc zapis wiersz po wierszu odbijał się o klucz unikalny przy zwykłej zamianie
+        dwóch nazw miejscami (patrz `CompanyRepository::setDisplayNames()`).
+        ⚠ Pola nazywają się `nazwa_<id>`, a serwer czyta je po identyfikatorach firm **z bazy**,
+        nie po tym, co przyszło w formularzu (CLAUDE.md §11: biała lista). -#}
+    <form method="post" action="{{ url('/ustawienia/spolki') }}" class="modal__wrap">
+        {% include 'partials/csrf.twig' %}
+        <div class="modal__body">
+            {% if bledy_nazw is not empty %}
+                <p class="notice notice--danger" role="alert">Nic nie zostało zapisane — popraw zaznaczone pola i zapisz jeszcze raz.</p>
+            {% endif %}
+
+            <div class="nazwy-lista">
+                {% for s in spolki %}
+                    <div class="nazwy-wiersz">
+                        <div class="nazwy-wiersz__kadry">
+                            <span class="nazwy-wiersz__nazwa">{{ s.nazwa_r2 }}{% if not s.aktywna %} <span class="cell__sub">· nieaktywna</span>{% endif %}</span>
+                            {#- ⚠ NIP pod nazwą: dwie firmy w grupie kapitałowej potrafią mieć nazwy
+                                różniące się jednym słowem, a NIP rozstrzyga bez zgadywania. Liczba
+                                osób mówi, czy ta nazwa w ogóle gdziekolwiek widnieje. -#}
+                            <span class="nazwy-wiersz__meta">NIP {{ nip_grupami(s.nip) }} · {{ s.osoby }} {{ odmiana_osob(s.osoby) }}</span>
+                        </div>
+                        <div class="nazwy-wiersz__pole field{{ bledy_nazw[s.id] is defined ? ' field--error' : '' }}">
+                            <label class="field__label" for="nazwa-{{ s.id }}">Nazwa wyświetlana</label>
+                            {#- ⚠ `aria-label` zostaje PEŁNY (z nazwą firmy), choć jest już `<label>`:
+                                w oknie stoi kilkanaście pól o tej samej etykiecie „Nazwa wyświetlana",
+                                więc czytnik ekranu bez nazwy firmy nie powie, które to pole. -#}
+                            <input class="input"
+                                   type="text" id="nazwa-{{ s.id }}" name="nazwa_{{ s.id }}" maxlength="200"
+                                   value="{{ wpisane_nazwy[s.id] is defined ? wpisane_nazwy[s.id] : s.nazwa_wyswietlana }}"
+                                   placeholder="{{ s.nazwa_r2 }}"
+                                   aria-label="Nazwa wyświetlana dla {{ s.nazwa_r2 }}"
+                                   autocomplete="off" spellcheck="false"
+                                   {%- if loop.first %} autofocus{% endif %}
+                                   {%- if bledy_nazw[s.id] is defined %} aria-describedby="nazwa-{{ s.id }}-blad" aria-invalid="true"{% endif %}>
+                            {% if bledy_nazw[s.id] is defined %}
+                                <span class="field__hint" id="nazwa-{{ s.id }}-blad" role="alert">{{ bledy_nazw[s.id] }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% else %}
+                    <p class="empty-state">Nie ma jeszcze żadnej firmy — pojawią się po pierwszej synchronizacji z programem kadrowym.</p>
+                {% endfor %}
+            </div>
+
+            {% if spolki is not empty %}
+                <p class="nazwy-podpowiedz">Puste pole oznacza „pokazuj nazwę z programu kadrowego". Dwie firmy nie mogą mieć tej samej nazwy wyświetlanej.</p>
+            {% endif %}
+        </div>
+
+        <div class="modal__foot">
+            <div class="btn-row btn-row--jedna-linia">
+                {#- ⚠ „Anuluj" jest ODNOŚNIKIEM, nie przyciskiem: bez JavaScriptu zamknięciem okna
+                    jest powrót na ekran bez parametru `okno`, a ze skryptem `ui.js` przechwytuje
+                    kliknięcie i zamyka okno na miejscu (ta sama droga, co przy innych oknach). -#}
+                <a class="btn btn--ghost" href="{{ url('/ustawienia') }}" data-modal-close="okno-nazwy">Anuluj</a>
+                <button type="submit" class="btn btn--primary">Zapisz nazwy</button>
+            </div>
+        </div>
+    </form>
+</dialog>
