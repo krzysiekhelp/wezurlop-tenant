@@ -209,12 +209,13 @@
     if (cel) { cel.el.classList.remove('hier__cel'); }
   });
 
-  document.addEventListener('drop', function (e) {
-    var cel = celUpuszczenia(e.target);
-    if (!cel) { return; }
-    e.preventDefault();
+  /* ⚠ **Jedna logika upuszczenia dla obu dróg** (zlecenie Z37): myszy i palca. Dopóki stała
+     w procedurze obsługi `drop`, druga droga musiałaby ją powtórzyć — a dwie kopie reguły
+     „co znaczy upuszczenie na karcie" rozjechałyby się przy pierwszej zmianie, i to po cichu,
+     bo każda ścieżka wygląda na działającą osobno. */
+  function zastosujUpuszczenie(li, cel) {
+    if (!li || !cel) { return false; }
     cel.el.classList.remove('hier__cel');
-    var li = ciagniety;
     if (cel.rodzaj === 'przelozony') {
       zapamietaj(li, 'przelozony', cel.li);
       galaz(cel.li).appendChild(li);
@@ -228,7 +229,187 @@
       if (panel) { panel.appendChild(li); }
     }
     zmiana();
+    return true;
+  }
+
+  document.addEventListener('drop', function (e) {
+    var cel = celUpuszczenia(e.target);
+    if (!cel) { return; }
+    e.preventDefault();
+    zastosujUpuszczenie(ciagniety, cel);
   });
+
+  /* --- przeciąganie PALCEM (zlecenie Z37, 18.10.2026) -------------------------------------
+     ⚠ **Dlaczego druga ścieżka, a nie poprawka pierwszej**: HTML5 drag-and-drop
+     (`dragstart`/`drop`) na przeglądarkach mobilnych nie powstaje z dotyku — przeglądarka nie
+     emituje tych zdarzeń dla palca i nie ma czego naprawić. Zdarzenia wskaźnika są jedyną
+     drogą, a mysz zostaje na dotychczasowej, bo działa i jest zmierzona.
+     Rozstrzyganie celu i zapis są WSPÓLNE (`celUpuszczenia`, `zastosujUpuszczenie`).
+
+     ⚠ **Przytrzymanie, nie natychmiastowy chwyt** (350 ms + 10 px luzu). Powód jest
+     rozstrzygający: drzewo jest dłuższe od ekranu, więc pierwszy ruch palca po karcie to
+     prawie zawsze PRZEWIJANIE. Gdyby przeciąganie startowało od razu, każda próba przewinięcia
+     listy przestawiałaby komuś przełożonego — a to jest zmiana danych kadrowych zrobiona
+     przypadkiem. Uchwytu (drugiego wariantu ze zlecenia) nie dokładam: karta ma już menu „⋯"
+     w prawym górnym rogu, a drugi mały cel obok niego to dwa sąsiadujące punkty 20 px,
+     czyli zabawa w trafianie.
+     ⚠ Luz 10 px, bo palec nigdy nie stoi w miejscu: przy zerowym progu samo drgnięcie podczas
+     przytrzymania liczyłoby się jako przewijanie i chwyt nigdy by nie powstał. */
+  var DOTYK_PROG_MS = 350;      // ile trzeba przytrzymać, zanim karta „wskoczy do ręki”
+  var DOTYK_LUZ_PX = 10;        // ruch większy niż tyle przed chwytem = przewijanie, nie chwyt
+  /* ⚠ Pas 64 px, nie 90: przy 90 px cel stojący nisko na ekranie telefonu (812 px) wpadał
+     w pas przewijania i NIE DAŁO SIĘ na nim upuścić karty — strona uciekała spod palca
+     w nieskończoność. Zmierzone w pomiarze Z37: scrollY skoczyło z 0 na 1880 w trakcie
+     jednego przeciągnięcia. 64 px to mniej niż wysokość karty, więc żeby przewijać, trzeba
+     świadomie dojechać do samej krawędzi. */
+  var DOTYK_MARGINES = 64;      // pas przy krawędzi ekranu, w którym strona sama się przewija
+  var DOTYK_KROK = 14;          // o tyle pikseli na klatkę
+  var dotyk = null;             // {id, li, cien, x, y, x0, y0, timer, aktywne, klatka, cel}
+
+  function dotykSprzataj() {
+    if (!dotyk) { return; }
+    if (dotyk.timer) { clearTimeout(dotyk.timer); }
+    if (dotyk.klatka) { cancelAnimationFrame(dotyk.klatka); }
+    if (dotyk.cien && dotyk.cien.parentNode) { dotyk.cien.parentNode.removeChild(dotyk.cien); }
+    if (dotyk.aktywne && dotyk.li) {
+      dotyk.li.classList.remove('hier__node--ciagniety');
+      wygasPoddrzew(dotyk.li, false);
+    }
+    var cele = document.querySelectorAll('.hier__cel');
+    for (var i = 0; i < cele.length; i++) { cele[i].classList.remove('hier__cel'); }
+    document.body.classList.remove('hier-ciagnie-palcem');
+    ciagniety = null;
+    dotyk = null;
+  }
+
+  /* Karta-cień pod palcem: kopia karty, więc widać dokładnie to, co się niesie. */
+  function dotykCien(k) {
+    var prostokat = k.getBoundingClientRect();
+    var cien = k.cloneNode(true);
+    cien.classList.add('hier__cien');
+    cien.classList.remove('hier__card--nieaktywny');
+    cien.removeAttribute('id');
+    /* ⚠ Szerokość z pomiaru, nie z CSS: kopia stoi poza siatką węzła, więc bez tego
+       rozlałaby się na całą szerokość okna. Wysokość zostawiamy treści. */
+    cien.style.width = Math.round(prostokat.width) + 'px';
+    document.body.appendChild(cien);
+    return cien;
+  }
+
+  function dotykPrzesun(cien, x, y) {
+    cien.style.left = Math.round(x) + 'px';
+    cien.style.top = Math.round(y) + 'px';
+  }
+
+  function dotykPodswietl(x, y) {
+    var pod = document.elementFromPoint(x, y);
+    var cel = pod ? celUpuszczenia(pod) : null;
+    var poprzedni = dotyk.cel;
+    if (poprzedni && (!cel || poprzedni.el !== cel.el)) { poprzedni.el.classList.remove('hier__cel'); }
+    if (cel) { cel.el.classList.add('hier__cel'); }
+    dotyk.cel = cel;
+  }
+
+  /* ⚠ Autoprzewijanie chodzi W PĘTLI KLATEK, a nie w procedurze obsługi ruchu: palec
+     przytrzymany przy krawędzi nie wysyła żadnych zdarzeń, więc przewijanie „na ruch”
+     zatrzymywałoby się dokładnie wtedy, gdy jest potrzebne. */
+  function dotykKlatka() {
+    if (!dotyk || !dotyk.aktywne) { return; }
+    var wysokosc = window.innerHeight;
+    var o = 0;
+    if (dotyk.y < DOTYK_MARGINES) { o = -DOTYK_KROK; }
+    else if (dotyk.y > wysokosc - DOTYK_MARGINES) { o = DOTYK_KROK; }
+    if (o !== 0) {
+      window.scrollBy(0, o);
+      // Po przewinięciu pod palcem jest już co innego — podświetlenie musi za tym nadążyć.
+      dotykPodswietl(dotyk.x, dotyk.y);
+    }
+    dotyk.klatka = requestAnimationFrame(dotykKlatka);
+  }
+
+  function dotykZacznij() {
+    if (!dotyk) { return; }
+    dotyk.aktywne = true;
+    dotyk.timer = null;
+    ciagniety = dotyk.li;
+    dotyk.li.classList.add('hier__node--ciagniety');
+    wygasPoddrzew(dotyk.li, true);
+    document.body.classList.add('hier-ciagnie-palcem');
+    var k = kartaWezla(dotyk.li);
+    if (k) { dotyk.cien = dotykCien(k); dotykPrzesun(dotyk.cien, dotyk.x, dotyk.y); }
+    dotykPodswietl(dotyk.x, dotyk.y);
+    /* Wibracja potwierdza chwyt — jedyny sygnał, który palec czuje bez patrzenia.
+       ⚠ Opakowana w `try`, bo część przeglądarek ma `vibrate`, ale odmawia wykonania
+       (wymaga wcześniejszej interakcji) i rzuca wyjątkiem w środku przeciągania. */
+    if (navigator.vibrate) {
+      try { navigator.vibrate(12); } catch (e) { /* brak wibracji nie psuje przeciągania */ }
+    }
+    dotyk.klatka = requestAnimationFrame(dotykKlatka);
+  }
+
+  document.addEventListener('pointerdown', function (e) {
+    /* Mysz zostaje na HTML5 drag-and-drop — obie drogi naraz znaczyłyby dwa przeciągnięcia
+       z jednego gestu. Rysik traktujemy jak palec: też nie dostaje `dragstart`. */
+    if (e.pointerType === 'mouse') { return; }
+    if (dotyk) { dotykSprzataj(); return; }   // drugi palec przerywa, zamiast mieszać stan
+    var k = karta(e.target);
+    if (!k || k.classList.contains('hier__card--nieaktywny')) { return; }
+    /* ⚠ Menu „⋯" i wszystko, co jest przyciskiem albo odnośnikiem, NIE jest uchwytem:
+       przytrzymanie palca na menu ma otworzyć menu, a nie porwać kartę. */
+    if (e.target.closest && e.target.closest('.menu, a, button, input, select, summary')) { return; }
+    var li = wezel(k);
+    if (!li) { return; }
+    dotyk = {
+      id: e.pointerId, li: li, cien: null, cel: null, aktywne: false, klatka: null,
+      x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, timer: null
+    };
+    dotyk.timer = setTimeout(dotykZacznij, DOTYK_PROG_MS);
+  });
+
+  document.addEventListener('pointermove', function (e) {
+    if (!dotyk || e.pointerId !== dotyk.id) { return; }
+    dotyk.x = e.clientX;
+    dotyk.y = e.clientY;
+    if (!dotyk.aktywne) {
+      var dx = Math.abs(e.clientX - dotyk.x0);
+      var dy = Math.abs(e.clientY - dotyk.y0);
+      // Ruch przed chwytem = przewijanie strony. Odpuszczamy kartę i nie wchodzimy w drogę.
+      if (dx > DOTYK_LUZ_PX || dy > DOTYK_LUZ_PX) { dotykSprzataj(); }
+      return;
+    }
+    dotykPrzesun(dotyk.cien, dotyk.x, dotyk.y);
+    dotykPodswietl(dotyk.x, dotyk.y);
+  });
+
+  /* ⚠ `touchmove` z `passive: false` to JEDYNY sposób, żeby strona nie przewijała się pod
+     palcem w trakcie przeciągania: `touch-action` ustawione po rozpoczęciu gestu już na niego
+     nie działa, a bez tego karta jedzie w jedną stronę, a drzewo w drugą. Blokujemy WYŁĄCZNIE
+     w trakcie chwytu — poza nim strona przewija się normalnie. */
+  document.addEventListener('touchmove', function (e) {
+    if (dotyk && dotyk.aktywne) { e.preventDefault(); }
+  }, { passive: false });
+
+  document.addEventListener('pointerup', function (e) {
+    if (!dotyk || e.pointerId !== dotyk.id) { return; }
+    if (!dotyk.aktywne) { dotykSprzataj(); return; }
+    var li = dotyk.li;
+    // ⚠ Cel liczymy JESZCZE RAZ z miejsca puszczenia, nie z zapamiętanego podświetlenia:
+    // między ostatnim ruchem a puszczeniem strona mogła się przewinąć sama (autoprzewijanie).
+    if (dotyk.cien) { dotyk.cien.style.display = 'none'; }
+    var pod = document.elementFromPoint(e.clientX, e.clientY);
+    var cel = pod ? celUpuszczenia(pod) : null;
+    if (cel) { zastosujUpuszczenie(li, cel); }
+    dotykSprzataj();
+  });
+
+  /* Puszczenie poza celem, przerwanie gestu przez system i obrót ekranu — wszystko kończy się
+     tak samo: bez zmiany. ⚠ Obrót zmienia układ w trakcie trzymania karty, więc zapamiętane
+     współrzędne przestają cokolwiek znaczyć; bezpieczniej odpuścić niż zgadywać. */
+  document.addEventListener('pointercancel', function (e) {
+    if (dotyk && e.pointerId === dotyk.id) { dotykSprzataj(); }
+  });
+  window.addEventListener('orientationchange', function () { if (dotyk) { dotykSprzataj(); } });
+  window.addEventListener('resize', function () { if (dotyk && dotyk.aktywne) { dotykSprzataj(); } });
 
   /* ⚠ Ostrzeżenie przy opuszczaniu strony z niezapisanymi zmianami. Okno usuwa JEDNĄ drogę
      utraty (kliknięcie „Zmień przełożonego…"), ale zamknięcie karty i kliknięcie w menu boczne

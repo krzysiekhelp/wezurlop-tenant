@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.16, 18.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.17, 18.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,53 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.16 → 1.18.17: przeciąganie kart PALCEM na `/admin/hierarchia`**
+> (zlecenie Z37, 18.10.2026).
+> **(1)** ⚠ **Druga ścieżka, nie poprawka pierwszej.** HTML5 drag-and-drop
+> (`dragstart`/`drop`) na przeglądarkach mobilnych **nie powstaje z dotyku** — przeglądarka nie
+> emituje tych zdarzeń dla palca i nie ma czego naprawiać. Dotyk obsługują zdarzenia wskaźnika,
+> mysz zostaje na dotychczasowej drodze. ⚠ **Rozstrzyganie celu i zapis są WSPÓLNE**
+> (`celUpuszczenia`, nowe `zastosujUpuszczenie`): dwie kopie reguły „co znaczy upuszczenie"
+> rozjechałyby się przy pierwszej zmianie, i to po cichu, bo każda ścieżka wygląda na działającą
+> osobno.
+> **(2)** ⚠ **Chwyt przez PRZYTRZYMANIE 350 ms, z luzem 10 px.** Powód jest rozstrzygający:
+> drzewo jest dłuższe od ekranu, więc pierwszy ruch palca po karcie to prawie zawsze
+> **przewijanie**. Gdyby przeciąganie startowało od razu, każda próba przewinięcia listy
+> przestawiałaby komuś przełożonego — czyli zmiana danych kadrowych zrobiona przypadkiem.
+> Luz 10 px, bo palec nigdy nie stoi w miejscu; przy zerowym progu chwyt nie powstałby nigdy.
+> Uchwytu (drugi wariant ze zlecenia) **nie dokładamy**: karta ma już menu „⋯" 32 px, a drugi
+> mały cel obok to zabawa w trafianie.
+> **(3)** Karta-cień (`.hier__cien`) to kopia karty pod palcem, wyjęta z siatki: `position:
+> fixed`, przesunięta w górę i w lewo od punktu dotyku, żeby palec nie zasłaniał tego, na co
+> się ją kładzie. ⚠ `pointer-events: none` jest **warunkiem działania**, nie kosmetyką —
+> bez tego `elementFromPoint` trafiałby zawsze w cień i cel nie byłby nigdy rozpoznany.
+> **(4)** Autoprzewijanie przy krawędziach chodzi w **pętli klatek**, nie w procedurze obsługi
+> ruchu: palec przytrzymany przy krawędzi nie wysyła zdarzeń, więc przewijanie „na ruch"
+> stawałoby dokładnie wtedy, gdy jest potrzebne. ⚠ Pas **64 px, nie 90**: przy 90 px cel
+> stojący nisko na ekranie telefonu wpadał w pas i **nie dało się na nim upuścić karty** —
+> strona uciekała spod palca (zmierzone: scrollY 0 → 1880 w jednym przeciągnięciu).
+> **(5)** ⚠ **Zaznaczanie tekstu na karcie wyłączone przy wskaźniku zgrubnym**
+> (`@media (pointer: coarse)`), przy myszy zostaje. To też jest warunek działania: długie
+> przytrzymanie palca na tekście uruchamia zaznaczanie słowa, przeglądarka **przerywa wtedy
+> gest** (`pointercancel`) i chwyt nie powstaje. Zmierzone: karta w drzewie nie dawała się
+> chwycić w ogóle, bo punkt dotyku wypadał na wierszu „zatrudniony od…".
+> **(6)** Przewijanie strony w trakcie chwytu blokuje `touchmove` z `passive: false` — jedyne
+> miejsce, w którym to działa po rozpoczęciu gestu (`touch-action` ustawione później gestu
+> już nie dotyczy). Blokada obowiązuje **wyłącznie** w trakcie chwytu.
+> **(7)** Przerwanie bez zmiany: puszczenie poza celem, `pointercancel`, **drugi palec**
+> i **obrót ekranu**. Obrót zmienia układ w trakcie trzymania karty, więc zapamiętane
+> współrzędne przestają cokolwiek znaczyć — bezpieczniej odpuścić niż zgadywać.
+> **Pomiar** (emulacja dotyku przez CDP, 375 × 812 i 768 × 1024, liczniki przed i po):
+> przeniesienie pod przełożonego 29/7 → 28/8 („1 zmiana"), na szczyt 28/8, z drzewa z powrotem
+> do panelu 30/6, puszczenie poza celem „0 zmian", zwykłe przewinięcie palcem po karcie
+> scrollY 0 → 1593 **bez chwytu** (cień: 0 w każdej chwili) i bez zmiany licznika, drugi palec
+> i obrót ekranu kasują cień (1 → 0) i zostawiają „0 zmian". Mysz na 1920 px: bez zmian.
+> Zero błędów JS. ⚠ Pomiar chwyta kartę **za nazwisko**, nie za geometryczny środek: przy
+> 375 px środek wypada 9 px nad przyciskiem „⋯", a Chromium **dociąga dotyk do najbliższego
+> celu klikalnego**, więc `pointerdown` dostawał menu. To nie jest usterka przeciągania —
+> menu ma zostać dotykalne — ale znaczy, że na telefonie pewnym miejscem chwytu jest górna
+> część karty.
 
 > **Zmiana 1.18.15 → 1.18.16: `/admin/dziennik` jako LISTA ZDAŃ zamiast tabeli**
 > (zlecenie Z36, 18.10.2026).
@@ -1005,6 +1052,11 @@ innych ekranach (przełącznik roku, zakres uprawnień) i tam zostaje taki, jaki
 `.card__znak--cichy` `.bez-grupy__tytuly` `.bez-grupy__opis` `.bez-grupy__siatka`
 `.bez-grupy__osoba` `.bez-grupy__imie` `.modal--grupa` `.chip--mala` `.assign__hurt`
 `.ikona-akcja` `.ikona-akcja--edycja` `.ikona-akcja--usun` `.ikona-akcja__form`
+
+*Hierarchia — przeciąganie palcem (1.18.17, zlecenie Z37)*
+`.hier__cien` `.hier-ciagnie-palcem` (klasa na `body` w trakcie chwytu)
+⚠ `.hier__card { touch-action: manipulation }` zdejmuje opóźnienie podwójnego stuknięcia,
+ale NIE blokuje przewijania — blokadę na czas chwytu robi `touchmove` w `modules/hierarchia.js`.
 
 *Dziennik zdarzeń (1.18.16, zlecenie Z36)*
 `.dz-filtry` `.dz-filtr` `.dz-filtr--wybrany` `.dz-lista` `.dz-dzien` `.dz-wpis`

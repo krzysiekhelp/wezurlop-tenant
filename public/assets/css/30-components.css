@@ -4927,3 +4927,47 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   .dz-dzien { padding: var(--s-4) var(--s-4) var(--s-2); }
   .dz-pusto { padding: var(--s-5) var(--s-4); }
 }
+
+/* ——— /admin/hierarchia: przeciąganie karty PALCEM (zlecenie Z37) ——————————————————————
+   ⚠ Karta-cień to KOPIA karty wyjęta z siatki i położona pod palcem, więc musi dostać własne
+   pozycjonowanie i własną warstwę. `pointer-events: none` jest tu warunkiem działania, nie
+   kosmetyką: bez tego `elementFromPoint` trafiałby zawsze w cień i cel pod palcem nie byłby
+   nigdy rozpoznany. */
+.hier__cien {
+  position: fixed;
+  z-index: 60;
+  /* Palec zasłania to, co pod nim — kartę niesiemy lekko w górę i w lewo od punktu dotyku,
+     żeby było widać, na co się ją kładzie. */
+  transform: translate(-24px, -70%) rotate(-1.5deg);
+  pointer-events: none;
+  opacity: .92;
+  box-shadow: var(--shadow-pop);
+  background: var(--c-surface);
+  border: 1px solid var(--c-accent);
+  border-radius: var(--radius-card);
+}
+/* ⚠ **Zaznaczanie tekstu na karcie wyłączone TYLKO przy wskaźniku zgrubnym** (palec, rysik).
+   To nie jest kosmetyka, tylko warunek działania chwytu: długie przytrzymanie palca na tekście
+   uruchamia w przeglądarce zaznaczanie słowa, a wtedy przeglądarka PRZERYWA gest wskaźnika
+   (`pointercancel`) — i chwyt nigdy nie powstaje. Zmierzone: karta w drzewie nie dawała się
+   chwycić w ogóle, bo punkt dotyku wypadał na wierszu „zatrudniony od…”, a karta w panelu
+   czasem dawała, bo tam trafiało się w pustą przestrzeń.
+   ⚠ Przy myszy zaznaczanie ZOSTAJE: na biurku nazwisko bywa kopiowane do wyszukiwarki
+   w programie kadrowym, a mysz i tak nie korzysta z tej ścieżki (ma drag-and-drop). */
+@media (pointer: coarse) {
+  .hier__card, .hier__card * {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+}
+/* W trakcie chwytu to samo obowiązuje niezależnie od rodzaju wskaźnika — gest trwa i nic
+   nie ma prawa go przerwać. */
+.hier-ciagnie-palcem, .hier-ciagnie-palcem .hier__card, .hier-ciagnie-palcem .hier__card * {
+  user-select: none;
+  -webkit-user-select: none;
+}
+/* ⚠ `touch-action: manipulation` na karcie zdejmuje opóźnienie podwójnego stuknięcia, ale NIE
+   blokuje przewijania — blokadę na czas chwytu robi `touchmove` w module (jedyne miejsce,
+   w którym to działa po rozpoczęciu gestu). */
+.hier__card { touch-action: manipulation; }
