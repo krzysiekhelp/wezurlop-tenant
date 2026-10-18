@@ -144,6 +144,48 @@ final class GroupRepository
     }
 
     /**
+     * **Liczby na pasek kafli ekranu grup** (zlecenie Z31, 18.10.2026).
+     *
+     * ⚠ Liczymy OSOBY, nie przypisania: osoba w trzech grupach to jeden człowiek z etykietą,
+     * a nie trzech ludzi. Suma liczników przy grupach jest wyższa niż „osób w grupach" i to jest
+     * poprawne — mówią o czym innym (patrz komentarz na górze `groups.twig`).
+     *
+     * ⚠ Zakres ten sam, co w `bezGrupy()`: **czynne zatrudnienia w tej firmie**. Inaczej dwa
+     * kafle stojące obok siebie liczyłyby dwa różne zbiory, a różnica wyglądałaby na błąd.
+     *
+     * ⚠ Jedno zapytanie na trzy liczby, bo trzy zapytania w pętli renderowania to trzy razy
+     * ten sam `JOIN` — a te liczby czyta się raz, na górze ekranu.
+     *
+     * @return array{grup: int, w_grupach: int, w_kilku: int}
+     */
+    public function statystyki(int $companyId): array
+    {
+        $stmt = $this->db->pdo()->prepare(
+            'SELECT
+                (SELECT COUNT(*) FROM company_group g WHERE g.company_id = :company1) AS grup,
+                (SELECT COUNT(DISTINCT e.person_id) FROM employment e
+                  WHERE e.company_id = :company2 AND e.is_active = 1
+                    AND EXISTS (SELECT 1 FROM employment_group eg WHERE eg.employment_id = e.id)) AS w_grupach,
+                (SELECT COUNT(*) FROM (
+                    SELECT e.person_id FROM employment e
+                      JOIN employment_group eg ON eg.employment_id = e.id
+                     WHERE e.company_id = :company3 AND e.is_active = 1
+                     GROUP BY e.person_id
+                    HAVING COUNT(DISTINCT eg.group_id) > 1) AS wielo) AS w_kilku'
+        );
+        // ⚠ Ten sam parametr trzy razy pod trzema nazwami: PDO bez emulacji nie pozwala użyć
+        // jednego `:name` w kilku miejscach zapytania (HY093).
+        $stmt->execute(['company1' => $companyId, 'company2' => $companyId, 'company3' => $companyId]);
+        $r = $stmt->fetch() ?: [];
+
+        return [
+            'grup' => (int) ($r['grup'] ?? 0),
+            'w_grupach' => (int) ($r['w_grupach'] ?? 0),
+            'w_kilku' => (int) ($r['w_kilku'] ?? 0),
+        ];
+    }
+
+    /**
      * **Spółka, do której należy grupa** — dla adresu `/admin/grupy/{id}` bez `?spolka=`
      * (zlecenie `2026-10-10-globalny-wybor-spolki.md` §1: „serwer wyprowadza spółkę z samego
      * zasobu").

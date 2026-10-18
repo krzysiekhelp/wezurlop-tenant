@@ -1825,37 +1825,6 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 /* Stan „zaproszony": błękit dnia dzisiejszego — jedyny stan przejściowy w tej kolumnie. */
 .chip--dzis { background: var(--c-dzis-bg); color: var(--c-dzis-text); }
 
-/* ⚠ **Lista rozwijana dostępu** (Z30 §8). Szersza (340 px) i z mocniejszym cieniem, bo to warstwa
-   nad tabelą, a nie element w niej: przy 300 px nazwa firmy z plakietką „z etatem" nie mieściła
-   się w jednym wierszu. Promień karty, nie kontrolki — panel jest kartą, która wyskakuje. */
-.dropdown { width: 340px; border-radius: var(--radius-card); box-shadow: var(--shadow-pop); }
-/* ⚠ `flex-direction: row` wprost: reguła bazowa wyżej układa głowę W KOLUMNIE, a samo
-   `display: flex` jej nie cofa — pierwsza wersja dała znak nad nazwiskiem, wyśrodkowany. */
-.dropdown__head { display: flex; flex-direction: row; align-items: center; gap: var(--s-3); }
-.dropdown__kto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.dropdown__title { font-size: var(--t-body); font-weight: var(--w-semibold); }
-.dropdown__item { padding: var(--s-2) var(--s-4); }
-.dropdown__item input[type="checkbox"] { width: 18px; height: 18px; }
-/* Zaznaczona firma ma tło akcji — to jest stan „dostęp nadany", czyli wynik tej listy. */
-.dropdown__item:has(input:checked) { background: var(--c-accent-soft); }
-@media (hover: hover) {
-  .dropdown__item:not(.dropdown__item--off):hover { background: var(--c-surface-hover); }
-}
-/* Pozycja bez etatu: nazwa ciszej, kursor mówi „nie tutaj", powód w podpowiedzi (szablon). */
-.dropdown__item--off .dropdown__name { color: var(--c-text-4); }
-/* ⚠ Plakietka etatu nie dziedziczy wyściółki pozycji: `.chip` ma własną i własną wysokość. */
-.dropdown__tag { flex: none; }
-/* Stopka w JEDNYM rzędzie: po lewej skutek licencyjny, po prawej dwa przyciski. */
-/* Ta sama poprawka co w głowie: stopka ma iść rzędem, nie kolumną. */
-.dropdown__foot { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
-.dropdown__licencja { flex: 1 1 auto; min-width: 0; }
-.dropdown__akcje { flex: none; margin-left: auto; }
-
-@media (hover: hover) {
-  .settings-list__row:is(a, button):hover { color: var(--c-text); text-decoration: none; }
-  .settings-list__row:is(a, button):hover > span:last-child { color: var(--c-text-3); }
-}
-
 /* ——— kalendarz miesięczny: USUNIĘTY 07.10.2026 ————————————————————————————
    Siatka miesiąca (`.calendar-grid`, `.day-cell`, `.day-entry`) obsługiwała widok „Tylko ja”
    i była DRUGĄ wizualizacją tej samej rzeczy — nieobecności w miesiącu. Od 07.10 wszystkie trzy
@@ -3690,6 +3659,229 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 .bez-grupy__body { padding: 0 var(--s-4) var(--s-3); display: grid; gap: var(--s-2); }
 .bez-grupy__sklad { margin: 0; font-size: var(--t-small); color: var(--c-text-2); }
 .bez-grupy__uwaga { margin: 0; font-size: var(--t-caption); color: var(--c-text-3); }
+
+/* ——— ekran grup (zlecenie Z31) —————————————————————————————————————————————— */
+
+/* Znak grupy: pierwsza litera nazwy w kwadracie, nie w kółku — grupa nie jest człowiekiem.
+   ⚠ 16 px zamiast 15 px z prototypu: zestaw tokenów nie ma piętnastki, a `--t-lead` to jedyny
+   rozmiar między treścią (14) a daną (20). Jedna litera w kwadracie 38 px wygląda tak samo. */
+.inicjaly--grupa {
+  --inicjaly-bok: var(--control-h);
+  border-radius: var(--radius);
+  font-size: var(--t-lead);
+}
+/* ⚠ Stos nakładających się kółek (`.stos`, `.inicjaly--stos`) **usunięty w Z33**, nie zostawiony
+   „na wszelki wypadek": kółka powtarzały to, co mówią nazwiska obok, a przy czterech osobach
+   zajmowały ćwierć wiersza. Martwy CSS jest gorszy niż brak CSS-u — następna osoba szuka, gdzie
+   ten stos stoi na ekranie. */
+.inicjaly--bez-grupy { --inicjaly-bok: 26px; font-size: 10px; }
+
+/* ⚠ Wiersz grupy ma teraz CZTERY obszary: znak, treść, plakietkę i dwa działania. `grid` zamiast
+   `flex`, bo na telefonie dwa ostatnie schodzą pod spód i mają zająć całą szerokość — a tego
+   `flex-wrap` nie umie bez sztucznych rozpiętości. */
+.group-list__row {
+  display: grid;
+  /* znak · treść · plakietka · „Członkowie" · ołówek · kosz */
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto auto;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  border-top: 1px solid var(--c-line-soft);
+  border-radius: var(--radius);
+  position: relative;
+}
+.group-list__sklad { display: flex; align-items: center; gap: var(--s-2); min-width: 0; }
+.group-list__nazwiska {
+  margin: 0;
+  min-width: 0;
+  font-size: var(--t-caption);
+  color: var(--c-text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.group-list__count { flex: none; }
+/* ⚠ „Członkowie" i menu stoją NAD pseudoelementem odnośnika (`z-index`), inaczej kliknięcie
+   w nie otwierałoby grupę zamiast działania — pseudoelement rozpięty na wiersz jest nad nimi. */
+.group-list__czlonkowie { position: relative; z-index: 1; width: var(--ustaw-akcja-w, 156px); justify-content: flex-start; }
+/* ⚠ Odstęp 6 px tylko MIĘDZY ikonami, a nie w całym wierszu: ołówek i kosz to jedna para,
+   a „Członkowie" stoi od nich dalej (odstęp wiersza). Stąd ujemny margines zamiast zmiany `gap`. */
+.ikona-akcja--usun { margin-left: calc(6px - var(--s-3)); }
+/* ⚠ **Dwa widoczne przyciski-ikony zamiast menu „⋯"** (Z33 §2). Kwadrat kontrolki, ramka
+   kontrolki, ikona w kolorze danej drugorzędnej — dopiero kursor nadaje im znaczenie: ołówek
+   bierze barwę akcji, kosz barwę niebezpieczną. Dwa różne kolory na dwóch sąsiednich przyciskach
+   są tu celem: to jedyne miejsce w wierszu, gdzie da się skasować grupę. */
+.ikona-akcja {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h);
+  height: var(--control-h);
+  padding: 0;
+  border: 1px solid var(--c-line-strong);
+  border-radius: var(--radius);
+  background: var(--c-surface);
+  color: var(--c-text-3);
+  cursor: pointer;
+}
+.ikona-akcja .ico { width: 16px; height: 16px; }
+.ikona-akcja__form { display: contents; }
+@media (hover: hover) {
+  .ikona-akcja--edycja:hover { background: var(--c-accent-soft); border-color: var(--c-accent); color: var(--c-accent-text); }
+  .ikona-akcja--usun:hover:not(:disabled) { background: var(--c-danger-soft); border-color: var(--c-danger); color: var(--c-danger-text); }
+}
+/* ⚠ Fokus klawiatury MUSI być widoczny (Z33 §2): obrys z `10-base.css` zostaje, a tu dokładamy
+   tylko to, żeby nie znikał pod sąsiednim przyciskiem — stąd warstwa wyżej przy fokusie. */
+.ikona-akcja:focus-visible { z-index: 2; }
+.ikona-akcja:disabled { background: var(--c-surface-mute); color: var(--c-text-4); cursor: not-allowed; }
+/* Znak okna niebezpiecznego — ten sam kwadrat, inna barwa. */
+.card__znak--niebezpieczny { background: var(--c-danger-soft); color: var(--c-danger-text); }
+
+/* ⚠ „Osoby bez grupy" to KARTA, nie pasek z przerywaną ramką (Z31 §5): stała obok karty z grupami
+   i czytało się ją jak jej stopkę. Teraz ma tę samą wagę, a że jest stanem, a nie grupą, mówi
+   o tym znak w barwie obojętnej. */
+.card__znak--cichy { background: var(--c-neutral-soft); color: var(--c-text-3); }
+.bez-grupy { border: 1px solid var(--c-line); border-radius: var(--radius-card); background: var(--c-surface); }
+.bez-grupy__head {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-4);
+  cursor: pointer;
+  list-style: none;
+}
+.bez-grupy__tytuly { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
+.bez-grupy__nazwa { font-size: var(--t-body); font-weight: var(--w-semibold); color: var(--c-text); }
+.bez-grupy__opis { font-size: var(--t-caption); color: var(--c-text-3); }
+.bez-grupy__count { flex: none; }
+/* Strzałka obraca się po rozwinięciu — ten sam ruch, co w kontrolce dostępu. */
+.bez-grupy__head .ico { flex: none; color: var(--c-text-3); transition: transform .12s ease; }
+.bez-grupy[open] .bez-grupy__head .ico { transform: rotate(180deg); }
+.bez-grupy[open] .bez-grupy__head { border-bottom: 1px solid var(--c-line-soft); }
+.bez-grupy__body { padding: var(--s-4) var(--s-5) var(--s-5); display: grid; gap: var(--s-4); }
+/* Siatka osób: tyle kolumn, ile się mieści przy podłodze 210 px (nazwisko z kółkiem nie mieści
+   się w mniejszej). Odstęp pionowy mniejszy niż poziomy — wiersze mają się czytać jako kolumny. */
+.bez-grupy__siatka {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: var(--s-1) var(--s-4);
+}
+.bez-grupy__osoba {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-width: 0;
+  padding: var(--s-1) var(--s-2);
+  border-radius: var(--radius);
+}
+@media (hover: hover) {
+  .bez-grupy__osoba:hover { background: var(--c-surface-hover); }
+}
+.bez-grupy__imie {
+  min-width: 0;
+  font-size: var(--t-small);
+  color: var(--c-text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Okno grupy: węższe od okna nazw firm, bo niesie jedno pole, a nie listę firm. */
+.modal--grupa { width: min(520px, calc(100vw - 2 * var(--s-4))); }
+/* Krzyżyk jest teraz IKONĄ, nie znakiem „×": litera brała krój z otoczenia i stała niecentrycznie
+   w kwadracie. Kwadrat zostaje 32 px (`--control-h-sm`), ikona ma 16 px. */
+.modal__close .ico { width: 16px; height: 16px; }
+
+/* ⚠ Telefon: znak i nazwa w pierwszym rzędzie, skład pod nimi, a plakietka, „Członkowie" i menu
+   w rzędzie dolnym. Próg jest od OKNA, bo wiersz stoi w `.card` poza `.card__body`, czyli bez
+   kontenera zapytań nad sobą (ta sama sytuacja co w tabeli osób). */
+@media (max-width: 560px) {
+  .group-list__row {
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    gap: var(--s-2) var(--s-3);
+  }
+  .group-list__main { grid-column: 2 / -1; }
+  .group-list__count { grid-column: 1 / 2; grid-row: 2; }
+  .group-list__czlonkowie { grid-column: 2 / 3; grid-row: 2; width: auto; }
+  .ikona-akcja--edycja { grid-column: 3 / 4; grid-row: 2; }
+  .ikona-akcja__form, .ikona-akcja--usun { grid-column: 4 / 5; grid-row: 2; }
+  .bez-grupy__siatka { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ——— okno członków grupy (zlecenie Z31 §8) ——————————————————————————————————— */
+
+.inicjaly--assign { --inicjaly-bok: 26px; font-size: 10px; }
+/* Plakietka nazwy innej grupy: 11 px, bo stoi w wierszu obok nazwiska 14 px i nie ma być
+   drugą daną tej samej wagi. Wysokość niższa niż zwykła plakietka z tego samego powodu. */
+.chip--mala { height: 18px; padding: 0 var(--s-1); font-size: var(--t-label); }
+/* ⚠ „Usuń/Dodaj wszystkich" ZIELONYM NAPISEM, bez ramki: to działanie na całej kolumnie, więc
+   przycisk z ramką czytał się jak trzeci element wiersza obok dwóch kolumn. Znaki „+" i „×"
+   przed napisem zniknęły — robiły za ikonę, a ikony tu nie ma. */
+.assign__hurt { color: var(--c-accent-text); font-weight: var(--w-semibold); }
+/* ⚠ Pole wyszukiwania w kolumnie ma lupę w środku — ta sama rodzina co na liście osób.
+   `.field` jest tu rodzicem pozycjonującym, więc ikona siada względem niego. */
+/* ⚠ W kolumnie pole szukania jest ETYKIETĄ (`.field`), więc `display: flex` z `.pole-szukania`
+   przestawiało ją w RZĄD — ukryta etykieta, ikona i pole stawały obok siebie, a pole brało
+   szerokość własnej treści zamiast całej kolumny (zmierzone: 210 px w kolumnie 483 px).
+   Tutaj pudełko zostaje blokiem, a ikona leży na polu i jest centrowana pionowo. */
+.assign__search .pole-szukania { display: block; position: relative; }
+.assign__search .pole-szukania .input { width: 100%; padding-left: calc(var(--s-3) + 16px + var(--s-2)); }
+.assign__search .pole-szukania .ico { top: 50%; transform: translateY(-50%); }
+/* ⚠ Okno członków **jest wyśrodkowane w pionie**: `.modal` ma `margin: auto`, a kolumny mają
+   własną wysokość z `max-height` okna. Sprawdzone, że żadna reguła tego marginesu nie zeruje —
+   przy `margin: 0` okno przyklejało się do górnej krawędzi warstwy wierzchniej. */
+.modal--assign { margin: auto; }
+/* ⚠ Na telefonie okno członków bierze całą szerokość z marginesem `--s-4` (Z31, telefon):
+   reguła bazowa zostawiała po 32 px z każdej strony, czyli 311 px na okno z DWIEMA kolumnami
+   nazwisk. Ten sam próg i ten sam margines, co w oknie nazw firm — jedna sytuacja, jedna liczba. */
+@media (max-width: 560px) {
+  .modal--assign { width: calc(100vw - 2 * var(--s-4)); }
+  /* ⚠ Dwie kolumny **jedna pod drugą**: podłoga 300 px na kolumnę znaczy 600 px na parę, a okno
+     ma na telefonie 343 px — przy dwóch kolumnach obok siebie treść wychodziłaby poza okno.
+     Kolumny zachowują własną wysokość i przewijają się w `.modal__body`. */
+  .assign { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ⚠ **Lista rozwijana dostępu** (Z30 §8). Szersza (340 px) i z mocniejszym cieniem, bo to warstwa
+   nad tabelą, a nie element w niej: przy 300 px nazwa firmy z plakietką „z etatem" nie mieściła
+   się w jednym wierszu. Promień karty, nie kontrolki — panel jest kartą, która wyskakuje. */
+.dropdown { width: 340px; border-radius: var(--radius-card); box-shadow: var(--shadow-pop); }
+/* ⚠ `flex-direction: row` wprost: reguła bazowa wyżej układa głowę W KOLUMNIE, a samo
+   `display: flex` jej nie cofa — pierwsza wersja dała znak nad nazwiskiem, wyśrodkowany. */
+.dropdown__head { display: flex; flex-direction: row; align-items: center; gap: var(--s-3); }
+.dropdown__kto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dropdown__title { font-size: var(--t-body); font-weight: var(--w-semibold); }
+.dropdown__item { padding: var(--s-2) var(--s-4); }
+.dropdown__item input[type="checkbox"] { width: 18px; height: 18px; }
+/* Zaznaczona firma ma tło akcji — to jest stan „dostęp nadany", czyli wynik tej listy. */
+.dropdown__item:has(input:checked) { background: var(--c-accent-soft); }
+@media (hover: hover) {
+  .dropdown__item:not(.dropdown__item--off):hover { background: var(--c-surface-hover); }
+}
+/* Pozycja bez etatu: nazwa ciszej, kursor mówi „nie tutaj", powód w podpowiedzi (szablon). */
+.dropdown__item--off .dropdown__name { color: var(--c-text-4); }
+/* ⚠ Plakietka etatu nie dziedziczy wyściółki pozycji: `.chip` ma własną i własną wysokość. */
+.dropdown__tag { flex: none; }
+/* Stopka w JEDNYM rzędzie: po lewej skutek licencyjny, po prawej dwa przyciski. */
+/* Ta sama poprawka co w głowie: stopka ma iść rzędem, nie kolumną. */
+.dropdown__foot { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
+.dropdown__licencja { flex: 1 1 auto; min-width: 0; }
+.dropdown__akcje { flex: none; margin-left: auto; }
+
+@media (hover: hover) {
+  .settings-list__row:is(a, button):hover { color: var(--c-text); text-decoration: none; }
+  .settings-list__row:is(a, button):hover > span:last-child { color: var(--c-text-3); }
+}
+
+
+
+
 
 /* ——— zawężenie tabel: kolumny o stałych szerokościach (zlecenie zawezenie-tabel) ——————
    ⚠ Powód jest zmierzony przy 1440 px, nie estetyczny: bez `table-layout: fixed` przeglądarka

@@ -3,13 +3,42 @@
     zmianie pola, a bez `<noscript>` przycisk otwierający okno byłby jedyną drogą — czyli bez JS
     nie dałoby się utworzyć grupy wcale.
 
-    Zmienne: spolka. -#}
-<form class="pick__adres" method="post" action="{{ url('/admin/grupy') }}">
+    ⚠ **Stopka jest WEWNĄTRZ formularza** (zlecenie Z31, dopisek): przycisk „Utwórz grupę" stoi
+    w stopce okna, a przycisk `submit` poza swoim formularzem nic nie wysyła. Dlatego formularz
+    bierze na siebie rolę `.modal__wrap` — ogniwa kolumny między oknem a przewijaną treścią —
+    i sam rozkłada treść na `.modal__body` i `.modal__foot`.
+    ⚠ W wariancie `<noscript>` te same pola stoją bez wyściółki okna: klasy przełącza jeden
+    warunek, a nie druga kopia znaczników.
+
+    Zmienne: spolka, okno (czy renderujemy w oknie), okno_id (identyfikator okna dla „Anuluj"). -#}
+{% set okno = okno|default(false) %}
+<form class="{{ okno ? 'modal__wrap' : 'form-column' }}" method="post" action="{{ url('/admin/grupy') }}">
     {% include 'partials/csrf.twig' %}
     <input type="hidden" name="spolka" value="{{ spolka.id }}">
-    <label class="field">
-        <span class="field__label">Nazwa grupy</span>
-        <input class="input" type="text" name="nazwa" maxlength="100" placeholder="np. Produkcja" required>
-    </label>
-    <button type="submit" class="btn btn--primary btn--sm">Utwórz</button>
+    <div class="{{ okno ? 'modal__body' : 'form-column' }}">
+        {#- ⚠ Odmowa zapisu stoi W OKNIE, nad polem, którego dotyczy (Z31, dopisek). -#}
+        {% if blad|default(null) is not null %}
+            <p class="notice notice--danger" role="alert">{{ blad }}</p>
+        {% endif %}
+        <label class="field{{ blad|default(null) is not null ? ' field--error' : '' }}">
+            <span class="field__label">Nazwa grupy</span>
+            {#- ⚠ Podpowiedź pokazuje TRZY przykłady z różnych porządków (miejsce, dział, zmiana),
+                bo jeden przykład czyta się jak wzór do naśladowania, a nie jak zachęta. -#}
+            <input class="input" type="text" name="nazwa" maxlength="100"
+                   value="{{ wpisana|default('') }}"
+                   placeholder="np. Magazyn, Biuro, Zmiana nocna" required
+                   {%- if okno %} autofocus{% endif %}>
+        </label>
+        <p class="nazwy-podpowiedz">Nazwy w jednej firmie muszą się różnić. Wielkość liter się nie liczy: „Produkcja" i „PRODUKCJA" to ta sama nazwa.</p>
+        <p class="field__hint">Członków dodasz po utworzeniu grupy przyciskiem „Członkowie".</p>
+    </div>
+    <div class="{{ okno ? 'modal__foot' : '' }}">
+        <div class="btn-row btn-row--jedna-linia">
+            {#- „Anuluj" tylko w oknie: na ścieżce bez JavaScriptu nie ma czego zamykać. -#}
+            {% if okno %}
+                <button type="button" class="btn btn--ghost" data-modal-close="{{ okno_id|default('grupa-nowa') }}">Anuluj</button>
+            {% endif %}
+            <button type="submit" class="btn btn--primary">Utwórz grupę</button>
+        </div>
+    </div>
 </form>

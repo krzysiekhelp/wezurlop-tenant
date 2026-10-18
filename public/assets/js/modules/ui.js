@@ -53,6 +53,14 @@
       if (dialog && typeof dialog.showModal === 'function') {
         event.preventDefault();
         dialog.showModal();
+        /* ⚠ Pole oznaczone `data-zaznacz` dostaje ZAZNACZONĄ treść (zlecenie Z31): nazwę grupy
+           zmienia się najczęściej w całości, więc pierwsze wciśnięcie klawisza ma ją zastąpić,
+           a nie dopisać się na końcu. Fokus stawia `autofocus` z HTML — tu dokładamy wyłącznie
+           zaznaczenie, bo atrybutu „zaznacz treść" HTML nie ma. */
+        var doZaznaczenia = dialog.querySelector('[data-zaznacz]');
+        if (doZaznaczenia && typeof doZaznaczenia.select === 'function') {
+          doZaznaczenia.select();
+        }
         // htmx dociąga treść dopiero teraz — zamknięte okno nie odpytuje serwera.
         // ⚠ Tylko dla kreatora: potwierdzenia mają własne hx-get na klikniętym odnośniku,
         // a wspólne zdarzenie budziłoby odpytywanie kreatora przy każdym innym oknie.

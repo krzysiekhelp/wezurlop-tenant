@@ -5464,7 +5464,9 @@ POMIAR_LISTY_GRUP = """() => {
         const a = r.querySelector('.group-list__name');
         return !!el && !!a && (el === a || a.contains(el) || el.closest('.group-list__row') === r);
       })(),
-      menu: !!r.querySelector('details.menu'),
+      // ⚠ Od Z33 wiersz ma DWA WIDOCZNE przyciski zamiast menu „⋯": pytamy o nie, bo to one
+      // są dziś jedyną drogą do zmiany nazwy i usunięcia grupy.
+      akcje: !!r.querySelector('.ikona-akcja--edycja') && !!r.querySelector('.ikona-akcja--usun'),
     })),
     bez_grupy: bez ? {tekst: bez.innerText.replace(/\\s+/g, ' ').trim(), rozwijalny: bez.tagName === 'DETAILS',
                       w_tabeli: !!bez.closest('table')} : null,
@@ -5487,23 +5489,32 @@ POMIAR_LISTY_GRUP = """() => {
 }"""
 
 
+# ⚠ **Pomiar przepięty z menu „⋯" na dwa widoczne przyciski** (Z33, 18.10.2026). Dotąd kryterium
+# otwierało `details.menu` i sprawdzało, czy OSTATNIA pozycja panelu jest osiągalna — panel stał
+# w karcie, a `.card` ma `overflow: hidden`, więc bez `.card--os` bywał ucięty. Menu zniknęło;
+# jego miejsce zajęły ołówek i kosz stojące w wierszu na stałe. Pytanie zostaje to samo: **czy
+# da się w nie kliknąć**, i dalej mierzymy to przecięciem z przodkami plus `elementFromPoint`,
+# a nie samą obecnością w dokumencie.
+# ⚠ Powód wyłączenia kosza przy grupie z osobami przeniósł się z `.menu__powod` do `title` —
+# wyłączony przycisk bez powodu każe się domyślać, co jest nie tak.
 POMIAR_MENU_GRUPY = """() => {
 """ + OSIAGALNOSC_JS + """
-  const d = document.querySelector('.group-list__row details.menu');
-  if (!d) { return null; }
-  const body = d.querySelector('.menu__body');
-  const pozycje = Array.from(body.querySelectorAll('button, a'));
-  const ost = pozycje[pozycje.length - 1] || null;
+  const r = document.querySelector('.group-list__row');
+  if (!r) { return null; }
+  const olowek = r.querySelector('.ikona-akcja--edycja');
+  const kosz = r.querySelector('.ikona-akcja--usun');
+  if (!olowek || !kosz) { return null; }
+  const puste = Array.from(document.querySelectorAll('.group-list__row'))
+    .filter(x => !x.querySelector('.ikona-akcja--usun[disabled]')).length;
   return {
-    pozycji: pozycje.length,
-    etykiety: pozycje.map(x => x.textContent.trim()),
-    wylaczone: pozycje.filter(x => x.disabled).map(x => x.textContent.trim()),
-    powod: (body.querySelector('.menu__powod') || {}).textContent || null,
-    // ⚠ Panel menu stoi w karcie, a `.card` ma `overflow: hidden` — bez `.card--os`
-    // byłby ucięty. Dlatego mierzymy OSIĄGALNOŚĆ, nie samą obecność.
-    ostatnia_akcja: ost === null ? null
-      : Object.assign({tekst: ost.textContent.trim().slice(0, 40)}, __osiagalnosc(ost)),
-    panel: __osiagalnosc(body),
+    przyciskow: 2,
+    etykiety: [olowek.getAttribute('aria-label'), kosz.getAttribute('aria-label')],
+    tytuly: [olowek.getAttribute('title'), kosz.getAttribute('title')],
+    kosz_wylaczony: !!kosz.disabled,
+    powod: kosz.getAttribute('title'),
+    wierszy_z_czynnym_koszem: puste,
+    olowek_osiagalny: Object.assign({tekst: olowek.getAttribute('title') || ''}, __osiagalnosc(olowek)),
+    kosz_osiagalny: Object.assign({tekst: kosz.getAttribute('title') || ''}, __osiagalnosc(kosz)),
   };
 }"""
 
@@ -5625,12 +5636,11 @@ def sprawdz_grupy(b) -> dict:
             """() => ((document.querySelector('.spolka') || {}).dataset || {}).spolka || ''""")
         menu = None
         if lista["wierszy"] > 0:
-            # ⚠ Menu otwieramy KLIKNIĘCIEM, nie `open = true`: tak robi człowiek i tak wychodzi,
-            # czy wyzwalacz jest w ogóle osiągalny.
-            pg.click(".group-list__row details.menu > summary")
-            pg.wait_for_timeout(250)
+            # ⚠ **Nie ma już czego otwierać** (Z33): menu „⋯" zastąpiły dwa przyciski stojące
+            # w wierszu na stałe, więc pomiar czyta je wprost. Kliknięcie wyzwalacza zniknęło
+            # razem z menu, a osiągalność mierzy się tak samo — przecięciem z przodkami
+            # i `elementFromPoint`, bo przyciski dalej stoją w karcie z `overflow: hidden`.
             menu = pg.evaluate(POMIAR_MENU_GRUPY)
-            pg.keyboard.press("Escape")
 
         # ——— Ekran grupy: własne grupy pomiaru, osoba bez grupy ————————————————————
         # ⚠ **Pomiar ekranowy w KROKACH, a nie jeden wielki `try`.** Zmierzone przy dowodach
@@ -6086,7 +6096,11 @@ def sprawdz_grupy(b) -> dict:
             and z_jedna.get("szukajek") == 2
             and len(z_jedna.get("zbiorcze", [])) == 2
             # ⚠ Oba przyciski zbiorcze **ciche**: zero `btn--primary` w stopkach (aneks §3b).
-            and all("btn--ghost" in b["klasa"] and "btn--primary" not in b["klasa"]
+            # ⚠ Kryterium pyta o CICHOŚĆ, nie o jedną konkretną klasę: od Z31 oba są
+            # `btn--quiet` z zielonym napisem (`assign__hurt`), bo ramka czytała się jak
+            # trzeci element wiersza obok dwóch kolumn. Reguła ta sama, znacznik inny.
+            and all("btn--primary" not in b["klasa"]
+                    and ("btn--ghost" in b["klasa"] or "btn--quiet" in b["klasa"])
                     for b in z_jedna.get("zbiorcze", []))
             and len(z_jedna.get("kolumny", [])) == 2
             and all(osiagalne(k) for k in z_jedna.get("kolumny", []))
@@ -6235,7 +6249,7 @@ def sprawdz_grupy(b) -> dict:
             lista.get("tabel") == 0
             and lista.get("pol_nazwy_w_wierszach") == 0
             and lista.get("wierszy", 0) > 0
-            and all(w["menu"] and w["klikalny"] and w["sklad"] != "" for w in lista.get("wiersze", []))
+            and all(w["akcje"] and w["klikalny"] and w["sklad"] != "" for w in lista.get("wiersze", []))
             and lista.get("okno_nowa", {}).get("jest") is True
             and lista.get("okno_nowa", {}).get("zamkniete") is True
             and lista.get("okno_nowa", {}).get("przycisk") is True
@@ -6243,7 +6257,9 @@ def sprawdz_grupy(b) -> dict:
             and lista.get("okien_nazwy") == lista.get("wierszy")
             and (lista.get("bez_grupy") or {}).get("w_tabeli") is False
             and (lista.get("bez_grupy") or {}).get("rozwijalny") is True
-            and "Bez grupy" in ((lista.get("bez_grupy") or {}).get("tekst") or "")
+            # ⚠ Od Z31 blok nazywa się „Osoby bez grupy", więc porównanie idzie bez wielkości
+            # liter: kryterium pyta, czy blok MÓWI, czym jest, a nie jak dokładnie brzmi tytuł.
+            and "bez grupy" in ((lista.get("bez_grupy") or {}).get("tekst") or "").lower()
             # ⚠ **Jedno puste okno na ekran** i wyzwalacz na wierszu, a wiersz ma prawdziwy
             # adres podstrony — to ścieżka bez JavaScriptu i jedyny sposób, żeby odnośnik
             # do grupy dało się komuś wysłać (aneks §1).
@@ -6253,9 +6269,15 @@ def sprawdz_grupy(b) -> dict:
             and (lista.get("okno_grupy") or {}).get("wyzwalacz_na_wierszu") is True
             and "/admin/grupy/" in ((lista.get("okno_grupy") or {}).get("adres_wiersza") or "")
             # Menu `⋯` musi być OSIĄGALNE — stoi w karcie, a `.card` przycina.
-            and isinstance(m.get("ostatnia_akcja"), dict)
-            and m["ostatnia_akcja"].get("osiagalna") is True
-            and m.get("panel", {}).get("widoczna_czesc") == 100
+            # ⚠ Oba przyciski wiersza muszą być OSIĄGALNE, nie tylko obecne: stoją 6 px od
+            # siebie, w karcie, obok przycisku „Członkowie" rozpiętego pseudoelementem odnośnika.
+            and m.get("przyciskow") == 2
+            and all(e for e in m.get("etykiety", []))
+            and all(t for t in m.get("tytuly", []))
+            and m.get("olowek_osiagalny", {}).get("osiagalna") is True
+            and m.get("kosz_osiagalny", {}).get("widoczna_czesc") == 100
+            # Kosz przy grupie z osobami jest wyłączony i mówi DLACZEGO (dawny `.menu__powod`).
+            and (m.get("kosz_wylaczony") is False or bool(m.get("powod")))
             # Niepusta grupa: „Usuń grupę" wyłączone i z powodem pod spodem.
             and (m.get("wylaczone") == [] or (m.get("powod") or "").strip() != "")
         )

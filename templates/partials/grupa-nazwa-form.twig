@@ -5,18 +5,40 @@
 
     ⚠ Pole jest **wypełnione dotychczasową nazwą**: zmiana nazwy zaczyna się od tego, co jest,
     a nie od pustego pola, w którym trzeba sobie przypomnieć poprzednią wersję.
+    ⚠ `data-zaznacz` każe `ui.js` zaznaczyć treść pola po otwarciu okna (zlecenie Z31, dopisek):
+    nazwę zmienia się najczęściej w całości, więc pierwsze wciśnięcie klawisza ma ją zastąpić,
+    a nie dopisać się na końcu. Bez JavaScriptu atrybut nic nie robi i pole działa jak każde inne.
 
-    Zmienne: grupa, spolka, wroc ('lista' albo 'grupa' — gdzie wrócić po zapisie). -#}
-<form class="pick__adres" method="post" action="{{ url('/admin/grupy/' ~ grupa.id ~ '/nazwa') }}">
+    ⚠ Stopka stoi WEWNĄTRZ formularza — przycisk `submit` poza swoim formularzem nic nie wysyła.
+
+    Zmienne: grupa, spolka, wroc ('lista' albo 'grupa'), okno, okno_id. -#}
+{% set okno = okno|default(false) %}
+<form class="{{ okno ? 'modal__wrap' : 'form-column' }}" method="post" action="{{ url('/admin/grupy/' ~ grupa.id ~ '/nazwa') }}">
     {% include 'partials/csrf.twig' %}
     <input type="hidden" name="spolka" value="{{ spolka.id }}">
     {#- ⚠ Biała lista dwóch wartości czytana przez kontroler, nie `Referer` (CLAUDE.md §11):
         nazwę zmienia się z listy grup i z ekranu grupy, a wracać trzeba tam, skąd przyszło. -#}
     <input type="hidden" name="wroc" value="{{ wroc|default('lista') }}">
-    <label class="field">
-        <span class="field__label">Nazwa grupy</span>
-        <input class="input" type="text" name="nazwa" maxlength="100" value="{{ grupa.nazwa }}"
-               aria-label="Nowa nazwa grupy {{ grupa.nazwa }}" required>
-    </label>
-    <button type="submit" class="btn btn--primary btn--sm">Zapisz nazwę</button>
+    <div class="{{ okno ? 'modal__body' : 'form-column' }}">
+        {#- ⚠ Odmowa zapisu stoi W OKNIE, nad polem, którego dotyczy (Z31, dopisek). -#}
+        {% if blad|default(null) is not null %}
+            <p class="notice notice--danger" role="alert">{{ blad }}</p>
+        {% endif %}
+        <label class="field{{ blad|default(null) is not null ? ' field--error' : '' }}">
+            <span class="field__label">Nazwa grupy</span>
+            <input class="input" type="text" name="nazwa" maxlength="100"
+                   value="{{ wpisana|default('') != '' ? wpisana : grupa.nazwa }}"
+                   aria-label="Nowa nazwa grupy {{ grupa.nazwa }}" required
+                   {%- if okno %} autofocus data-zaznacz{% endif %}>
+        </label>
+        <p class="nazwy-podpowiedz">Nazwy w jednej firmie muszą się różnić. Wielkość liter się nie liczy: „Produkcja" i „PRODUKCJA" to ta sama nazwa.</p>
+    </div>
+    <div class="{{ okno ? 'modal__foot' : '' }}">
+        <div class="btn-row btn-row--jedna-linia">
+            {% if okno %}
+                <button type="button" class="btn btn--ghost" data-modal-close="{{ okno_id|default('grupa-nazwa-' ~ grupa.id) }}">Anuluj</button>
+            {% endif %}
+            <button type="submit" class="btn btn--primary">Zapisz nazwę</button>
+        </div>
+    </div>
 </form>

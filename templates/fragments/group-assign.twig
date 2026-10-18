@@ -37,6 +37,10 @@
 
     Zmienne: grupa, spolka, czlonkowie, nieaktywnych, czlonkow_pasujacych, czlonkow_razem,
     szukaj_w_grupie, poza, poza_pasujacych, poza_razem, szukaj, error, htmx, w_oknie. -#}
+{#- ⚠ Import makr jest LOKALNY dla szablonu: fragment dociągany htmx-em nie dziedziczy
+    importów ze strony, która go wkłada. -#}
+{% import 'partials/inicjaly.twig' as znak %}
+{% import 'partials/ikony.twig' as ikony %}
 {%- set adres_dodaj = url('/admin/grupy/' ~ grupa.id ~ '/osoby/dodaj') -%}
 {%- set adres_usun = url('/admin/grupy/' ~ grupa.id ~ '/osoby/usun') -%}
 {%- set adres_kolumn = url('/admin/grupy/' ~ grupa.id ~ '/osoby') -%}
@@ -51,9 +55,13 @@
     {#- ⚠ Nagłówek okna jest **w tym fragmencie**, bo tytułem jest nazwa grupy — czyli dana,
         którą ma podać serwer razem z treścią. Okno na liście jest jedno i puste; wkłada się
         do niego nazwa i kolumny jednym żądaniem. -#}
-    <div class="modal__head">
-        <h3 id="grupa-okno-tytul">{{ grupa.nazwa }}</h3>
-        <button type="button" class="modal__close" data-modal-close="grupa-okno" aria-label="Zamknij okno">×</button>
+    <div class="modal__head modal__head--znak">
+        <span class="card__znak">{{ ikony.etykieta() }}</span>
+        <div class="card__tytuly">
+            <h3 id="grupa-okno-tytul">{{ grupa.nazwa }}</h3>
+            <p class="card__opis">Członkowie grupy · dodawaj z prawej, usuwaj z lewej</p>
+        </div>
+        <button type="button" class="modal__close" data-modal-close="grupa-okno" aria-label="Zamknij okno">{{ ikony.krzyzyk() }}</button>
     </div>
     <div class="modal__body">
 {% endif %}
@@ -86,8 +94,9 @@
             <input type="hidden" name="spolka" value="{{ spolka.id }}">
             {#- Drugi filtr jedzie razem, inaczej zawężenie jednej kolumny zerowałoby drugą. -#}
             <input type="hidden" name="szukaj" value="{{ szukaj }}">
-            <label class="field">
-                <span class="field__label">Szukaj w grupie</span>
+            <label class="field pole-szukania">
+                <span class="field__label visually-hidden">Szukaj w grupie</span>
+                {{ ikony.lupa() }}
                 <input class="input" type="search" name="szukajg" value="{{ szukaj_w_grupie }}" maxlength="100"
                        autocomplete="off" placeholder="nazwisko lub imię">
             </label>
@@ -103,12 +112,13 @@
                 <ul class="assign__list">
                     {% for o in czlonkowie %}
                         <li class="assign__row">
+                            {{ znak.kolko(o.osoba, 'inicjaly--assign') }}
                             <span class="assign__name" title="{{ o.osoba }}">{{ o.osoba }}</span>
                             {#- ⚠ `filter`+`map`, nie `{% for … if %}`: warunek w `for` zniknął
                                 w Twigu 3 i daje `SyntaxError` (zmierzone — 500 na tym ekranie). -#}
                             {%- set inne = o.grupy|filter(g => g.id != grupa.id)|map(g => g.nazwa) -%}
                             {% if not o.czynne %}<small class="assign__tag assign__tag--off">wygaszone</small>{% endif %}
-                            {% if inne is not empty %}<small class="assign__tag">{{ inne|join(', ') }}</small>{% endif %}
+                            {% if inne is not empty %}<span class="chip chip--mala assign__tag">{{ inne|join(', ') }}</span>{% endif %}
                             <form class="assign__form" method="post" action="{{ adres_usun }}"
                                   {% if htmx|default(false) %}hx-post="{{ adres_usun }}" hx-target="#grupa-przypisanie" hx-select="#grupa-przypisanie" hx-swap="outerHTML"{% endif %}>
                                 {% include 'partials/csrf.twig' %}
@@ -137,7 +147,7 @@
                         <input type="hidden" name="szukaj" value="{{ szukaj }}">
                         <input type="hidden" name="szukajg" value="{{ szukaj_w_grupie }}">
                         {% for o in czlonkowie %}<input type="hidden" name="osoby[]" value="{{ o.id }}">{% endfor %}
-                        <button type="submit" class="btn btn--ghost btn--sm btn--block">× Usuń wszystkich{{ wszyscy_w_grupie ? '' : ' pokazanych' }} ({{ czlonkowie|length }})</button>
+                        <button type="submit" class="btn btn--quiet btn--sm btn--block assign__hurt">Usuń wszystkich{{ wszyscy_w_grupie ? '' : ' pokazanych' }} ({{ czlonkowie|length }})</button>
                     </form>
                     {% if czlonkow_pasujacych > czlonkowie|length %}
                         <p class="assign__note">Pokazuję {{ czlonkowie|length }} z {{ czlonkow_pasujacych }} pasujących — zawęź szukanie, żeby dojść do pozostałych.</p>
@@ -149,7 +159,7 @@
 
     <section class="assign__col" aria-labelledby="assign-pozostali">
         <header class="assign__head">
-            <h2 class="assign__title" id="assign-pozostali">Pozostali w {{ spolka.nazwa }}</h2>
+            <h2 class="assign__title" id="assign-pozostali">Pozostali w firmie {{ spolka.nazwa }}</h2>
             <span class="assign__count" id="poza-licznik">{% if szukaj != '' %}{{ poza_pasujacych }} z {{ poza_razem }}{% else %}{{ poza_razem }}{% endif %}</span>
         </header>
         <form class="assign__search" method="get" action="{{ adres_strony }}"
@@ -159,8 +169,9 @@
               hx-trigger="submit, input from:find input[name=szukaj] delay:300ms"{% endif %}>
             <input type="hidden" name="spolka" value="{{ spolka.id }}">
             <input type="hidden" name="szukajg" value="{{ szukaj_w_grupie }}">
-            <label class="field">
-                <span class="field__label">Szukaj osoby</span>
+            <label class="field pole-szukania">
+                <span class="field__label visually-hidden">Szukaj osoby</span>
+                {{ ikony.lupa() }}
                 <input class="input" type="search" name="szukaj" value="{{ szukaj }}" maxlength="100"
                        autocomplete="off" placeholder="nazwisko lub imię">
             </label>
@@ -176,6 +187,7 @@
                 <ul class="assign__list">
                     {% for o in poza %}
                         <li class="assign__row">
+                            {{ znak.kolko(o.osoba, 'inicjaly--assign') }}
                             <span class="assign__name" title="{{ o.osoba }}">{{ o.osoba }}</span>
                             {#- ⚠ Plakietka z grupami osoby stoi **przy decyzji o dodaniu**,
                                 a nie w osobnej kolumnie wykazu: ta sama informacja, postawiona
@@ -208,7 +220,7 @@
                         <input type="hidden" name="szukaj" value="{{ szukaj }}">
                         <input type="hidden" name="szukajg" value="{{ szukaj_w_grupie }}">
                         {% for o in poza %}<input type="hidden" name="osoby[]" value="{{ o.id }}">{% endfor %}
-                        <button type="submit" class="btn btn--ghost btn--sm btn--block">+ Dodaj wszystkich{{ wszyscy_poza ? '' : ' pokazanych' }} ({{ poza|length }})</button>
+                        <button type="submit" class="btn btn--quiet btn--sm btn--block assign__hurt">Dodaj wszystkich{{ wszyscy_poza ? '' : ' pokazanych' }} ({{ poza|length }})</button>
                     </form>
                     {% if poza_pasujacych > poza|length %}
                         <p class="assign__note">Pokazuję {{ poza|length }} z {{ poza_pasujacych }} pasujących — zawęź szukanie, żeby dojść do pozostałych.</p>

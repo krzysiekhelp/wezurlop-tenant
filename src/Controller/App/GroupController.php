@@ -148,7 +148,7 @@ final class GroupController
         }
         $nazwa = trim($request->postString('nazwa', 100));
         if ($nazwa === '') {
-            return $this->listaZBledem($request, $kontekst, 'Podaj nazwę grupy.');
+            return $this->listaZBledem($request, $kontekst, 'Podaj nazwę grupy.', 'grupa-nowa');
         }
         $wynik = $this->service->utworz(
             $kontekst['spolka']['id'],
@@ -157,7 +157,7 @@ final class GroupController
             $kontekst['aktor'],
         );
         if (is_string($wynik)) {
-            return $this->listaZBledem($request, $kontekst, self::komunikat($wynik, $nazwa));
+            return $this->listaZBledem($request, $kontekst, self::komunikat($wynik, $nazwa), 'grupa-nowa', $nazwa);
         }
 
         // ⚠ Po utworzeniu trafiasz NA EKRAN GRUPY, nie na listę — rozstrzygnięcie Krzysztofa
@@ -179,7 +179,7 @@ final class GroupController
         }
         $nazwa = trim($request->postString('nazwa', 100));
         if ($nazwa === '') {
-            return $this->listaZBledem($request, $kontekst, 'Podaj nazwę grupy.');
+            return $this->listaZBledem($request, $kontekst, 'Podaj nazwę grupy.', 'grupa-nazwa-' . $grupa['id']);
         }
         $powod = $this->service->zmienNazwe(
             $grupa['id'],
@@ -189,7 +189,13 @@ final class GroupController
             $kontekst['aktor'],
         );
         if ($powod !== null) {
-            return $this->listaZBledem($request, $kontekst, self::komunikat($powod, $nazwa));
+            return $this->listaZBledem(
+                $request,
+                $kontekst,
+                self::komunikat($powod, $nazwa),
+                'grupa-nazwa-' . $grupa['id'],
+                $nazwa,
+            );
         }
 
         // ⚠ Wracamy TAM, SKĄD PRZYSZŁO ŻĄDANIE — nazwę zmienia się z listy („⋯ → Zmień nazwę")
@@ -438,11 +444,19 @@ final class GroupController
                 $osoby = $sklad[$g['id']] ?? [];
 
                 return $g + [
-                    'sklad' => array_slice($osoby, 0, 4),
-                    'wiecej' => max(0, count($osoby) - 4),
+                    // ⚠ PIĘĆ, nie cztery (Z31 §4): wiersz pokazuje do pięciu nakładających
+                    // się kółek z inicjałami, więc tyle samo nazwisk musi dojść do szablonu.
+                    'sklad' => array_slice($osoby, 0, 5),
+                    'wiecej' => max(0, count($osoby) - 5),
                 ];
             }, $this->grupy->lista($companyId)),
             'bez_grupy' => $this->grupy->bezGrupy($companyId),
+            // Domyślnie żadne okno nie jest otwarte; ustawia je dopiero odmowa zapisu.
+            'okno_bledu' => null,
+            'wpisana_nazwa' => '',
+            // ⚠ Trzy liczby na pasek kafli jednym zapytaniem (Z31). Czwarta — „bez grupy" —
+            // jest już wyżej i liczy ten sam zbiór: czynne zatrudnienia w tej firmie.
+            'statystyki' => $this->grupy->statystyki($companyId),
             // ⚠ Zdania o pochodzeniu spółki: ekran ma powiedzieć, dlaczego pokazuje TĘ spółkę,
             // gdy nie wzięła się z kontekstu (stary odnośnik albo utrata dostępu).
             'spolka_z_adresu' => $kontekst['z_adresu'] ?? false,
@@ -519,15 +533,37 @@ final class GroupController
     /**
      * @param array<string, mixed> $kontekst
      */
-    private function listaZBledem(Request $request, array $kontekst, string $blad): Response
-    {
-        return $this->view->render('groups.twig', $this->model($request, $kontekst, $blad), 422);
+    /**
+     * Lista grup z komunikatem odmowy.
+     *
+     * ⚠ **Komunikat wraca DO OKNA, z którego przyszło żądanie** (zlecenie Z31, dopisek): nazwę
+     * grupy podaje się w oknie, więc odmowa pokazana tylko na pasku strony zostawiała otwarte
+     * pytanie „to co mam poprawić". `$oknoBledu` mówi szablonowi, które okno otworzyć, a wpisana
+     * nazwa wraca do pola — żeby poprawić literę, a nie wpisywać wszystko od nowa.
+     * ⚠ Bez JavaScriptu działa tak samo: serwer renderuje `<dialog open>`, a `ui.js` tylko
+     * podnosi je do warstwy wierzchniej (ta sama droga, co w oknie nazw firm z Z29).
+     */
+    private function listaZBledem(
+        Request $request,
+        array $kontekst,
+        string $blad,
+        ?string $oknoBledu = null,
+        string $wpisanaNazwa = '',
+    ): Response {
+        return $this->view->render(
+            'groups.twig',
+            // ⚠ Nadpisania STOJĄ PO LEWEJ: operator `+` zachowuje klucze z lewej strony, więc
+            // przy odwrotnej kolejności domyślne `null` z modelu wygrałoby z przekazanym oknem.
+            ['okno_bledu' => $oknoBledu, 'wpisana_nazwa' => $wpisanaNazwa]
+                + $this->model($request, $kontekst, $blad),
+            422,
+        );
     }
 
     private static function komunikat(string $powod, string $nazwa): string
     {
         return match ($powod) {
-            GroupRepository::POWOD_NAZWA_ZAJETA => 'Grupa „' . $nazwa . '" już istnieje w tej spółce — '
+            GroupRepository::POWOD_NAZWA_ZAJETA => 'Grupa „' . $nazwa . '" już istnieje w tej firmie — '
                 . 'nazwy nie rozróżniamy wielkością liter, bo dwa takie wiersze na liście wyglądają jak jeden.',
             GroupRepository::POWOD_NIEPUSTA => 'Grupa ma jeszcze osoby — wypisz je z grupy, zanim '
                 . 'usuniesz samą grupę. Pusta grupa znika bez pytania.',

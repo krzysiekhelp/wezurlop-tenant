@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.10, 18.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.12, 18.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,74 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.11 → 1.18.12: wiersz grupy bez menu „⋯" i bez stosu inicjałów**
+> (zlecenie Z33, 18.10.2026).
+> **(1)** Stos nakładających się kółek z inicjałami **usunięty** (razem z regułami `.stos`
+> i `.inicjaly--stos` — martwy CSS jest gorszy niż brak CSS-u): kółka powtarzały to, co mówią
+> nazwiska obok, a przy czterech osobach zajmowały ćwierć wiersza. Kwadrat z literą grupy zostaje
+> — mówi co innego (która to grupa), a nie „kto w niej jest".
+> **(2)** Menu `⋯` zastąpiły **dwa widoczne przyciski-ikony** (`.ikona-akcja`, 38 × 38, odstęp
+> 6 px): ołówek „Zmień nazwę grupy" i kosz „Usuń grupę". Obie czynności są pojedyncze i częste,
+> a menu kazało zgadywać, co w nim jest. Ikona niesie znaczenie, `aria-label` i `title` mówią je
+> słowami — przycisk-ikona bez nich jest zagadką dla czytnika ekranu i dla kursora. Pod kursorem
+> ołówek bierze barwę akcji, kosz barwę niebezpieczną; fokus klawiatury zostaje widoczny.
+> **(3)** ⚠ **Obie drogi działają bez JavaScriptu**: ołówek jest **odnośnikiem** na ekran grupy,
+> gdzie stoi ten sam formularz nazwy, a kosz jest przyciskiem `submit` w formularzu usunięcia —
+> `ui.js` wstrzymuje wysyłkę i otwiera okno z potwierdzeniem tylko wtedy, gdy `showModal` istnieje.
+> Jeden przycisk, dwie drogi, zero drugiego miejsca w szablonie.
+> **(4)** **Nowe okno „Usuń grupę"** w stylu pozostałych okien grup, ze znakiem w barwie
+> niebezpiecznej i przyciskiem `btn--danger`. Kosz nie kasuje od razu, bo usunięcie jest
+> nieodwracalne, a stoi 6 px od ołówka. Grupa z osobami: kosz **wyłączony z powodem w `title`**
+> (dawny `.menu__powod`), bo odmowę i tak wystawia zapytanie i klucz obcy.
+> **Pomiar**: 1920 px — 0 elementów `.inicjaly--stos` i 0 `details.menu` w wierszach, ołówek
+> i kosz 38 × 38 w odstępie 6 px, wiersz 1558 × 66; 375 px — oba przyciski w dolnym rzędzie
+> wiersza (341 × 112), zero przewijania w poziomie. Drugie otwarcie każdego okna ma komplet pól
+> (zmiana nazwy: 1 pole, usunięcie: 0 pól i 1 element treści).
+
+> **Zmiana 1.18.10 → 1.18.11: `/admin/grupy` w układzie pulpitu, okna grup w stylu okna nazw firm**
+> (zlecenie Z31 z dopiskiem, 18.10.2026, prototypy zatwierdzone przez Krzysztofa).
+> **(1)** Znika `.page__head`: zdanie o tym, czym jest grupa, zeszło do nagłówka karty, „Nowa grupa"
+> stanęła w tym samym nagłówku, a zdanie o „wszystkich spółkach" zniknęło.
+> **(2)** Pasek czterech kafli (`.kafle--auto`): grupy, osób w grupach, w kilku grupach, bez grupy.
+> ⚠ Wszystkie liczą **ten sam zbiór** — czynne zatrudnienia w tej firmie — i liczą LUDZI, nie
+> przypisania; suma liczników przy grupach jest wyższa i to jest poprawne. Trzy liczby biorą się
+> z jednego zapytania (`GroupRepository::statystyki`).
+> **(3)** Wiersz grupy: kwadrat 38 px z pierwszą literą nazwy (16 px, bo tokeny nie mają 15),
+> nazwa 600, pod nią **do pięciu nakładających się kółek 24 px** z inicjałami (obwódka jest
+> CIENIEM, nie ramką — ramka zjadłaby 2 px ze środka) i lista nazwisk 12 px, ucinana. Po prawej
+> plakietka „N osób", „Członkowie ›" (`.btn--akcja`, 156 px) i menu `⋯` 38 × 38.
+> ⚠ „Członkowie" i menu stoją NAD pseudoelementem odnośnika wiersza, inaczej klik w nie
+> otwierałby grupę zamiast działania.
+> **(4)** „Osoby bez grupy" to teraz **karta**, nie pasek z przerywaną ramką: stała obok karty
+> z grupami i czytało się ją jak jej stopkę. Po rozwinięciu siatka `repeat(auto-fill, minmax(210px, 1fr))`
+> z kółkiem 26 px przy każdym nazwisku.
+> **(5)** **Okna „Nowa grupa" i „Zmień nazwę" w stylu okna nazw firm** (Z29): znak 38 px, tytuł
+> `--t-h2`, pod nim firma (a przy zmianie nazwy także obecna nazwa), krzyżyk jako **ikona**
+> (litera „×" brała krój z otoczenia i stała niecentrycznie), szara ramka z regułą o wielkości
+> liter, stopka `--c-surface-mute` z „Anuluj" i przyciskiem zapisu.
+> ⚠ **Stopka jest WEWNĄTRZ formularza** — przycisk `submit` poza swoim formularzem nic nie wysyła,
+> więc to formularz pełni rolę `.modal__wrap` i sam rozkłada treść na `.modal__body` i `.modal__foot`.
+> ⚠ **Odmowa zapisu wraca DO OKNA**, z wpisaną nazwą w polu i polem w stanie błędu; pasek strony
+> wtedy milczy, bo ten sam komunikat w dwóch miejscach każe szukać, który jest aktualny.
+> Bez JavaScriptu działa tak samo: serwer renderuje `<dialog open>`, a `ui.js` je podnosi.
+> ⚠ `data-zaznacz` zaznacza treść pola po otwarciu (nazwę zmienia się zwykle w całości).
+> **(6)** ⚠ **Poprawka usterki zgłoszonej w Z29**: oba okna dostały `data-modal-trwale`, bo wspólna
+> obsługa czyściła `.modal__body` przy każdym zamknięciu. Zmierzone przed poprawką: po zamknięciu
+> okno miało **0 elementów i 0 pól**, a drugie otwarcie pokazywało puste pudełko. Po poprawce
+> drugie otwarcie ma komplet (nowa grupa: 3 elementy i 1 pole; zmiana nazwy: 2 i 1).
+> **(7)** Okno członków: nagłówek jak wyżej, kółko 26 px przy osobie, nazwa innej grupy jako
+> plakietka 11 px, „Usuń/Dodaj wszystkich" zielonym napisem bez ramki (znaki „+" i „×" zniknęły —
+> robiły za ikonę, której nie ma), wyszukiwarki z lupą **w polu** i etykietą ukrytą wizualnie.
+> ⚠ Pole w kolumnie musiało dostać `display: block`: `.pole-szukania` z listy osób ustawia `flex`,
+> co przestawiało etykietę-pudełko w rząd i pole brało szerokość własnej treści (210 px w kolumnie
+> 483 px).
+> **Pomiar**: 1920 px — 4 kafle w rzędzie, wiersz grupy 1558 × 72 (kolumny `38 / 1184 / 62 / 156 / 38`),
+> okno nowej grupy 520 × 398, zmiany nazwy 520 × 355, członków 1040 × 559 z kolumnami 483 px;
+> 375 px — kafle po 2 w rzędzie, wiersz 341 × 118 w trzech kolumnach, okna 341 px szerokości,
+> kolumny okna członków jedna pod drugą. Zero przewijania w poziomie na obu szerokościach.
+> Po zamknięciu okna i odświeżeniu listy htmx-em układ wiersza zostaje (zmierzone: te same
+> pięć kolumn, znak i przycisk „Członkowie" na miejscu).
 
 > **Zmiana 1.18.9 → 1.18.10: `/admin/konta` w układzie pulpitu — pasek kafli, znak karty,
 > wiersz z inicjałami** (zlecenie Z30, 18.10.2026, prototyp zatwierdzony przez Krzysztofa).
@@ -768,6 +836,16 @@ innych ekranach (przełącznik roku, zakres uprawnień) i tam zostaje taki, jaki
 `.kafle` `.kafel` `.kafel__glowa` `.kafel__etykieta` `.kafel__dana` `.kafel__wartosc`
 `.kafel__wartosc--brak` `.kafel__wartosc--odchylenie` `.kafel__reszta` `.kafel__opis`
 `.kafle--auto` (pasek pięciu kafli stanu instalacji — liczba kolumn z `auto-fit`, nie z progu)
+
+*Ekran grup (1.18.11, zlecenie Z31)*
+`.inicjaly--grupa` `.inicjaly--stos` `.inicjaly--wiecej` `.inicjaly--bez-grupy` `.inicjaly--assign`
+`.stos` `.group-list__sklad` `.group-list__nazwiska` `.group-list__czlonkowie`
+`.card__znak--cichy` `.bez-grupy__tytuly` `.bez-grupy__opis` `.bez-grupy__siatka`
+`.bez-grupy__osoba` `.bez-grupy__imie` `.modal--grupa` `.chip--mala` `.assign__hurt`
+`.ikona-akcja` `.ikona-akcja--edycja` `.ikona-akcja--usun` `.ikona-akcja__form`
+`.card__znak--niebezpieczny` (1.18.12, Z33)
+⚠ `.stos` i `.inicjaly--stos` **usunięte w 1.18.12** — nie szukaj ich na ekranie.
+⚠ `data-zaznacz` na polu w oknie każe `ui.js` zaznaczyć jego treść po otwarciu.
 
 *Lista osób i kont (1.18.10, zlecenie Z30)*
 `.inicjaly` `.inicjaly--lista` `.inicjaly--dostep` `.osoba-wiersz` `.osoba-wiersz__nazwa`

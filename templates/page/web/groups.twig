@@ -39,27 +39,56 @@
     ucięty krawędzią karty — dokładnie ta usterka, którą 10.10.2026 zmierzono na kontrolce
     wyboru osób (panel w karcie z `overflow: hidden`, przycisk zapisu nieosiągalny). -#}
 {% block content %}
-    <div class="page__head">
-        <div class="page__title">
-            <p class="page__sub">Etykieta porządkująca listę osób — jedna osoba może być w kilku grupach. Grupa <strong>nie</strong> wpływa na to, kto zatwierdza urlop — to ustawia Hierarchia.{% if caly_tenant %} Jako administrator tenanta prowadzisz grupy <strong>wszystkich spółek</strong>.{% endif %}</p>
-            {% include 'partials/spolka-ekranu.twig' with {
-                'spolka': spolka.nazwa, 'z_adresu': spolka_z_adresu,
-                'z_zasobu': spolka_z_zasobu, 'fallback': spolka_fallback} only %}
-        </div>
-        <div class="page__actions">
-{#- ⚠ **Kontrolka wyboru spółki zniknęła z tego ekranu** (zlecenie 10.10.2026 §1): jedna
-        kontrolka stoi w górnej belce i jest widoczna na każdym ekranie. Dwie kontrolki do jednego
-        wyboru rozjechałyby się przy pierwszej zmianie — to był cel tej zmiany, nie efekt uboczny. -#}
-            {#- ⚠ Okno modalne, nie karta na końcu ekranu: tworzenie grupy jest czynnością rzadką,
-                a karta z formularzem stała pod listą i przy dziesięciu grupach wymagała
-                przewinięcia, żeby dojść do jedynego przycisku, którego się tam szuka.
-                `<dialog>` daje Escape i zamknięcie kliknięciem w tło bez linii JS (`ui.js`). -#}
-            <button type="button" class="btn btn--primary btn--sm" data-modal-open="grupa-nowa">Nowa grupa</button>
-        </div>
-    </div>
+{% import 'partials/inicjaly.twig' as znak %}
+{#- ⚠ **Bez `.page__head`** (zlecenie Z31 §1): zdanie o tym, czym jest grupa, zeszło do nagłówka
+    karty — dotyczy listy pod nim, a nie całego ekranu; „Nowa grupa" stanęła w tym samym nagłówku,
+    przy liście, do której dodaje. Zdanie o „wszystkich spółkach" zniknęło (§1): administrator
+    tenanta i tak widzi w belce, którą firmę prowadzi, a zdanie mówiło o zakresie konta
+    w miejscu, w którym czyta się o grupach. -#}
 
-    {% if error is not null %}<p class="notice notice--danger" role="alert">{{ error }}</p>{% endif %}
+    {#- ⚠ Cztery liczby jednym zapytaniem (`GroupRepository::statystyki`). Wszystkie liczą TEN SAM
+        zbiór: czynne zatrudnienia w tej firmie — inaczej dwa kafle obok siebie mówiłyby o dwóch
+        różnych załogach, a różnica wyglądałaby na błąd.
+        ⚠ „Osób w grupach" liczy LUDZI, nie przypisania: suma liczników przy grupach jest wyższa,
+        bo jedna osoba bywa w kilku grupach — i to jest poprawne, to dwie różne rzeczy. -#}
+    <section class="kafle kafle--auto" aria-label="Stan grup w firmie">
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.etykieta() }}<span class="kafel__etykieta">Grupy</span></span>
+            <span class="kafel__dana">
+                <span class="kafel__wartosc">{{ statystyki.grup }}</span>
+                <span class="kafel__opis">w firmie {{ spolka.nazwa }}</span>
+            </span>
+        </div>
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.zespol() }}<span class="kafel__etykieta">Osób w grupach</span></span>
+            <span class="kafel__dana">
+                <span class="kafel__wartosc">{{ statystyki.w_grupach }}</span>
+                <span class="kafel__opis">przypisanych do co najmniej jednej</span>
+            </span>
+        </div>
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.prostokaty() }}<span class="kafel__etykieta">W kilku grupach</span></span>
+            <span class="kafel__dana">
+                <span class="kafel__wartosc">{{ statystyki.w_kilku }}</span>
+                <span class="kafel__opis">osoba może być w wielu grupach</span>
+            </span>
+        </div>
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.osoba_bez() }}<span class="kafel__etykieta">Bez grupy</span></span>
+            <span class="kafel__dana">
+                <span class="kafel__wartosc">{{ bez_grupy.osob }}</span>
+                <span class="kafel__opis">nie należą do żadnej grupy</span>
+            </span>
+        </div>
+    </section>
+
+    {#- ⚠ Odmowa zapisu wraca DO OKNA (Z31, dopisek), więc pasek strony milczy — ten sam komunikat
+        w dwóch miejscach naraz kazałby szukać, który z nich jest aktualny. -#}
+    {% if error is not null and okno_bledu is null %}<p class="notice notice--danger" role="alert">{{ error }}</p>{% endif %}
     {% if notice is not null %}<p class="notice" role="status">{{ notice }}</p>{% endif %}
+    {% include 'partials/spolka-ekranu.twig' with {
+        'spolka': spolka.nazwa, 'z_adresu': spolka_z_adresu,
+        'z_zasobu': spolka_z_zasobu, 'fallback': spolka_fallback} only %}
 
     {#- ⚠ Identyfikator i adres na karcie, bo po zamknięciu okna **wiersz musi mieć aktualną
         liczbę i skład** (aneks §1). Odświeżenie robi `modules/grupy.js` jednym żądaniem na ten
@@ -67,69 +96,101 @@
         przewinięcie. Bez JavaScriptu okna nie ma, więc nie ma też czego odświeżać. -#}
     <section class="card card--os" id="grupy-lista"
              data-grupy-adres="{{ url('/admin/grupy') }}">
-        <div class="card__head"><h2 class="card__title">Grupy w {{ spolka.nazwa }}</h2></div>
+        <div class="card__head card__head--znak card__head--lista">
+            <span class="card__znak">{{ ikony.etykieta() }}</span>
+            <div class="card__tytuly">
+                <h2 class="card__title">Grupy w firmie {{ spolka.nazwa }}</h2>
+                <p class="card__opis">Etykieta porządkująca listę osób. Jedna osoba może być w kilku grupach. Grupa nie wpływa na to, kto zatwierdza urlop — to ustawia Hierarchia.</p>
+            </div>
+            <div class="card__akcje">
+                {#- ⚠ Okno modalne, nie karta na końcu ekranu: tworzenie grupy jest czynnością rzadką,
+                    a karta z formularzem stała pod listą i przy dziesięciu grupach wymagała
+                    przewinięcia, żeby dojść do jedynego przycisku, którego się tam szuka.
+                    `<dialog>` daje Escape i zamknięcie kliknięciem w tło bez linii JS (`ui.js`). -#}
+                <button type="button" class="btn btn--ghost btn--akcja" data-modal-open="grupa-nowa">{{ ikony.plus() }}Nowa grupa</button>
+            </div>
+        </div>
         {% if grupy is empty %}
             <div class="card__body"><p class="empty-state">Nie ma jeszcze żadnej grupy w tej firmie.</p></div>
         {% else %}
             <ul class="group-list">
                 {% for g in grupy %}
                     <li class="group-list__row">
+                        {#- Znak grupy: pierwsza litera nazwy. Ten sam kształt co kółko osoby,
+                            inna barwa tła — grupa nie jest człowiekiem. -#}
+                        {{ znak.kolko(g.nazwa, 'inicjaly--grupa') }}
                         <div class="group-list__main">
                             {#- ⚠ **Cały wiersz klikalny** — odnośnik rozpięty na wiersz
                                 pseudoelementem (`.group-list__name::after`), a nie `<a>` wokół
                                 wiersza: przycisk w odnośniku jest w HTML niedozwolony,
-                                a przeglądarka rozstrzyga to po swojemu. Menu `⋯` stoi wyżej
-                                w warstwach, więc kliknięcie w nie nie otwiera grupy. -#}
-                            {#- ⚠ **Zwykły odnośnik z prawdziwym adresem, a na nim okno**
-                                (aneks §1, ten sam wzorzec co „Zmień przełożonego" na hierarchii).
-                                Bez JavaScriptu kliknięcie prowadzi na `/admin/grupy/{id}`, czyli
-                                pełny ekran — i to jest jedyna droga, żeby odnośnik do grupy dało
-                                się komuś wysłać. Z JavaScriptem `ui.js` wstrzymuje nawigację
-                                i otwiera okno, a htmx dociąga do niego **ten sam fragment**,
-                                który renderuje podstrona (`?okno=1` dokłada mu nagłówek okna). -#}
+                                a przeglądarka rozstrzyga to po swojemu. Menu `⋯` i „Członkowie"
+                                stoją wyżej w warstwach, więc klik w nie nie otwiera grupy.
+                                ⚠ **Zwykły odnośnik z prawdziwym adresem, a na nim okno**
+                                (aneks §1): bez JavaScriptu kliknięcie prowadzi na `/admin/grupy/{id}`,
+                                czyli pełny ekran — i to jest jedyna droga, żeby odnośnik do grupy
+                                dało się komuś wysłać. -#}
                             <a class="group-list__name" href="{{ url('/admin/grupy/' ~ g.id) }}"
                                data-modal-open="grupa-okno"
                                hx-get="{{ url('/admin/grupy/' ~ g.id ~ '/osoby') }}?okno=1"
                                hx-target="#grupa-okno-tresc" hx-swap="innerHTML">{{ g.nazwa }}</a>
-                            <p class="group-list__sklad">
-                                {%- if g.sklad is empty -%}
-                                    pusta grupa — wejdź i dodaj osoby
-                                {%- else -%}
-                                    {{ g.sklad|join(' · ') }}{% if g.wiecej > 0 %} … <span class="group-list__wiecej">+{{ g.wiecej }}</span>{% endif %}
-                                {%- endif -%}
-                            </p>
+                            {#- ⚠ Skład grupy dwa razy w dwóch postaciach: kółka z inicjałami niosą
+                                „ilu i że to ludzie", nazwiska mówią „kto". Same kółka byłyby
+                                zagadką, same nazwiska — ścianą tekstu w każdym wierszu. -#}
+                            {#- ⚠ **Bez stosu inicjałów** (zlecenie Z33 §1): kółka powtarzały to,
+                                co mówią nazwiska obok, a przy czterech osobach zajmowały ćwierć
+                                wiersza. Kwadrat z literą grupy zostaje — on mówi co innego
+                                (która to grupa), a nie „kto w niej jest". -#}
+                            <div class="group-list__sklad">
+                                {% if g.sklad is empty %}
+                                    <p class="group-list__nazwiska">pusta grupa — wejdź i dodaj osoby</p>
+                                {% else %}
+                                    <p class="group-list__nazwiska">{{ g.sklad|join(' · ') }}{% if g.wiecej > 0 %} … +{{ g.wiecej }}{% endif %}</p>
+                                {% endif %}
+                            </div>
                         </div>
                         {#- ⚠ **Etykieta z liczbą, nie liczba z przymiotnikiem.** „1 nieaktywna /
                             2 nieaktywne / 5 nieaktywnych" wymaga odmiany PRZYMIOTNIKA, której
                             `Odmiana` nie robi (ma liczebniki rzeczowników) — a zmierzone
                             „1 osoba nieaktywne" to dokładnie ten błąd. -#}
-                        <span class="group-list__count">{{ g.osob }} {{ odmiana_osob(g.osob) }}{% if g.nieaktywnych > 0 %} <span class="group-list__note">(nieaktywnych: {{ g.nieaktywnych }})</span>{% endif %}</span>
-                        <details class="menu group-list__menu">
-                            <summary class="menu__trigger" aria-label="Działania dla grupy {{ g.nazwa }}">{{ ikony.wiecej() }}</summary>
-                            <div class="menu__body">
-                                <button type="button" class="menu__item" data-modal-open="grupa-nazwa-{{ g.id }}">Zmień nazwę…</button>
-                                {#- ⚠ Bez JavaScriptu okno modalne się nie otworzy, więc ten sam
-                                    formularz stoi tu jeszcze raz — **z jednego partiala**, tak
-                                    jak przy „Nowej grupie". Bez tego zmiana nazwy byłaby
-                                    niemożliwa bez skryptów. -#}
-                                <noscript>
-                                    {% include 'partials/grupa-nazwa-form.twig' with {'grupa': g, 'spolka': spolka, 'wroc': 'lista'} only %}
-                                </noscript>
-                                {#- ⚠ Usunięcie wyłącznie pustej grupy. `disabled` NIE jest
-                                    zabezpieczeniem: odmowę wystawia zapytanie, a pod nim klucz
-                                    obcy `ON DELETE RESTRICT` (CLAUDE.md §10). -#}
-                                {% if g.osob == 0 %}
-                                    <form method="post" action="{{ url('/admin/grupy/' ~ g.id ~ '/usun') }}">
-                                        {% include 'partials/csrf.twig' %}
-                                        <input type="hidden" name="spolka" value="{{ spolka.id }}">
-                                        <button type="submit" class="menu__item">Usuń grupę</button>
-                                    </form>
-                                {% else %}
-                                    <button type="button" class="menu__item" disabled>Usuń grupę</button>
-                                    <p class="menu__powod">najpierw wypisz {{ g.osob }} {{ odmiana_osob(g.osob) }}</p>
-                                {% endif %}
-                            </div>
-                        </details>
+                        <span class="chip group-list__count">{{ g.osob }} {{ odmiana_osob(g.osob) }}{% if g.nieaktywnych > 0 %} <span class="group-list__note">(nieaktywnych: {{ g.nieaktywnych }})</span>{% endif %}</span>
+                        {#- „Członkowie" otwiera to samo okno co nazwa grupy — dwa wejścia, jedno
+                            okno i jeden fragment z serwera. -#}
+                        <a class="btn btn--ghost btn--akcja group-list__czlonkowie" href="{{ url('/admin/grupy/' ~ g.id) }}"
+                           data-modal-open="grupa-okno"
+                           hx-get="{{ url('/admin/grupy/' ~ g.id ~ '/osoby') }}?okno=1"
+                           hx-target="#grupa-okno-tresc" hx-swap="innerHTML">{{ ikony.osoba_plus() }}Członkowie<span class="settings-list__dalej" aria-hidden="true">›</span></a>
+                        {#- ⚠ **Dwa widoczne przyciski zamiast menu „⋯"** (zlecenie Z33 §2):
+                            obie czynności są na tym ekranie pojedyncze i częste, a menu kazało
+                            zgadywać, co w nim jest. Ikona niesie znaczenie, a `aria-label`
+                            i `title` mówią je słowami — bez nich przycisk-ikona jest zagadką
+                            dla czytnika ekranu i dla kursora.
+                            ⚠ **Ołówek jest ODNOŚNIKIEM na ekran grupy**, nie samym wyzwalaczem
+                            okna: bez JavaScriptu prowadzi tam, gdzie stoi ten sam formularz
+                            nazwy (`group.twig`), więc zmiana nazwy zostaje osiągalna bez
+                            skryptów — dokładnie tak, jak działała pozycja menu. -#}
+                        <a class="ikona-akcja ikona-akcja--edycja" href="{{ url('/admin/grupy/' ~ g.id) }}"
+                           data-modal-open="grupa-nazwa-{{ g.id }}"
+                           aria-label="Zmień nazwę grupy {{ g.nazwa }}" title="Zmień nazwę grupy">{{ ikony.olowek() }}</a>
+                        {#- ⚠ Kosz: bez JavaScriptu **wysyła formularz** usunięcia (tak jak dawna
+                            pozycja menu), a ze skryptem `ui.js` wstrzymuje wysyłkę i otwiera okno
+                            z potwierdzeniem. Jeden przycisk, dwie drogi — i żadna nie wymaga
+                            drugiego miejsca w szablonie.
+                            ⚠ Grupa z osobami: przycisk WYŁĄCZONY z powodem w `title`. `disabled`
+                            nie jest zabezpieczeniem — odmowę wystawia zapytanie, a pod nim klucz
+                            obcy `ON DELETE RESTRICT` (CLAUDE.md §10). -#}
+                        {% if g.osob == 0 %}
+                            <form method="post" action="{{ url('/admin/grupy/' ~ g.id ~ '/usun') }}" class="ikona-akcja__form">
+                                {% include 'partials/csrf.twig' %}
+                                <input type="hidden" name="spolka" value="{{ spolka.id }}">
+                                <button type="submit" class="ikona-akcja ikona-akcja--usun"
+                                        data-modal-open="grupa-usun-{{ g.id }}"
+                                        aria-label="Usuń grupę {{ g.nazwa }}" title="Usuń grupę">{{ ikony.kosz() }}</button>
+                            </form>
+                        {% else %}
+                            <button type="button" class="ikona-akcja ikona-akcja--usun" disabled
+                                    aria-label="Usuń grupę {{ g.nazwa }} — najpierw wypisz {{ g.osob }} {{ odmiana_osob(g.osob) }}"
+                                    title="Najpierw wypisz {{ g.osob }} {{ odmiana_osob(g.osob) }}">{{ ikony.kosz() }}</button>
+                        {% endif %}
                     </li>
                 {% endfor %}
             </ul>
@@ -138,25 +199,44 @@
 
     {#- ⚠ **„Bez grupy" to STAN, nie grupa** (§0 zlecenia z 08.10, §4 z 10.10) — policzalny jak
         „Nieustawionych" na hierarchii. Na starcie są tu wszyscy i to jest poprawny stan,
-        nie zaległość do ukrycia. Przerywana ramka mówi „to nie jest wiersz listy".
+        nie zaległość do ukrycia.
         ⚠ Pasek **rozwija się w nazwiska** (`<details>`, bez JavaScriptu) zamiast prowadzić
         na ekran, którego nie ma: „klikalny" ma znaczyć „coś się stanie", a nie „404".
         ⚠ „Bez grupy" znaczy **ani jednej** grupy i liczy **czynne** zatrudnienia — przy wielu
-        grupach na osobę to już nie dopełnienie sumy liczb z listy wyżej. -#}
-    <details class="bez-grupy">
+        grupach na osobę to już nie dopełnienie sumy liczb z listy wyżej.
+        ⚠ Od Z31 to KARTA, a nie pasek z przerywaną ramką: przerywana ramka mówiła „to nie jest
+        wiersz listy", ale mówiła to **obok** karty z grupami, więc czytało się ją jak stopkę tej
+        karty. Teraz jest osobnym blokiem o tej samej wadze, a że to stan, a nie grupa, mówi
+        o tym znak w kolorze obojętnym i zdanie w środku. -#}
+    <details class="card bez-grupy">
         <summary class="bez-grupy__head">
-            <span class="bez-grupy__nazwa">Bez grupy</span>
-            <span class="bez-grupy__count">{{ bez_grupy.osob }} {{ odmiana_osob(bez_grupy.osob) }}</span>
+            <span class="card__znak card__znak--cichy">{{ ikony.osoba_bez() }}</span>
+            <span class="bez-grupy__tytuly">
+                <span class="bez-grupy__nazwa">Osoby bez grupy</span>
+                <span class="bez-grupy__opis">Nie należą do żadnej grupy. To nie jest błąd — grupa jest tylko etykietą.</span>
+            </span>
+            <span class="chip bez-grupy__count">{{ bez_grupy.osob }} {{ odmiana_osob(bez_grupy.osob) }}</span>
+            {{ ikony.strzalka() }}
         </summary>
         <div class="bez-grupy__body">
             {% if bez_grupy.sklad is empty %}
                 <p class="bez-grupy__sklad">Każde czynne zatrudnienie w tej firmie ma już jakąś grupę.</p>
             {% else %}
-                <p class="bez-grupy__sklad">{{ bez_grupy.sklad|join(' · ') }}</p>
+                {#- Siatka osób: tyle kolumn, ile się mieści przy podłodze 210 px — nazwisko
+                    z kółkiem nie mieści się w mniejszej, a progów od okna tu nie ma. -#}
+                <ul class="bez-grupy__siatka">
+                    {% for osoba in bez_grupy.sklad %}
+                        <li class="bez-grupy__osoba">
+                            {{ znak.kolko(osoba, 'inicjaly--bez-grupy') }}
+                            <span class="bez-grupy__imie" title="{{ osoba }}">{{ osoba }}</span>
+                        </li>
+                    {% endfor %}
+                </ul>
             {% endif %}
-            <p class="bez-grupy__uwaga">To stan, nie grupa: liczy <strong>czynne</strong> zatrudnienia bez ani jednej grupy. Nie da się jej nazwać ani usunąć.</p>
+            <p class="nazwy-podpowiedz">To stan, nie grupa: liczy <strong>czynne</strong> zatrudnienia bez ani jednej grupy. Nie da się jej nazwać ani usunąć.</p>
         </div>
     </details>
+
 
     {#- ⚠ **Jedno puste okno na cały ekran**, a nie jedno na wiersz: treść (nazwa grupy i obie
         kolumny) przychodzi z serwera jednym żądaniem, więc okno nie musi jej znać z wyprzedzenia.
@@ -171,31 +251,73 @@
         modalnym dla przeglądarki z JavaScriptem i w `<noscript>` dla tej bez niego. Bez drugiego
         miejsca przycisk „Nowa grupa" byłby jedyną drogą, a `data-modal-open` wymaga JS —
         czyli bez skryptów nie dałoby się utworzyć grupy wcale. -#}
-    <dialog id="grupa-nowa" class="modal" aria-labelledby="grupa-nowa-tytul">
-        <div class="modal__head">
-            <h3 id="grupa-nowa-tytul">Nowa grupa w {{ spolka.nazwa }}</h3>
-            <button type="button" class="modal__close" data-modal-close="grupa-nowa" aria-label="Zamknij okno">×</button>
+    {#- ⚠ `data-modal-trwale` POPRAWIA USTERKĘ, nie dokłada ozdoby (zgłoszona w raporcie Z29):
+        wspólna obsługa okien czyści `.modal__body` przy zamknięciu, bo treść kreatora przychodzi
+        z serwera. Tutaj treść jest OSADZONA w stronie, więc wyczyszczona nie wracała — zmierzone
+        przed poprawką: okno „Nowa grupa" miało po pierwszym otwarciu 2 elementy i 3 pola,
+        po zamknięciu 0 i 0, a drugie otwarcie pokazywało puste pudełko. -#}
+    <dialog id="grupa-nowa" class="modal modal--grupa" aria-labelledby="grupa-nowa-tytul" data-modal-trwale
+            {{- okno_bledu == 'grupa-nowa' ? ' open' : '' }}>
+        <div class="modal__head modal__head--znak">
+            <span class="card__znak">{{ ikony.etykieta() }}</span>
+            <div class="card__tytuly">
+                <h3 id="grupa-nowa-tytul">Nowa grupa</h3>
+                <p class="card__opis">w firmie {{ spolka.nazwa }}</p>
+            </div>
+            <button type="button" class="modal__close" data-modal-close="grupa-nowa" aria-label="Zamknij okno">{{ ikony.krzyzyk() }}</button>
         </div>
-        <div class="modal__body">
-            {% include 'partials/grupa-nowa-form.twig' with {'spolka': spolka} only %}
-            <p class="card__meta">Nazwy w jednej spółce muszą się różnić — i <strong>nie rozróżniamy ich wielkością liter</strong>, bo „Produkcja" i „PRODUKCJA" na liście wyglądają jak jedna grupa.</p>
-        </div>
+        {% include 'partials/grupa-nowa-form.twig' with {'spolka': spolka, 'okno': true, 'okno_id': 'grupa-nowa',
+            'blad': okno_bledu == 'grupa-nowa' ? error : null, 'wpisana': okno_bledu == 'grupa-nowa' ? wpisana_nazwa : ''} only %}
     </dialog>
 
     {#- ⚠ **Jedno okno na grupę**, a nie jedno okno przestawiane JavaScriptem: pole jest
         wypełnione nazwą, więc treść okna zależy od wiersza. Przestawianie jednego okna
         wymagałoby pisania wartości skryptem, czyli drugiego miejsca, w którym powstaje ta
         sama treść — a bez JavaScriptu i tak zostaje `<noscript>` w menu. -#}
+    {#- ⚠ **Okno potwierdzenia usunięcia** (Z33 §2): kosz w wierszu nie kasuje od razu, bo
+        usunięcie grupy jest nieodwracalne, a kosz stoi 6 px od ołówka. Okno ma ten sam nagłówek
+        i tę samą stopkę co pozostałe okna grup; różni się jednym — przyciskiem w barwie
+        niebezpiecznej. Bez JavaScriptu okno się nie otwiera i kosz po prostu wysyła formularz,
+        czyli zachowuje się dokładnie tak, jak dawna pozycja menu „Usuń grupę". -#}
     {% for g in grupy %}
-        <dialog id="grupa-nazwa-{{ g.id }}" class="modal" aria-labelledby="grupa-nazwa-{{ g.id }}-tytul">
-            <div class="modal__head">
-                <h3 id="grupa-nazwa-{{ g.id }}-tytul">Nazwa grupy {{ g.nazwa }}</h3>
-                <button type="button" class="modal__close" data-modal-close="grupa-nazwa-{{ g.id }}" aria-label="Zamknij okno">×</button>
+        {% if g.osob == 0 %}
+            <dialog id="grupa-usun-{{ g.id }}" class="modal modal--grupa" aria-labelledby="grupa-usun-{{ g.id }}-tytul" data-modal-trwale>
+                <div class="modal__head modal__head--znak">
+                    <span class="card__znak card__znak--niebezpieczny">{{ ikony.kosz() }}</span>
+                    <div class="card__tytuly">
+                        <h3 id="grupa-usun-{{ g.id }}-tytul">Usuń grupę</h3>
+                        <p class="card__opis">{{ g.nazwa }} · w firmie {{ spolka.nazwa }}</p>
+                    </div>
+                    <button type="button" class="modal__close" data-modal-close="grupa-usun-{{ g.id }}" aria-label="Zamknij okno">{{ ikony.krzyzyk() }}</button>
+                </div>
+                <form class="modal__wrap" method="post" action="{{ url('/admin/grupy/' ~ g.id ~ '/usun') }}">
+                    {% include 'partials/csrf.twig' %}
+                    <input type="hidden" name="spolka" value="{{ spolka.id }}">
+                    <div class="modal__body">
+                        <p class="nazwy-podpowiedz">Grupa jest pusta, więc usunięcie nikogo nie wypisuje. Etykieta zniknie z listy i z filtrów — osoby zostają bez zmian.</p>
+                    </div>
+                    <div class="modal__foot">
+                        <div class="btn-row btn-row--jedna-linia">
+                            <button type="button" class="btn btn--ghost" data-modal-close="grupa-usun-{{ g.id }}">Anuluj</button>
+                            <button type="submit" class="btn btn--danger">Usuń grupę</button>
+                        </div>
+                    </div>
+                </form>
+            </dialog>
+        {% endif %}
+        <dialog id="grupa-nazwa-{{ g.id }}" class="modal modal--grupa" aria-labelledby="grupa-nazwa-{{ g.id }}-tytul" data-modal-trwale
+                {{- okno_bledu == 'grupa-nazwa-' ~ g.id ? ' open' : '' }}>
+            <div class="modal__head modal__head--znak">
+                <span class="card__znak">{{ ikony.etykieta() }}</span>
+                <div class="card__tytuly">
+                    <h3 id="grupa-nazwa-{{ g.id }}-tytul">Zmień nazwę grupy</h3>
+                    <p class="card__opis">{{ g.nazwa }} · w firmie {{ spolka.nazwa }}</p>
+                </div>
+                <button type="button" class="modal__close" data-modal-close="grupa-nazwa-{{ g.id }}" aria-label="Zamknij okno">{{ ikony.krzyzyk() }}</button>
             </div>
-            <div class="modal__body">
-                {% include 'partials/grupa-nazwa-form.twig' with {'grupa': g, 'spolka': spolka, 'wroc': 'lista'} only %}
-                <p class="card__meta">Nazwy w jednej spółce muszą się różnić — i <strong>nie rozróżniamy ich wielkością liter</strong>.</p>
-            </div>
+            {% include 'partials/grupa-nazwa-form.twig' with {'grupa': g, 'spolka': spolka, 'wroc': 'lista', 'okno': true,
+                'okno_id': 'grupa-nazwa-' ~ g.id, 'blad': okno_bledu == 'grupa-nazwa-' ~ g.id ? error : null,
+                'wpisana': okno_bledu == 'grupa-nazwa-' ~ g.id ? wpisana_nazwa : ''} only %}
         </dialog>
     {% endfor %}
 
