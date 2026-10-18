@@ -1465,7 +1465,23 @@ body:has(dialog.modal[open]) { overflow: hidden; }
    blokiem nagłówka (`.card--kal-naglowek::after`): zakrywa dokładnie tę szczelinę, przez którą
    inaczej prześwitują przewijane wiersze. Dwie niezależne liczby rozjechałyby się przy pierwszej
    zmianie odstępu i objawiłoby się to kreską w szczelinie, nie błędem. */
-.bloki { --bloki-luka: var(--s-4); display: flex; flex-direction: column; gap: var(--bloki-luka); }
+/* ⚠ `--kal-ramka` i `--kal-pas-nad-dniami` stoją TUTAJ, bo potrzebują ich dwa różne bloki:
+   karta nagłówka (pasy tła nad sobą i pod sobą) i komórki wiersza dni w bloku obok (własny pas
+   tła w górę — poprawka Z26). Własność dziedziczona z pojemnika jest jedynym miejscem, z którego
+   widzą ją oba; zapisana dwa razy rozjechałaby się przy pierwszej zmianie.
+   ⚠ **`--kal-pas-nad-dniami` to odstęp bloków PLUS zapas, nie zmierzona wysokość szczeliny.**
+   Zapas (jedna wyściółka strony) pokrywa chwilę między zmianą wysokości karty nagłówka
+   a przeliczeniem jej przez `ResizeObserver`; nadmiar chowa się pod kartą nagłówka, bo ta ma
+   `z-index: 4`, a wiersz dni 2. Bez zapasu każda nierówność wysokości odsłania przewijane
+   wiersze w szczelinie — to było zgłoszenie Z26. */
+.bloki {
+  --bloki-luka: var(--s-4);
+  --kal-ramka: 1px;
+  --kal-pas-nad-dniami: calc(var(--bloki-luka) + var(--s-6));
+  display: flex;
+  flex-direction: column;
+  gap: var(--bloki-luka);
+}
 
 /* ⚠ **Blok nagłówka kalendarza zostaje na ekranie przy przewijaniu strony** (zlecenie Z24,
    17.10.2026, po drugim prototypie — wybór Krzysztofa między „suwak w pudełku" i „przewija się
@@ -1511,8 +1527,6 @@ body:has(dialog.modal[open]) { overflow: hidden; }
    istnieje), a pas pod kartą zostaje — zamalowuje tłem strony odstęp między blokami, czyli
    maluje tło na tle, i jedzie razem z kartą. Nie widać go i nie ma czego wyłączać. */
 .card--kal-naglowek {
-  /* Grubość ramki `.card` — jedna wartość w jednym miejscu, używana dwa razy niżej. */
-  --kal-ramka: 1px;
   position: sticky;
   top: var(--przyklej-pod-belka, auto);
   z-index: 4;
@@ -2005,8 +2019,12 @@ body:has(dialog.modal[open]) { overflow: hidden; }
    zależne od długości miesiąca — nowy miesiąc nie wymaga już niczego w arkuszu.
    ⚠ Nauka ogólniejsza: `nth-child` liczy **dzieci**, a nie **kolumny**. W siatce ze scalaniem
    te dwie liczby nie są tą samą liczbą. */
+/* ⚠ **Ostatnia kolumna ma własną prawą krawędź od Z26** (wcześniej `border-right: 0`, bo brzeg
+   rysowała ramka karty). Powód zmiany stoi przy `.card--kal-siatka`: ramka karty leży 1 px za
+   siatką, więc przy przyklejonym wierszu dni zostawała odczepioną kreską obok łuku narożnika.
+   Kreska jest w tym samym miejscu — wnętrze karty jest o ten 1 px szersze. */
 .team-grid__head--ostatni,
-.team-grid__cell--ostatnia { border-right: 0; }
+.team-grid__cell--ostatnia { border-right: 1px solid var(--c-line); }
 
 /* ⚠ **Przyklejony wiersz dni ma wyglądać jak górna krawędź karty** (Z25): ramka 1 px wyżej,
    a tutaj promień — ten sam, co w karcie, bo to ta krawędź udaje. W spoczynku zaokrąglenie
@@ -2017,6 +2035,111 @@ body:has(dialog.modal[open]) { overflow: hidden; }
    przyklejonego wiersza. Brakowało wyłącznie góry. */
 .team-grid__head--person { border-top-left-radius: var(--radius-card); }
 .team-grid__head--ostatni { border-top-right-radius: var(--radius-card); }
+
+/* ⚠ **Górną krawędź bloku z siatką rysuje WIERSZ DNI, a nie ramka karty** (poprawka Z26,
+   18.10.2026, po sprawdzeniu z Krzysztofem w jego przeglądarce).
+
+   Zmierzone przed poprawką (okno 1920 × 1080, `?widok=firma`): ramka karty na `y = 284`,
+   ramka komórki nagłówka na `y = 285`. Czyli krawędź rysowały DWA elementy jeden nad drugim —
+   w spoczynku kreska 2 px i **dwa współśrodkowe łuki** w narożnikach, a po przyklejeniu wiersz
+   dni stawał dokładnie na pozycji karty (`y = 284`), czyli kreska 1 px i jeden łuk. Zgłoszenie
+   „górne rogi przy przewijaniu wyglądały inaczej niż w spoczynku" to była dokładnie ta różnica,
+   a nie błąd rysowania.
+   ⚠ Dlatego blok z siatką **oddaje górną krawędź** wierszowi dni: bez ramki i bez promieni
+   u góry. Zysk jest podwójny — ten sam wygląd w obu stanach, i wiersz dni nie przeskakuje
+   już o 1 px w chwili przyklejenia, bo `--kal-dol-naglowka` mierzy właśnie do górnej krawędzi
+   tej karty, a ta leży teraz dokładnie tam, gdzie ramka komórki.
+   ⚠ Boki i dół zostają nietknięte: blok dalej ma pionowe ramki (widoczne także obok
+   przyklejonego wiersza) i zaokrąglony dół. Zdejmujemy jedną krawędź, nie ramkę. */
+.card--kal-siatka {
+  border-top: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+/* ⚠ **Siatka sięga 1 px dalej w prawo niż wnętrze karty — i to jest konieczne, nie kosmetyka.**
+   Prawy brzeg bloku rysowała dotąd ramka KARTY, czyli element, który stoi 1 px **za** siatką.
+   Przy przyklejonym wierszu dni widać było przez to odczepioną kreskę: łuk narożnika zakręcał,
+   a ramka karty szła dalej prosto do góry wiersza (zmierzone: kolumna `x = prawo` miała barwę
+   `--c-line` na całej wysokości narożnika). Zakrycie jej pseudoelementem jest niemożliwe —
+   każdy element wystający o 1 px w prawo dokłada ten piksel do `scrollWidth` siatki i karty,
+   a bramka słusznie liczy to jako przewijanie w poziomie (zmierzone: 1558 → 1559, a przy
+   pasie ciągniętym do krawędzi kolumny treści 1558 → 1591).
+   Dlatego wnętrze karty jest o tę jedną ramkę szersze z każdej strony, siatka przykrywa kolumny
+   ramek karty własnym tłem, a brzegi rysują **komórki skrajne** (kolumna osoby ma `border-left`
+   od Z25, ostatnia kolumna dostaje `border-right` niżej). Kreski zostają w tych samych
+   miejscach co wcześniej, tylko rysuje je kto inny — i dzięki temu zakręcają razem z łukami
+   narożników.
+   ⚠ Z lewej strony dochodzi do tego poprawka starej nierówności: brzeg miał tam **2 px**
+   (ramka karty plus ramka komórki osoby), a z prawej 1 px. Teraz obie mają 1 px. */
+.card--kal-siatka > .card__body { margin-inline: calc(-1 * var(--kal-ramka)); }
+
+/* ⚠ **Każda komórka wiersza dni niesie własny pas tła strony W GÓRĘ** (Z26).
+   Powód jest zmierzony i nie jest ozdobą: pas tła pod kartą nagłówka (`.card--kal-naglowek::after`)
+   jedzie **razem z kartą**, więc zakrywa szczelinę tylko wtedy, kiedy wysokość karty zgadza się
+   z liczbą w `--kal-dol-naglowka`. Zmierzone na żywo: `padding-bottom: 30px` dołożony karcie
+   przesuwał jej dół o 30 px, a wiersz dni zostawał na starym `top` — i w powstałej szczelinie
+   było widać przewijane wiersze osób. `ResizeObserver` w `kalendarz-przyklej.js` naprawia
+   przyczynę (284 → 314 → 284 px), a ten pas jest **drugą warstwą**: szczelina jest zakryta
+   niezależnie od tego, czy liczba jest już przeliczona.
+   ⚠ Pas idzie w górę od GÓRNEJ KRAWĘDZI komórki, nie od jej wyściółki: blokiem zawierającym
+   dla potomka `absolute` jest pudełko wyściółki, czyli już za ramką — bez `+ var(--kal-ramka)`
+   pas zamalowałby własną górną kreskę komórki, czyli tę jedną krawędź, którą wiersz dni udaje.
+   Ta sama pomyłka o 1 px, co w pasach karty nagłówka (Z25).
+   ⚠ Skrajne komórki ciągną pas **do krawędzi kolumny treści**: w szczelinie przejeżdżają pod
+   spodem nie tylko wnętrze bloku, ale i jego pionowe ramki oraz cień (`--shadow-card` ma 2 px
+   rozmycia). Pas kolumny osoby idzie do wyściółki strony; pas ostatniej kolumny kończy się
+   na krawędzi siatki, bo **każdy piksel wystający w prawo dokłada się do `scrollWidth`**
+   i bramka liczy to jako przewijanie w poziomie (patrz `.card--kal-siatka`).
+   ⚠ Na powłoce mobilnej i pod progiem szerokości pas jest niewidoczny i nie trzeba go wyłączać:
+   `.team-scroll` jest tam kontenerem przewijanym (`overflow: auto`), a to obcina wszystko,
+   co wychodzi nad jego górną krawędź — czyli dokładnie ten pas. */
+.team-grid__head::before {
+  content: '';
+  position: absolute;
+  bottom: calc(100% + var(--kal-ramka));
+  left: 0;
+  right: 0;
+  height: var(--kal-pas-nad-dniami);
+  background: var(--c-bg);
+}
+.team-grid__head--person::before {
+  left: calc(-1 * (var(--przyklej-luka, 0px) + var(--kal-ramka)));
+}
+
+
+/* ⚠ **Poza łukiem narożnika nie ma czego rysować — i to było widać** (Z26).
+   Komórka ma promień 10 px, więc wycinek między łukiem a kątem prostym (≈ 21 px² w każdym
+   narożniku) **nie jest malowany niczym**: w spoczynku prześwitywało tam tło karty, a po
+   przyklejeniu przewijane wiersze i paski nieobecności. Łuk nie ma czym się o co oprzeć, bo
+   karta oddała górną krawędź (reguła wyżej) — więc wycinek zamalowuje tłem strony sama komórka.
+   ⚠ **Promień bierzemy z tego samego tokenu, co promień karty** (`--radius-card`), a nie
+   z liczby: łuk komórki i łuk bloku mają być jednym łukiem, nie dwoma podobnymi.
+   ⚠ Rozmiar i przesunięcia liczą się z geometrii, nie z oka: łatka to kwadrat o boku promienia,
+   przystawiony do ZEWNĘTRZNEJ krawędzi komórki (`-1 × --kal-ramka` od pudełka wyściółki w górę
+   i w bok, bo blokiem zawierającym jest wyściółka — ta sama poprawka o 1 px, co w pasie wyżej).
+   Środek gradientu siada wtedy dokładnie na środku łuku (`100% 100%` i `0 100%`), a 0,5 px
+   między „przezroczyste" i „tło" to wygładzenie krawędzi — bez niego łuk ma schodki. */
+.team-grid__head--person::after,
+.team-grid__head--ostatni::after {
+  content: '';
+  position: absolute;
+  top: calc(-1 * var(--kal-ramka));
+  width: var(--radius-card);
+  height: var(--radius-card);
+}
+.team-grid__head--person::after {
+  left: calc(-1 * var(--kal-ramka));
+  background: radial-gradient(circle at 100% 100%,
+              transparent var(--radius-card), var(--c-bg) calc(var(--radius-card) + 0.5px));
+}
+.team-grid__head--ostatni::before {
+  right: calc(-1 * var(--kal-ramka));
+}
+.team-grid__head--ostatni::after {
+  right: calc(-1 * var(--kal-ramka));
+  background: radial-gradient(circle at 0 100%,
+              transparent var(--radius-card), var(--c-bg) calc(var(--radius-card) + 0.5px));
+}
 
 /* ⚠ Dzień wolny w OSI CZASU jest słabszy niż w siatce miesiąca i to jest celowe: tu konkuruje
    z paskiem nieobecności, który niesie treść tego ekranu. Zmierzone przed poprawką: weekend miał

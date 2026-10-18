@@ -21,6 +21,19 @@
    `auto` i wiersz dni po prostu się nie przykleja — dane, nawigacja i przyklejony blok
    nagłówka (czysty CSS) działają bez zmian.
 
+   ⚠ **`ResizeObserver` jest WARUNKIEM poprawności, nie ulepszeniem** (poprawka Z26,
+   18.10.2026). Do Z26 liczba powstawała raz, na wczytaniu — i zostawała taka przy każdej
+   późniejszej zmianie wysokości karty nagłówka: powiększeniu przeglądarki, zawinięciu legendy
+   na innej szerokości, późnym wczytaniu kroju pisma. Zmierzone na żywo: `padding-bottom: 30px`
+   dołożony karcie przesuwał jej dół o 30 px, a `top` wiersza dni nie ruszał się wcale — wiersz
+   chował się pod kartą albo zostawiał szczelinę, w której było widać przewijane wiersze osób.
+   Po poprawce ta sama próba daje 284 → 314 → 284 px.
+   ⚠ Obserwujemy `border-box`, bo zmienia się właśnie ona (wyściółka, ramka, zawinięty wiersz),
+   a nie pudełko treści. Pętli sprzężenia nie ma: ustawiamy `--kal-dol-naglowka`, czyli `top`
+   przyklejenia, a to **nie zmienia niczyich rozmiarów**.
+   ⚠ Nadzór przypinamy od nowa po każdej wymianie fragmentu, bo karta nagłówka jest wtedy
+   **nowym elementem** — obserwator starego nie zgłosi już nic.
+
    ⚠ **Przeliczenie po `htmx:afterSwap` jest wymaganiem, nie ostrożnością:** karta kalendarza
    jest wymieniana przy każdej zmianie miesiąca, widoku i spółki, a nowy `.bloki` przychodzi
    z serwera bez atrybutu `style`, czyli bez zmierzonej wartości. Ta sama lekcja, co w prototypie
@@ -53,9 +66,31 @@
     });
   }
 
+  /* Nadzór nad wysokością karty nagłówka — jeden obserwator na wszystkie karty na stronie.
+     Bez `ResizeObserver` (stara przeglądarka) zostaje stan sprzed Z26: liczba z wczytania
+     i przeliczenia przy zmianie rozmiaru okna. */
+  var nadzor = null;
+
+  function pilnuj() {
+    if (!window.ResizeObserver) { return; }
+    if (nadzor === null) {
+      nadzor = new window.ResizeObserver(przelicz);
+    } else {
+      nadzor.disconnect();
+    }
+    Array.prototype.forEach.call(
+      document.querySelectorAll('.card--kal-naglowek'),
+      function (karta) { nadzor.observe(karta, { box: 'border-box' }); }
+    );
+  }
+
   przelicz();
+  pilnuj();
   window.addEventListener('resize', przelicz);
-  document.addEventListener('htmx:afterSwap', przelicz);
+  document.addEventListener('htmx:afterSwap', function () {
+    przelicz();
+    pilnuj();
+  });
   /* Wymiana kroju pisma przesuwa wszystko, co stoi nad siatką — bez tego pierwsze wejście
      na ekran bywa policzone na kroju zapasowym. */
   if (document.fonts && document.fonts.ready && document.fonts.ready.then) {

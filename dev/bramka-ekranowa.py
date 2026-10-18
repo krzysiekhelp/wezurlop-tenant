@@ -274,6 +274,14 @@ _usterka("pasy_szczelin", """
     if (k) { k.style.setProperty('--przyklej-luka', '0px'); }
 """)
 
+# ⚠ **Drugi kontroler tego samego kryterium: brak `ResizeObserver`** (Z26). Wpis NIE idzie
+# przez `_usterka()`, bo tamto opakowanie czeka na `DOMContentLoaded` — a moduł przyklejenia
+# jest `defer`, czyli wykonuje się WCZEŚNIEJ i zdążyłby złapać obserwatora. Tu trzeba usunąć
+# go, zanim wystartuje jakikolwiek skrypt strony, czyli w samym `add_init_script`.
+USTERKI["pasy_szczelin_bez_obserwatora"] = (
+    "try { delete window.ResizeObserver; } catch (e) { window.ResizeObserver = undefined; }"
+)
+
 SEL_POPRZEDNI = ".kal-nav a.kal-btn[aria-label^='Poprzedni']"
 SEL_NASTEPNY = ".kal-nav a.kal-btn[aria-label^='Następny']"
 # Dowolny odnośnik okresu w nagłówku kalendarza (strzałka albo przycisk skali).
@@ -4181,44 +4189,133 @@ def _png_barwy(dane: bytes) -> dict:
 
 
 def sprawdz_pasy_szczelin(b, usterka: str | None = None) -> dict:
-    """**Szczeliny wokół przyklejonego bloku nagłówka mają WYŁĄCZNIE kolor tła strony** (Z25).
+    """**Szczeliny wokół przyklejonego bloku nagłówka mają WYŁĄCZNIE kolor tła strony, a wiersz
+    dni stoi dokładnie pod kartą — na każdym powiększeniu i po zmianie wysokości karty** (Z25 + Z26).
 
-    ⚠ **Kryterium mierzy PIKSELE, nie reguły arkusza, i to jest sedno.** Zgłoszenie brzmiało
-    „w szczelinie widać cienką linię i fragment lewej krawędzi karty, która przejeżdża pod
-    spodem", a pierwszy pomiar — hit-test `elementFromPoint` w trzech punktach pasa — świecił
-    zielono, bo pytał 3 px od krawędzi, a usterką był 1 px ramki i cień przy samej krawędzi.
-    Stąd dwie zasady: pas mierzy się **na całej szerokości kolumny treści** i **barwą piksela**.
+    ⚠ **Kryterium mierzy PIKSELE i GEOMETRIĘ, nie reguły arkusza, i to jest sedno.** Zgłoszenie
+    Z25 brzmiało „w szczelinie widać cienką linię i fragment lewej krawędzi karty, która
+    przejeżdża pod spodem", a pierwszy pomiar — hit-test `elementFromPoint` w trzech punktach
+    pasa — świecił zielono, bo pytał 3 px od krawędzi, a usterką był 1 px ramki i cień przy samej
+    krawędzi. Stąd dwie zasady: pas mierzy się **na całej szerokości kolumny treści**
+    i **barwą piksela**.
       1. `pas_nad` — między dolną krawędzią belki a górą bloku nagłówka,
-      2. `pas_pod` — między dołem bloku nagłówka a górą następnego bloku.
+      2. `pas_pod` — od dołu bloku nagłówka **do góry przyklejonego wiersza dni** (a nie do
+         następnego bloku, jak liczył pomiar Z25). To jest poprawka z Z26 i bez niej kryterium
+         nie widziało zgłoszonej usterki: pas tła pod kartą jedzie razem z kartą, więc 16 px
+         bezpośrednio pod nią było zakryte ZAWSZE, a odsłonięta szczelina powstawała NIŻEJ —
+         między końcem tego pasa a wierszem dni, który został na starym `top`.
 
-    ⚠ Krok 8 px przewinięcia w zakresie 0–240 px. Dowód do zlecenia szedł co 4 px, ale usterka
-    powtarza się z okresem wiersza (56 px) i przy zwężonym pasie zapalała się na **59 z 61**
-    położeń w pasie dolnym — do pilnowania wystarczy krok dwa razy większy.
-    ⚠ Dwie szerokości okna, bo wyściółka strony (czyli WYSOKOŚĆ pasa) zmienia się na progu
-    1024 px, a przyklejenie liczy się od niej.
+    ⚠ **Trzecie twierdzenie, czysto geometryczne: `wiersz_dni.top - karta.bottom == odstęp bloków`**
+    (16 px) na każdym położeniu suwaka. Ono łapie obie strony usterki Z26 jednym pomiarem:
+    wiersz **schowany pod kartą** (odstęp ujemny, tak było przy powiększeniu przeglądarki)
+    i wiersz **oderwany od karty** (odstęp większy, czyli szczelina z przewijanymi wierszami).
+    Pod progiem szerokości bloku wiersz przykleja się do PUDEŁKA, nie do strony (patrz
+    `.team-scroll`), więc tam twierdzenie brzmi inaczej: `top` wiersza musi wynosić `0px`.
+
+    ⚠ **Pięć okien, w tym trzy z powiększeniem przeglądarki** (110 / 125 / 150 %, czyli
+    `device_scale_factor` 1,1 / 1,25 / 1,5 przy odpowiadających im szerokościach CSS 1745 / 1536
+    / 1280 px). Powiększenie było w zgłoszeniu Z26 wprost i nie jest tym samym, co węższe okno:
+    zmienia się liczba pikseli urządzenia na piksel CSS, więc krawędzie 1 px wypadają na pół
+    piksela i są wygładzane. Dlatego „obcy piksel" to różnica **większa niż 2/255 na kanale**,
+    a nie każda różnica: przy 110 % samo tło wychodzi ze zrzutu jako (245, 245, 248) wobec
+    (245, 246, 248). Usterki, o które kryterium pyta, są dalej: ramka `--c-line` to 15/255,
+    tło wiersza osoby 10/255, wyciszone tło nagłówka 3/255, napis ponad 80/255.
+
+    ⚠ **Próba zmiany wysokości karty w trakcie** (okno 1920 i 1536 @ 1,25): karcie nagłówka
+    dokładamy `padding-bottom: 30px`, mierzymy, zdejmujemy i mierzymy znowu. To dokładnie ta
+    próba, którą Krzysztof wykonał na żywo w swojej przeglądarce; bez `ResizeObserver`
+    w `kalendarz-przyklej.js` wiersz dni zostaje na starym `top` (zmierzone: odstęp −14 px
+    zamiast 16 px, czyli wiersz chowa się pod kartą).
+    ⚠ Krok suwaka: 8 px przy powiększeniu 100 % i 16 px wyżej. Dowód do zlecenia Z25 szedł
+    co 4 px, ale usterka powtarza się z okresem wiersza (56 px), więc krok dwa razy większy
+    niczego nie przepuszcza, a trzyma czas przebiegu bramki w ryzach.
     """
     haslo = HASLO or haslo_dev(LOGIN)
     if not haslo:
         return {"ok": False, "powod": f"brak hasła konta {LOGIN} — pomiaru NIE wykonano"}
     TLO = (245, 246, 248)   # --c-bg
+    TOLERANCJA = 2          # patrz docstring: wygładzanie krawędzi przy powiększeniu ułamkowym
+    # ⚠ Wcięcie pasa: 1 px przy powiększeniu całkowitym, 3 px przy ułamkowym. Trzy, bo tyle
+    # sięga cień bloku (`--shadow-card` to `0 1px 2px`), a przy ułamkowym powiększeniu krawędź
+    # pasa zakrywającego ten cień nie wypada już na granicy piksela urządzenia i cień przecieka
+    # szwem przy zaokrąglonych narożnikach (zmierzone przy 110 %: 15 pikseli barwy
+    # (248, 248, 249) na każde położenie suwaka).
+    def wciecie(zoom: float) -> int:
+        return 1 if float(zoom).is_integer() else 3
+    # (szerokość CSS, wysokość CSS, powiększenie, krok suwaka, czy robić próbę zmiany wysokości)
+    OKNA = ((1920, 1080, 1, 8, True), (1366, 768, 1, 8, False), (1745, 982, 1.1, 16, False),
+            (1536, 864, 1.25, 16, True), (1280, 720, 1.5, 16, False))
     GEO = """() => {
-      const karta = document.querySelector('.card--kal-naglowek');
-      const page = document.querySelector('.page');
-      const belka = document.querySelector('.topbar');
-      if (!karta || !page || !belka || !karta.nextElementSibling) { return null; }
+      const q = s => document.querySelector(s);
+      const karta = q('.card--kal-naglowek'), page = q('.page'), belka = q('.topbar');
+      const wiersz = q('.team-grid__head--person'), pudlo = q('.team-scroll');
+      if (!karta || !page || !belka || !wiersz || !pudlo) { return null; }
       const k = karta.getBoundingClientRect(), p = page.getBoundingClientRect();
-      const bl = belka.getBoundingClientRect(), n = karta.nextElementSibling.getBoundingClientRect();
+      const bl = belka.getBoundingClientRect(), w = wiersz.getBoundingClientRect();
+      const luka = parseFloat(getComputedStyle(q('.bloki')).getPropertyValue('--bloki-luka'));
       return {x: Math.round(p.left), szer: Math.round(p.width),
               nad_y: Math.round(bl.bottom), nad_h: Math.round(k.top - bl.bottom),
-              pod_y: Math.round(k.bottom), pod_h: Math.round(n.top - k.bottom),
+              karta_b: Math.round(k.bottom), wiersz_t: Math.round(w.top),
+              luka: Math.round(luka),
+              tryb: getComputedStyle(pudlo).overflowY === 'visible' ? 'strona' : 'pudelko',
+              top_wiersza: getComputedStyle(wiersz).top,
               przyklejona: getComputedStyle(karta).position};
     }"""
+
+    def obce(pg, g, WCIECIE):
+        """Obce piksele w obu pasach na jednym położeniu suwaka.
+
+        ⚠ **Pas mierzy się bez skrajnego piksela z góry i z dołu** (`WCIECIE`), bo ten wiersz
+        należy do SĄSIADA: przy powiększeniu ułamkowym krawędź 1 px wypada na pół piksela
+        urządzenia i przeglądarka wmiesza ją w wycinek. Zmierzone przy 110 %: 1646 pikseli
+        barwy (242, 243, 245) w jednym wierszu pasa, wyłącznie z dolnej krawędzi belki.
+        Usterki, o które kryterium pyta, leżą we WNĘTRZU pasa (ramki i cień bloku przejeżdżają
+        przez cały jego przekrój, przewijane wiersze wypełniają go w całości), a dryf wiersza
+        dni o 1 px łapie twierdzenie geometryczne — nie ten pomiar.
+        ⚠ Wcięcie idzie **w obu osiach**, bo szerokość wycinka też nie dzieli się przy
+        powiększeniu ułamkowym: zmierzone przy 110 % — 1497 px CSS to 1646,7 px urządzenia,
+        więc skrajna kolumna zrzutu była wypełniona w 70 % i wychodziła jako (248, 248, 249)
+        na każdym położeniu suwaka. Usterka Z25 leżała 32 px w głąb kolumny treści (tam stoi
+        ramka bloku), więc trzy piksele z brzegu nie mają do niej żadnego stosunku.
+        """
+        wyn = {}
+        for nazwa, py, ph in (("nad", g["nad_y"], g["nad_h"]),
+                              ("pod", g["karta_b"], max(g["luka"], g["wiersz_t"] - g["karta_b"]))):
+            py, ph = py + WCIECIE, ph - 2 * WCIECIE
+            px, pw = g["x"] + WCIECIE, g["szer"] - 2 * WCIECIE
+            if ph <= 0:
+                wyn[nazwa] = (0, None)
+                continue
+            png = pg.screenshot(clip={"x": px, "y": py, "width": pw, "height": ph})
+            inne = {k: v for k, v in _png_barwy(png).items()
+                    if max(abs(k[0] - TLO[0]), abs(k[1] - TLO[1]), abs(k[2] - TLO[2])) > TOLERANCJA}
+            wyn[nazwa] = (sum(inne.values()),
+                          max(inne.items(), key=lambda kv: kv[1])[0] if inne else None)
+        return wyn
+
+    def przebieg(pg, krok, WCIECIE):
+        """Suwak 0–240 px: obce piksele w pasach i odstęp wiersza dni od karty."""
+        suma = {"nad": 0, "pod": 0}
+        odstepy, topy, przyklady = set(), set(), []
+        for y in range(0, 241, krok):
+            pg.evaluate("v => window.scrollTo(0, v)", y)
+            pg.wait_for_timeout(25)
+            g = pg.evaluate(GEO)
+            odstepy.add(g["wiersz_t"] - g["karta_b"])
+            topy.add(g["top_wiersza"])
+            for nazwa, (ile, barwa) in obce(pg, g, WCIECIE).items():
+                suma[nazwa] += ile
+                if ile and len(przyklady) < 5:
+                    przyklady.append({"pas": nazwa, "scroll": y, "piksele": ile, "barwa": barwa})
+        return {"obce_piksele": suma, "odstepy": sorted(odstepy),
+                "topy": sorted(topy), "przyklady": przyklady}
+
     wynik: dict = {"okna": {}}
     ctx = None
     try:
-        for szer, wys in ((1920, 1080), (1366, 768)):
+        for szer, wys, zoom, krok, proba in OKNA:
             ctx = nowy_kontekst(b, usterka, viewport={"width": szer, "height": wys},
-                                ignore_https_errors=True)
+                                device_scale_factor=zoom, ignore_https_errors=True)
             pg = ctx.new_page()
             pg.goto(BAZA + "/logowanie", wait_until="networkidle")
             pg.fill("#login-email", LOGIN)
@@ -4226,33 +4323,28 @@ def sprawdz_pasy_szczelin(b, usterka: str | None = None) -> dict:
             pg.click("button[type=submit]")
             pg.wait_for_load_state("networkidle")
             pg.goto(BAZA + "/kalendarz?widok=firma", wait_until="networkidle")
+            klucz = f"{szer}x{wys}@{zoom}"
             g = pg.evaluate(GEO)
             if g is None:
-                wynik["okna"][f"{szer}x{wys}"] = {"blad": "brak bloku nagłówka kalendarza"}
+                wynik["okna"][klucz] = {"blad": "brak bloku nagłówka kalendarza"}
                 ctx.close()
                 ctx = None
                 continue
-            obce = {"nad": 0, "pod": 0}
-            gdzie: list = []
-            for y in range(0, 241, 8):
-                pg.evaluate("v => window.scrollTo(0, v)", y)
-                pg.wait_for_timeout(30)
-                for nazwa, py, ph in (("nad", g["nad_y"], g["nad_h"]),
-                                      ("pod", g["pod_y"], g["pod_h"])):
-                    if ph <= 0:
-                        continue
-                    png = pg.screenshot(clip={"x": g["x"], "y": py,
-                                              "width": g["szer"], "height": ph})
-                    inne = {k: v for k, v in _png_barwy(png).items() if k != TLO}
-                    if inne:
-                        obce[nazwa] += sum(inne.values())
-                        if len(gdzie) < 5:
-                            gdzie.append({"pas": nazwa, "scroll": y,
-                                          "piksele": sum(inne.values()),
-                                          "barwa": max(inne.items(), key=lambda kv: kv[1])[0]})
-            wynik["okna"][f"{szer}x{wys}"] = {
-                "przyklejona": g["przyklejona"], "pas_nad_h": g["nad_h"], "pas_pod_h": g["pod_h"],
-                "obce_piksele": obce, "przyklady": gdzie}
+            o = {"przyklejona": g["przyklejona"], "tryb": g["tryb"],
+                 "pas_nad_h": g["nad_h"], "luka": g["luka"], "wciecie": wciecie(zoom),
+                 "suwak": przebieg(pg, krok, wciecie(zoom))}
+            if proba:
+                # ⚠ Zmiana wysokości karty w trakcie — CSSOM, nie `<style>`: nagłówek CSP
+                # aplikacji nie dopuszcza stylów w znaczniku (ta sama zasada, co w usterkach).
+                pg.evaluate("document.querySelector('.card--kal-naglowek')"
+                            ".style.paddingBottom = '30px'")
+                pg.wait_for_timeout(250)
+                o["po_zmianie_wysokosci"] = przebieg(pg, 24, wciecie(zoom))
+                pg.evaluate("document.querySelector('.card--kal-naglowek')"
+                            ".style.paddingBottom = ''")
+                pg.wait_for_timeout(250)
+                o["po_powrocie"] = przebieg(pg, 24, wciecie(zoom))
+            wynik["okna"][klucz] = o
             ctx.close()
             ctx = None
     except Exception as e:  # noqa: BLE001
@@ -4262,11 +4354,19 @@ def sprawdz_pasy_szczelin(b, usterka: str | None = None) -> dict:
     finally:
         if ctx is not None:
             ctx.close()
+
+    def dobry(o: dict, p: dict) -> bool:
+        """Jeden przebieg suwaka: pasy czyste i wiersz dni na swoim miejscu."""
+        if p["obce_piksele"]["nad"] or p["obce_piksele"]["pod"]:
+            return False
+        if o["tryb"] == "strona":
+            return p["odstepy"] == [o["luka"]]
+        return p["topy"] == ["0px"]
+
     okna = list(wynik["okna"].values())
     wynik["ok"] = bool(okna) and all(
-        "blad" not in o and o["przyklejona"] == "sticky"
-        and o["pas_nad_h"] > 0 and o["pas_pod_h"] > 0
-        and o["obce_piksele"]["nad"] == 0 and o["obce_piksele"]["pod"] == 0
+        "blad" not in o and o["przyklejona"] == "sticky" and o["pas_nad_h"] > 0
+        and all(dobry(o, p) for k, p in o.items() if isinstance(p, dict) and "obce_piksele" in p)
         for o in okna)
     return wynik
 
@@ -6211,6 +6311,10 @@ def powody_nakladki(n: dict) -> list[str]:
 KONTROLE: dict[str, object] = {
     "znacznik_dzis": sprawdz_znacznik_dzis,
     "pasy_szczelin": sprawdz_pasy_szczelin,
+    # ⚠ Jedno kryterium, DWIE usterki: zwężony pas tła (Z25) i wyłączony `ResizeObserver` (Z26).
+    # Druga jest konieczna, bo pierwsza łamie kryterium na geometrii pasa, a nie na tym, czy
+    # zmierzona liczba nadąża za wysokością karty — a to był właśnie zgłoszony objaw.
+    "pasy_szczelin_bez_obserwatora": sprawdz_pasy_szczelin,
 }
 
 
@@ -6586,6 +6690,11 @@ def main() -> int:
         print("  i w ka\u017cdej nieprzykrytej szparze wida\u0107 ich kraw\u0119dzie (Z25).")
         print("  \u26a0 Mierzone BARW\u0104 PIKSELA na pe\u0142nej szeroko\u015bci kolumny tre\u015bci: hit-test w \u015brodku")
         print("  pasa przepuszcza\u0142 1 px ramki przy samej kraw\u0119dzi, czyli dok\u0142adnie t\u0119 usterk\u0119.")
+        print("  \u26a0 Drugie twierdzenie (Z26): wiersz dni stoi DOK\u0141ADNIE odst\u0119p blok\u00f3w pod kart\u0105")
+        print("  (`odstepy` ma mie\u0107 jedn\u0105 warto\u015b\u0107 \u2014 16 px). Ujemna znaczy, \u017ce wiersz schowa\u0142 si\u0119 pod")
+        print("  kart\u0105; wi\u0119ksza \u2014 \u017ce odjecha\u0142 od niej i w szczelinie wida\u0107 wiersze os\u00f3b.")
+        print("  \u26a0 Pi\u0119\u0107 okien, w tym trzy z powi\u0119kszeniem przegl\u0105darki (110/125/150 %) i pr\u00f3ba")
+        print("  zmiany wysoko\u015bci karty w trakcie \u2014 to po niej liczba bez `ResizeObserver` zostaje stara.")
     if raport["znacznik_dzis"] is not None and not raport["znacznik_dzis"]["ok"]:
         zle = True
         print("ZNACZNIK „DZIŚ” ALBO KSZTAŁT KRATKI DNIA — NIE TRZYMA:")

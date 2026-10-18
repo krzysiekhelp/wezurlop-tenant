@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.5, 17.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.6, 18.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,49 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.5 → 1.18.6: przyklejony wiersz dni JEST górną krawędzią bloku z siatką**
+> (zlecenie Z26, 18.10.2026 — poprawka Z24/Z25 po sprawdzeniu z Krzysztofem w jego przeglądarce,
+> także przy powiększeniu). Zgłoszenie miało trzy objawy i trzy różne przyczyny.
+> **(1)** ⚠ **Zmierzona liczba musi NADĄŻAĆ za wysokością karty nagłówka.** `--kal-dol-naglowka`
+> powstawało raz, na wczytaniu — więc każda późniejsza zmiana wysokości (powiększenie
+> przeglądarki, zawinięta legenda, późno wczytany krój pisma) zostawiała wiersz dni na starym
+> `top`: chował się pod kartą albo odjeżdżał od niej. Teraz liczy to `ResizeObserver`
+> na `.card--kal-naglowek` (`box: 'border-box'`), przeliczając w `requestAnimationFrame`.
+> Zmierzone: `padding-bottom: 30px` dołożony karcie daje **284 → 314 → 284 px** po zdjęciu;
+> przed poprawką `top` nie ruszał się wcale.
+> **(2)** ⚠ **Każda komórka wiersza dni niesie własny pas tła strony w górę**
+> (`.team-grid__head::before`, `--kal-pas-nad-dniami` = odstęp bloków plus zapas jednej
+> wyściółki). To druga warstwa: pas pod kartą jedzie **razem z kartą**, więc zakrywa szczelinę
+> tylko przy zgodnej wysokości, a ten jedzie razem z wierszem. Skrajne komórki ciągną pas
+> do krawędzi kolumny treści, bo pod spodem przejeżdżają też pionowe ramki i cień bloku.
+> **(3)** ⚠ **Blok z siatką ODDAJE górną krawędź wierszowi dni** (`.card--kal-siatka`:
+> bez `border-top` i bez górnych promieni). Do Z26 krawędź rysowały dwa elementy jeden nad
+> drugim — zmierzone: ramka karty na `y = 284`, ramka komórki na `y = 285`, czyli w spoczynku
+> kreska 2 px i dwa współśrodkowe łuki, a po przyklejeniu kreska 1 px i jeden łuk. To była cała
+> „różnica rogów po przewinięciu". Wycinek poza łukiem (≈ 21 px² w narożniku) zamalowuje teraz
+> tłem strony sama komórka (`radial-gradient` z promieniem z `--radius-card`) — wcześniej
+> prześwitywały tam przewijane wiersze.
+> **(4)** ⚠ **Brzegi pionowe bloku rysują KOMÓRKI SKRAJNE, nie ramka karty** (`margin-inline:
+> -1px` na wnętrzu karty, `border-right` wrócił na ostatnią kolumnę). Bez tego ramka karty —
+> która stoi 1 px **za** siatką — zostawała przy przyklejonym wierszu **odczepioną kreską**
+> biegnącą prosto do góry obok łuku narożnika. Zakrycie jej pseudoelementem jest niemożliwe:
+> **każdy piksel wystający w prawo dokłada się do `scrollWidth`**, a to na tym ekranie jest
+> naruszeniem bramki (zmierzone: 1558 → 1559 przy 1 px, 1558 → 1591 przy pasie ciągniętym
+> do krawędzi kolumny treści — bramka złapała to w pierwszym przebiegu Z26).
+> Przy okazji znika stara nierówność: lewy brzeg miał **2 px** (ramka karty plus ramka kolumny
+> osoby), prawy 1 px — teraz oba mają 1 px, a kreski zostają w tych samych miejscach.
+> Dół bloku zostaje nietknięty.
+> **Dowód z pomiaru** (Z26): pasy szczelin przy przewinięciu 0–240 px, w **pięciu oknach** —
+> 1920 × 1080 i 1366 × 768 bez powiększenia oraz 1745 / 1536 / 1280 px CSS przy powiększeniu
+> 110 / 125 / 150 % — plus próba zmiany wysokości karty w trakcie: **0 pikseli innych niż tło
+> strony** i odstęp wiersza od karty **równy 16 px na każdym położeniu suwaka**. Narożniki
+> w spoczynku i po przewinięciu różnią się **4 i 13 pikselami** z 256 w wycinku 16 × 16,
+> wyłącznie wygładzaniem napisu. Dwie kontrole negatywne: zwężony pas tła daje **233 228**
+> obcych pikseli, a wyłączony `ResizeObserver` — odstęp **−14 px** zamiast 16 px.
+> ⚠ **Przy powiększeniu 150 % wiersz dni przykleja się do PUDEŁKA, nie do strony**: 1280 px CSS
+> to blok o 966 px, czyli poniżej progu 1006 px z 1.18.5. To ta sama otwarta sprawa, nie nowa
+> usterka — decyzja Krzysztofa.
 
 > **Zmiana 1.18.4 → 1.18.5: na kalendarzu przewija się STRONA, a nie pudełko osi czasu**
 > (zlecenia Z24 i Z25, 17.10.2026 — wybór Krzysztofa po dwóch prototypach). Oś czasu miała
@@ -586,8 +629,9 @@ robią reguły zawężone do `.mies__kalendarz`, a nie drugi komponent (§4c).
 ⚠ Wykaz pokazuje **pięć wpisów i odnośnik „wszystkie (N)"** — przycina serwer, nie wysokość
 pudełka (lista ucięta stylem dalej niesie cały HTML dla czytnika ekranu).
 
-*Kalendarz — blok nagłówka (1.18, zlecenie Z8; przyklejenie 1.18.5, Z24/Z25)*
+*Kalendarz — blok nagłówka (1.18, zlecenie Z8; przyklejenie 1.18.5, Z24/Z25; 1.18.6, Z26)*
 `.card--kal-naglowek` (blok nagłówka przyklejony przy przewijaniu strony, z pasami tła w szczelinach)
+`.card--kal-siatka` (blok z osią czasu, który oddaje górną krawędź przyklejonemu wierszowi dni)
 `.kal-nav` `.kal-nav__gora` `.kal-nav__dol` `.kal-nav__lewa` `.kal-nav__prawa`
 `.kal-grupa` `.kal-btn` `.kal-btn--on` `.kal-btn--ikona` `.kal-btn__etykieta`
 `.legend` `.legend__item` `.legend__mark` `.legend__mark--urlop|--zasilek|--kadrowe|--free`

@@ -94,7 +94,12 @@
                 </div>
             </section>
         {% else %}
-            <section class="card card--os">
+            {#- ⚠ `card--kal-siatka` (poprawka Z26): ten blok **oddaje swoją górną krawędź**
+                przyklejonemu wierszowi dni — bez tego krawędź rysowały dwa elementy jeden nad
+                drugim (ramka karty na 284 px, ramka komórki na 285 px) i narożniki po
+                przewinięciu wyglądały inaczej niż w spoczynku. Tylko ten jeden blok: w Miesiącu
+                i w Liście nic się nie przykleja, więc ich ramki zostają bez zmian. -#}
+            <section class="card card--os card--kal-siatka">
                 {% include 'partials/os-czasu.twig' with {'os': zespol} only %}
             </section>
         {% endif %}
