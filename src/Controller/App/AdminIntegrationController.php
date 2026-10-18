@@ -40,17 +40,22 @@ final class AdminIntegrationController
     private const SHOWN_KEY = 'admin.api_key_shown';
     private const KEY_TTL_SECONDS = 300;
     private const NOTICES = [
+        // ⚠ **Zdanie wiodące, kropka, krótkie dopowiedzenie** (Z47): komunikat stoi teraz
+        // w toaście, który znika po pięciu sekundach, a toast pogrubia pierwsze zdanie.
+        // Wyjaśnienia dłuższe niż jedno dopowiedzenie zeszły do treści ekranu — notka
+        // w stopce karty kluczy mówi o wymianie, karta nowego klucza o jego jednorazowym
+        // pokazaniu, a karta zatrzymanego strumienia o odtwarzaniu powiązań.
         'firmy'       => 'Zakres klucza zapisany.',
-        'uniewazniony' => 'Klucz unieważniony — connector z tym kluczem dostanie 401 przy następnym żądaniu.',
-        'skasowany'   => 'Unieważniony klucz skasowany — zniknął z wykazu. W dzienniku zdarzeń został wpis z jego nazwą i prefiksem.',
-        'wydany'      => 'Klucz wydany. Skopiuj go i wklej w konfiguracji connectora — pokazujemy go tylko teraz.',
-        'wymieniony'  => 'Nowy klucz wydany. Skopiuj go i wklej w connectorze — dotychczasowy działa do chwili, w której nowy po raz pierwszy zakończy przebieg.',
-        'zatwierdzona' => 'Firma zatwierdzona. Wróć do connectora i uruchom test połączenia ponownie — dane zaczną się synchronizować.',
-        'odrzucona'   => 'Zgłoszenie odrzucone — connector przestanie zgłaszać tę firmę do czasu cofnięcia decyzji.',
-        'przywrocona' => 'Odrzucenie cofnięte — zgłoszenie znów czeka na decyzję.',
-        'przeglad'    => 'Przegląd kontrolny zostanie wykonany w następnym przebiegu connectora.',
-        'reset'       => 'Instalacja wyczyszczona — jesteś na początku ścieżki podłączenia. Wygeneruj klucz i wklej go w konfiguracji connectora.',
-        'tozsamosc'   => 'Nowy odcisk tożsamości zaakceptowany — strumień tej firmy odblokowany. Osoby przyjdą pod nowymi identyfikatorami, więc powiązania trzeba będzie odtworzyć.',
+        'uniewazniony' => 'Klucz unieważniony. Connector z tym kluczem dostanie 401 przy następnym żądaniu.',
+        'skasowany'   => 'Klucz skasowany. Wpis z jego nazwą i prefiksem został w dzienniku zdarzeń.',
+        'wydany'      => 'Klucz wydany. Pokazujemy go tylko teraz — skopiuj go z karty wyżej.',
+        'wymieniony'  => 'Nowy klucz wydany. Dotychczasowy działa do pierwszego przebiegu nowego.',
+        'zatwierdzona' => 'Firma zatwierdzona. Uruchom test połączenia w connectorze.',
+        'odrzucona'   => 'Zgłoszenie odrzucone. Decyzję cofniesz w oknie „Zakres klucza".',
+        'przywrocona' => 'Odrzucenie cofnięte. Zgłoszenie znów czeka na decyzję.',
+        'przeglad'    => 'Przegląd kontrolny w kolejce. Wykona go następny przebieg connectora.',
+        'reset'       => 'Instalacja wyczyszczona. Zacznij od wygenerowania klucza.',
+        'tozsamosc'   => 'Nowy odcisk zaakceptowany. Strumień tej firmy znów przyjmuje dane.',
     ];
 
     public function __construct(

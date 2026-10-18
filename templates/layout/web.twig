@@ -77,14 +77,11 @@
             </div>
         </header>
         <main class="page" id="main">
-            {#- ⚠ Pasek komunikatu stoi W UKŁADZIE, nie obok niego. Wcześniej był rodzeństwem
-                `.app`, więc dokładał 24 px POD kontenerem siatki i pasek boczny `sticky`
-                odklejał się na końcu przewijania (zlecenie `menu-ucieka…` §2.2). -#}
-            {% include 'partials/flash.twig' %}
             {% block content %}{% endblock %}
         </main>
     </div>
 </div>
+{% include 'partials/toasty.twig' %}
 {% include 'partials/scripts.twig' with {'hierarchia': hierarchia ?? false, 'kalendarz': kalendarz_js ?? false, 'grupy': grupy_js ?? false} %}
 </body>
 </html>

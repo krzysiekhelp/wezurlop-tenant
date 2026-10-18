@@ -4,7 +4,7 @@
         <p class="notice notice--warn">Każdy kod działa jeden raz i pozwala zalogować się bez telefonu.
             <strong>Zobaczysz je tylko teraz</strong> — zapisz je lub pobierz i przechowuj w bezpiecznym miejscu.</p>
         {% if error is not null %}
-            <p class="notice notice--danger" role="alert">{{ error }}</p>
+            {% include 'partials/komunikat.twig' with {'tekst': error, 'rodzaj': 'blad'} only %}
         {% endif %}
         <ol class="backup-grid">
             {% for code in codes %}

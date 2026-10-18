@@ -1,0 +1,7 @@
+{#- Stos komunikatów o wyniku operacji; wypełnia go `modules/flash.js` (textContent).
+    ⚠ Pojemnik stoi na KOŃCU `<body>`, a nie w układzie strony: jest `position: fixed`,
+    a przodek z `container-type` (karty, nagłówki list) byłby dla niego blokiem zawierającym
+    i komunikat wylądowałby w środku karty zamiast u dołu okna.
+    ⚠ `role="status"` + `aria-live="polite"` dla potwierdzeń; błąd dostaje własne
+    `role="alert"` już na komunikacie (nadpisuje uprzejmość pojemnika dla swojego poddrzewa). -#}
+<div id="toasty" class="toasty{{ nad_nawigacja ?? false ? ' toasty--nad-nawigacja' : '' }}" role="status" aria-live="polite"></div>

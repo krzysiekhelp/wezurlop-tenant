@@ -1,39 +1,139 @@
-/* Pasek komunikatu #flash i obsługa błędów htmx (docs/szkielet-tenanta.md rozdz. 8).
-   Bez tego błąd serwera w żądaniu htmx objawia się kliknięciem, które nic nie robi.
-   Treść wyłącznie przez textContent (CLAUDE.md §6). */
+/* Komunikaty o wyniku operacji: toast u dołu ekranu (zlecenie Z47).
+   Jedno źródło dla trzech dróg: błędów htmx, komunikatów serwera wyrenderowanych w stronie
+   (`[data-komunikat]`) i zdarzenia `wezurlop:komunikat` z innych modułów.
+   Treść wyłącznie przez textContent (CLAUDE.md §6) — w tym pliku nie ma ani jednego
+   miejsca, w którym tekst z serwera stawałby się HTML-em. */
 (function () {
   'use strict';
+
+  var CZAS_MS = 5000;        /* ile komunikat stoi, zanim sam zniknie */
+  var ZEJSCIE_MS = 250;      /* tyle trwa przejście przy znikaniu (zgodnie z arkuszem) */
+  var MAKS = 3;              /* więcej naraz nie ma po co stać — najstarszy schodzi */
 
   var MESSAGES = {
     0: 'Brak połączenia z serwerem. Sprawdź internet i spróbuj ponownie.',
     403: 'Nie masz uprawnień do tej operacji.',
     404: 'Nie znaleziono zasobu.',
     419: 'Formularz wygasł. Odśwież stronę i spróbuj ponownie.',
-    /* 422 zwraca zapis adresu w wierszu listy osób: dane są nieprawidłowe, a nie serwer
+    /* 422 zwraca m.in. zapis adresu w wierszu listy osób: dane są nieprawidłowe, a nie serwer
        zepsuty — bez tego wpisu użytkownik dostaje „kod 422" i nie wie, co poprawić. */
     422: 'Wpisane dane są nieprawidłowe. Popraw je i spróbuj ponownie.',
     500: 'Wystąpił błąd serwera. Spróbuj ponownie za chwilę.'
   };
 
-  function flashElement() {
-    return document.getElementById('flash');
+  var ZNAKI = { blad: '!', sukces: '✓', uwaga: '!', info: 'i' };
+
+  function kontener() {
+    return document.getElementById('toasty');
   }
 
-  function show(text, kind) {
-    var el = flashElement();
-    if (!el) {
-      return;
+  function rodzajZnany(rodzaj) {
+    /* `error` zostaje przyjmowane ze starych wywołań (`wezurlop:komunikat` z modułu kontrolki
+       dostępu), żeby zmiana nazw nie wyciszyła komunikatu po cichu. */
+    if (rodzaj === 'error' || rodzaj === 'blad') { return 'blad'; }
+    if (rodzaj === 'sukces' || rodzaj === 'ok') { return 'sukces'; }
+    if (rodzaj === 'uwaga') { return 'uwaga'; }
+    return 'info';
+  }
+
+  /* Pierwsze zdanie pogrubione, reszta zwykłym pismem. ⚠ Oba kawałki wstawia `textContent`,
+     więc to jest formatowanie, a nie wstrzykiwanie znaczników. */
+  function wypelnijTresc(el, tekst) {
+    var granica = tekst.indexOf('. ');
+    var mocno = granica === -1 ? tekst : tekst.slice(0, granica + 1);
+    var reszta = granica === -1 ? '' : tekst.slice(granica + 1);
+    var strong = document.createElement('strong');
+    strong.textContent = mocno;
+    el.appendChild(strong);
+    if (reszta !== '') {
+      el.appendChild(document.createTextNode(reszta));
     }
-    el.textContent = text;
-    /* ⚠ Nazwy klas są SKLEJANE tutaj, więc przemianowanie komponentu w CSS nie wystarcza —
-       to jedyne miejsce w JS, które wpisuje nazwy klas wyglądu, i przy zmianie `box` na `notice`
-       trzeba je zmienić razem. Inaczej pasek komunikatu traci styl po cichu: klasa bez reguły
-       nie zgłasza błędu, a na zrzucie ekranu tego nie widać.
-       ⚠ Powodzenie NIE ma modyfikatora — zielonego wariantu nie ma (§2, zieleń znaczy akcję). */
-    el.className = 'flash notice' + (kind === 'error' ? ' notice--danger' : '');
-    el.hidden = false;
-    window.clearTimeout(show.timer);
-    show.timer = window.setTimeout(function () { el.hidden = true; }, 8000);
+  }
+
+  function zdejmij(toast) {
+    if (toast.dataset.schodzi === '1') { return; }
+    toast.dataset.schodzi = '1';
+    window.clearTimeout(toast.odliczanie);
+    toast.classList.add('toast--wychodzi');
+    window.setTimeout(function () {
+      if (toast.parentNode) { toast.parentNode.removeChild(toast); }
+    }, ZEJSCIE_MS);
+  }
+
+  function odlicz(toast, ile) {
+    toast.konczySie = Date.now() + ile;
+    window.clearTimeout(toast.odliczanie);
+    toast.odliczanie = window.setTimeout(function () { zdejmij(toast); }, ile);
+  }
+
+  function wstrzymaj(toast) {
+    window.clearTimeout(toast.odliczanie);
+    /* Zostaje tyle, ile zostało — najazd kursorem ma ZATRZYMAĆ odliczanie, a nie zacząć je
+       od nowa: inaczej przeczytanie długiego komunikatu przedłuża go w nieskończoność. */
+    toast.zostalo = Math.max(1000, toast.konczySie - Date.now());
+  }
+
+  function wznow(toast) {
+    odlicz(toast, toast.zostalo || CZAS_MS);
+  }
+
+  function pokaz(tekst, rodzaj) {
+    var cel = kontener();
+    if (!cel || typeof tekst !== 'string' || tekst.trim() === '') { return null; }
+    var typ = rodzajZnany(rodzaj);
+
+    var toast = document.createElement('div');
+    toast.className = 'toast toast--' + typ + ' toast--wchodzi';
+    /* ⚠ Pojemnik jest obszarem `role="status"` / `aria-live="polite"`, a błąd ma być
+       przeczytany od razu — `role="alert"` na samym komunikacie nadpisuje uprzejmość
+       pojemnika dla tego poddrzewa. */
+    if (typ === 'blad') {
+      toast.setAttribute('role', 'alert');
+      toast.setAttribute('aria-live', 'assertive');
+    }
+
+    var znak = document.createElement('span');
+    znak.className = 'toast__znak';
+    znak.setAttribute('aria-hidden', 'true');
+    znak.textContent = ZNAKI[typ];
+    toast.appendChild(znak);
+
+    var tresc = document.createElement('p');
+    tresc.className = 'toast__tresc';
+    wypelnijTresc(tresc, tekst.trim());
+    toast.appendChild(tresc);
+
+    var zamknij = document.createElement('button');
+    zamknij.type = 'button';
+    zamknij.className = 'toast__zamknij';
+    zamknij.setAttribute('aria-label', 'Zamknij');
+    zamknij.textContent = '×';
+    zamknij.addEventListener('click', function () { zdejmij(toast); });
+    toast.appendChild(zamknij);
+
+    /* Najnowszy na dole; powyżej MAKS schodzi najstarszy, czyli ten na górze stosu.
+       ⚠ Liczymy komunikaty ŻYWE, a nie dzieci pojemnika: schodzący stoi w drzewie jeszcze
+       przez czas przejścia, więc pętla po `children.length` nigdy by się nie skończyła. */
+    cel.appendChild(toast);
+    var zyjace = Array.prototype.filter.call(cel.children, function (t) {
+      return t.dataset.schodzi !== '1';
+    });
+    for (var i = 0; i + MAKS < zyjace.length; i++) {
+      zdejmij(zyjace[i]);
+    }
+
+    /* Stan początkowy musi zdążyć się narysować, inaczej nie ma czego animować. */
+    window.requestAnimationFrame(function () {
+      window.requestAnimationFrame(function () { toast.classList.remove('toast--wchodzi'); });
+    });
+
+    toast.addEventListener('mouseenter', function () { wstrzymaj(toast); });
+    toast.addEventListener('mouseleave', function () { wznow(toast); });
+    toast.addEventListener('focusin', function () { wstrzymaj(toast); });
+    toast.addEventListener('focusout', function () { wznow(toast); });
+    odlicz(toast, CZAS_MS);
+
+    return toast;
   }
 
   function messageFor(status) {
@@ -43,20 +143,19 @@
     return status >= 500 ? MESSAGES[500] : 'Nie udało się wykonać operacji (kod ' + status + ').';
   }
 
-  /* Wspólny kanał komunikatu dla innych modułów. ⚠ Zdarzenie, nie zmienna globalna: `flash.js`
-     zostaje jedynym miejscem, które zna nazwy klas paska i czas jego życia. */
+  /* Wspólny kanał komunikatu dla innych modułów. ⚠ Zdarzenie, nie zmienna globalna: ten plik
+     zostaje jedynym miejscem, które zna wygląd komunikatu i czas jego życia. */
   document.addEventListener('wezurlop:komunikat', function (event) {
     var d = event.detail || {};
     if (typeof d.tekst === 'string' && d.tekst !== '') {
-      show(d.tekst, d.rodzaj === 'error' ? 'error' : null);
+      pokaz(d.tekst, d.rodzaj);
     }
   });
 
   /* ⚠ Serwer może PODAĆ powód odmowy zamiast kodu — i wtedy on wygrywa nad napisem z tablicy
-     wyżej. Warunek jest wąski celowo: wyłącznie `text/plain`, wyłącznie 4xx. Treść wstawia
-     `show()` przez `textContent`, więc nie ma tu drogi na HTML (CLAUDE.md §6), a odpowiedzi
-     z fragmentem HTML (`text/html`) dalej nie trafiają na pasek — od nich jest podmiana treści.
-     Bez tego odmowa „ten adres ma już inna osoba" wyglądałaby jak „dane są nieprawidłowe”,
+     wyżej. Warunek jest wąski celowo: wyłącznie `text/plain`, wyłącznie 4xx, do 300 znaków.
+     Odpowiedzi z fragmentem HTML dalej idą do podmiany treści, a nie na komunikat.
+     Bez tego odmowa „ten adres ma już inna osoba" wyglądałaby jak „dane są nieprawidłowe",
      czyli komunikat, po którym nie wiadomo, co poprawić (zlecenie Z40). */
   function powodZOdpowiedzi(xhr) {
     if (!xhr || xhr.status < 400 || xhr.status >= 500) {
@@ -67,21 +166,79 @@
     return typ.indexOf('text/plain') === 0 && tekst !== '' && tekst.length <= 300 ? tekst : '';
   }
 
+  /* ——— błąd POLA ———————————————————————————————————————————————————————————————
+     ⚠ Wartość zostaje w polu, bo przy odpowiedzi błędnej htmx niczego nie podmienia —
+     i to jest cała sztuczka: nie przepisujemy wpisanego tekstu, tylko go nie ruszamy. */
+  function wyczyscPole(pole) {
+    pole.removeAttribute('aria-invalid');
+    var oprawa = pole.closest ? pole.closest('.field') : null;
+    if (oprawa) { oprawa.classList.remove('field--error'); }
+  }
+
+  /* ⚠ **Pole wskazuje samo ŻĄDANIE, a nie zgadywanie po kształcie ekranu.** Zapis adresu
+     w wierszu listy osób wisi na PRZYCISKU (`hx-post`), a pole stoi obok niego i jedzie
+     w żądaniu przez `hx-include="closest .pick__adres"` — więc czytamy właśnie ten zakres.
+     ⚠ Gdy w zakresie jest więcej niż jedno pole, nie oznaczamy ŻADNEGO: serwer nie powiedział
+     którego dotyczy odmowa, a czerwona ramka na niewłaściwym polu jest gorsza niż jej brak
+     (wtedy komunikat musi wystarczyć). */
+  function poleZadania(elt) {
+    if (!elt || !elt.matches) { return null; }
+    if (elt.matches('input, select, textarea')) { return elt; }
+    var zasieg = null;
+    var incl = (elt.getAttribute('hx-include') || '').trim();
+    if (incl.indexOf('closest ') === 0) {
+      zasieg = elt.closest(incl.slice(8).trim());
+    } else if (incl !== '') {
+      zasieg = document.querySelector(incl);
+    }
+    if (zasieg === null) { zasieg = elt; }
+    if (zasieg.matches('input, select, textarea')) { return zasieg; }
+    var pola = zasieg.querySelectorAll('input:not([type="hidden"]), select, textarea');
+    return pola.length === 1 ? pola[0] : null;
+  }
+
+  function oznaczPole(elt) {
+    var pole = poleZadania(elt);
+    if (!pole) { return; }
+    pole.setAttribute('aria-invalid', 'true');
+    var oprawa = pole.closest('.field');
+    if (oprawa) { oprawa.classList.add('field--error'); }
+    try { pole.focus({ preventScroll: false }); } catch (e) { pole.focus(); }
+    var zdejmij1 = function () { wyczyscPole(pole); };
+    pole.addEventListener('input', zdejmij1, { once: true });
+    pole.addEventListener('change', zdejmij1, { once: true });
+  }
+
   document.addEventListener('htmx:responseError', function (event) {
     var xhr = event.detail && event.detail.xhr;
-    show(powodZOdpowiedzi(xhr) || messageFor(xhr ? xhr.status : 500), 'error');
+    pokaz(powodZOdpowiedzi(xhr) || messageFor(xhr ? xhr.status : 500), 'blad');
+    oznaczPole(event.detail && event.detail.elt);
   });
 
   document.addEventListener('htmx:sendError', function () {
-    show(MESSAGES[0], 'error');
+    pokaz(MESSAGES[0], 'blad');
   });
 
-  document.addEventListener('click', function (event) {
-    var target = event.target;
-    if (target instanceof Element && target.closest('#flash')) {
-      flashElement().hidden = true;
-    }
+  /* ——— komunikat serwera wyrenderowany w stronie ————————————————————————————————
+     ⚠ Serwer pisze komunikat W TREŚCI EKRANU (po przeładowaniu z `?ok=…` albo z odmową
+     zapisu), a ten moduł przenosi go do toasta i chowa oryginał. Bez JavaScriptu klasa
+     nigdy nie powstaje, więc komunikat zostaje tam, gdzie go postawił serwer — to jest
+     ścieżka zapasowa i nie ma drugiej. */
+  function przeniesKomunikaty(korzen) {
+    var lista = korzen.querySelectorAll ? korzen.querySelectorAll('[data-komunikat]') : [];
+    Array.prototype.forEach.call(lista, function (el) {
+      if (el.classList.contains('komunikat--w-toascie')) { return; }
+      var tekst = (el.textContent || '').replace(/\s+/g, ' ').trim();
+      if (tekst === '') { return; }
+      el.classList.add('komunikat--w-toascie');
+      pokaz(tekst, el.getAttribute('data-komunikat'));
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function () { przeniesKomunikaty(document); });
+  document.addEventListener('htmx:afterSwap', function (event) {
+    przeniesKomunikaty(event.target || document);
   });
 
-  window.WezurlopFlash = { show: show };
+  window.WezurlopFlash = { show: pokaz };
 })();

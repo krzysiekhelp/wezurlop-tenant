@@ -22,7 +22,9 @@ use Wezurlop\Support\View;
 final class LoginController
 {
     /** Jeden komunikat dla wszystkich niepowodzeń — także opóźnienia (nie zdradza istnienia konta). */
-    private const FAILED = 'Nieprawidłowy login lub hasło. Przy kolejnych próbach odczekaj chwilę — jeśli nie pamiętasz hasła, zresetuj je.';
+    // ⚠ Jedno zdanie wiodące i jedno dopowiedzenie (Z47) — droga „nie pamiętam hasła" stoi
+    // odnośnikiem na tym samym ekranie, więc komunikat nie musi jej powtarzać.
+    private const FAILED = 'Nieprawidłowy login lub hasło. Przy kolejnych próbach odczekaj chwilę.';
 
     /** Powody przekierowania na ekran logowania — biała lista (CLAUDE.md §11). */
     private const REASONS = [
@@ -36,7 +38,7 @@ final class LoginController
         // konta (zlecenie `blokady-przyjete-i-etap6` §4). Zwykłe logowanie go nie używa: hasło
         // błędne i konto zablokowane dają ten sam `FAILED`, bo inaczej ekran logowania
         // odpowiadałby na pytanie „czy takie konto istnieje" (CLAUDE.md §9).
-        'konto-zablokowane' => 'Dostęp do tego konta został zablokowany, dlatego praca została przerwana. '
+        'konto-zablokowane' => 'Dostęp do tego konta został zablokowany. '
             . 'Jeśli to pomyłka, skontaktuj się z administratorem systemu.',
     ];
 

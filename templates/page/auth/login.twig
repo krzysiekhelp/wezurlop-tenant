@@ -10,10 +10,10 @@
     <p>Użyj konta w wezurlop albo konta Google lub Apple.</p>
 
     {% if notice is not null %}
-        <p class="notice" role="status">{{ notice }}</p>
+        {% include 'partials/komunikat.twig' with {'tekst': notice, 'rodzaj': 'sukces'} only %}
     {% endif %}
     {% if error is not null %}
-        <p class="notice notice--danger" role="alert">{{ error }}</p>
+        {% include 'partials/komunikat.twig' with {'tekst': error, 'rodzaj': 'blad'} only %}
     {% endif %}
 
     <form method="post" action="{{ url('/logowanie') }}" class="stack">

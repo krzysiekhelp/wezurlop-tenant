@@ -1,0 +1,17 @@
+{#- Komunikat o WYNIKU OPERACJI — jedno miejsce na całą aplikację (zlecenie Z47).
+
+    ⚠ Serwer renderuje go w treści ekranu, a `modules/flash.js` przenosi go do toasta i chowa
+    oryginał klasą `.komunikat--w-toascie`. Bez JavaScriptu klasa nie powstaje i komunikat
+    zostaje tam, gdzie stoi — to jest cała ścieżka zapasowa i nie ma drugiej.
+
+    ⚠ To NIE jest miejsce na treść ekranu. Ostrzeżenia o stanie („licencja wygasła",
+    „connector milczy"), objaśnienia i wszystko, co ma zostać po pięciu sekundach, zostaje
+    zwykłym `.notice` w treści — toast znika, a wyjaśnienie ma zostać.
+
+    `rodzaj`: `sukces` | `blad` | `uwaga` | `info`.
+    `klasa`: dodatkowa klasa układu, gdy komunikat stoi w siatce i musi zająć cały wiersz
+    (bez JavaScriptu zostaje w treści, więc dalej musi się w niej mieścić). -#}
+{% if tekst is not empty %}
+    <p class="notice{{ rodzaj == 'blad' ? ' notice--danger' : (rodzaj == 'uwaga' ? ' notice--warn' : '') }}{{ klasa is defined and klasa ? ' ' ~ klasa : '' }}"
+       data-komunikat="{{ rodzaj }}" role="{{ rodzaj == 'blad' ? 'alert' : 'status' }}">{{ tekst }}</p>
+{% endif %}

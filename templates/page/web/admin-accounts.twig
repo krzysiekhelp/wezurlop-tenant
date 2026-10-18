@@ -108,13 +108,13 @@
     </section>
 
     {% if utworzono_id is not null %}
-        <p class="notice" role="status">Konto administracyjne #{{ utworzono_id }} utworzone. Zaproszenie czeka w kolejce — właściciel konta ustawi hasło z linku i sparuje aplikację 2FA.</p>
+        {% include 'partials/komunikat.twig' with {'tekst': 'Konto administracyjne #' ~ utworzono_id ~ ' utworzone. Zaproszenie czeka w kolejce.', 'rodzaj': 'sukces'} only %}
     {% endif %}
     {% if reset_id is not null %}
-        <p class="notice" role="status">2FA konta #{{ reset_id }} zostało zresetowane. Użytkownik sparuje aplikację przy następnym logowaniu.</p>
+        {% include 'partials/komunikat.twig' with {'tekst': '2FA konta #' ~ reset_id ~ ' zresetowane. Użytkownik sparuje aplikację przy następnym logowaniu.', 'rodzaj': 'sukces'} only %}
     {% endif %}
     {% if revoked_id is not null %}
-        <p class="notice" role="status">Sesje konta #{{ revoked_id }} zostały zakończone.</p>
+        {% include 'partials/komunikat.twig' with {'tekst': 'Sesje konta #' ~ revoked_id ~ ' zakończone.', 'rodzaj': 'sukces'} only %}
     {% endif %}
 
     <section class="card">

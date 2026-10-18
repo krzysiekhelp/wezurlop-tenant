@@ -16,8 +16,8 @@
     i da się to wygrepować. -#}
 {% import 'partials/ikony.twig' as ikony %}
 
-{% if notice is not null %}<p class="notice" role="status">{{ notice }}</p>{% endif %}
-{% if error is not null %}<p class="notice notice--danger" role="alert">{{ error }}</p>{% endif %}
+{% include 'partials/komunikat.twig' with {'tekst': notice, 'rodzaj': 'sukces'} only %}
+{% include 'partials/komunikat.twig' with {'tekst': error, 'rodzaj': 'blad'} only %}
 
 {#- ══════════ Pasek stanu instalacji (§2 zlecenia) ══════════
     ⚠ Pięć kafli odpowiada na pytanie „czy instalacja jest gotowa", zanim ktokolwiek rozwinie

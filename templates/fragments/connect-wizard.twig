@@ -29,7 +29,7 @@
         {% if kreator.gotowe %}Wszystkie zrobione.{% elseif biezacy is not null %}Teraz: {{ biezacy.nazwa|lower }}.{% endif %}</p>
 
     {% if komunikat is not null %}
-        <p class="notice" role="status">{{ komunikat }}</p>
+        {% include 'partials/komunikat.twig' with {'tekst': komunikat, 'rodzaj': 'sukces'} only %}
     {% endif %}
 
     {% if nowy_klucz is not null %}

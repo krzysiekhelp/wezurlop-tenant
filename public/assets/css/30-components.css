@@ -627,8 +627,18 @@
 .field--check { flex-direction: row; align-items: center; gap: var(--s-2); }
 
 /* Pole z błędem — ⚠ czerwień na OBRYSIE, nie na tle: tło robiłoby z pola komunikat,
-   a komunikat jest osobnym elementem (`.notice--danger`). */
-.field--error .input, .field--error .select { border-color: var(--c-danger); }
+   a komunikat jest osobnym elementem (toast, a bez JavaScriptu `.notice--danger`).
+   ⚠ **Klucz to `aria-invalid`, nie tylko klasa oprawy** (Z47): błąd pola bywa nadawany przez
+   `flash.js` na polu, które dostało odmowę z serwera, a wtedy oprawy `.field` może nie być
+   (adres w wierszu listy osób to samo `<input>` z `hx-post`). Atrybut i tak jest potrzebny
+   czytnikowi ekranu, więc wygląd wisi na tym, co i tak musi być prawdziwe.
+   ⚠ Obwódka 3 px robiona CIENIEM, nie `outline` — `outline` jest zarezerwowany dla fokusu
+   klawiatury (`10-base.css`), a pole z błędem bywa jednocześnie polem z fokusem. */
+.field--error .input, .field--error .select,
+.input[aria-invalid="true"], .select[aria-invalid="true"] {
+  border-color: var(--c-danger);
+  box-shadow: 0 0 0 3px var(--c-danger-soft);
+}
 
 /* Znacznik firmy w wierszu wyboru: inicjał w kwadracie.
    ⚠ Stara reguła miała niebieski gradient i białą literę — kolor na stanie normalnym. */
@@ -819,7 +829,9 @@
 .sg-swatch--c-danger-soft span  { background: var(--c-danger-soft); }
 .sg-swatch--c-neutral-soft span { background: var(--c-neutral-soft); }
 
-.sg-flash-demo { position: static; transform: none; width: auto; box-shadow: none; }
+/* ⚠ Podgląd toasta w spisie komponentów: komunikaty stoją W TREŚCI, a nie u dołu okna.
+   Reguła dotyczy wyłącznie tego jednego miejsca i nie rusza samego komponentu. */
+.sg-toasty .toast { box-shadow: none; }
 
 /* ——— powłoki ekranów systemowych: instalator i ekran błędu ————————————————
    ⚠ Dlaczego w KOMPONENTACH, a nie w arkuszu powłoki: oba ekrany renderują się w OBU wariantach
@@ -1778,6 +1790,17 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   background: var(--c-surface);
   box-shadow: 0 0 0 3px var(--c-accent-soft);
   outline: none;
+}
+/* ⚠ **Pole z odmową zostaje czerwone TAKŻE pod fokusem.** Po odmowie zapisu fokus wraca do
+   pola (Z47), a reguła `:focus` wyżej maluje ramkę i obwódkę w barwie akcji — czyli pole
+   z błędem wyglądałoby jak pole, w którym właśnie piszemy. Zmierzone przed poprawką:
+   ramka `--c-line`, obwódka `--c-accent-soft`, choć `aria-invalid` było ustawione.
+   Reguła stoi TUTAJ, przy regule, z którą się bije, i ma od niej wyższą szczegółowość. */
+.pick__adres .input[aria-invalid="true"],
+.pick__adres .input[aria-invalid="true"]:focus {
+  border-color: var(--c-danger);
+  background: var(--c-surface);
+  box-shadow: 0 0 0 3px var(--c-danger-soft);
 }
 .pick__adres .input:disabled { color: var(--c-text-3); }
 /* ⚠ „Zapisz" POJAWIA SIĘ dopiero przy zmianie — i robi to CSS na stanie `disabled`, który
@@ -5104,3 +5127,117 @@ body:has(dialog.modal[open]) { overflow: hidden; }
    blokuje przewijania — blokadę na czas chwytu robi `touchmove` w module (jedyne miejsce,
    w którym to działa po rozpoczęciu gestu). */
 .hier__card { touch-action: manipulation; }
+
+/* ——— toast: wynik operacji (zlecenie Z47) ——————————————————————————————————————————
+   ⚠ **Jeden komponent na wszystkie komunikaty o wyniku** — błąd, potwierdzenie, ostrzeżenie
+   i informację. Zastąpił pasek `#flash` (`.flash` w obu arkuszach powłoki, skasowany): pasek
+   u góry strony stał w miejscu, na które nikt nie patrzy po kliknięciu, a na telefonie i tak
+   był już pływającym pudełkiem u dołu — czyli toastem bez nazwy.
+
+   ⚠ **Pojemnik NIE ŁAPIE WSKAŹNIKA, łapią go same komunikaty.** Bez `pointer-events: none`
+   przezroczysty pas 620 px u dołu ekranu przykrywałby przycisk zapisu w oknie i stopkę okna,
+   a tego nie widać ani na zrzucie, ani w pomiarze prostokątów — dopiero `elementFromPoint`
+   mówi prawdę (lekcja z pomiarów osiągalności, §11).
+   ⚠ `z-index: 50`: nad belką górną (10) i nad dolną nawigacją telefonu (30). Okna `.modal`
+   otwarte przez `showModal()` leżą w warstwie górnej przeglądarki, czyli i tak wyżej —
+   bez niej toast przykryłby stopkę okna. */
+.toasty {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  width: min(620px, calc(100vw - 2 * var(--s-4)));
+  pointer-events: none;
+}
+/* ⚠ Pusty pojemnik nie ma prawa niczego zasłaniać ani niczego rezerwować: bez komunikatów
+   jest wysoki na 0 px, a `pointer-events: none` zdejmuje go z drogi wskaźnika. */
+.toasty:empty { display: none; }
+
+/* ⚠ Biała belka **bez kolorowego paska z boku i bez ciemnego tła** (prototyp zaakceptowany
+   18.10.2026): barwę niesie wyłącznie kółko z lewej, więc komunikat czyta się jak kartka
+   położona na ekranie, a nie jak alarm. */
+.toast {
+  display: flex;
+  align-items: flex-start;
+  /* 10 px z boku krzyżyka, 12 px od strony kółka — krzyżyk ma własne 28 px pola dotyku,
+     więc równe wcięcie z obu stron odsunęłoby go od krawędzi o dwa razy za dużo. */
+  gap: var(--s-3);
+  padding: 10px var(--s-2) 10px var(--s-3);
+  border: 1px solid var(--c-line);
+  border-radius: 12px;
+  background: var(--c-surface);
+  box-shadow: var(--shadow-pop);
+  pointer-events: auto;
+}
+.toast__znak {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: var(--w-semibold);
+  line-height: 1;
+  /* Informacja: barwy obojętne. Pozostałe rodzaje nadpisują obie wartości niżej. */
+  background: var(--c-neutral-soft);
+  color: var(--c-text-3);
+}
+.toast--blad .toast__znak    { background: var(--c-danger-soft); color: var(--c-danger-text); }
+.toast--sukces .toast__znak  { background: var(--c-accent-soft); color: var(--c-accent-text); }
+.toast--uwaga .toast__znak   { background: var(--c-warn-soft);   color: var(--c-warn-text); }
+/* ⚠ Treść JEDNYM zdaniem, a pierwsza część pogrubiona: „**Adres jest już zajęty.** Ma go
+   Jan Kowalski — nic nie zapisano." Dłuższe wyjaśnienie zostaje w treści ekranu, bo toast
+   znika po pięciu sekundach, a wyjaśnienie ma zostać. */
+.toast__tresc {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--t-body);
+  line-height: var(--lh-body);
+  color: var(--c-text-2);
+}
+.toast__tresc strong { color: var(--c-text); font-weight: var(--w-semibold); }
+.toast__zamknij {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  margin: -2px 0 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--c-text-3);
+  font-size: var(--t-body);
+  line-height: 1;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .toast__zamknij:hover { background: var(--c-surface-hover); color: var(--c-text); }
+}
+/* Wejście: wsunięcie od dołu o 16 px i przejście przezroczystości. Klasę zdejmuje moduł
+   w następnej klatce — stan początkowy musi zdążyć się narysować, inaczej nie ma czego
+   animować. */
+.toast {
+  transition: opacity .25s ease, transform .25s ease;
+}
+.toast--wchodzi, .toast--wychodzi {
+  opacity: 0;
+  transform: translateY(16px);
+}
+/* ⚠ Bez ruchu, gdy system o to prosi — zostaje samo przejście przezroczystości. */
+@media (prefers-reduced-motion: reduce) {
+  .toast { transition: opacity .25s ease; }
+  .toast--wchodzi, .toast--wychodzi { transform: none; }
+}
+
+/* ⚠ Komunikat serwera (`[data-komunikat]`) jest renderowany W TREŚCI EKRANU i dopiero moduł
+   przenosi go do toasta, dokładając tę klasę. Bez JavaScriptu klasa nigdy nie powstaje,
+   więc komunikat zostaje tam, gdzie był — to jest cała ścieżka zapasowa i nie ma drugiej. */
+.komunikat--w-toascie { display: none; }

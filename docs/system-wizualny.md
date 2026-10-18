@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.22, 18.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.23, 18.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,49 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.22 → 1.18.23: komunikat o wyniku operacji to TOAST u dołu ekranu, a pasek
+> `#flash` znika** (zlecenie Z47, 18.10.2026).
+> **(1) Komponent.** `.toasty` (pojemnik `position: fixed`, `left: 50%`, `bottom: 28px`,
+> `width: min(620px, 100vw − 2·--s-4)`, `z-index: 50`) i `.toast` w środku: biała belka
+> `--c-surface`, ramka 1 px `--c-line`, promień 12 px, cień `--shadow-pop`, wcięcie 10/8/10/12 px,
+> odstęp 12 px. **Bez kolorowego paska z boku i bez ciemnego tła** — barwę niesie wyłącznie
+> kółko 24 px z lewej: błąd `--c-danger-soft`/`--c-danger-text` „!", sukces
+> `--c-accent-soft`/`--c-accent-text` „✓", ostrzeżenie `--c-warn-soft`/`--c-warn-text`,
+> informacja `--c-neutral-soft`/`--c-text-3` „i". Treść 14 px (`--t-body`) `--c-text-2`
+> z pogrubionym pierwszym zdaniem (`--c-text`), krzyżyk 28 × 28 px z `aria-label` „Zamknij".
+> ⚠ **To jest nazwany wyjątek od §4b („zielonego wariantu nie ma")**: zieleń stoi w kółku 14 px,
+> a nie na tle komunikatu — rodzaj wyniku ma być czytelny jednym spojrzeniem, bo komunikat znika
+> po pięciu sekundach. Tło zostaje białe, więc toast dalej nie udaje przycisku.
+> **(2) Zachowanie.** Wejście: wsunięcie od dołu 16 px i przejście przezroczystości 0,25 s
+> (bez ruchu przy `prefers-reduced-motion`). Znika sam po 5 s; najechanie kursorem albo fokus
+> **wstrzymuje** odliczanie i zostawia tyle, ile zostało, a zjechanie je wznawia. Najwyżej trzy
+> naraz, najnowszy na dole, czwarty wypycha najstarszy.
+> **(3) Jedno źródło: `modules/flash.js`.** Trzy drogi wchodzą tym samym wejściem: błędy htmx
+> (z powodem z odpowiedzi `text/plain`, 1.18.20), zdarzenie `wezurlop:komunikat` z innych modułów
+> i z nagłówka `HX-Trigger` (`Support\Komunikat`), oraz komunikat serwera wyrenderowany
+> w treści ekranu przez `partials/komunikat.twig` (`[data-komunikat]`), który moduł przenosi
+> do toasta i chowa klasą `.komunikat--w-toascie`.
+> ⚠ **Ścieżka bez JavaScriptu nie ma drugiego mechanizmu**: klasa po prostu nie powstaje,
+> więc zdanie zostaje tam, gdzie je postawił serwer — zmierzone, 1560 × 44 px w treści ekranu.
+> **(4) Pasek `#flash` skasowany** razem z regułami `.flash` w obu arkuszach powłoki. Na telefonie
+> był już pływającym pudełkiem u dołu, czyli toastem bez nazwy; w wariancie web stał pod belką
+> górną, czyli tam, gdzie po kliknięciu nikt nie patrzy. W powłoce mobilnej toast stoi **nad**
+> dolną nawigacją (`.toasty--nad-nawigacja`, odstęp liczony z `--m-nav-h`) — zmierzone: luka
+> 16 px, nawigacja klikalna.
+> ⚠ **Kryterium bramki przepięte z `#flash` na `#toasty`**: pojemnik stoi na każdym ekranie,
+> ma `role="status"` i `aria-live="polite"`, a pusty ma 0 px wysokości i `pointer-events: none`.
+> Powód ten sam co przy pasku: rzecz, której nie widać, nie ma prawa zajmować miejsca ani łapać
+> wskaźnika. Kryterium złamane celowo (zdjęte `pointer-events`) zapaliło 14 ekranów.
+> **(5) Błąd pola.** Pole dostaje `aria-invalid="true"`, ramkę `--c-danger` i obwódkę 3 px
+> `--c-danger-soft` (cieniem, bo `outline` należy do fokusu klawiatury), wartość zostaje, fokus
+> wraca do pola, a ramka znika przy pierwszej zmianie wartości. ⚠ Pole wskazuje **żądanie**
+> (`hx-include`), nie zgadywanie: zapis adresu w wierszu listy osób wisi na przycisku, a pole
+> stoi obok. Gdy w zakresie jest więcej niż jedno pole, nie oznaczamy **żadnego** — czerwień
+> na niewłaściwym polu jest gorsza niż jej brak.
+> **(6) Treść komunikatów skrócona do zdania wiodącego i jednego dopowiedzenia** (33 miejsca).
+> Wyjaśnienia zeszły tam, gdzie zostają na ekranie: o haśle z linku mówi formularz nowego konta,
+> o wymianie klucza notka w stopce karty kluczy, o wielkości liter podpowiedź pod polem nazwy grupy.
 
 > **Zmiana 1.18.21 → 1.18.22: rodzaj zdarzeń na `/admin/dziennik` wybiera się LISTĄ, nie paskiem
 > chipów** (zlecenie Z42, 18.10.2026).
@@ -1139,6 +1182,11 @@ Konwencja: `blok`, `blok__element`, `blok--wariant`. Bez zagnieżdżania głębs
 nie załącznikiem. ⚠ **Nazwa komponentu, której nie ma w spisie, to nazwa, którą ktoś za miesiąc
 wymyśli drugi raz** — dokładnie tak powstały dwa paski komunikatu (§4b) i dwie siatki miesiąca.
 
+*Komunikat o wyniku operacji (1.18.23, zlecenie Z47)*
+`.toasty` `.toasty--nad-nawigacja` `.toast` (`--blad` `--sukces` `--uwaga`) `.toast__znak`
+`.toast__tresc` `.toast__zamknij` `.toast--wchodzi` `.toast--wychodzi` `.komunikat--w-toascie`
+⚠ `.flash` **skasowane** razem z paskiem `#flash`; znacznik komunikatu składa `partials/komunikat.twig`.
+
 *Karta i treść*
 `.card` `.card__head` `.card__title` `.card__meta` `.card__body` `.card__body--tight` `.card__foot`
 `.card__foot--notka` (1.18.21, zlecenie Z41 — stopka, w której stoi sama notka w ramce)
@@ -1357,8 +1405,14 @@ z etykietą wyznaczyło wysokość wiersza.
 wyglądzie i różnych modyfikatorach. Obowiązuje **jedna**: `.notice`, z wariantami
 `--warn` i `--danger`.
 
-- ⚠ **Zielonego wariantu nie ma.** „Sesja wygasła", „zapisano", „gotowe" — to stany obojętne
+- ⚠ **Od 1.18.23 (Z47) komunikat o WYNIKU OPERACJI nie jest już paskiem, tylko toastem**
+  (`.toasty` / `.toast`, opis przy zmianie 1.18.23). `.notice` zostaje dla dwóch rzeczy i tylko
+  dla nich: treści ekranu, która ma zostać (ostrzeżenia o stanie, objaśnienia), i dla ścieżki
+  **bez JavaScriptu**, gdzie komunikat serwera zostaje w miejscu, w którym go wyrenderowano.
+- ⚠ **Zielonego wariantu PASKA nie ma.** „Sesja wygasła", „zapisano", „gotowe" — to stany obojętne
   albo odstępstwa, nie akcje. Zieleń znaczy akcję (§2), a pasek komunikatu nie jest przyciskiem.
+  ⚠ Jedyny wyjątek jest nazwany: **kółko 24 px w toaście**, gdzie zieleń z „✓" mówi, że operacja
+  się udała. Tło belki zostaje białe — zielone tło robiłoby z komunikatu przycisk.
 - ⚠ **Nazwy klas nie sklejamy w JavaScripcie z fragmentów** (`'flash ' + kind`). Zmierzone:
   `modules/flash.js` robił dokładnie to, więc przemianowanie komponentu wyłączyłoby styl
   **po cichu** — nie widać tego ani na zrzucie, ani w wyszukiwaniu po nazwie klasy.

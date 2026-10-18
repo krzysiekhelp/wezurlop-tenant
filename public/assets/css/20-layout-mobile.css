@@ -181,20 +181,14 @@
    który jest cechą powłoki: na telefonie ciaśniej. */
 .m-content .defs { gap: var(--s-4); }
 
-/* Pasek komunikatu — tu WYŁĄCZNIE pozycjonowanie. Wygląd daje `.notice` z 30-components.css,
-   ten sam w obu wariantach; szablon nosi `class="flash notice"`.
-   ⚠ Na telefonie musi stać NAD dolną nawigacją, inaczej komunikat ląduje pod belką i nie da się
-   go przeczytać ani zamknąć — dlatego odstęp liczy się z `--m-nav-h`, a nie ze stałej. */
-.flash {
-  position: fixed;
-  left: 50%;
-  bottom: calc(var(--m-nav-h) + var(--s-4) + var(--safe-bottom));
-  transform: translateX(-50%);
-  z-index: 200;
-  width: min(92%, 520px);
-  box-shadow: var(--shadow-pop);
-}
-.flash[hidden] { display: none; }
+/* ⚠ Toast musi stać NAD dolną nawigacją: pod nią nie da się go ani przeczytać, ani zamknąć.
+   Odstęp liczy się z `--m-nav-h` i bezpiecznego marginesu urządzenia, nie ze stałej —
+   tak samo, jak liczył go dawny pasek `.flash`, który ten komponent zastąpił. */
+/* ⚠ Podwójna klasa, nie pojedyncza: arkusz komponentów wczytuje się PO arkuszu powłoki,
+   więc `.toasty { bottom: 28px }` (ta sama szczegółowość) wygrywało kolejnością i komunikat
+   nachodził na nawigację o 28 px — zmierzone przy 374 px. */
+.toasty.toasty--nad-nawigacja { bottom: calc(var(--m-nav-h) + var(--s-4) + var(--safe-bottom)); }
+
 
 /* ——— znacznik spółki w pasku wąskim (zlecenie 2026-10-10-globalny-wybor-spolki §1) —————————
    ⚠ Etykiety „SPÓŁKA" nie ma już nigdzie (prośba Krzysztofa 11.10.2026 — kontrolka wygląda tak,

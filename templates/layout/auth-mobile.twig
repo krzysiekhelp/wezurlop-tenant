@@ -9,9 +9,9 @@
 <main class="m-auth" id="main">
     <img class="m-auth__logo" src="{{ asset('img/logo.png') }}" alt="wezurlop" width="220" height="42">
     <p class="m-auth__tag">URLOPY BEZ PAPIERÓW</p>
-    {% include 'partials/flash.twig' %}
     {% block content %}{% endblock %}
 </main>
+{% include 'partials/toasty.twig' %}
 {% include 'partials/scripts.twig' with {'htmx': false} %}
 </body>
 </html>

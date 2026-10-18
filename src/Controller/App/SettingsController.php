@@ -41,14 +41,16 @@ final class SettingsController
     ];
 
     private const NOTICES = [
-        'strefa' => 'Strefa czasowa zapisana. Godziny na wszystkich ekranach pokazujemy od teraz w tej strefie.',
-        'sonda'  => 'Sonda crona postawiona w kolejce. Podejmie ją najbliższy przebieg crona — '
-            . 'odśwież ten ekran za kilka minut.',
-        'poczta' => 'Ustawienia poczty zapisane. Wyślij wiadomość próbną, żeby sprawdzić, czy serwer je przyjmuje.',
-        'haslo_wyczyszczone' => 'Hasło SMTP wyczyszczone. Serwer, który wymaga uwierzytelnienia, odrzuci teraz wysyłkę.',
+        // ⚠ Zdanie wiodące, kropka, krótkie dopowiedzenie (Z47) — komunikat stoi w toaście,
+        // który pogrubia pierwsze zdanie i znika po pięciu sekundach. Gdzie widać nazwy
+        // wyświetlane, mówi nagłówek okna, a nie komunikat po zapisie.
+        'strefa' => 'Strefa czasowa zapisana. Godziny pokazujemy od teraz w tej strefie.',
+        'sonda'  => 'Sonda crona w kolejce. Odśwież ten ekran za kilka minut.',
+        'poczta' => 'Ustawienia poczty zapisane. Wyślij wiadomość próbną.',
+        'haslo_wyczyszczone' => 'Hasło SMTP wyczyszczone. Serwer wymagający uwierzytelnienia odrzuci wysyłkę.',
         // ⚠ Jeden komunikat na cały zestaw (Z29): okno zapisuje wszystkie firmy jednym
         // przyciskiem, więc „nazwa zapisana" w liczbie pojedynczej kłamałoby przy dwóch zmianach.
-        'nazwy'  => 'Nazwy wyświetlane zapisane. Od teraz widać je na liście kont, w kontroli dostępu i w filtrze.',
+        'nazwy'  => 'Nazwy wyświetlane zapisane.',
     ];
 
     public function __construct(

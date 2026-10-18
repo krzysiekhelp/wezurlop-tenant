@@ -7,7 +7,7 @@
     <h1>Nie pamiętasz hasła?</h1>
     <p>Podaj adres e-mail konta. Wyślemy link do ustawienia nowego hasła.</p>
     {% if sent %}
-        <p class="notice" role="status">Jeśli konto istnieje, wysłaliśmy wiadomość z linkiem do ustawienia nowego hasła. Link jest ważny 30 minut.</p>
+        {% include 'partials/komunikat.twig' with {'tekst': 'Jeśli konto istnieje, wysłaliśmy link do ustawienia hasła. Jest ważny 30 minut.', 'rodzaj': 'sukces'} only %}
     {% endif %}
     <form method="post" action="{{ url('/haslo/reset') }}" class="stack">
         {% include 'partials/csrf.twig' %}

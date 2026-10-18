@@ -218,28 +218,6 @@
 /* ⚠ Bez --page-max na monitorze 1920 px „Stan” stoi pół metra od nazwiska (§3.3). */
 .page { width: 100%; max-width: calc(var(--page-max) + 2 * var(--s-6)); margin-inline: auto; padding-inline: var(--s-6); padding-block: var(--s-6); display: flex; flex-direction: column; gap: var(--s-5); }
 
-/* ——— pasek komunikatu w wariancie web (rozstrzygnięcie 22.09.2026) ————————————
-
-   ⚠ Przyklejony **pod górną belką**, bo ma `role="alert"`: komunikat, którego nie widać,
-   nie jest komunikatem. `top` liczy się z wysokości belki, nie ze stałej — belka jest
-   `sticky top: 0` i ma `--topbar-h`.
-
-   ⚠ Warstwa NIŻSZA niż belka (`z-index` 9 przy 10 belki): pasek ma się wsuwać pod nią,
-   a nie zasłaniać ścieżki i menu użytkownika.
-
-   ⚠ Ukryty pasek nie rezerwuje miejsca ani nie przesuwa treści — załatwia to
-   `[hidden] { display: none !important }` z `10-base.css`, a bramka sprawdza, że pudełko
-   ma 0 × 0. Dlatego tu NIE MA `min-height` ani `margin` na stałe.
-
-   ⚠ Cień jak w wariancie mobilnym (`--shadow-pop`): pasek unosi się nad treścią, którą
-   przy przewijaniu zasłania — bez cienia wyglądałby jak wklejony w tekst. */
-.flash {
-  position: sticky;
-  top: var(--topbar-h);
-  z-index: 9;
-  box-shadow: var(--shadow-pop);
-}
-
 /* ——— znacznik spółki w górnej belce (zlecenie 2026-10-10-globalny-wybor-spolki §1) ————————
    ⚠ **Jedna kontrolka wyboru spółki w całym programie.** Zastąpiła `.combo` w nagłówkach trzech
    ekranów, `<select name="spolka">` na kontach i ciszę na dziewięciu pozostałych. Stoi w belce,

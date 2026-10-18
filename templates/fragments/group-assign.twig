@@ -69,7 +69,7 @@
     {#- ⚠ Komunikat o niepełnym zapisie stoi **w tym fragmencie**, a nie na stronie wokół niego:
         po podmianie htmx wymienia się dokładnie ten blok, więc pasek wyrenderowany poza nim
         albo by nie powstał, albo zostałby po poprzednim żądaniu i kłamał. -#}
-    {% if error|default(null) is not null %}<p class="notice notice--danger assign__blad" role="alert">{{ error }}</p>{% endif %}
+    {% include 'partials/komunikat.twig' with {'tekst': error|default(null), 'rodzaj': 'blad', 'klasa': 'assign__blad'} only %}
 
     <section class="assign__col" aria-labelledby="assign-w-grupie">
         <header class="assign__head">

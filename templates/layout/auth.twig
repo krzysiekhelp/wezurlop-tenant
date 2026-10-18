@@ -18,11 +18,11 @@
             <img src="{{ asset('img/mascot.png') }}" alt="" width="300" height="281">
         </section>
         <main class="card form-card" id="main">
-            {% include 'partials/flash.twig' %}
             {% block content %}{% endblock %}
         </main>
     </div>
 </div>
+{% include 'partials/toasty.twig' %}
 {% include 'partials/scripts.twig' with {'htmx': false} %}
 </body>
 </html>

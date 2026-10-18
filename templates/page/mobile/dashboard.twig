@@ -3,6 +3,6 @@
 {% block nazwa_ekranu %}Pulpit{% endblock %}
 
 {% block content %}
-    {% if notice is defined and notice is not null %}<p class="notice" role="status">{{ notice }}</p>{% endif %}
+    {% include 'partials/komunikat.twig' with {'tekst': notice is defined ? notice : null, 'rodzaj': 'sukces'} only %}
     {% include 'partials/page/dashboard.twig' %}
 {% endblock %}

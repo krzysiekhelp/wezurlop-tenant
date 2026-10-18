@@ -20,15 +20,16 @@
         nazwę zmienia się z listy grup i z ekranu grupy, a wracać trzeba tam, skąd przyszło. -#}
     <input type="hidden" name="wroc" value="{{ wroc|default('lista') }}">
     <div class="{{ okno ? 'modal__body' : 'form-column' }}">
-        {#- ⚠ Odmowa zapisu stoi W OKNIE, nad polem, którego dotyczy (Z31, dopisek). -#}
-        {% if blad|default(null) is not null %}
-            <p class="notice notice--danger" role="alert">{{ blad }}</p>
-        {% endif %}
+        {#- ⚠ Odmowa zapisu idzie do toasta (Z47), a pole, którego dotyczy, dostaje czerwoną
+            ramkę i `aria-invalid` — komunikat mówi CO, a pole mówi GDZIE. Bez JavaScriptu
+            zdanie zostaje tutaj, nad polem, tak jak stało od Z31. -#}
+        {% include 'partials/komunikat.twig' with {'tekst': blad|default(null), 'rodzaj': 'blad'} only %}
         <label class="field{{ blad|default(null) is not null ? ' field--error' : '' }}">
             <span class="field__label">Nazwa grupy</span>
             <input class="input" type="text" name="nazwa" maxlength="100"
                    value="{{ wpisana|default('') != '' ? wpisana : grupa.nazwa }}"
                    aria-label="Nowa nazwa grupy {{ grupa.nazwa }}" required
+                   {%- if blad|default(null) is not null %} aria-invalid="true"{% endif %}
                    {%- if okno %} autofocus data-zaznacz{% endif %}>
         </label>
         <p class="nazwy-podpowiedz">Nazwy w jednej firmie muszą się różnić. Wielkość liter się nie liczy: „Produkcja" i „PRODUKCJA" to ta sama nazwa.</p>

@@ -7,7 +7,7 @@
     <h1>{{ backup ? 'Kod zapasowy' : 'Kod z aplikacji' }}</h1>
     <p>{{ backup ? 'Wpisz jeden z kodów zapasowych. Każdy działa tylko raz.' : 'Wpisz 6-cyfrowy kod z aplikacji uwierzytelniającej.' }}</p>
     {% if error is not null %}
-        <p class="notice notice--danger" role="alert">{{ error }}</p>
+        {% include 'partials/komunikat.twig' with {'tekst': error, 'rodzaj': 'blad'} only %}
     {% endif %}
 
     <form method="post" action="{{ url('/logowanie/kod') }}" class="stack">

@@ -8,7 +8,7 @@
       hx-target="#konto-adm-tresc" hx-swap="innerHTML">
     {% include 'partials/csrf.twig' %}
     <div class="stack">
-        {% if error is not null %}<p class="notice notice--danger" role="alert">{{ error }}</p>{% endif %}
+        {% include 'partials/komunikat.twig' with {'tekst': error, 'rodzaj': 'blad'} only %}
 
         <p class="notice">Dla osoby, która <strong>nie jest w programie kadrowym</strong> — księgowej z zewnątrz,
             właściciela, informatyka. Pracownika nie da się dodać tutaj: pracownicy przychodzą z R2
@@ -48,8 +48,12 @@
                 Rola pracownika wymaga aktywnego etatu w spółce.</span>
         </div>
 
-        <p class="notice notice--warn">Administratorzy mają obowiązkowe logowanie dwuetapowe —
-            aplikację uwierzytelniającą sparuje właściciel konta przy pierwszym logowaniu.</p>
+        {#- ⚠ Zdanie o haśle z linku zeszło TUTAJ z komunikatu po utworzeniu konta (Z47):
+            toast znika po pięciu sekundach, a to jest wyjaśnienie, które ma zostać — i czyta
+            się je przed utworzeniem konta, a nie po. -#}
+        <p class="notice notice--warn">Hasło właściciel konta ustawi z linku w zaproszeniu.
+            Administratorzy mają obowiązkowe logowanie dwuetapowe — aplikację uwierzytelniającą
+            sparuje przy pierwszym logowaniu.</p>
     </div>
     <div class="drawer__foot">
         {% if w_oknie %}

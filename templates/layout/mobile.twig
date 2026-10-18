@@ -26,13 +26,11 @@
         </div>
     </header>
     <main class="m-content" id="main">
-        {#- W układzie, nie obok niego (§2.2). Na telefonie pasek i tak jest `position: fixed`,
-            więc miejsce w drzewie nie zmienia wyglądu — zmienia wysokość kontenera. -#}
-        {% include 'partials/flash.twig' %}
         {% block content %}{% endblock %}
     </main>
     {% include 'partials/nav-mobile.twig' %}
 </div>
+{% include 'partials/toasty.twig' with {'nad_nawigacja': true} %}
 {% include 'partials/scripts.twig' %}
 </body>
 </html>

@@ -27,6 +27,7 @@ use Wezurlop\Service\InvitationService;
 use Wezurlop\Service\KontekstSpolki;
 use Wezurlop\Service\TwoFactorService;
 use Wezurlop\Support\AdresKontaktowy;
+use Wezurlop\Support\Komunikat;
 use Wezurlop\Support\UrlGenerator;
 use Wezurlop\Support\ErrorHandler;
 use Wezurlop\Support\View;
@@ -218,7 +219,13 @@ final class AdminAccountController
             ['ustawiono' => $email !== ''],
         );
 
-        return $this->rowFragment($personId, $companyId, $admin);
+        // ⚠ Potwierdzenie zapisu idzie NAGŁÓWKIEM, bo przy htmx nie ma przeładowania strony,
+        // a sama podmiana wiersza nie mówi, że zapis się udał (zlecenie Z47). Treść pokazuje
+        // ten sam toast, co odmowę — jedno miejsce na komunikaty, nie dwa.
+        return $this->rowFragment($personId, $companyId, $admin)->withHeader(
+            'HX-Trigger',
+            Komunikat::naglowek($email === '' ? 'Adres wyczyszczony.' : 'Adres zapisany.'),
+        );
     }
 
     /**

@@ -4,7 +4,7 @@
     w żadnym arkuszu, więc znika; nie jest hakiem, tylko nazwą bez treści. -#}
 <div id="devices">
     {% if revoked %}
-        <p class="notice" role="status">Wybrane sesje zostały zakończone. Urządzenie zostanie wylogowane przy następnym żądaniu.</p>
+        {% include 'partials/komunikat.twig' with {'tekst': 'Wybrane sesje zakończone. Urządzenie wyloguje się przy następnym żądaniu.', 'rodzaj': 'sukces'} only %}
     {% endif %}
     {#- ⚠ Ta sama lista co wybór firmy i ustawienia konta — jeden komponent `.settings-list`.
         Różnica jest w sposobie klikania, nie w wyglądzie: tu wiersz NIE jest celem, bo akcja

@@ -124,13 +124,26 @@
             <p class="notice notice--warn">Ostrzeżenie (notice--warn).</p>
             <p class="notice notice--danger">Błąd (notice--danger).</p>
         </div>
-        <h3>Pasek #flash</h3>
-        <div class="stack">
-            <p class="flash notice sg-flash-demo">Pasek sukcesu (podgląd statyczny).</p>
-            <p class="flash notice notice--danger sg-flash-demo">Wystąpił błąd serwera. Spróbuj ponownie za chwilę.</p>
+        <h3>Toast — komunikat o wyniku operacji</h3>
+        {#- ⚠ Podgląd STATYCZNY, w treści strony: prawdziwy toast stoi `fixed` u dołu okna
+            i znika po pięciu sekundach, więc w spisie komponentów nie dałoby się go obejrzeć.
+            Ten sam znacznik, który składa `modules/flash.js`. -#}
+        <div class="stack sg-toasty">
+            <div class="toast toast--blad"><span class="toast__znak" aria-hidden="true">!</span>
+                <p class="toast__tresc"><strong>Adres jest już zajęty.</strong> Ma go inna osoba — nic nie zapisano.</p>
+                <button type="button" class="toast__zamknij" aria-label="Zamknij">×</button></div>
+            <div class="toast toast--sukces"><span class="toast__znak" aria-hidden="true">✓</span>
+                <p class="toast__tresc"><strong>Zapisano.</strong></p>
+                <button type="button" class="toast__zamknij" aria-label="Zamknij">×</button></div>
+            <div class="toast toast--uwaga"><span class="toast__znak" aria-hidden="true">!</span>
+                <p class="toast__tresc"><strong>Klucz unieważniony.</strong> Connector z tym kluczem dostanie 401.</p>
+                <button type="button" class="toast__zamknij" aria-label="Zamknij">×</button></div>
+            <div class="toast"><span class="toast__znak" aria-hidden="true">i</span>
+                <p class="toast__tresc"><strong>Sonda crona w kolejce.</strong> Podejmie ją najbliższy przebieg.</p>
+                <button type="button" class="toast__zamknij" aria-label="Zamknij">×</button></div>
         </div>
         <div class="sg-row">
-            <button type="button" class="btn btn--ghost btn--sm" hx-get="{{ url('/styleguide/brak') }}" hx-swap="none">Pokaż prawdziwy pasek (htmx, 404)</button>
+            <button type="button" class="btn btn--ghost btn--sm" hx-get="{{ url('/styleguide/brak') }}" hx-swap="none">Pokaż prawdziwy toast (htmx, 404)</button>
         </div>
     </div>
 </section>

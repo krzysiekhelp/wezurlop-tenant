@@ -16,10 +16,9 @@
     {% include 'partials/csrf.twig' %}
     <input type="hidden" name="spolka" value="{{ spolka.id }}">
     <div class="{{ okno ? 'modal__body' : 'form-column' }}">
-        {#- ⚠ Odmowa zapisu stoi W OKNIE, nad polem, którego dotyczy (Z31, dopisek). -#}
-        {% if blad|default(null) is not null %}
-            <p class="notice notice--danger" role="alert">{{ blad }}</p>
-        {% endif %}
+        {#- ⚠ Odmowa zapisu idzie do toasta (Z47), a pole dostaje czerwoną ramkę
+            i `aria-invalid`. Bez JavaScriptu zdanie zostaje tutaj, nad polem. -#}
+        {% include 'partials/komunikat.twig' with {'tekst': blad|default(null), 'rodzaj': 'blad'} only %}
         <label class="field{{ blad|default(null) is not null ? ' field--error' : '' }}">
             <span class="field__label">Nazwa grupy</span>
             {#- ⚠ Podpowiedź pokazuje TRZY przykłady z różnych porządków (miejsce, dział, zmiana),
@@ -27,6 +26,7 @@
             <input class="input" type="text" name="nazwa" maxlength="100"
                    value="{{ wpisana|default('') }}"
                    placeholder="np. Magazyn, Biuro, Zmiana nocna" required
+                   {%- if blad|default(null) is not null %} aria-invalid="true"{% endif %}
                    {%- if okno %} autofocus{% endif %}>
         </label>
         <p class="nazwy-podpowiedz">Nazwy w jednej firmie muszą się różnić. Wielkość liter się nie liczy: „Produkcja" i „PRODUKCJA" to ta sama nazwa.</p>

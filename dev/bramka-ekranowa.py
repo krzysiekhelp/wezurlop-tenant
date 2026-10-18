@@ -375,6 +375,28 @@ POMIAR = """(kontenery) => {
                    display: getComputedStyle(el).display});
     }
   });
+  // ⚠ **Pojemnik komunikatów (Z47) — przepięte kryterium po pasku `#flash`.** Pasek zniknął,
+  // ale pilnowana cecha jest ta sama i ma ten sam powód: rzecz, której NIE WIDAĆ, nie ma prawa
+  // zajmować miejsca ani łapać wskaźnika. Pusty pojemnik toastów leży u dołu okna na całą
+  // szerokość 620 px — bez `pointer-events: none` przykrywałby przycisk zapisu, a tego nie
+  // widać ani na zrzucie, ani w pomiarze prostokątów.
+  // ⚠ Odpowiedź FRAGMENTEM nie jest ekranem i nie ma powłoki (`/admin/podlaczenie/stan`,
+  // `/kalendarz/osoby`) — pojemnika komunikatów tam nie ma i nie ma go tam być, bo fragment
+  // wstawia się do strony, która już go ma. To samo rozpoznanie co w `POMIAR_TYTULU`:
+  // brak belki i brak powłoki. (Zmierzone: bez tego warunku kryterium zapalało dwa adresy
+  // na dwóch szerokościach — i miało rację co do faktu, a nie co do wniosku.)
+  const tk = document.getElementById('toasty');
+  const powloka_jest = !!document.querySelector('.app, .app-shell, .auth-shell, .install-shell, .status-card')
+    || !!document.querySelector('.topbar, .m-topbar');
+  const toasty = (tk === null && !powloka_jest) ? {brak: false, fragment: true, h: 0, dzieci: 0,
+      wskaznik: 'none', rola: 'status', live: 'polite'} : tk === null ? {brak: true} : {
+    brak: false,
+    h: Math.round(tk.getBoundingClientRect().height),
+    dzieci: tk.children.length,
+    wskaznik: getComputedStyle(tk).pointerEvents,
+    rola: tk.getAttribute('role'),
+    live: tk.getAttribute('aria-live'),
+  };
   const de = document.documentElement;
   // ⚠ Kontener siatki musi być tak wysoki jak dokument. Cokolwiek stanie POD nim, odkleja
   // element `position: sticky` na ostatnich pikselach przewijania — a wygląda to na usterkę
@@ -384,7 +406,7 @@ POMIAR = """(kontenery) => {
                         dokument: de.scrollHeight,
                         roznica: de.scrollHeight - Math.round(app.getBoundingClientRect().height)}
                      : null;
-  return {kontenery: wyn, rekordy, wciecia, ukryte, siatka,
+  return {kontenery: wyn, rekordy, wciecia, ukryte, siatka, toasty,
           strona: {clientWidth: de.clientWidth, scrollWidth: de.scrollWidth,
                    przewija: de.scrollWidth > de.clientWidth}};
 }"""
@@ -6454,7 +6476,7 @@ def main() -> int:
 
     raport: dict = {"prog_z_arkusza": prog, "naruszenia": [], "prog_naruszony": [],
                     "ekranow": 0, "bledy": [], "csp": [], "bez_dostepu": None, "nakladki": [],
-                    "wciecia": [], "wciecia_zle": [], "ukryte": [], "siatka": [], "cykl": None,
+                    "wciecia": [], "wciecia_zle": [], "ukryte": [], "siatka": [], "toasty": [], "cykl": None,
                     "obca_spolka": None, "ostrzezenie": None, "zasieg": None, "wymiana": None, "poziomy": None,
                     "prawda_kalendarza": None, "panel_wyboru": None, "rozdzial_rol": None,
                     "kasowanie_klucza": None, "nazwa_wyswietlana": None,
@@ -6525,6 +6547,12 @@ def main() -> int:
                         raport["prog_naruszony"].append({"okno": etyk, "adres": adres, "prog": prog, **r})
                 for u in m["ukryte"]:
                     raport["ukryte"].append({"okno": etyk, "adres": adres, **u})
+                t = m["toasty"]
+                if (t.get("brak")
+                        or (t["dzieci"] == 0 and t["h"] > 0)
+                        or t["wskaznik"] != "none"
+                        or t["rola"] != "status" or t["live"] != "polite"):
+                    raport["toasty"].append({"okno": etyk, "adres": adres, **t})
                 if m["siatka"] and abs(m["siatka"]["roznica"]) > SIATKA_TOLERANCJA:
                     raport["siatka"].append({"okno": etyk, "adres": adres, **m["siatka"]})
                 for w in m["wciecia"]:
@@ -6635,6 +6663,15 @@ def main() -> int:
         print("  ⚠ `[hidden]` z arkusza przeglądarki przegrywa z każdą regułą na klasie.")
         print("  W `10-base.css` stoi `[hidden] { display: none !important }` — jeśli element")
         print("  nadal ma pudełko, ktoś ustawił mu wymiary inaczej niż przez `display`.")
+    if raport["toasty"]:
+        zle = True
+        print(f"POJEMNIK KOMUNIKATÓW NIE ZGADZA SIĘ ({len(raport['toasty'])}):")
+        for t in raport["toasty"]:
+            print(f"  {t['adres']} ({t['okno']}): {t}")
+        print("  ⚠ Na każdym ekranie ma stać `#toasty` z `role=\"status\"` i `aria-live=\"polite\"`,")
+        print("  pusty ma 0 px wysokości i `pointer-events: none` — inaczej przezroczysty pas")
+        print("  u dołu okna przykrywa przyciski zapisu. To kryterium zastąpiło pilnowanie")
+        print("  paska `#flash[hidden]`, który zniknął razem ze zleceniem Z47.")
     if raport["siatka"]:
         zle = True
         print(f"KONTENER SIATKI NIŻSZY NIŻ DOKUMENT ({len(raport['siatka'])}):")
@@ -6886,7 +6923,8 @@ def main() -> int:
         return 1
     print(f"BRAMKA: OK — {raport['ekranow']} ekranów, próg z arkusza {prog} px, "
           f"{len(raport['wciecia'])} tabel z wcięciem {WCIECIE_W_KARCIE} px, "
-          f"zero ukrytych elementów z pudełkiem, siatka równa dokumentowi, "
+          f"zero ukrytych elementów z pudełkiem, pojemnik komunikatów pusty i przezroczysty "
+          f"dla wskaźnika, siatka równa dokumentowi, "
           f"zero przewijania w kontenerach i na stronie, {len(raport['nakladki'])} sprawdzeń "
           "nakładek, ekran braku dostępu na miejscu, zapis hierarchii odrzuca pętlę "
           "i przełożonego z innej spółki, ostrzeżenie tylko przy wyjściu, kalendarz zespołu "

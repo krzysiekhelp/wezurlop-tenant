@@ -39,7 +39,7 @@
         {% include 'partials/csrf.twig' %}
         <div class="modal__body">
             {% if bledy_nazw is not empty %}
-                <p class="notice notice--danger" role="alert">Nic nie zostało zapisane — popraw zaznaczone pola i zapisz jeszcze raz.</p>
+                {% include 'partials/komunikat.twig' with {'tekst': 'Nic nie zostało zapisane. Popraw zaznaczone pola i zapisz jeszcze raz.', 'rodzaj': 'blad'} only %}
             {% endif %}
 
             <div class="nazwy-lista">

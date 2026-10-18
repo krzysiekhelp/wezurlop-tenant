@@ -17,8 +17,8 @@
         </div>
     </div>
 
-    {% if notice is not null %}<p class="notice" role="status">{{ notice }}</p>{% endif %}
-    {% if error is not null %}<p class="notice notice--danger" role="alert">{{ error }}</p>{% endif %}
+    {% include 'partials/komunikat.twig' with {'tekst': notice, 'rodzaj': 'sukces'} only %}
+    {% include 'partials/komunikat.twig' with {'tekst': error, 'rodzaj': 'blad'} only %}
 
     <section class="card">
         <div class="card__head">

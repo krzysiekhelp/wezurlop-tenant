@@ -84,8 +84,8 @@
 
     {#- ⚠ Odmowa zapisu wraca DO OKNA (Z31, dopisek), więc pasek strony milczy — ten sam komunikat
         w dwóch miejscach naraz kazałby szukać, który z nich jest aktualny. -#}
-    {% if error is not null and okno_bledu is null %}<p class="notice notice--danger" role="alert">{{ error }}</p>{% endif %}
-    {% if notice is not null %}<p class="notice" role="status">{{ notice }}</p>{% endif %}
+    {% if okno_bledu is null %}{% include 'partials/komunikat.twig' with {'tekst': error, 'rodzaj': 'blad'} only %}{% endif %}
+    {% include 'partials/komunikat.twig' with {'tekst': notice, 'rodzaj': 'sukces'} only %}
     {% include 'partials/spolka-ekranu.twig' with {
         'spolka': spolka.nazwa, 'z_adresu': spolka_z_adresu,
         'z_zasobu': spolka_z_zasobu, 'fallback': spolka_fallback} only %}

@@ -15,8 +15,8 @@
     tenanta i tak widzi w belce, którą firmę prowadzi. Zdanie o tym, czym jest hierarchia, stoi
     teraz w nagłówku prawego panelu, przy strukturze, której dotyczy. -#}
 
-    {% if error is not null %}<p class="notice notice--danger" role="alert">{{ error }}</p>{% endif %}
-    {% if notice is not null %}<p class="notice" role="status">{{ notice }}</p>{% endif %}
+    {% include 'partials/komunikat.twig' with {'tekst': error, 'rodzaj': 'blad'} only %}
+    {% include 'partials/komunikat.twig' with {'tekst': notice, 'rodzaj': 'sukces'} only %}
 
     {% if spolka is null %}
         <p class="empty-state">To konto nie ma firmy, w której mogłoby ustawiać strukturę. Hierarchię prowadzi się w obrębie firmy, do której masz dostęp.</p>

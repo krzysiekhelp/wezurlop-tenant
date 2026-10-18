@@ -563,10 +563,11 @@ final class GroupController
     private static function komunikat(string $powod, string $nazwa): string
     {
         return match ($powod) {
-            GroupRepository::POWOD_NAZWA_ZAJETA => 'Grupa „' . $nazwa . '" już istnieje w tej firmie — '
-                . 'nazwy nie rozróżniamy wielkością liter, bo dwa takie wiersze na liście wyglądają jak jeden.',
-            GroupRepository::POWOD_NIEPUSTA => 'Grupa ma jeszcze osoby — wypisz je z grupy, zanim '
-                . 'usuniesz samą grupę. Pusta grupa znika bez pytania.',
+            // ⚠ Krótko, bo komunikat stoi w toaście i znika po pięciu sekundach (Z47).
+            // Dlaczego wielkość liter się nie liczy, mówi podpowiedź pod polem — tam zdanie
+            // zostaje na ekranie i czyta się je PRZED zapisem, a nie po odmowie.
+            GroupRepository::POWOD_NAZWA_ZAJETA => 'Grupa „' . $nazwa . '" już istnieje w tej firmie.',
+            GroupRepository::POWOD_NIEPUSTA => 'Grupa ma jeszcze osoby. Wypisz je, zanim usuniesz grupę.',
             default => 'Nie znalazłem takiej grupy.',
         };
     }

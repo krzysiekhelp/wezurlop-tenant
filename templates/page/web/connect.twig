@@ -20,7 +20,7 @@
         </div>
     </div>
 
-    {% if notice is not null %}<p class="notice" role="status">{{ notice }}</p>{% endif %}
+    {% include 'partials/komunikat.twig' with {'tekst': notice, 'rodzaj': 'sukces'} only %}
 
     {% if new_key is not null %}
         <section class="card" aria-labelledby="klucz-title">
