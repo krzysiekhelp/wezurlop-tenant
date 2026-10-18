@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.15, 18.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.16, 18.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,51 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.15 → 1.18.16: `/admin/dziennik` jako LISTA ZDAŃ zamiast tabeli**
+> (zlecenie Z36, 18.10.2026).
+> **(1)** Znika `.page__head` i linia „Wynik: X z Y" — liczba wpisów stoi w nagłówku karty,
+> a „wynik" powtarzał to, co widać na liście i w stopce. Karta nie ma tytułu: „Dziennik zdarzeń"
+> jest w belce, a jeden ekran ma jeden tytuł.
+> **(2)** Pasek siedmiu filtrów rodzaju (`.dz-filtry`, `.dz-filtr`) pod nagłówkiem. ⚠ **Filtr
+> działa po stronie serwera** — to zwykłe odnośniki z `?rodzaj=`, łączące się z filtrem konta
+> i ze stronicowaniem; bez JavaScriptu działa tak samo. Wybrany ma TŁO, nie samą ramkę: przy
+> siedmiu pozycjach różnica w grubości ramki każe szukać, który jest czynny.
+> ⚠ Zestaw filtrów pokrywa **wszystkie** rodziny kodów (ostatni jest zbiorczy: „Integracja
+> i system"), bo rodzina zostawiona poza filtrami byłaby osiągalna wyłącznie przez „Wszystkie" —
+> a dotyczy to także `security.*`. Zmierzone: 4777 + 2035 + 907 + 126 + 289 + 1357 = 9491,
+> czyli dokładnie tyle, ile wpisów bez filtra.
+> **(3)** Lista (`.dz-lista`) zamiast tabeli: nagłówek dnia („Dziś, 18.10.2026", „Wczoraj, …",
+> sama data), wiersz w siatce `32px 1fr auto`. ⚠ **Siatka, nie flex**: przy flexie długie zdanie
+> licytowało się z godziną o miejsce i spychało ją do drugiej linii.
+> **(4)** Kółko 32 px z ikoną rodzaju 15 px. Barwy: logowanie błękitem dnia dzisiejszego,
+> powstanie i nadanie zielenią, usunięcie i odmowa czerwienią, reszta obojętnie.
+> **(5)** ⚠ **ZDANIE zamiast kolumn** (`Support/ZdanieZdarzenia.php`): „**Kto** + czynność +
+> **obiekty**". Pogrubione jest to, **co pochodzi z danych** — nazwisko, nazwa grupy, uprawnienie
+> — a nie to, co jest szablonem zdania. Wyjątek: „w przeglądarce" (tłumaczenie `client: web`)
+> **nie jest** pogrubione, bo to okolicznik, nie treść wpisu.
+> ⚠ **Zero surowego JSON-a w treści** (warunek odbioru): tablice wchodzą jako wyliczenie,
+> **najwyżej trzy pozycje i „i jeszcze N"** — zmierzone, jedna zmiana składu grupy miała
+> 36 nazwisk, czyli trzy linijki ekranu na jeden wpis. Pełne szczegóły i kod zdarzenia
+> zostają w `title` wiersza.
+> ⚠ **Kod bez zdania nie jest błędem**: dostaje „<kto> wykonał(a) operację" i swój kod w `title`.
+> Ekran audytowy nie może ukryć zdarzenia dlatego, że ktoś zapomniał dopisać zdanie.
+> **(6)** Godzina „HH:MM:SS" **jedną czcionką**, 13 px, 400, z cyframi tabelarycznymi, bez
+> pogrubień i bez zmniejszania sekund: w audycie sekunda bywa treścią.
+> **(7)** Stopka: „Pokazano 1–50 z N" i dwa przyciski, nieczynny **wyszarzony zamiast zniknąć**
+> (`.btn--akcja-nieczynny`) — znikający przesuwa sąsiada na swoje miejsce i przy drugim
+> kliknięciu trafia się w niewłaściwy.
+> **Pomiar**: 1920 i 1366 px — 7 filtrów w jednym rzędzie (filtr 87 × 32), wiersz wpisu
+> 1558 × 56 (1366: 1052 × 56), kółko 32 × 32, godzina 56 px po prawej, filtr konta 244 × 38;
+> 375 px — wiersz 341 × 100 z godziną **pod** zdaniem, filtr konta 293 px (pełna szerokość karty),
+> pasek filtrów **przewija się w sobie** (`scrollWidth > clientWidth`), a strona nie przewija
+> się w poziomie na żadnej z trzech szerokości.
+> **Spójność trzech miejsc**: zdanie (PHP), ikona (biała lista w `partials/ikona-zdarzenia.twig`)
+> i barwa (`.dz-znak--*` w CSS) są sprawdzane testem `tests/zdania-dziennika.php` — rozjazd
+> między nimi nie wywraca ekranu, tylko po cichu zabiera ikonę albo kolor. ⚠ Test od razu
+> wyłapał, że ikona `wnioski` istniała wyłącznie jako gałąź zastępcza `{% else %}`.
+> ⚠ Rodzina `.wizard*` **usunięta** (polecenie zarządcy przy Z36): po Z35 nie dotyczyła już
+> żadnego znacznika.
 
 > **Zmiana 1.18.14 → 1.18.15: `/admin/integracja` w układzie pulpitu, zakres klucza w oknie,
 > kreska drzewa hierarchii liczona z siatki** (zlecenie Z35 wraz z dopiskiem, 18.10.2026).
@@ -960,6 +1005,13 @@ innych ekranach (przełącznik roku, zakres uprawnień) i tam zostaje taki, jaki
 `.card__znak--cichy` `.bez-grupy__tytuly` `.bez-grupy__opis` `.bez-grupy__siatka`
 `.bez-grupy__osoba` `.bez-grupy__imie` `.modal--grupa` `.chip--mala` `.assign__hurt`
 `.ikona-akcja` `.ikona-akcja--edycja` `.ikona-akcja--usun` `.ikona-akcja__form`
+
+*Dziennik zdarzeń (1.18.16, zlecenie Z36)*
+`.dz-filtry` `.dz-filtr` `.dz-filtr--wybrany` `.dz-lista` `.dz-dzien` `.dz-wpis`
+`.dz-znak` (`--logowanie` `--dodanie` `--usuniecie`) `.dz-tresc` `.dz-zdanie` `.dz-kto`
+`.dz-firma` `.dz-czas` `.dz-pusto` `.dz-podsumowanie` `.btn--akcja-nieczynny`
+⚠ Treść zdań mieszka w `Support/ZdanieZdarzenia.php`, ikony w `partials/ikona-zdarzenia.twig`
+(biała lista, nie wywołanie makra ze zmiennej — §5 CLAUDE.md).
 
 *Integracja (1.18.15, zlecenie Z35)*
 `.kafel__wartosc--stan` `.kafel__wartosc--napis` `.kafel__kropka` (`--ok` `--uwaga` `--blad`)

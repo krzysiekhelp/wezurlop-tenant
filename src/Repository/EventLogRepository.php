@@ -85,7 +85,8 @@ final class EventLogRepository
      *
      * @return list<array<string, mixed>>
      */
-    public function page(?int $accountId, ?int $personId, int $limit, int $offset): array
+    /** @param list<string> $prefiksy prefiksy kodów zdarzeń (filtr rodzaju, Z36) */
+    public function page(?int $accountId, ?int $personId, int $limit, int $offset, array $prefiksy = []): array
     {
         $stmt = $this->db->pdo()->prepare(
             'SELECT e.id, e.occurred_at, e.event_code, e.account_id, e.actor_label,
@@ -101,12 +102,15 @@ final class EventLogRepository
              LEFT JOIN person sap  ON sap.id = sa.person_id
              LEFT JOIN person sp   ON e.subject_type = \'person\' AND sp.id = e.subject_id
              LEFT JOIN company c   ON c.id = e.company_id
-             WHERE ' . self::filtrSql($accountId) . '
+             WHERE ' . self::filtrSql($accountId) . ' AND ' . self::rodzajSql($prefiksy) . '
              ORDER BY e.id DESC
              LIMIT :limit OFFSET :offset'
         );
         foreach (self::filtrParams($accountId, $personId) as $key => $value) {
             $stmt->bindValue($key, $value, \PDO::PARAM_INT);
+        }
+        foreach (self::rodzajParams($prefiksy) as $key => $value) {
+            $stmt->bindValue($key, $value);
         }
         $stmt->bindValue('limit', $limit, \PDO::PARAM_INT);
         $stmt->bindValue('offset', $offset, \PDO::PARAM_INT);
@@ -125,16 +129,25 @@ final class EventLogRepository
                 ?? self::osoba($row['podmiot_osoba_imie'], $row['podmiot_osoba_nazwisko']),
             'spolka'     => $row['spolka'] === null ? null : (string) $row['spolka'],
             'szczegoly'  => self::szczegoly($row['detail']),
+            // ⚠ Odkodowane szczegóły dla `ZdanieZdarzenia` (Z36): `szczegoly` spłaszcza tablice
+            // do JSON-a na potrzeby `title`, a zdanie potrzebuje ich jako tablic — inaczej
+            // „dodani" wróciłyby na ekran w postaci, której ten ekran miał się pozbyć.
+            'detale'     => self::detale($row['detail']),
         ], $stmt->fetchAll());
     }
 
-    public function countPage(?int $accountId, ?int $personId): int
+    /** @param list<string> $prefiksy */
+    public function countPage(?int $accountId, ?int $personId, array $prefiksy = []): int
     {
         $stmt = $this->db->pdo()->prepare(
             'SELECT COUNT(*) FROM event_log e WHERE ' . self::filtrSql($accountId)
+            . ' AND ' . self::rodzajSql($prefiksy)
         );
         foreach (self::filtrParams($accountId, $personId) as $key => $value) {
             $stmt->bindValue($key, $value, \PDO::PARAM_INT);
+        }
+        foreach (self::rodzajParams($prefiksy) as $key => $value) {
+            $stmt->bindValue($key, $value);
         }
         $stmt->execute();
 
@@ -166,6 +179,44 @@ final class EventLogRepository
             'id'    => (int) $row['id'],
             'nazwa' => self::osoba($row['first_name'], $row['last_name']) ?? ('konto #' . $row['id']),
         ], $rows);
+    }
+
+    /**
+     * Warunek filtra rodzaju — `event_code LIKE 'auth.%' OR …` (zlecenie Z36 §3).
+     *
+     * ⚠ **Każdy prefiks dostaje WŁASNY placeholder** (`:rodzaj0`, `:rodzaj1`, …). Przy
+     * `ATTR_EMULATE_PREPARES => false` ten sam `:nazwa` użyty dwa razy kończy się błędem HY093,
+     * więc numerowanie nie jest ozdobą. Same prefiksy pochodzą z `KodyZdarzen`, nie z adresu.
+     *
+     * @param list<string> $prefiksy
+     */
+    private static function rodzajSql(array $prefiksy): string
+    {
+        if ($prefiksy === []) {
+            return '1 = 1';
+        }
+        $warunki = [];
+        foreach (array_keys($prefiksy) as $i) {
+            $warunki[] = 'e.event_code LIKE :rodzaj' . $i;
+        }
+
+        return '(' . implode(' OR ', $warunki) . ')';
+    }
+
+    /**
+     * @param list<string> $prefiksy
+     * @return array<string, string>
+     */
+    private static function rodzajParams(array $prefiksy): array
+    {
+        $out = [];
+        foreach ($prefiksy as $i => $prefiks) {
+            // ⚠ `%` doklejamy TUTAJ, nie w SQL-u: wartość idzie placeholderem w całości,
+            // więc `_` i `%` z nazwy rodziny nie mają jak zmienić wzorca (CLAUDE.md §4).
+            $out['rodzaj' . $i] = $prefiks . '%';
+        }
+
+        return $out;
     }
 
     /**
@@ -218,6 +269,21 @@ final class EventLogRepository
      *
      * @return list<array{klucz: string, wartosc: string}>
      */
+    /**
+     * Szczegóły wpisu jako tablica, bez spłaszczania — wyłącznie dla budowania zdania.
+     *
+     * @return array<string, mixed>
+     */
+    private static function detale(mixed $detail): array
+    {
+        if (!is_string($detail) || $detail === '') {
+            return [];
+        }
+        $dane = json_decode($detail, true);
+
+        return is_array($dane) ? $dane : [];
+    }
+
     private static function szczegoly(mixed $detail): array
     {
         if (!is_string($detail) || $detail === '') {

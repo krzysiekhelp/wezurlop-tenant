@@ -1,5 +1,4 @@
 {% extends 'layout/web.twig' %}
-{% import 'partials/plakietka.twig' as plakietka %}
 
 {% block nazwa_ekranu %}Dziennik zdarzeń{% endblock %}
 
@@ -7,119 +6,100 @@
 {% endblock %}
 
 {% block content %}
-    <div class="page__head">
-        <div class="page__title">
-            <p class="page__sub">{{ strona.razem }} {{ strona.razem == 1 ? 'wpis' : 'wpisów' }}{% if konto %} dla wybranego konta{% endif %} · zapis wyłącznie do odczytu · czasy w strefie {{ strefa_tenanta() }}</p>
-        </div>
-    </div>
-
-    {# Filtr POZA kartą, formularz GET — działa bez JavaScriptu i daje adres do wklejenia (§5). #}
-    <form class="toolbar" method="get" action="{{ url('/admin/dziennik') }}">
-        <label class="field">
-            <span class="field__label">Konto</span>
-            <select class="select" name="konto">
-                <option value="">wszystkie konta</option>
-                {% for k in konta %}
-                    <option value="{{ k.id }}"{{ konto == k.id ? ' selected' : '' }}>{{ k.nazwa }}</option>
-                {% endfor %}
-            </select>
-        </label>
-        <button type="submit" class="btn btn--primary">Pokaż</button>
-        {% if konto %}
-            <a class="btn btn--ghost" href="{{ url('/admin/dziennik') }}">Wyczyść filtr</a>
-        {% endif %}
-        <span class="toolbar__spacer"></span>
-        <span class="toolbar__result">Wynik: {{ wpisy|length }} z {{ strona.razem }}</span>
-    </form>
+{% import 'partials/ikony.twig' as ikony %}
+{% import 'partials/ikona-zdarzenia.twig' as znak %}
+{#- ⚠ **Bez `.page__head` i bez linii „Wynik: X z Y"** (zlecenie Z36 §1): liczba wpisów stoi
+    w nagłówku karty, a „wynik" powtarzał to, co widać na liście i w stopce. Tytułu karta nie ma —
+    „Dziennik zdarzeń" jest w belce, a jeden ekran ma jeden tytuł. -#}
 
     <section class="card">
-        <div class="table-scroll">
-            {#- ⚠ Stałe szerokości (`table--stale` + `colgroup`): bez nich przeglądarka liczyła
-                z treści i dała kolumnie „Zdarzenie" 874 px przy 141 px na „Kto" — czyli najwięcej
-                miejsca dostała kolumna, która potrzebuje najmniej, a ucinało się to,
-                na co się patrzy. `table--zebra`: lista rośnie z danymi i ma pięć kolumn. -#}
-            <table class="table table--stale table--zebra">
-                <colgroup>
-                    <col class="col--kiedy">
-                    <col class="col--zdarzenie">
-                    <col class="col--kto">
-                    <col class="col--podmiot">
-                    <col class="col--spolka">
-                </colgroup>
-                <thead>
-                    <tr>
-                        <th>Kiedy</th>
-                        <th>Zdarzenie</th>
-                        <th>Kto</th>
-                        <th>Czego dotyczy</th>
-                        <th>Firma</th>
-                    </tr>
-                </thead>
-                <tbody>
-                {% for w in wpisy %}
-                    <tr>
-                        <td class="table__mute" title="{{ czas_ze_strefa(w.kiedy) }}">{{ czas_sekundy(w.kiedy) }}</td>
-                        {#- Pełna treść w `title`: przy stałych szerokościach najdłuższe pary
-                            etykieta+kod nadal mogą się uciąć, a ekran audytowy nie może gubić treści. -#}
-                        <td title="{{ w.etykieta }} {{ w.kod }}">
-                            {# Waga z kodu zdarzenia; `account.block_refused` jest wyróżniony tak samo jak blokada. #}
-                            {{ plakietka.stan(w.waga, w.etykieta) }}
-                            {# ⚠ Kod w TEJ SAMEJ linii co plakietka (`cell__sub` jest wsadowy,
-                               `cell__druga` był blokowy i łamał wiersz na dwie linie mimo 874 px
-                               wolnego miejsca). Kod **zostaje widoczny** — to ekran audytowy
-                               i etykieta nie może być jedyną treścią (Support/KodyZdarzen.php).
-                               ⚠ Komentarz domknięty BEZ myślnika: wariant przycinający odstępy
-                               zjadał spację między plakietką a kodem i wychodziło
-                               „Udane logowanieauth.login_success". #}
-                            <span class="cell__sub mono">{{ w.kod }}</span>
-                        </td>
-                        <td>
-                            {% if w.kto %}
-                                {% if w.kto_konto %}
-                                    <a class="table__name" href="{{ url('/admin/dziennik') }}?konto={{ w.kto_konto }}">{{ w.kto }}</a>
-                                {% else %}
-                                    {{ w.kto }}
-                                {% endif %}
-                            {% else %}
-                                <span class="table__mute">—</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if w.podmiot %}
-                                {{ w.podmiot }}
-                            {% elseif w.podmiot_typ %}
-                                <span class="table__mute">{{ w.podmiot_typ }}{% if w.podmiot_id %} #{{ w.podmiot_id }}{% endif %}</span>
-                            {% else %}
-                                <span class="table__mute">—</span>
-                            {% endif %}
-                            {%- if w.szczegoly %}
-                                {%- set opis %}{% for s in w.szczegoly %}{{ s.klucz }}: {{ s.wartosc }}{% if not loop.last %} · {% endif %}{% endfor %}{% endset %}
-                                {#- ⚠ Przy stałych szerokościach długi powód zostaje UCIĘTY wielokropkiem,
-                                    a pełna treść jedzie w `title`. Wiersz ma zostać 48 px, a zawijanie
-                                    tej jednej komórki rozpychałoby całą tabelę. -#}
-                                <span class="cell__druga" title="{{ opis }}">{{ opis }}</span>
-                            {%- endif %}
-                        </td>
-                        <td class="table__mute">{{ w.spolka ?? '—' }}</td>
-                    </tr>
-                {% else %}
-                    <tr><td colspan="5" class="table__empty">{{ konto ? 'To konto nie ma jeszcze żadnych zdarzeń.' : 'Dziennik jest pusty.' }}</td></tr>
-                {% endfor %}
-                </tbody>
-            </table>
+        <div class="card__head card__head--znak card__head--lista">
+            <span class="card__znak">{{ ikony.wnioski() }}</span>
+            <div class="card__tytuly">
+                <p class="card__opis card__opis--lead">Wszystkie ważne operacje w aplikacji. Wpisów nie da się zmienić ani usunąć.</p>
+                <p class="card__opis">{{ strona.razem }} {{ odmiana_wpisow(strona.razem) }} · czasy w strefie {{ strefa_tenanta() }}</p>
+            </div>
+            {#- Filtr konta: zwykły formularz GET, działa bez JavaScriptu i daje adres do wklejenia (§5).
+                ⚠ Etykieta zostaje dla czytnika ekranu (`aria-label`), choć nie widać jej na ekranie:
+                pole wyboru bez nazwy jest dla czytnika „combo box" i niczym więcej. -#}
+            <form class="card__akcje" method="get" action="{{ url('/admin/dziennik') }}">
+                {#- ⚠ Rodzaj jedzie jako pole ukryte: wybór konta nie może kasować wybranego rodzaju,
+                    bo to są dwa niezależne filtry, które mają działać razem. -#}
+                {% if rodzaj is not null %}<input type="hidden" name="rodzaj" value="{{ rodzaj }}">{% endif %}
+                <select class="select" name="konto" aria-label="Konto, którego dotyczą wpisy">
+                    <option value="">wszystkie konta</option>
+                    {% for k in konta %}
+                        <option value="{{ k.id }}"{{ konto == k.id ? ' selected' : '' }}>{{ k.nazwa }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="btn btn--akcja">Pokaż</button>
+            </form>
         </div>
+
+        {#- Pasek filtrów rodzaju — zwykłe odnośniki, więc filtr działa po stronie serwera
+            i bez JavaScriptu. Każdy niesie ze sobą wybrane konto, żeby filtry się łączyły. -#}
+        <nav class="dz-filtry" aria-label="Rodzaj zdarzeń">
+            <a class="dz-filtr{{ rodzaj is null ? ' dz-filtr--wybrany' : '' }}"
+               href="{{ url('/admin/dziennik') }}{% if konto %}?konto={{ konto }}{% endif %}"
+               {{- rodzaj is null ? ' aria-current="page"' : '' }}>Wszystkie</a>
+            {% for r in rodzaje %}
+                <a class="dz-filtr{{ rodzaj == r.klucz ? ' dz-filtr--wybrany' : '' }}"
+                   href="{{ url('/admin/dziennik') }}?rodzaj={{ r.klucz }}{% if konto %}&amp;konto={{ konto }}{% endif %}"
+                   {{- rodzaj == r.klucz ? ' aria-current="page"' : '' }}>{{ r.nazwa }}</a>
+            {% endfor %}
+        </nav>
+
+        <ul class="dz-lista">
+            {% for w in wpisy %}
+                {#- Nagłówek dnia przed pierwszym wpisem z danego dnia. ⚠ Porównujemy DATĘ W STREFIE
+                    TENANTA (ta sama funkcja, która ją wyświetla), a nie znacznik UTC: inaczej dzień
+                    łamałby się o północy UTC, czyli w środku popołudnia u klienta za oceanem. -#}
+                {% if loop.first or czas_data(w.kiedy) != czas_data(wpisy[loop.index0 - 1].kiedy) %}
+                    <li class="dz-dzien">{{ czas_dzien_naglowek(w.kiedy) }}</li>
+                {% endif %}
+                {#- ⚠ Kod zdarzenia i surowe szczegóły są W `title` WIERSZA, nie w treści (Z36 §4):
+                    zdanie jest tłumaczeniem, a przy sporze liczy się kod. -#}
+                <li class="dz-wpis" title="{{ w.kod }}{% for s in w.szczegoly %} · {{ s.klucz }}: {{ s.wartosc }}{% endfor %}">
+                    <span class="dz-znak dz-znak--{{ w.zdanie.barwa }}" aria-hidden="true">{{ znak.rodzaj(w.zdanie.ikona) }}</span>
+                    <span class="dz-tresc">
+                        <span class="dz-zdanie">
+                            {#- Kto — pogrubiony, bo od niego zaczyna się każde pytanie do dziennika.
+                                Odnośnik filtruje dziennik na to konto; bez konta zostaje sam napis. -#}
+                            {%- if w.kto_konto %}<a class="dz-kto" href="{{ url('/admin/dziennik') }}?konto={{ w.kto_konto }}{% if rodzaj is not null %}&amp;rodzaj={{ rodzaj }}{% endif %}">{{ w.zdanie.kto }}</a>
+                            {%- else %}<strong class="dz-kto">{{ w.zdanie.kto }}</strong>{% endif %}
+                            {#- ⚠ Spacja jawnie, bo `{%- %}` zjada białe znaki: bez niej wychodziło
+                                „Jan Kowalskizalogował(a) się". -#}
+                            {{- ' ' -}}
+                            {%- for c in w.zdanie.czesci %}{% if c.mocno %}<strong>{{ c.t }}</strong>{% else %}{{ c.t }}{% endif %}{% endfor %}
+                        </span>
+                        {% if w.spolka %}<span class="dz-firma">{{ w.spolka }}</span>{% endif %}
+                    </span>
+                    {#- Godzina JEDNĄ czcionką, z sekundami i bez pogrubień (Z36 §4): w audycie
+                        sekunda bywa treścią, a zmniejszanie jej części udawałoby, że jest dodatkiem. -#}
+                    <span class="dz-czas">{{ czas_godzina(w.kiedy) }}</span>
+                </li>
+            {% else %}
+                <li class="dz-pusto">{{ konto or rodzaj is not null ? 'Nic nie pasuje do wybranych filtrów.' : 'Dziennik jest pusty.' }}</li>
+            {% endfor %}
+        </ul>
+
         <div class="card__foot">
-            <span>Pokazano {{ strona.razem > 0 ? strona.offset + 1 : 0 }}–{{ strona.offset + wpisy|length }} z {{ strona.razem }}</span>
-            {% if strona.stron > 1 %}
-                <div class="btn-row">
-                    {% if strona.numer > 1 %}
-                        <a class="btn btn--ghost btn--sm" href="{{ url('/admin/dziennik') }}?konto={{ konto ?? '' }}&amp;strona={{ strona.numer - 1 }}">Poprzednie</a>
-                    {% endif %}
-                    {% if strona.numer < strona.stron %}
-                        <a class="btn btn--ghost btn--sm" href="{{ url('/admin/dziennik') }}?konto={{ konto ?? '' }}&amp;strona={{ strona.numer + 1 }}">Następne</a>
-                    {% endif %}
-                </div>
-            {% endif %}
+            <span class="dz-podsumowanie">Pokazano {{ strona.razem > 0 ? strona.offset + 1 : 0 }}–{{ strona.offset + wpisy|length }} z {{ strona.razem }}</span>
+            {#- ⚠ Przyciski stronicowania stoją ZAWSZE, nieczynny jest wyszarzony (Z36 §6):
+                znikający przycisk przesuwa drugi na swoje miejsce i przy klikaniu „Starsze"
+                trafia się w „Nowsze". `aria-disabled` plus brak `href` — bez JavaScriptu. -#}
+            <div class="btn-row btn-row--jedna-linia">
+                {% if strona.numer > 1 %}
+                    <a class="btn btn--akcja" href="{{ url('/admin/dziennik') }}?strona={{ strona.numer - 1 }}{% if konto %}&amp;konto={{ konto }}{% endif %}{% if rodzaj is not null %}&amp;rodzaj={{ rodzaj }}{% endif %}">‹ Nowsze</a>
+                {% else %}
+                    <span class="btn btn--akcja btn--akcja-nieczynny" aria-disabled="true">‹ Nowsze</span>
+                {% endif %}
+                {% if strona.numer < strona.stron %}
+                    <a class="btn btn--akcja" href="{{ url('/admin/dziennik') }}?strona={{ strona.numer + 1 }}{% if konto %}&amp;konto={{ konto }}{% endif %}{% if rodzaj is not null %}&amp;rodzaj={{ rodzaj }}{% endif %}">Starsze wpisy ›</a>
+                {% else %}
+                    <span class="btn btn--akcja btn--akcja-nieczynny" aria-disabled="true">Starsze wpisy ›</span>
+                {% endif %}
+            </div>
         </div>
     </section>
 {% endblock %}

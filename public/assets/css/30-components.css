@@ -1112,46 +1112,12 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   color: var(--c-text-3);
 }
 
-/* ——— kreator: kroki ————————————————————————————————————————————————————
-   ⚠ Krok zrobiony jest CICHY: szara linia, zielony znacznik, tytuł. Kolor zostaje dla kroku,
-   który czeka albo się nie udał (§5.5) — cztery zielone prostokąty to nie informacja. */
-
-.wizard { list-style: none; display: flex; flex-direction: column; gap: var(--s-4); }
-
-.wizard__step {
-  display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--s-2) var(--s-3);
-  padding-bottom: var(--s-4);
-  border-bottom: 1px solid var(--c-line-soft);
-}
-.wizard__step:last-child { padding-bottom: 0; border-bottom: 0; }
-
-.wizard__mark {
-  width: 24px;
-  height: 24px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: var(--c-neutral-soft);
-  color: var(--c-text-3);
-  font-size: var(--t-caption);
-  font-weight: var(--w-semibold);
-}
-.wizard__step--zrobione .wizard__mark { background: var(--c-accent); color: var(--c-surface); }
-.wizard__step--biezacy  .wizard__mark { background: var(--c-warn-soft); color: var(--c-warn-text); }
-
-.wizard__name  { font-size: var(--t-body); font-weight: var(--w-medium); color: var(--c-text); }
-.wizard__state { font-size: var(--t-caption); color: var(--c-text-3); }
-
-.wizard__next, .wizard__hint { grid-column: 2 / -1; font-size: var(--t-small); color: var(--c-text-3); max-width: var(--measure); }
-
-.wizard__form { grid-column: 2 / -1; display: flex; flex-direction: column; align-items: flex-start; gap: var(--s-3); }
-.wizard__field { display: flex; flex-direction: column; gap: var(--s-1); width: min(380px, 100%); }
-.wizard__field > span { font-size: var(--t-caption); color: var(--c-text-3); }
-.wizard__mark .ico { width: 13px; height: 13px; stroke-width: 2.2; }
+/* ——— kreator: kroki — rodzina `.wizard*` USUNIĘTA 18.10.2026 (zlecenie Z36, polecenie zarządcy)
+   Kroki kreatora przestały być listą z formularzami w środku (Z35 §6): są poziomym paskiem
+   czterech kafelków `.kroki`/`.krok`, a akcja bieżącego kroku stoi pod paskiem. Reguły
+   `.wizard`, `.wizard__step`, `.wizard__mark`, `.wizard__name`, `.wizard__state`,
+   `.wizard__next`, `.wizard__hint`, `.wizard__form` i `.wizard__field` nie dotyczyły już
+   żadnego znacznika w szablonach ani w JS (sprawdzone grepem przed usunięciem). */
 
 /* ——— potwierdzenie operacji nieodwracalnej (§5.6) ——————————————————————— */
 
@@ -4835,4 +4801,129 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   .modal--zakres, .modal--kreator { width: calc(100vw - 2 * var(--s-4)); }
   .zakres__zgloszenie, .kreator__zgloszenie, .zakres__firma { flex-wrap: wrap; }
   .zakres__decyzja { width: 100%; justify-content: flex-end; }
+}
+
+/* ——— /admin/dziennik: lista zdań zamiast tabeli (zlecenie Z36) ——————————————————————
+   ⚠ Rodzina stoi na końcu pliku, za `.card`, `.table` i `.btn` — reguła o tej samej
+   szczegółowości wygrywa kolejnością w pliku. */
+
+/* Pasek filtrów rodzaju: pod nagłówkiem karty, oddzielony kreską od listy. */
+.dz-filtry {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  padding: var(--s-3) var(--s-5);
+  border-bottom: 1px solid var(--c-line-soft);
+}
+.dz-filtr {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 var(--s-3);
+  border: 1px solid var(--c-line);
+  border-radius: 16px;
+  background: var(--c-surface);
+  color: var(--c-text-3);
+  font-size: var(--t-small);
+  font-weight: var(--w-medium);
+  text-decoration: none;
+  white-space: nowrap;
+}
+@media (hover: hover) {
+  .dz-filtr:hover { border-color: var(--c-line-strong); color: var(--c-text); }
+}
+/* ⚠ Wybrany filtr ma TŁO, nie samą ramkę: pasek ma siedem pozycji i przy różnicy wyłącznie
+   w grubości ramki trzeba szukać, który jest czynny. */
+.dz-filtr--wybrany {
+  border-color: var(--c-accent);
+  background: var(--c-accent-soft);
+  color: var(--c-accent-text);
+  font-weight: var(--w-semibold);
+}
+
+.dz-lista { list-style: none; display: flex; flex-direction: column; }
+/* Nagłówek dnia — etykieta, nie tytuł: 12 px, 600, barwa danej drugorzędnej. */
+.dz-dzien {
+  padding: var(--s-4) var(--s-5) var(--s-2);
+  font-size: var(--t-caption);
+  font-weight: var(--w-semibold);
+  color: var(--c-text-3);
+}
+/* ⚠ Siatka `32px 1fr auto`, a nie flex: kółko ma stałą szerokość, zdanie bierze resztę,
+   a godzina tyle, ile potrzebuje. Przy flexie zdanie i godzina licytowały się o miejsce
+   i długie zdanie spychało godzinę do drugiej linii. */
+.dz-wpis {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-5);
+  border-top: 1px solid var(--c-line-soft);
+}
+.dz-dzien + .dz-wpis { border-top: 0; }
+@media (hover: hover) {
+  .dz-wpis:hover { background: var(--c-surface-hover); }
+}
+.dz-znak {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--c-neutral-soft);
+  color: var(--c-text-3);
+}
+.dz-znak .ico { width: 15px; height: 15px; }
+/* Barwy rodzaju: logowanie błękitem dnia dzisiejszego, powstanie i nadanie zielenią,
+   usunięcie i odmowa czerwienią, reszta obojętnie (zlecenie Z36 §4). */
+.dz-znak--logowanie { background: var(--c-dzis-bg); color: var(--c-dzis-text); }
+.dz-znak--dodanie   { background: var(--c-accent-soft); color: var(--c-accent-text); }
+.dz-znak--usuniecie { background: var(--c-danger-soft); color: var(--c-danger-text); }
+
+.dz-tresc { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dz-zdanie { font-size: var(--t-body); color: var(--c-text-2); line-height: var(--lh-body); }
+.dz-zdanie strong { font-weight: var(--w-semibold); color: var(--c-text); }
+/* „Kto" jest odnośnikiem do dziennika tego konta — ma wyglądać jak reszta zdania, nie jak link
+   w tekście: pogrubienie zamiast podkreślenia, podkreślenie dopiero pod kursorem. */
+.dz-kto { font-weight: var(--w-semibold); color: var(--c-text); text-decoration: none; }
+@media (hover: hover) {
+  a.dz-kto:hover { text-decoration: underline; }
+}
+.dz-firma { font-size: var(--t-caption); color: var(--c-text-4); }
+/* ⚠ Godzina JEDNĄ czcionką i jednym rozmiarem (13 px, 400), z cyframi tabelarycznymi:
+   w audycie sekunda bywa treścią, więc nie wolno jej zmniejszać ani pogrubiać reszty. */
+.dz-czas {
+  font-size: 13px;
+  font-weight: var(--w-regular);
+  color: var(--c-text-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.dz-pusto { padding: var(--s-6) var(--s-5); color: var(--c-text-3); text-align: center; }
+.dz-podsumowanie { font-size: var(--t-caption); color: var(--c-text-3); }
+/* Nieczynny przycisk stronicowania ZOSTAJE na ekranie, tylko wyszarzony — znikający przesuwa
+   sąsiada na swoje miejsce i przy drugim kliknięciu trafia się w niewłaściwy. */
+.btn--akcja-nieczynny {
+  color: var(--c-text-4);
+  border-color: var(--c-line);
+  background: var(--c-surface-mute);
+  cursor: default;
+}
+
+@media (max-width: 640px) {
+  /* Filtr konta pod zdaniem nagłówka, na całą szerokość. */
+  .dz-filtry { padding: var(--s-3) var(--s-4); flex-wrap: nowrap; overflow-x: auto; }
+  /* ⚠ Pasek filtrów przewija się W SOBIE, a nie razem ze stroną: `overflow-x: auto` tutaj
+     i `flex-wrap: nowrap`, żeby siedem pozycji nie złamało się na cztery linie. Strona
+     dalej nie ma przewijania w poziomie — to jest ta różnica, o którą chodzi. */
+  .dz-wpis {
+    grid-template-columns: 32px minmax(0, 1fr);
+    padding: var(--s-3) var(--s-4);
+  }
+  /* Godzina schodzi POD zdanie, w drugą kolumnę — nie pod kółko, bo kółko jest znakiem
+     wiersza, a nie jego pierwszą kolumną treści. */
+  .dz-czas { grid-column: 2; }
+  .dz-dzien { padding: var(--s-4) var(--s-4) var(--s-2); }
+  .dz-pusto { padding: var(--s-5) var(--s-4); }
 }

@@ -10,6 +10,7 @@ use Wezurlop\Repository\AccountRepository;
 use Wezurlop\Repository\EventLogRepository;
 use Wezurlop\Support\KodyZdarzen;
 use Wezurlop\Support\View;
+use Wezurlop\Support\ZdanieZdarzenia;
 
 /**
  * Dziennik zdarzeń — ekran audytowy (etap 6).
@@ -45,19 +46,26 @@ final class EventLogController
         $konta = $this->events->accountsInLog();
         $konto = $this->wybraneKonto($request, $konta);
         $osoba = $konto === null ? null : ($this->accounts->findById($konto)['person_id'] ?? null);
+        // ⚠ Rodzaj z adresu jest TYLKO kluczem do białej listy w `KodyZdarzen` (§11): prefiksy
+        // kodów pochodzą z kodu, nie z żądania, a klucz spoza listy znaczy „wszystkie".
+        $rodzaj = is_string($request->query('rodzaj')) ? (string) $request->query('rodzaj') : null;
+        $prefiksy = KodyZdarzen::prefiksyRodzaju($rodzaj);
+        $rodzaj = $prefiksy === [] ? null : $rodzaj;
 
-        $razem = $this->events->countPage($konto, $osoba === null ? null : (int) $osoba);
+        $razem = $this->events->countPage($konto, $osoba === null ? null : (int) $osoba, $prefiksy);
         $stron = max(1, (int) ceil($razem / self::PAGE));
         $numer = filter_var($request->query('strona'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => $stron]]);
         $numer = $numer === false ? 1 : $numer;
         $offset = ($numer - 1) * self::PAGE;
 
-        $wpisy = $this->events->page($konto, $osoba === null ? null : (int) $osoba, self::PAGE, $offset);
+        $wpisy = $this->events->page($konto, $osoba === null ? null : (int) $osoba, self::PAGE, $offset, $prefiksy);
 
         return $this->view->render('page/web/event-log.twig', [
             'wpisy'  => array_map(self::opis(...), $wpisy),
             'konta'  => $konta,
             'konto'  => $konto,
+            'rodzaj' => $rodzaj,
+            'rodzaje' => KodyZdarzen::rodzaje(),
             'strona' => ['numer' => $numer, 'stron' => $stron, 'offset' => $offset, 'razem' => $razem],
         ]);
     }
@@ -80,11 +88,15 @@ final class EventLogController
             $kto = 'konto #' . $wpis['konto_id'] . ' — nieznane';
         }
 
+        // Zdanie, ikona i barwa kółka (Z36) — szablon dostaje gotowe części, bez składania treści.
+        $zdanie = ZdanieZdarzenia::zbuduj($wpis);
+
         return $wpis + [
             'etykieta' => KodyZdarzen::etykieta($kod),
             'waga'     => KodyZdarzen::waga($kod),
             'kto'      => $kto,
             'kto_konto' => $wpis['aktor'] !== null ? $wpis['konto_id'] : null,
+            'zdanie'   => $zdanie,
         ];
     }
 

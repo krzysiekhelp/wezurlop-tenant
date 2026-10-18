@@ -1,0 +1,39 @@
+{#- Ikona rodzaju zdarzenia po NAZWIE z katalogu zdań (`Support/ZdanieZdarzenia.php`, zlecenie Z36).
+
+    ⚠ **Jawna lista `{% if %}`, a nie wywołanie makra ze zmiennej.** Nazwa ikony przychodzi
+    z kodu PHP, ale reguła z CLAUDE.md §5 nie zna wyjątków: nazwy szablonów i makr są literalne
+    albo z białej listy, bo `{% include 'partials/ikony/' ~ nazwa %}` to SSTI/LFI. Ta lista
+    JEST tą białą listą, a nazwa spoza niej dostaje ikonę zastępczą zamiast błędu — dziennik
+    nie może się wywrócić dlatego, że ktoś dopisał kod zdarzenia z nową ikoną.
+
+    Wywołanie: {% import 'partials/ikona-zdarzenia.twig' as znak %} {{ znak.rodzaj('klodka') }} -#}
+{% macro rodzaj(nazwa) %}
+{%- import 'partials/ikony.twig' as i -%}
+{%- if nazwa == 'klodka' %}{{ i.klodka() }}
+{%- elseif nazwa == 'konto' %}{{ i.konto() }}
+{%- elseif nazwa == 'osoba_plus' %}{{ i.osoba_plus() }}
+{%- elseif nazwa == 'osoba_bez' %}{{ i.osoba_bez() }}
+{%- elseif nazwa == 'zespol' %}{{ i.zespol() }}
+{%- elseif nazwa == 'etykieta' %}{{ i.etykieta() }}
+{%- elseif nazwa == 'drzewo' %}{{ i.drzewo() }}
+{%- elseif nazwa == 'firma' %}{{ i.firma() }}
+{%- elseif nazwa == 'klucz' %}{{ i.klucz() }}
+{%- elseif nazwa == 'wtyczka' %}{{ i.wtyczka() }}
+{%- elseif nazwa == 'koperta' %}{{ i.koperta() }}
+{%- elseif nazwa == 'dzwonek' %}{{ i.dzwonek() }}
+{%- elseif nazwa == 'kalendarz' %}{{ i.kalendarz() }}
+{%- elseif nazwa == 'zegar' %}{{ i.zegar() }}
+{%- elseif nazwa == 'olowek' %}{{ i.olowek() }}
+{%- elseif nazwa == 'kosz' %}{{ i.kosz() }}
+{%- elseif nazwa == 'serwer' %}{{ i.serwer() }}
+{%- elseif nazwa == 'ustawienia' %}{{ i.ustawienia() }}
+{%- elseif nazwa == 'odswiezenie' %}{{ i.odswiezenie() }}
+{%- elseif nazwa == 'prostokaty' %}{{ i.prostokaty() }}
+{#- ⚠ `wnioski` ma WŁASNĄ gałąź, choć jest też ikoną zastępczą: katalog zdań używa jej
+    świadomie (wnioski urlopowe, limity), a wpadanie do `else` znaczyłoby „nie znamy tej
+    ikony". Rozróżnienie ma być widoczne w kodzie, nie tylko w skutku — i jest sprawdzane
+    testem `tests/zdania-dziennika.php`. -#}
+{%- elseif nazwa == 'wnioski' %}{{ i.wnioski() }}
+{%- else %}{{ i.wnioski() }}
+{%- endif %}
+{% endmacro %}

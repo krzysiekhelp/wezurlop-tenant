@@ -43,6 +43,31 @@ final class Strefa
         return $moment === null ? $utc : $moment->format($format);
     }
 
+    /**
+     * Nagłówek dnia na liście zdarzeń: „Dziś, 18.10.2026", „Wczoraj, 17.10.2026" albo sama data.
+     *
+     * ⚠ „Dziś" liczy się W STREFIE TENANTA, nie w strefie serwera (zlecenie Z36 §4). O 23:30
+     * w Warszawie serwer w UTC ma jeszcze poprzedni dzień — nagłówek „Wczoraj" nad wpisami
+     * sprzed pięciu minut byłby gorszy niż brak nagłówka, bo wyglądałby na pewny.
+     * ⚠ Słowo stoi PRZED datą, a nie zamiast niej: data zostaje, żeby dało się zestawić
+     * wpis z innym dokumentem bez liczenia, kiedy „dziś" było.
+     */
+    public static function naglowekDnia(?string $utc, string $strefa): string
+    {
+        $moment = $utc === null || trim($utc) === '' ? null : self::moment($utc, $strefa);
+        if ($moment === null) {
+            return self::czas($utc, $strefa, 'd.m.Y');
+        }
+        $dzien = $moment->format('Y-m-d');
+        $dzis = new \DateTimeImmutable('now', new \DateTimeZone($strefa));
+        $data = $moment->format('d.m.Y');
+        if ($dzien === $dzis->format('Y-m-d')) {
+            return 'Dziś, ' . $data;
+        }
+
+        return $dzien === $dzis->modify('-1 day')->format('Y-m-d') ? 'Wczoraj, ' . $data : $data;
+    }
+
     /** Sama godzina — do tabel, gdzie data stoi obok. */
     public static function godzina(?string $utc, string $strefa): string
     {

@@ -151,6 +151,56 @@ final class KodyZdarzen
         'leave.r2_warning', 'sync.limit_removed_with_requests', 'sync.kadrowe_with_length',
     ];
 
+    /**
+     * Filtry rodzaju na ekranie dziennika (zlecenie Z36 §3): klucz z adresu → nazwa i prefiksy kodów.
+     *
+     * ⚠ **Zestaw pokrywa WSZYSTKIE rodziny kodów**, choć zlecenie dopuszczało 6–7 przycisków.
+     * Gdyby którakolwiek rodzina została poza filtrami, jej wpisy dałoby się zobaczyć wyłącznie
+     * w „Wszystkich" — a dotyczy to także `security.*`, czyli jedynej rodziny, której ktoś
+     * naprawdę szuka w pośpiechu. Dlatego ostatnia pozycja jest zbiorcza („Integracja i system")
+     * zamiast zostawiać ogon rodzin bez filtra.
+     *
+     * ⚠ Prefiksy pochodzą STĄD, nie z adresu: klucz z `?rodzaj=` jest tylko wyborem z tej tablicy
+     * (biała lista, CLAUDE.md §11), więc do zapytania nigdy nie trafia tekst użytkownika.
+     *
+     * @var array<string, array{nazwa: string, prefiksy: list<string>}>
+     */
+    private const RODZAJE = [
+        'logowania' => ['nazwa' => 'Logowania', 'prefiksy' => ['auth.', '2fa.', 'session.']],
+        'konta'     => ['nazwa' => 'Konta i uprawnienia', 'prefiksy' => ['account.', 'access.', 'permission.', 'person.', 'calendar.']],
+        'grupy'     => ['nazwa' => 'Grupy', 'prefiksy' => ['group.']],
+        'hierarchia' => ['nazwa' => 'Hierarchia', 'prefiksy' => ['hierarchy.']],
+        'firmy'     => ['nazwa' => 'Firmy', 'prefiksy' => ['tenant.', 'context.', 'employment.']],
+        'integracja' => ['nazwa' => 'Integracja i system', 'prefiksy' => [
+            'api.', 'integration.', 'sync.', 'leave.', 'security.', 'maintenance.', 'install.', 'mail.',
+        ]],
+    ];
+
+    /**
+     * Pozycje paska filtrów — „Wszystkie" dokłada szablon, bo to brak filtra, a nie rodzaj.
+     *
+     * @return list<array{klucz: string, nazwa: string}>
+     */
+    public static function rodzaje(): array
+    {
+        $out = [];
+        foreach (self::RODZAJE as $klucz => $rodzaj) {
+            $out[] = ['klucz' => $klucz, 'nazwa' => $rodzaj['nazwa']];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Prefiksy kodów dla wybranego rodzaju; pusta lista = brak filtra (klucz spoza białej listy).
+     *
+     * @return list<string>
+     */
+    public static function prefiksyRodzaju(?string $klucz): array
+    {
+        return $klucz !== null && isset(self::RODZAJE[$klucz]) ? self::RODZAJE[$klucz]['prefiksy'] : [];
+    }
+
     public static function etykieta(string $kod): string
     {
         if (isset(self::ETYKIETY[$kod])) {

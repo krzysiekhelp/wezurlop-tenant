@@ -450,6 +450,7 @@ final class Kernel
             'czas_data'     => static fn (?string $utc): string => Strefa::czas($utc, Strefa::DOMYSLNA, 'd.m.Y'),
             'czas_godzina'  => static fn (?string $utc): string => Strefa::godzina($utc, Strefa::DOMYSLNA),
             'czas_godzina_krotka' => static fn (?string $utc): string => Strefa::godzinaKrotka($utc, Strefa::DOMYSLNA),
+            'czas_dzien_naglowek' => static fn (?string $utc): string => Strefa::naglowekDnia($utc, Strefa::DOMYSLNA),
             'czas_prognoza' => static fn (?string $utc): string => Strefa::prognoza($utc, Strefa::DOMYSLNA),
             'strefa_tenanta' => static fn (): string => Strefa::DOMYSLNA,
         ]);
@@ -545,6 +546,7 @@ final class Kernel
                 'czas_data'     => static fn (?string $utc): string => Strefa::czas($utc, $viewContext->timezone(), 'd.m.Y'),
                 'czas_godzina'  => static fn (?string $utc): string => Strefa::godzina($utc, $viewContext->timezone()),
                 'czas_godzina_krotka' => static fn (?string $utc): string => Strefa::godzinaKrotka($utc, $viewContext->timezone()),
+                'czas_dzien_naglowek' => static fn (?string $utc): string => Strefa::naglowekDnia($utc, $viewContext->timezone()),
                 // ⚠ Prognoza BEZ sekund — patrz `Strefa::prognoza()`. Nie ta sama funkcja
                 // co pomiar, żeby różnicy nie dało się przegapić przy pisaniu szablonu.
                 'czas_prognoza' => static fn (?string $utc): string => Strefa::prognoza($utc, $viewContext->timezone()),
