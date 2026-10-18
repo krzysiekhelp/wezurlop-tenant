@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.12, 18.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.13, 18.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,23 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.12 → 1.18.13: zwolnienie to PRZEKREŚLONE nazwisko, nie dopisek**
+> (zlecenie Z32, 18.10.2026). Na `/admin/konta` znika „· zwolniony" z komórki osoby.
+> Imię i nazwisko dostaje `line-through` w `--c-text-4` (razem z barwą kreski — sama kreska
+> w kolorze tekstu bywa ciemniejsza niż wyciszony napis i czyta się jak skreślenie ręką,
+> a nie jak stan), a kółko z inicjałami gaśnie do `--c-text-5` na tym samym tle.
+> ⚠ **Powód**: stan zatrudnienia jest cechą TEJ SAMEJ danej — nazwiska — więc nie ma prawa
+> zajmować własnego miejsca w kolumnie; dopisek przy co którymś wierszu rozpychał kolumnę
+> i czytał się jak druga dana.
+> ⚠ **Informacja nie może zniknąć dla niewidzącego**: przekreślenie jest wyłącznie wyglądem,
+> więc obok nazwiska stoi tekst ukryty wizualnie („Zatrudnienie zakończone"), a cały znak niesie
+> ten sam `title`. To samo oznaczenie dostaje głowa listy dostępu — panel otwiera się NAD wierszem
+> i zasłania go, więc bez tego stan osoby znikałby dokładnie wtedy, gdy nadaje się jej dostęp.
+> Reszta wiersza zostaje bez zmian, w tym „bez etatu" w kolumnie dostępu.
+> **Pomiar** (1920 i 375 px): 25 wierszy na stronie, **1** przekreślony, **0** wystąpień słowa
+> „zwolniony" w komórkach osób, kolor napisu i kreski `rgb(138, 144, 156)` = `--c-text-4`,
+> inicjały `rgb(168, 174, 185)` = `--c-text-5`.
 
 > **Zmiana 1.18.11 → 1.18.12: wiersz grupy bez menu „⋯" i bez stosu inicjałów**
 > (zlecenie Z33, 18.10.2026).
@@ -851,6 +868,7 @@ innych ekranach (przełącznik roku, zakres uprawnień) i tam zostaje taki, jaki
 `.inicjaly` `.inicjaly--lista` `.inicjaly--dostep` `.osoba-wiersz` `.osoba-wiersz__nazwa`
 `.pole-szukania` `.pole-szukania__pole` `.card__head--lista` `.card__akcje`
 `.table--osoby` `.card__foot--lista` `.chip__kropka` `.chip--dzis` `.btn--akcja-sm`
+`.osoba-wiersz--zwolniony` `.inicjaly--wygaszone` (1.18.13, Z32)
 ⚠ Makro `partials/inicjaly.twig` liczy inicjały z nazwy osoby w szablonie — to formatowanie
 danej, którą wiersz i tak wyświetla, a nie druga dana z bazy.
 

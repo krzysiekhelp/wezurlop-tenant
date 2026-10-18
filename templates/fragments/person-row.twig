@@ -44,19 +44,23 @@
             graficznym: pełne nazwisko czyta się obok, więc czytnik ekranu inicjałów nie dostaje
             (`aria-hidden` w makrze). Całość w pudełku `--osoba-wiersz`, bo komórka ucina
             wielokropkiem i sam odnośnik musi mieć czym się zwęzić. -#}
-        <span class="osoba-wiersz">
-        {{- znak.kolko(o.name, 'inicjaly--lista') -}}
+        {#- ⚠ **Zwolnienie oznacza PRZEKREŚLENIE, a nie słowo** (zlecenie Z32, 18.10.2026):
+            dopisek „· zwolniony" przy co którymś nazwisku rozpychał kolumnę i czytał się jak
+            druga dana, a stan zatrudnienia jest cechą TEJ SAMEJ danej — nazwiska. Przekreślenie
+            mówi to samo bez zabierania miejsca.
+            ⚠ **Informacja nie może zniknąć dla niewidzącego**: przekreślenie jest wyłącznie
+            wyglądem, więc obok stoi tekst ukryty wizualnie, a cały znak niesie `title`. -#}
+        {% set zwolniony = o.employments_total > 0 and o.employments_active == 0 %}
+        <span class="osoba-wiersz{{ zwolniony ? ' osoba-wiersz--zwolniony' : '' }}"
+              {%- if zwolniony %} title="Zatrudnienie zakończone"{% endif %}>
+        {{- znak.kolko(o.name, 'inicjaly--lista' ~ (zwolniony ? ' inicjaly--wygaszone' : '')) -}}
         <a class="table__name osoba-wiersz__nazwa" href="{{ url('/admin/konta/osoba/' ~ o.person_id) }}"
            data-modal-open="osoba-panel"
            hx-get="{{ url('/admin/konta/osoba/' ~ o.person_id) }}"
            hx-target="#osoba-tresc" hx-swap="innerHTML">{{ o.name }}</a>
+        {%- if zwolniony %}<span class="visually-hidden">Zatrudnienie zakończone</span>{% endif %}
         {%- if o.account_id == current_id %} <span class="chip">Ty</span>{% endif %}
         </span>
-        {#- ⚠ „Zwolniony" przeniósł się TUTAJ z kolumny „Spółka", która zniknęła. Bez tego stan
-            „osoba bez etatu" byłby widoczny tylko pośrednio, przez kontrolkę dostępu. -#}
-        {%- if o.employments_total > 0 and o.employments_active == 0 %}
-            <span class="cell__sub">· zwolniony</span>
-        {%- endif %}
         {#- ⚠ „Spoza kadr" z KOLUMNY, nie z braku wiązania. Gdy osoba ma i jedno, i drugie
             (dodana ręcznie, potem dopasowana do R2), wiązanie wygrywa i dopisku nie ma. -#}
         {%- if o.spoza_kadr and not o.z_kadr %}

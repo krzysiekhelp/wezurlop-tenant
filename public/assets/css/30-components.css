@@ -1680,6 +1680,24 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 /* Nazwisko z inicjałami w jednej linii; nazwa zwęża się i ucina, znak nigdy. */
 .osoba-wiersz { display: flex; align-items: center; gap: var(--s-3); min-width: 0; }
 .osoba-wiersz__nazwa { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* ⚠ **Zwolnienie = przekreślone nazwisko** (zlecenie Z32), a nie dopisek „· zwolniony": stan
+   zatrudnienia jest cechą TEJ SAMEJ danej, więc nie zabiera własnego miejsca w kolumnie.
+   ⚠ `text-decoration-color` razem z `color`: sama kreska w kolorze tekstu bywa ciemniejsza niż
+   wyciszony napis i wyglądała jak skreślenie ręką, a nie jak stan.
+   ⚠ Reszta wiersza zostaje bez zmian — przekreślenie dotyczy wyłącznie imienia i nazwiska,
+   bo to o tej osobie mówi, a nie o jej adresie czy dostępie. */
+/* ⚠ Trzy klasy w selektorze, bo `.table--osoby .table__name` (Z30) maluje nazwisko na
+   `--c-text` i stoi NIŻEJ w pliku — przy równej szczegółowości wygrywałaby kolejność.
+   Zmierzone przed poprawką: kreska wyciszona, napis dalej czarny. */
+.table--osoby .osoba-wiersz--zwolniony .table__name,
+.osoba-wiersz--zwolniony .osoba-wiersz__nazwa,
+.osoba-wiersz--zwolniony .table__name {
+  color: var(--c-text-4);
+  text-decoration: line-through;
+  text-decoration-color: var(--c-text-4);
+}
+/* Znak przygaszony, a nie przemalowany: ten sam kształt i ta sama barwa tła, mniej kontrastu. */
+.inicjaly--wygaszone { color: var(--c-text-5); }
 
 /* ⚠ Pole wyszukiwania z ikoną W ŚRODKU: ikona jest siostrą pola i leży na nim, a wyściółka pola
    z lewej robi jej miejsce. Tło pod ikoną nie jest potrzebne — pole ma własne. */

@@ -21,10 +21,15 @@
     {#- ⚠ Głowa listy jak nagłówek okna nazw firm (Z30 §8): znak z inicjałami, nazwisko i pod nim
         zdanie o tym, co się tu robi. Bez niego panel otwarty nad tabelą nie mówił, CZYJEGO dostępu
         dotyczy — a otwiera się przy wierszu, który zaraz znika pod panelem. -#}
-    <div class="dropdown__head">
-        {{ znak.kolko(o.name, 'inicjaly--dostep') }}
+    {#- ⚠ Ten sam znak zwolnienia co w wierszu listy (Z32): panel otwiera się NAD wierszem
+        i zasłania go, więc bez tego stan osoby znikałby dokładnie wtedy, gdy nadaje się jej
+        dostęp — a dostęp bez etatu nic nie daje. -#}
+    {% set zwolniony = o.employments_total > 0 and o.employments_active == 0 %}
+    <div class="dropdown__head{{ zwolniony ? ' osoba-wiersz--zwolniony' : '' }}"
+         {%- if zwolniony %} title="Zatrudnienie zakończone"{% endif %}>
+        {{ znak.kolko(o.name, 'inicjaly--dostep' ~ (zwolniony ? ' inicjaly--wygaszone' : '')) }}
         <span class="dropdown__kto">
-            <span class="dropdown__title">{{ o.name }}</span>
+            <span class="dropdown__title osoba-wiersz__nazwa">{{ o.name }}{% if zwolniony %}<span class="visually-hidden"> — zatrudnienie zakończone</span>{% endif %}</span>
             <span class="dropdown__sub">pracownik · wybierz firmy z dostępem</span>
         </span>
     </div>
