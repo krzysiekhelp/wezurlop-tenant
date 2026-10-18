@@ -1467,6 +1467,10 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 /* ⚠ Opis karty stoi POD tytułem, a nie po prawej stronie nagłówka (tam stał `.card__meta`):
    wyrównany do prawej czytał się jak druga, niezależna informacja, a jest podpisem tytułu. */
 .card__opis { font-size: var(--t-caption); color: var(--c-text-3); line-height: var(--lh-body); }
+/* ⚠ Gdy karta nie ma tytułu (bo nosiłby go drugi raz po belce — `/admin/konta`), jej zdanie staje
+   się treścią prowadzącą, a nie podpisem pod tytułem: 14 px i mocniejszy kolor. 12 px bez tytułu
+   nad sobą wyglądało jak metryka zgubiona na środku karty. */
+.card__opis--lead { font-size: var(--t-body); color: var(--c-text-2); }
 
 /* Dwie kolumny: po lewej zdanie o skutkach, po prawej decyzja do podjęcia. */
 .ustaw-dwie {
@@ -1641,6 +1645,211 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   font-size: var(--t-caption);
   color: var(--c-text-3);
 }
+
+/* ——— lista osób i kont (zlecenie Z30) ————————————————————————————————————— */
+
+/* ⚠ **Kółko z inicjałami** — jeden znak w czterech rozmiarach (lista 30 px, kontrolka dostępu
+   34 px, okno członków 26 px, wiersz grupy 24 px). Bok idzie zmienną, a nie czterema klasami
+   z własnymi wartościami: inaczej przy zmianie kroju trzeba by poprawiać cztery liczby.
+   ⚠ Litery nie mogą się zwężać ani zawijać — stąd `flex: none` i stały rozmiar pisma. */
+.inicjaly {
+  --inicjaly-bok: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--inicjaly-bok);
+  height: var(--inicjaly-bok);
+  border-radius: 50%;
+  background: var(--c-neutral-soft);
+  color: var(--c-text-2);
+  font-size: var(--t-label);
+  font-weight: var(--w-semibold);
+  letter-spacing: 0;
+  line-height: 1;
+  user-select: none;
+}
+.inicjaly--lista { --inicjaly-bok: 30px; }
+/* W kontrolce dostępu znak jest większy i w barwie akcji — to głowa panelu, nie wiersz listy. */
+.inicjaly--dostep {
+  --inicjaly-bok: 34px;
+  background: var(--c-accent-soft);
+  color: var(--c-accent-text);
+}
+
+/* Nazwisko z inicjałami w jednej linii; nazwa zwęża się i ucina, znak nigdy. */
+.osoba-wiersz { display: flex; align-items: center; gap: var(--s-3); min-width: 0; }
+.osoba-wiersz__nazwa { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ⚠ Pole wyszukiwania z ikoną W ŚRODKU: ikona jest siostrą pola i leży na nim, a wyściółka pola
+   z lewej robi jej miejsce. Tło pod ikoną nie jest potrzebne — pole ma własne. */
+.pole-szukania { position: relative; display: flex; align-items: center; }
+.pole-szukania .ico {
+  position: absolute;
+  left: var(--s-3);
+  width: 16px;
+  height: 16px;
+  color: var(--c-text-3);
+  pointer-events: none;
+}
+.pole-szukania__pole { width: 300px; max-width: 100%; padding-left: calc(var(--s-3) + 16px + var(--s-2)); }
+
+/* Pasek działań w nagłówku karty: szukanie, filtr i nowe konto w jednym rzędzie po prawej.
+   ⚠ Nagłówek jest WŁASNYM kontenerem zapytań, bo `container-name: karta` siedzi na `.card__body`,
+   a ten nagłówek stoi obok niego, nie w nim — zapytanie o „kartę" nie dotarłoby tu wcale
+   (ta sama pułapka, co przy pasku kafli: zapytanie nie pyta o przodka, którego nie ma). */
+.card__head--lista { flex-wrap: wrap; container-type: inline-size; container-name: glowa; }
+.card__akcje { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); margin-left: auto; }
+/* ⚠ Na telefonie rząd działań schodzi POD tytuł i wyszukiwarka bierze całą szerokość — przy
+   375 px pole 300 px i dwa przyciski obok tytułu nie mieszczą się bez przewijania w bok. */
+@container glowa (max-width: 760px) {
+  .card__akcje { margin-left: 0; width: 100%; }
+  .pole-szukania { width: 100%; }
+  .pole-szukania__pole { width: 100%; }
+}
+@supports not (container-type: inline-size) {
+  @media (max-width: 1080px) {
+    .card__akcje { margin-left: 0; width: 100%; }
+    .pole-szukania, .pole-szukania__pole { width: 100%; }
+  }
+}
+
+/* ⚠ **Na telefonie wiersz osoby przestaje być wierszem tabeli i staje się blokiem** (Z30, telefon).
+   Powód jest zmierzony: tabela ma `table-layout: fixed` i kolumny w procentach, więc przy 375 px
+   nie przewija się w bok — tylko ściska pięć kolumn do szerokości, przy której kontrolka dostępu
+   ma 60 px, a adres e-mail jedną literę. „Nie przewija się" nie znaczy „da się przeczytać".
+   ⚠ Progiem jest OKNO, nie karta: tabela stoi bezpośrednio w `.card`, poza `.card__body`, więc
+   nie ma nad sobą kontenera zapytań (patrz nagłówek wyżej).
+   ⚠ Podświetlenie zaznaczenia przenosi się z komórek na wiersz: w układzie blokowym komórki nie
+   wypełniają już szerokości, więc tło na nich zostawiało paski. */
+@media (max-width: 560px) {
+  .table--osoby colgroup, .table--osoby thead { display: none; }
+  .table--osoby, .table--osoby tbody { display: block; width: 100%; }
+  .table--osoby tr {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: var(--s-2) var(--s-3);
+    align-items: center;
+    padding: var(--s-3) var(--s-4);
+    border-bottom: 1px solid var(--c-line-soft);
+  }
+  .table--osoby td {
+    display: block;
+    width: auto;
+    padding: 0;
+    border: 0;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+  }
+  /* Pole wyboru zostaje przy nazwisku; reszta wiersza schodzi pod spód na pełną szerokość. */
+  .table--osoby td:nth-child(n+3) { grid-column: 1 / -1; }
+  .table--osoby tbody tr:has(.pick__box:checked) { background: var(--c-accent-soft); }
+  .table--osoby tbody tr:has(.pick__box:checked) td { background: transparent; }
+  .table--osoby tbody tr:has(.pick__box:checked) td:first-child { box-shadow: none; }
+  /* Adres i kontrolka dostępu dostają ramkę na stałe: bez kursora nie ma czym pokazać,
+     że to są pola do kliknięcia, a na telefonie kursora nie ma. */
+  .table--osoby .pick__adres .input,
+  .table--osoby .access--btn { border-color: var(--c-line-strong); background: var(--c-surface); }
+  .table--osoby .access--btn { height: var(--control-h); }
+  /* Pole adresu na całą szerokość bloku: 15 rem z układu tabelarycznego zostawiało przy 375 px
+     pas pustki po prawej, a adres e-mail jest najdłuższą treścią w tym wierszu. */
+  .table--osoby .pick__adres { width: 100%; }
+  .table--osoby .pick__adres .input { width: 100%; height: var(--control-h); }
+}
+
+/* ⚠ Pasek zaznaczania dostaje kreskę także u GÓRY (Z30 §4): stoi między nagłówkiem karty
+   a tabelą, więc bez górnej kreski zlewał się z nagłówkiem w jeden szary blok. */
+.selectbar { border-top: 1px solid var(--c-line); }
+
+/* ⚠ **Tabela osób bez zebry** (Z30 §5): zebra i podświetlenie wiersza robiły dwie rzeczy naraz.
+   Separator jest cichszy (`--c-line-soft`), a wiersz odzywa się dopiero pod kursorem. */
+.table--osoby td { border-bottom-color: var(--c-line-soft); }
+.table--osoby th {
+  font-size: var(--t-label);
+  font-weight: var(--w-semibold);
+  color: var(--c-text-3);
+  letter-spacing: var(--ls-label);
+}
+@media (hover: hover) {
+  .table--osoby tbody tr:hover td { background: var(--c-surface-hover); }
+}
+/* Zaznaczony wiersz zostaje mocniejszy od podświetlenia — reguła bazowa stoi wyżej w pliku. */
+.table--osoby tbody tr:has(.pick__box:checked):hover td { background: var(--c-accent-soft); }
+.table--osoby .table__name { font-weight: var(--w-semibold); color: var(--c-text); }
+
+/* ⚠ **Pole adresu bez ramki w spoczynku** (Z30 §6): w kolumnie stoi kilkadziesiąt pól pod sobą
+   i tyle samo ramek robiło z listy formularz. Ramka pojawia się pod kursorem (jest co kliknąć),
+   a przy pisaniu dochodzi obwódka w barwie akcji — ta sama mowa, co w pozostałych polach. */
+.pick__adres .input {
+  border-color: transparent;
+  background: transparent;
+}
+@media (hover: hover) {
+  .pick__adres:hover .input:not(:disabled) { border-color: var(--c-line); background: var(--c-surface); }
+}
+.pick__adres .input:focus-visible,
+.pick__adres .input:focus {
+  border-color: var(--c-accent);
+  background: var(--c-surface);
+  box-shadow: 0 0 0 3px var(--c-accent-soft);
+  outline: none;
+}
+.pick__adres .input:disabled { color: var(--c-text-3); }
+/* ⚠ „Zapisz" POJAWIA SIĘ dopiero przy zmianie — i robi to CSS na stanie `disabled`, który
+   ustawia `modules/zapisz.js`. Bez JavaScriptu atrybut nie powstaje, więc przycisk jest widoczny
+   i działa jak dotąd: ukrywanie nie może zabrać jedynej drogi zapisu (CLAUDE.md §6). */
+.pick__adres .btn[data-zapisz][disabled] { display: none; }
+.btn--akcja-sm { height: var(--control-h-sm); min-height: var(--control-h-sm); padding: 0 var(--s-2); }
+
+/* ⚠ Kontrolka dostępu też traci ramkę w spoczynku (Z30 §7): w kolumnie obok pola adresu dwie
+   ramki w każdym wierszu dawały siatkę w siatce. Pod kursorem ramka wraca. */
+.table--osoby .access--btn { border-color: transparent; background: transparent; }
+@media (hover: hover) {
+  .table--osoby .access--btn:hover:not(:disabled) { border-color: var(--c-line); background: var(--c-surface); }
+}
+.table--osoby .access--btn:disabled { background: transparent; }
+
+/* Stopka listy: sama informacja o zakresie strony, ciszej niż treść. */
+.card__foot--lista { font-size: var(--t-caption); color: var(--c-text-3); }
+
+/* Plakietka z kropką — kropka bierze barwę z napisu, więc nie powstaje ani jeden nowy token. */
+.chip__kropka {
+  width: 6px;
+  height: 6px;
+  margin-right: var(--s-1);
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+/* Stan „zaproszony": błękit dnia dzisiejszego — jedyny stan przejściowy w tej kolumnie. */
+.chip--dzis { background: var(--c-dzis-bg); color: var(--c-dzis-text); }
+
+/* ⚠ **Lista rozwijana dostępu** (Z30 §8). Szersza (340 px) i z mocniejszym cieniem, bo to warstwa
+   nad tabelą, a nie element w niej: przy 300 px nazwa firmy z plakietką „z etatem" nie mieściła
+   się w jednym wierszu. Promień karty, nie kontrolki — panel jest kartą, która wyskakuje. */
+.dropdown { width: 340px; border-radius: var(--radius-card); box-shadow: var(--shadow-pop); }
+/* ⚠ `flex-direction: row` wprost: reguła bazowa wyżej układa głowę W KOLUMNIE, a samo
+   `display: flex` jej nie cofa — pierwsza wersja dała znak nad nazwiskiem, wyśrodkowany. */
+.dropdown__head { display: flex; flex-direction: row; align-items: center; gap: var(--s-3); }
+.dropdown__kto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dropdown__title { font-size: var(--t-body); font-weight: var(--w-semibold); }
+.dropdown__item { padding: var(--s-2) var(--s-4); }
+.dropdown__item input[type="checkbox"] { width: 18px; height: 18px; }
+/* Zaznaczona firma ma tło akcji — to jest stan „dostęp nadany", czyli wynik tej listy. */
+.dropdown__item:has(input:checked) { background: var(--c-accent-soft); }
+@media (hover: hover) {
+  .dropdown__item:not(.dropdown__item--off):hover { background: var(--c-surface-hover); }
+}
+/* Pozycja bez etatu: nazwa ciszej, kursor mówi „nie tutaj", powód w podpowiedzi (szablon). */
+.dropdown__item--off .dropdown__name { color: var(--c-text-4); }
+/* ⚠ Plakietka etatu nie dziedziczy wyściółki pozycji: `.chip` ma własną i własną wysokość. */
+.dropdown__tag { flex: none; }
+/* Stopka w JEDNYM rzędzie: po lewej skutek licencyjny, po prawej dwa przyciski. */
+/* Ta sama poprawka co w głowie: stopka ma iść rzędem, nie kolumną. */
+.dropdown__foot { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
+.dropdown__licencja { flex: 1 1 auto; min-width: 0; }
+.dropdown__akcje { flex: none; margin-left: auto; }
 
 @media (hover: hover) {
   .settings-list__row:is(a, button):hover { color: var(--c-text); text-decoration: none; }
@@ -3976,13 +4185,14 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   @media (max-width: 560px) { .kafel__wartosc { font-size: var(--t-h2); white-space: normal; } }
 }
 
-/* ⚠ **Pasek pięciu kafli, a nie sześciu** — i dlatego jest modyfikator, a nie nowy komponent:
+/* ⚠ **Pasek o liczbie kafli dobranej do miejsca** — modyfikator, a nie nowy komponent:
    `.kafel` ma zostać tym samym kafelkiem, co na pulpicie (ta sama ramka, ten sam rytm), zmienia
-   się wyłącznie liczba kolumn.
+   się wyłącznie liczba kolumn. Ten sam modyfikator obsługuje pięć kafli na `/ustawienia`
+   i sześć na `/admin/konta` — dlatego nazywa się `--auto`, a nie od liczby (Z30).
 
    ⚠ **Liczbę kolumn robi `auto-fit`, a NIE zapytanie kontenerowe — i to nie jest wybór stylu.**
-   Pierwsza wersja miała `@container kafle (max-width: …) { .kafle--piec { grid-template-columns: … } }`
-   i nie zadziałała ani razu: **zapytanie kontenerowe nie pyta o SIEBIE**, a `.kafle--piec` jest
+   Pierwsza wersja miała `@container kafle (max-width: …) { .kafle--auto { grid-template-columns: … } }`
+   i nie zadziałała ani razu: **zapytanie kontenerowe nie pyta o SIEBIE**, a `.kafle--auto` jest
    tym samym elementem, co kontener `kafle`. Na telefonie zostawało pięć kolumn i nazwa strefy
    łamała się po jednej literze (zmierzone na zrzucie 375 px). Pulpit omija to inaczej —
    przestawia `grid-column` DZIECI, bo dziecko kontenerem nie jest.
@@ -3992,17 +4202,17 @@ body:has(dialog.modal[open]) { overflow: hidden; }
    ⚠ `grid-column: auto` na dziecku jest konieczne: progowe reguły pulpitu (`.kafel { grid-column:
    span 2 }`) trafiają i tutaj, bo kontener nazywa się tak samo — a `span 2` przy torach
    z `auto-fit` daje kafelki na dwa tory i wiersz rozsypany w pół. */
-.kafle--piec { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
-.kafle--piec .kafel { grid-column: auto; }
+.kafle--auto { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+.kafle--auto .kafel { grid-column: auto; }
 /* Przy wąskim pasku dana schodzi do `--t-h2` — tak samo jak na pulpicie, tylko próg jest inny,
    bo tu daną bywa nazwa strefy albo adres poczty, a nie liczba. Reguła dotyczy DZIECKA, więc
    zapytanie kontenerowe działa. */
 @container kafle (max-width: 614px) {
-  .kafle--piec .kafel__wartosc { font-size: var(--t-h2); }
+  .kafle--auto .kafel__wartosc { font-size: var(--t-h2); }
 }
 /* ⚠ **Tu dana MOŻE się zawinąć, na pulpicie nie mogła** — i to nie jest niezgodność, tylko inna
    treść: pulpit pokazuje liczby i daty („27 dni 6 godz."), które złamane w pół czytają się jak
    dwie dane, a ten pasek pokazuje słowa i ADRES POCZTY. Adres bez zawijania wychodzi poza kafelek
    i robi przewijanie w poziomie całej karty — czyli naruszenie bramki, a nie drobiazg. */
-.kafle--piec .kafel__wartosc { white-space: normal; overflow-wrap: anywhere; }
+.kafle--auto .kafel__wartosc { white-space: normal; overflow-wrap: anywhere; }
 

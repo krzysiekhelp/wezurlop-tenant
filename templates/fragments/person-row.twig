@@ -11,6 +11,7 @@
 {#- ⚠ Jedno pojęcie na cały wiersz: `przed_zaproszeniem` znaczy „nie ma konta ALBO konto jest
     w stanie `niezaproszone`". Trzy kontrolki w tym wierszu pytają o to samo, więc pytają raz —
     inaczej po wprowadzeniu stanu `niezaproszone` (§4) trzeba by pamiętać o trzech warunkach. -#}
+{% import 'partials/inicjaly.twig' as znak %}
 {% set przed_zaproszeniem = o.account_id is null or o.account_status == 'niezaproszone' %}
 <tr id="osoba-{{ o.person_id }}">
     {#- ⚠ Komórka z samą kontrolką NIE ucina wielokropkiem (`cell--kontrolka`). Zmierzone:
@@ -39,14 +40,18 @@
                     : 'Konto jest już zaproszone — zaproszenia nie wysyła się drugi raz') }}"
         {%- endif %}></td>
     <td class="cell--osoba" title="{{ o.name }}">
-        {#- Nazwisko jest wejściem do panelu osoby. ⚠ Zwykły odnośnik, nie przycisk: bez
-            JavaScriptu prowadzi na pełny ekran panelu, a z JS `ui.js` otwiera szufladę
-            i htmx dociąga do niej tę samą treść. -#}
-        <a class="table__name" href="{{ url('/admin/konta/osoba/' ~ o.person_id) }}"
+        {#- ⚠ Kółko z inicjałami (Z30 §5) stoi PRZED nazwiskiem i jest wyłącznie znakiem
+            graficznym: pełne nazwisko czyta się obok, więc czytnik ekranu inicjałów nie dostaje
+            (`aria-hidden` w makrze). Całość w pudełku `--osoba-wiersz`, bo komórka ucina
+            wielokropkiem i sam odnośnik musi mieć czym się zwęzić. -#}
+        <span class="osoba-wiersz">
+        {{- znak.kolko(o.name, 'inicjaly--lista') -}}
+        <a class="table__name osoba-wiersz__nazwa" href="{{ url('/admin/konta/osoba/' ~ o.person_id) }}"
            data-modal-open="osoba-panel"
            hx-get="{{ url('/admin/konta/osoba/' ~ o.person_id) }}"
            hx-target="#osoba-tresc" hx-swap="innerHTML">{{ o.name }}</a>
         {%- if o.account_id == current_id %} <span class="chip">Ty</span>{% endif %}
+        </span>
         {#- ⚠ „Zwolniony" przeniósł się TUTAJ z kolumny „Spółka", która zniknęła. Bez tego stan
             „osoba bez etatu" byłby widoczny tylko pośrednio, przez kontrolkę dostępu. -#}
         {%- if o.employments_total > 0 and o.employments_active == 0 %}
@@ -66,12 +71,12 @@
         <span class="pick__adres">
             <input class="input" type="email" name="adres" maxlength="254" value="{{ o.email }}"
                    {% if przed_zaproszeniem %}
-                       aria-label="Adres e-mail dla {{ o.name }}" placeholder="adres e-mail"
+                       aria-label="Adres e-mail dla {{ o.name }}" placeholder="dodaj adres e-mail"
                    {% else %}
                        disabled aria-label="Adres e-mail — {{ o.name }}"
                        title="Adres jest loginem konta — zmiana z panelu osoby"
                    {% endif %}>
-            <button type="button" class="btn btn--ghost btn--sm" data-zapisz
+            <button type="button" class="btn btn--ghost btn--akcja btn--akcja-sm" data-zapisz
                     {% if przed_zaproszeniem %}
                         hx-post="{{ url('/admin/konta/osoba/' ~ o.person_id ~ '/adres') }}"
                         hx-include="closest .pick__adres"
@@ -127,23 +132,28 @@
             </button>
         {% endif %}
     </td>
-    {#- ⚠ Żaden stan konta nie jest zielony: „aktywne" to stan normalny (§2 systemu wizualnego).
-        Kolor mają tylko dwa, oba znaczące odstępstwo. -#}
+    {#- ⚠ **Każdy stan ma plakietkę z kropką, a „aktywne" jest ZIELONE** (zlecenie Z30 §9,
+        prototyp zatwierdzony przez Krzysztofa). Do Z30 obowiązywała tu odwrotna reguła: „żaden
+        stan konta nie jest zielony, bo aktywne to stan normalny" (§3.1 systemu wizualnego, kolor
+        dla odstępstwa). Zmiana jest świadoma i dotyczy TEJ JEDNEJ kolumny: pięć szarych plakietek
+        w kolumnie, której się szuka wzrokiem, nie różnicowało niczego — a administrator czyta tę
+        kolumnę właśnie po to, żeby zobaczyć, kto ma działające konto. Reszta ekranów zostaje
+        przy regule „zieleń to działanie, nie stan". -#}
     <td>
         {% if o.account_status == 'do_odblokowania' %}
-            <span class="chip chip--warn">do odblokowania</span>
+            <span class="chip chip--warn"><span class="chip__kropka"></span>do odblokowania</span>
         {% elseif o.account_status == 'blocked' %}
-            <span class="chip chip--danger">zablokowane</span>
+            <span class="chip chip--danger"><span class="chip__kropka"></span>zablokowane</span>
         {% elseif o.account_status == 'niezaproszone' %}
             {#- ⚠ Stan `niezaproszone`: konto istnieje, żeby dostęp miał na czym stanąć, ale nie da
                 się nim zalogować ani odzyskać hasła. Zajmuje licencję jak każde inne (§4.3). -#}
-            <span class="chip">niezaproszone</span>
+            <span class="chip"><span class="chip__kropka"></span>niezaproszone</span>
         {% elseif o.account_status == 'invited' %}
-            <span class="chip">zaproszony</span>
+            <span class="chip chip--dzis"><span class="chip__kropka"></span>zaproszony</span>
         {% elseif o.account_status == 'active' %}
-            <span class="chip">aktywne</span>
+            <span class="chip chip--accent"><span class="chip__kropka"></span>aktywne</span>
         {% else %}
-            <span class="chip">brak konta</span>
+            <span class="chip"><span class="chip__kropka"></span>brak konta</span>
         {% endif %}
     </td>
 </tr>

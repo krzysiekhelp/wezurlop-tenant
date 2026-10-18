@@ -19,10 +19,18 @@ use Wezurlop\Db\Connection;
 final class DataViewRepository
 {
     /** Kolumny sortowania listy pracowników — biała lista, bo nazwy kolumn nie da się sparametryzować (§4). */
+    /**
+     * ⚠ **Każdy wpis jest LISTĄ kolumn** — ta sama poprawka, co w `PersonRepository::SORT`
+     * (Z30, 18.10.2026). Sklejanie kierunku na końcu napisu `'p.last_name, p.first_name'` dawało
+     * `ORDER BY p.last_name, p.first_name DESC`, czyli nazwisko zawsze rosnąco. Usterka siedziała
+     * w dwóch repozytoriach naraz, bo wzorzec był przepisany — nie znaleziona jedną zmianą.
+     *
+     * @var array<string, list<string>>
+     */
     private const EMPLOYEE_SORT = [
-        'nazwisko'   => 'p.last_name, p.first_name',
-        'zatrudnienie' => 'e.hired_at',
-        'etat'       => 'e.fte',
+        'nazwisko'     => ['p.last_name', 'p.first_name'],
+        'zatrudnienie' => ['e.hired_at'],
+        'etat'         => ['e.fte'],
     ];
 
     public function __construct(private readonly Connection $db)
@@ -591,7 +599,10 @@ final class DataViewRepository
     /** Sortowanie listy pracowników — wyłącznie z białej listy (§4). */
     private static function employeeOrderSql(string $sort, bool $asc): string
     {
-        return (self::EMPLOYEE_SORT[$sort] ?? self::EMPLOYEE_SORT['nazwisko']) . ($asc ? ' ASC' : ' DESC') . ', e.id';
+        $kolumny = self::EMPLOYEE_SORT[$sort] ?? self::EMPLOYEE_SORT['nazwisko'];
+        $kierunek = $asc ? ' ASC' : ' DESC';
+
+        return implode(', ', array_map(static fn (string $k): string => $k . $kierunek, $kolumny)) . ', e.id';
     }
 
     private static function intOrNull(mixed $value): ?int

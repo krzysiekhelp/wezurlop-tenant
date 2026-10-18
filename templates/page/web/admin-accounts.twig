@@ -8,84 +8,101 @@
     roli, na liście administratora X w ogóle nie istniała — a to jest dokładnie ta osoba,
     którą trzeba zaprosić. -#}
 {% block content %}
-    <div class="page__head">
-        <div class="page__title">
-            <p class="page__sub">Wszystkie osoby z programu kadrowego, także zwolnione. Konto jest jedną z kolumn — większość osób go nie ma i to jest stan normalny.</p>
-            {#- ⚠ Zdanie o spółce stoi tu, a nie przy kontrolce, bo kontrolka jest teraz w belce
-                (§1 zlecenia). Lista zawęża się po ZATRUDNIENIU w wybranej spółce — to nie to samo
-                co dostęp do niej, a różnica była dotąd w etykiecie `<select>`-a. -#}
-            {% if spolka is not null %}
-                <p class="page__sub">Zatrudnieni w: <strong>{{ spolka.nazwa }}</strong>{% if z_adresu %} — firma z adresu, na jedno wyświetlenie; znacznik w belce nadal pokazuje Twój wybór{% elseif fallback %} — ostatnio wybrana firma jest już niedostępna dla tego konta, więc pokazujemy pierwszą dozwoloną{% endif %}.</p>
-            {% endif %}
-        </div>
-        {#- ⚠ Zwykły odnośnik: bez JavaScriptu prowadzi na pełny ekran formularza, a z JS
-            `ui.js` otwiera okno i htmx dociąga do niego ten sam fragment. -#}
-        {#- ⚠ `btn--ghost`, nie `btn--primary`: dwa zielone przyciski na jednym ekranie sprawiają,
-            że zieleń znaczy „to jest przycisk", a nie „to zrób teraz" (system wizualny §3.1).
-            Główna czynność tego ekranu to wysyłanie zaproszeń; konto administracyjne
-            zakłada się raz na wdrożenie. Waga w interfejsie opisuje CZĘSTOŚĆ, nie doniosłość. -#}
-        <a class="btn btn--ghost" href="{{ url('/admin/konta/administracyjne') }}"
-           data-modal-open="konto-adm-modal"
-           hx-get="{{ url('/admin/konta/administracyjne') }}"
-           hx-target="#konto-adm-tresc" hx-swap="innerHTML">Konto administracyjne</a>
-    </div>
+{% import 'partials/ikony.twig' as ikony %}
+{#- ⚠ **Bez `.page__head`** (zlecenie Z30 §1): zdanie o zakresie listy przeszło do nagłówka karty,
+    gdzie dotyczy tego, co pod nim stoi; nazwa firmy do podpisu pierwszego kafla, bo to ona mówi,
+    czego dotyczy liczba; a „Konto administracyjne" do paska działań karty. Pusty nagłówek strony
+    zostawiał nad paskiem kafli pas wysokości dwóch wierszy. -#}
 
     {#- Licznik stanów. ⚠ „Do odblokowania" bursztynem i tylko wtedy, gdy takie są: to jedyny stan
         na tym ekranie, który czeka na działanie administratora.
 
-        ⚠ WSZYSTKIE kafelki opisują ten sam zbiór: zakres administratora zawężony filtrem spółki,
-        BEZ wyszukiwarki. Filtr spółki to zakres, a wyszukiwarka to szukanie konkretnej osoby —
+        ⚠ WSZYSTKIE kafle opisują ten sam zbiór: zakres administratora zawężony filtrem firmy,
+        BEZ wyszukiwarki. Filtr firmy to zakres, a wyszukiwarka to szukanie konkretnej osoby —
         nie zawężanie widoku. Zmierzone przed poprawką: przy wpisanym nazwisku pierwszy kafelek
         mówił „Osób 1", a cztery następne o całym tenancie; liczby stojące obok siebie nie
-        sumowały się do niczego. Ile pozycji pokazuje sama lista, mówi stopka „Pokazano … z N". -#}
-    <section class="card stats">
-        <div class="stats__item">
-            <span class="stats__key">Osób w zakresie</span>
-            <span class="stats__value">{{ stany.osoby }}</span>
+        sumowały się do niczego. Ile pozycji pokazuje sama lista, mówi stopka „Pokazano … z N".
+
+        ⚠ Ten sam komponent co na pulpicie i na `/ustawienia` (`.kafle--auto`), bez otaczającej
+        karty — karta wokół kafli-kart to ramka w ramce (system wizualny 1.18, Z20). -#}
+    <section class="kafle kafle--auto" aria-label="Stan kont w zakresie">
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.zespol() }}<span class="kafel__etykieta">Osób w zakresie</span></span>
+            <span class="kafel__dana">
+                <span class="kafel__wartosc">{{ stany.osoby }}</span>
+                {#- ⚠ Nazwa firmy jest PODPISEM LICZBY, a nie zdaniem nad ekranem: lista zawęża się
+                    po ZATRUDNIENIU w wybranej firmie, a to nie to samo co dostęp do niej. Dopiski
+                    o firmie z adresu i o firmie niedostępnej zostają — bez nich znacznik w belce
+                    i liczba na ekranie mówiłyby co innego, bez wyjaśnienia dlaczego. -#}
+                {% if spolka is not null %}
+                    <span class="kafel__opis">zatrudnieni w: {{ spolka.nazwa }}{% if z_adresu %} (firma z adresu, na jedno wyświetlenie){% elseif fallback %} (ostatnio wybrana firma jest już niedostępna){% endif %}</span>
+                {% endif %}
+            </span>
         </div>
-        {#- ⚠ „Bez konta" → „Bez dostępu" (§9 zlecenia): odkąd konto może istnieć w stanie
-            `niezaproszone`, „brak konta" przestało znaczyć „nie widzi nic", a administrator
-            pyta właśnie o to drugie. -#}
-        <div class="stats__item">
-            <span class="stats__key">Bez dostępu</span>
-            <span class="stats__value">{{ stany.bez_dostepu }}</span>
+        {#- ⚠ „Bez konta" → „Bez dostępu" (§9 zlecenia `konta-lista-dostep`): odkąd konto może
+            istnieć w stanie `niezaproszone`, „brak konta" przestało znaczyć „nie widzi nic",
+            a administrator pyta właśnie o to drugie. -#}
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.osoba_bez() }}<span class="kafel__etykieta">Bez dostępu</span></span>
+            <span class="kafel__dana">
+                <span class="kafel__wartosc">{{ stany.bez_dostepu }}</span>
+                <span class="kafel__opis">bez konta w aplikacji</span>
+            </span>
         </div>
-        <div class="stats__item">
-            <span class="stats__key">Zaproszonych</span>
-            <span class="stats__value">{{ stany.invited }}</span>
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.koperta() }}<span class="kafel__etykieta">Zaproszonych</span></span>
+            <span class="kafel__dana">
+                <span class="kafel__wartosc">{{ stany.invited }}</span>
+                <span class="kafel__opis">czeka na pierwsze logowanie</span>
+            </span>
         </div>
-        <div class="stats__item">
-            <span class="stats__key">Aktywnych</span>
-            <span class="stats__value">{{ stany.active }}</span>
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.konto() }}<span class="kafel__etykieta">Aktywnych</span></span>
+            <span class="kafel__dana">
+                <span class="kafel__wartosc">{{ stany.active }}</span>
+                <span class="kafel__opis">konta w użyciu</span>
+            </span>
         </div>
-        <div class="stats__item">
-            <span class="stats__key">Zablokowanych</span>
-            <span class="stats__value">{{ stany.blocked }}</span>
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.klodka() }}<span class="kafel__etykieta">Zablokowanych</span></span>
+            <span class="kafel__dana">
+                <span class="kafel__wartosc">{{ stany.blocked }}</span>
+                <span class="kafel__opis">bez możliwości logowania</span>
+            </span>
         </div>
         {% if stany.do_odblokowania > 0 %}
-            <div class="stats__item">
-                <span class="stats__key">Do odblokowania</span>
-                {#- ⚠ Liczba pisana KOLOREM WARTOŚCI, nie plakietką: `.chip--warn` ma 12 px,
-                    więc jedyna liczba, na której nam zależy, wychodziła MNIEJSZA od pozostałych
-                    i w kształcie odznaki. Plakietka jest etykietą stanu, nie sposobem pisania
-                    liczby (rozstrzygnięcie 22.09.2026). Pozycja niżej („N z M" ponad limitem)
-                    zostaje plakietką, bo niesie tekst, a nie samą liczbę. -#}
-                <span class="stats__value stats__value--odchylenie">{{ stany.do_odblokowania }}</span>
+            {#- ⚠ Siódmy kafel, którego w zleceniu nie było, a który ZOSTAJE: to jedyny stan na tym
+                ekranie czekający na działanie administratora, i pojawia się wyłącznie wtedy, gdy
+                jest co odblokować. Liczba pisana kolorem wartości, nie plakietką — plakietka jest
+                etykietą stanu, nie sposobem pisania liczby (rozstrzygnięcie 22.09.2026). -#}
+            <div class="kafel">
+                <span class="kafel__glowa">{{ ikony.klodka() }}<span class="kafel__etykieta">Do odblokowania</span></span>
+                <span class="kafel__dana">
+                    <span class="kafel__wartosc kafel__wartosc--odchylenie">{{ stany.do_odblokowania }}</span>
+                    <span class="kafel__opis">blokada wygasła, czeka na decyzję</span>
+                </span>
             </div>
         {% endif %}
-        {#- Licencja liczy DOSTĘPY do spółek, nie konta — dlatego ten kafelek stoi na liście osób,
-            a nie tylko na ekranie licencji (§9 zlecenia). -#}
-        <div class="stats__item">
-            <span class="stats__key">Licencje</span>
-            {#- ⚠ Przekroczenie limitu MUSI być widoczne. Zmierzone: gdy pracownik wraca po
-                zwolnieniu, jego dostępy wracają same (blokada nigdy ich nie usuwała), więc
-                licznik może przeskoczyć limit — i dotąd nikt by się o tym nie dowiedział.
-                Kolor dostaje odchylenie, nie stan normalny (§2 systemu wizualnego). -#}
-            {% set ponad_limit = licencja.limit is not null and licencja.uzyte > licencja.limit %}
-            <span class="stats__value">
-                {%- if ponad_limit %}<span class="chip chip--warn">{{ licencja.uzyte }} z {{ licencja.limit }}</span>
-                {%- else %}{{ licencja.uzyte }}{% if licencja.limit is not null %} <small>z {{ licencja.limit }}</small>{% endif %}
-                {%- endif %}
+        {#- Licencja liczy DOSTĘPY do firm, nie konta — dlatego ten kafel stoi na liście osób,
+            a nie tylko na ekranie licencji (§9 zlecenia `konta-lista-dostep`). -#}
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.licencja() }}<span class="kafel__etykieta">Licencje</span></span>
+            <span class="kafel__dana">
+                {#- ⚠ Przekroczenie limitu MUSI być widoczne. Zmierzone: gdy pracownik wraca po
+                    zwolnieniu, jego dostępy wracają same (blokada nigdy ich nie usuwała), więc
+                    licznik może przeskoczyć limit — i dotąd nikt by się o tym nie dowiedział. -#}
+                {% set ponad_limit = licencja.limit is not null and licencja.uzyte > licencja.limit %}
+                <span class="kafel__wartosc{{ ponad_limit ? ' kafel__wartosc--odchylenie' : '' }}">
+                    {{- licencja.uzyte }}{% if licencja.limit is not null %} <small class="kafel__reszta">z {{ licencja.limit }}</small>{% endif -%}
+                </span>
+                {#- ⚠ Podpis mówi PRAWDĘ o licencji, a nie zawsze „limit": ta instalacja ma limit
+                    pusty, więc „limit kont w licencji" pod samą liczbą obiecywałby limit, którego
+                    nie ma — a panel dostępu obok mówi wtedy „licencja bez limitu". Dwa miejsca
+                    o jednej licencji muszą mówić to samo. -#}
+                <span class="kafel__opis">
+                    {{- ponad_limit ? 'ponad limit kont w licencji'
+                        : (licencja.limit is null ? 'licencja bez limitu' : 'limit kont w licencji') -}}
+                </span>
             </span>
         </div>
     </section>
@@ -104,25 +121,55 @@
         {#- ⚠ Bez `H2` w karcie: ekran nazywa się „Osoby i konta", więc „Lista osób" było DRUGIM
             tytułem tego samego ekranu (system-wizualny.md §4d — jeden tytuł na ekran). Karta
             dostaje własny nagłówek tylko wtedy, gdy trzeba ją odróżnić od innej karty. -#}
-        <div class="card__head">
-            {#- Pasek filtrów: kontrolki wyrównane dołem (§4a), bo etykiety mają różną wysokość. -#}
-            <form class="toolbar" method="get" action="{{ url('/admin/konta') }}">
-                <div class="field">
-                    <label class="field__label" for="szukaj">Szukaj</label>
+        {#- ⚠ Nagłówek ze znakiem jak na `/ustawienia` (Z30 §3): kwadrat z ikoną, tytuł karty
+            i pod nim zdanie o tym, CO jest na liście — zdanie zeszło tu z nagłówka strony, bo
+            dotyczy tej listy, a nie całego ekranu. Po prawej, w tym samym rzędzie, wszystkie
+            trzy działania paska: szukanie, filtr i nowe konto administracyjne. -#}
+        <div class="card__head card__head--znak card__head--lista">
+            <span class="card__znak">{{ ikony.konta() }}</span>
+            {#- ⚠ **Karta nie ma własnego tytułu, choć zlecenie Z30 go wymieniało** — i to nie jest
+                przeoczenie. Ekran nazywa się „Osoby i konta" i ta nazwa stoi w belce jako jedyny
+                `h1`; powtórzona w nagłówku karty daje DRUGI tytuł tego samego ekranu, co łamie
+                regułę z 11.10 („jeden tytuł na ekran") i zapala kryterium bramki
+                `nazwa_ekranu_w_belce`. Zmierzone: naruszenie na 1920 i 1440 px, obie szerokości
+                nazwane wprost. Zostaje znak i zdanie o tym, co jest na liście — a tytuł tam,
+                gdzie był, czyli w belce. -#}
+            <div class="card__tytuly">
+                <p class="card__opis card__opis--lead">Wszystkie osoby z programu kadrowego, także zwolnione. Większość nie ma konta i to jest stan normalny.</p>
+            </div>
+            {#- Pasek filtrów. ⚠ Etykieta „Szukaj" zniknęła WIZUALNIE, nie z dokumentu: pole z lupą
+                i podpowiedzią mówi widzącemu wszystko, a czytnik ekranu dalej dostaje etykietę
+                (`.visually-hidden` z `10-base.css`). Pole bez żadnej etykiety byłoby polem bez nazwy. -#}
+            <form class="card__akcje" method="get" action="{{ url('/admin/konta') }}">
+                <div class="pole-szukania">
+                    <label class="visually-hidden" for="szukaj">Szukaj osoby</label>
                     {#- ⚠ `type="text"`, nie `search`: przeglądarki dokładają polom wyszukiwania własny
-                        krzyżyk i wykończenie, więc jedno pole wyłamywałoby się z paska (§4a). -#}
-                    <input class="input" type="text" id="szukaj" name="szukaj" value="{{ szukaj }}" maxlength="100" placeholder="nazwisko, imię lub adres">
+                        krzyżyk i wykończenie, więc jedno pole wyłamywałoby się z paska (§4a).
+                        ⚠ Ikona jest SIOSTRĄ pola, nie jego tłem: tło znika przy wysokim kontraście,
+                        a element zostaje. -#}
+                    {{ ikony.lupa() }}
+                    <input class="input pole-szukania__pole" type="text" id="szukaj" name="szukaj"
+                           value="{{ szukaj }}" maxlength="100" placeholder="nazwisko, imię lub adres">
                 </div>
-                {#- ⚠ Kontrolka wyboru spółki **zniknęła stąd** (zlecenie `2026-10-10-globalny-wybor-spolki.md`
-                    §1): spółkę wybiera jeden znacznik w belce, na każdym ekranie ten sam. Lista
-                    dalej zawęża się po ZATRUDNIENIU w tej spółce — mówi o tym zdanie pod tytułem,
-                    bo bez etykiety przy kontrolce nie ma gdzie tego napisać. -#}
+                {#- ⚠ Kontrolka wyboru firmy **zniknęła stąd** (zlecenie `2026-10-10-globalny-wybor-spolki.md`
+                    §1): firmę wybiera jeden znacznik w belce, na każdym ekranie ten sam. Lista
+                    dalej zawęża się po ZATRUDNIENIU w tej firmie — mówi o tym podpis pierwszego kafla. -#}
                 <input type="hidden" name="sortuj" value="{{ sortuj }}">
                 <input type="hidden" name="kierunek" value="{{ kierunek }}">
-                <button class="btn btn--ghost" type="submit">Filtruj</button>
+                <button class="btn btn--ghost btn--akcja" type="submit">Filtruj</button>
                 {% if szukaj != '' %}
                     <a class="btn btn--quiet" href="{{ url('/admin/konta') }}">Wyczyść</a>
                 {% endif %}
+                {#- ⚠ Zwykły odnośnik: bez JavaScriptu prowadzi na pełny ekran formularza, a z JS
+                    `ui.js` otwiera okno i htmx dociąga do niego ten sam fragment.
+                    ⚠ `btn--akcja`, nie `btn--primary`: dwa zielone przyciski na jednym ekranie
+                    sprawiają, że zieleń znaczy „to jest przycisk", a nie „to zrób teraz"
+                    (system wizualny §3.1). Główna czynność tego ekranu to wysyłanie zaproszeń;
+                    konto administracyjne zakłada się raz na wdrożenie. -#}
+                <a class="btn btn--ghost btn--akcja" href="{{ url('/admin/konta/administracyjne') }}"
+                   data-modal-open="konto-adm-modal"
+                   hx-get="{{ url('/admin/konta/administracyjne') }}"
+                   hx-target="#konto-adm-tresc" hx-swap="innerHTML">{{ ikony.plus() }}Konto administracyjne</a>
             </form>
         </div>
         {#- ⚠ Pasek zaznaczania jest FORMULARZEM, a pola wyboru w wierszach wskazują go atrybutem
@@ -142,7 +189,7 @@
                 {#- Domyślnie WŁĄCZONY, ale decyzja jest jedna dla całej partii i widoczna —
                     a serwer czyta to, co przyszło, nie domyślną wartość z tego szablonu. -#}
                 <input type="checkbox" name="nadaj_dostep" value="1" checked>
-                Nadaj też dostęp do spółek z zatrudnienia
+                Nadaj też dostęp do firm z zatrudnienia
             </label>
             <button type="button" class="btn btn--quiet btn--sm" data-selectbar-clear hidden>Wyczyść</button>
             <button type="submit" class="btn btn--primary btn--sm">Wyślij zaproszenia</button>
@@ -163,7 +210,11 @@
             gdy druga osa nie jest `visible`. -#}
             {#- `table--zebra`: zebra i podświetlenie wiersza. ⚠ Modyfikator, nie domyślny wygląd
                 tabeli — powód i pomiar w `30-components.css` przy regule. -#}
-            <table class="table table--stale table--zebra">
+            {#- ⚠ **Bez `table--zebra`** (Z30 §5): zebra i podświetlenie wiersza robiły dwie rzeczy
+                naraz, a wiersz tej listy ma własny rytm — kółko z inicjałami, pole adresu
+                i kontrolka dostępu. Separator `--c-line-soft` i podświetlenie po najechaniu
+                wystarczą, żeby oko trzymało wiersz. -#}
+            <table class="table table--stale table--osoby">
                     {#- Szerokości kolumn z §1 zlecenia: 4 / 26 / 30 / 24 / 16. Suma 100. -#}
                     <colgroup>
                         <col class="col--pick">
@@ -184,7 +235,7 @@
                             <th>
                                 <a class="table__name" href="{{ url('/admin/konta') }}?szukaj={{ szukaj|url_encode }}&amp;sortuj=email&amp;kierunek={{ sortuj == 'email' and kierunek == 'asc' ? 'desc' : 'asc' }}">E-mail</a>
                             </th>
-                            <th>Dostęp do spółek</th>
+                            <th>Dostęp do firm</th>
                             <th>
                                 <a class="table__name" href="{{ url('/admin/konta') }}?szukaj={{ szukaj|url_encode }}&amp;sortuj=konto&amp;kierunek={{ sortuj == 'konto' and kierunek == 'asc' ? 'desc' : 'asc' }}">Konto</a>
                             </th>
@@ -198,7 +249,7 @@
                     {% endfor %}
                     </tbody>
             </table>
-        <div class="card__foot">
+        <div class="card__foot card__foot--lista">
             <span>Pokazano {{ strona.razem > 0 ? strona.offset + 1 : 0 }}–{{ strona.offset + osoby|length }} z {{ strona.razem }}</span>
             {% if strona.stron > 1 %}
                 <nav class="pager" aria-label="Strony listy osób">
@@ -236,7 +287,7 @@
         `overflow: hidden` (zaokrąglone narożniki), więc panel otwarty w ostatnim wierszu
         zostałby przycięty na krawędzi karty. Pozycję ustawia JS względem klikniętego przycisku
         — dokładnie tak, jak w makiecie, gdzie panel też jest osobną warstwą nad układem. -#}
-    <div class="dropdown" id="dostep-panel" role="dialog" aria-label="Dostęp do spółek" hidden></div>
+    <div class="dropdown" id="dostep-panel" role="dialog" aria-label="Dostęp do firm" hidden></div>
 
     {#- Okno wyniku wysyłki. Treść wstawia htmx po odpowiedzi serwera; okno otwiera JS przy
         podmianie (`htmx:afterSwap`), a nie klik — bo klik ma wysłać formularz, nie otworzyć okno.

@@ -9,7 +9,7 @@
 
     ⚠ **Pasek kafli to TEN SAM komponent co na pulpicie** (`.kafle`/`.kafel`), bez otaczającej
     karty. Powód jest ten sam, co tam (system wizualny 1.18, Z20): karta wokół kafli-kart to
-    ramka w ramce. Różni się jedna rzecz — pięć kolumn zamiast sześciu (`.kafle--piec`).
+    ramka w ramce. Różni się jedna rzecz — pięć kolumn zamiast sześciu (`.kafle--auto`).
 
     ⚠ **Ikonę wybiera JAWNY WARUNEK**, nie wywołanie makra po napisie z serwera. Ta sama zasada
     co na pulpicie: po `{{ ikony.koperta() }}` widać, który rysunek należy do którego miejsca,
@@ -23,7 +23,7 @@
     ⚠ Pięć kafli odpowiada na pytanie „czy instalacja jest gotowa", zanim ktokolwiek rozwinie
     którąkolwiek kartę niżej. Każdy z nich ma odpowiednik w karcie poniżej — to jest skrót,
     a nie drugie źródło prawdy. -#}
-<section class="kafle kafle--piec" aria-label="Stan instalacji">
+<section class="kafle kafle--auto" aria-label="Stan instalacji">
     <div class="kafel">
         <span class="kafel__glowa">{{ ikony.zegar() }}<span class="kafel__etykieta">Strefa czasowa</span></span>
         <span class="kafel__dana">

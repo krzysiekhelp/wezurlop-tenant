@@ -29,10 +29,36 @@ final class PersonRepository
      *
      * @var array<string, string>
      */
+    /**
+     * Biała lista sortowania (CLAUDE.md §4: nazw kolumn nie da się sparametryzować).
+     *
+     * ⚠ **Każdy wpis jest LISTĄ kolumn, a nie jednym napisem — i to jest poprawka usterki**
+     * (Z30, 18.10.2026). Dawniej `'nazwisko' => 'p.last_name, p.first_name'` sklejało się
+     * z kierunkiem na końcu, czyli dawało `ORDER BY p.last_name, p.first_name DESC`: nazwisko
+     * zostawało ZAWSZE rosnąco, a odwracało się wyłącznie imię. Zmierzone na `/admin/konta`:
+     * `kierunek=asc` i `kierunek=desc` zwracały tę samą pierwszą trójkę osób, a usterki nie było
+     * widać, dopóki dwie osoby nie miały tego samego nazwiska. Kierunek dokłada się teraz
+     * do KAŻDEJ kolumny z osobna.
+     *
+     * @var array<string, list<string>>
+     */
     private const SORT = [
-        'nazwisko' => 'p.last_name, p.first_name',
-        'email'    => 'email IS NULL, email',
-        'konto'    => 'stan_kolejnosc',
+        'nazwisko' => ['p.last_name', 'p.first_name'],
+        'email'    => ['email'],
+        'konto'    => ['stan_kolejnosc'],
+    ];
+
+    /**
+     * Wyrażenia stawiane PRZED kolumnami sortowania i **niepodlegające kierunkowi**.
+     *
+     * ⚠ `email IS NULL` pcha osoby bez adresu na koniec listy niezależnie od kierunku — i tak ma
+     * zostać. Gdyby dostało kierunek razem z kolumną, sortowanie malejąco zaczynałoby się od
+     * wszystkich osób BEZ adresu, czyli od pustych wierszy w kolumnie, po której się sortuje.
+     *
+     * @var array<string, string>
+     */
+    private const SORT_PRZED = [
+        'email' => 'email IS NULL',
     ];
 
     public function __construct(private readonly Connection $db)
@@ -168,7 +194,7 @@ final class PersonRepository
              FROM person p
              LEFT JOIN account a ON a.person_id = p.id
              WHERE " . $warunek . ' AND ' . self::ZAKRES . ' AND ' . self::FILTR_SPOLKI . ' AND ' . self::SZUKANIE . '
-             ORDER BY ' . (self::SORT[$sort] ?? self::SORT['nazwisko']) . ($asc ? ' ASC' : ' DESC') . ', p.id
+             ORDER BY ' . self::orderSql($sort, $asc) . ', p.id
              LIMIT :limit OFFSET :offset'
         );
         $this->bindScope($stmt, $companyId, $search, $filtrSpolki);
@@ -574,5 +600,21 @@ final class PersonRepository
     private static function escapeLike(string $value): string
     {
         return str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $value);
+    }
+
+    /**
+     * `ORDER BY` z białej listy, z kierunkiem dołożonym do KAŻDEJ kolumny.
+     *
+     * ⚠ Kolumny pochodzą wyłącznie ze stałej `SORT`, a nieznany klucz spada na „nazwisko" —
+     * do zapytania nie trafia ani jeden znak z wejścia użytkownika (CLAUDE.md §4).
+     */
+    private static function orderSql(string $sort, bool $asc): string
+    {
+        $kolumny = self::SORT[$sort] ?? self::SORT['nazwisko'];
+        $kierunek = $asc ? ' ASC' : ' DESC';
+        $czesci = array_map(static fn (string $k): string => $k . $kierunek, $kolumny);
+        $przed = self::SORT_PRZED[$sort] ?? null;
+
+        return ($przed === null ? '' : $przed . ', ') . implode(', ', $czesci);
     }
 }

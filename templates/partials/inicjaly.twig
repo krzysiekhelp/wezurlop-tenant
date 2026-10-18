@@ -1,0 +1,18 @@
+{#- Kółko z inicjałami osoby (zlecenie Z30, 18.10.2026).
+
+    ⚠ **Inicjały liczy SZABLON, a nie serwer** — i to jest wyjątek zgodny z §5, nie jego złamanie:
+    to formatowanie tej samej danej, którą wiersz i tak wyświetla (nazwa osoby), a nie druga dana
+    z bazy. Gdyby liczył je serwis, ta sama nazwa jechałaby do przeglądarki dwa razy w dwóch
+    postaciach, a w szablonie i tak stałoby formatowanie drugiej z nich.
+
+    ⚠ Dwa pierwsze słowa, nie dwie pierwsze litery: „Gawryński Witold" ma dać „GW", a nie „GA".
+    Przy nazwie jednoczłonowej (konto administracyjne bez osoby z kadr) zostaje jedna litera.
+
+    ⚠ `aria-hidden`: inicjały są skrótem nazwiska, które stoi obok w pełnym brzmieniu. Czytnik
+    ekranu przeczytałby „GW Gawryński Witold" — dwa razy to samo, raz bez sensu.
+
+    Rozmiar bierze się z klasy (`--inicjaly-bok`), bo ten sam znak stoi na liście osób (30 px),
+    w kontrolce dostępu (34 px) i w oknie członków grupy (26 px). -#}
+{%- macro kolko(nazwa, klasa) -%}
+<span class="inicjaly{{ klasa is empty ? '' : ' ' ~ klasa }}" aria-hidden="true">{{ nazwa|trim|split(' ')|filter(c => c is not empty)|slice(0, 2)|map(c => c|slice(0, 1))|join('')|upper }}</span>
+{%- endmacro -%}

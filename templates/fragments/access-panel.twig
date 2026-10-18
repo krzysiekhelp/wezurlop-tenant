@@ -9,6 +9,7 @@
 
     ⚠ Zapis jest JAWNY, jednym żądaniem. Zapisywanie po kliknięciu pola wyboru dałoby cztery
     zapisy, cztery wpisy w dzienniku i cztery sprawdzenia limitu przy zmianie czterech spółek. -#}
+{% import 'partials/inicjaly.twig' as znak %}
 <form class="dropdown__form" method="post"
       action="{{ url('/admin/konta/osoba/' ~ o.person_id ~ '/dostep') }}"
       hx-post="{{ url('/admin/konta/osoba/' ~ o.person_id ~ '/dostep') }}"
@@ -17,17 +18,28 @@
       data-licencja-limit="{{ licencja.limit ?? '' }}"
       data-dostepy-teraz="{{ o.dostepy }}">
     {% include 'partials/csrf.twig' %}
+    {#- ⚠ Głowa listy jak nagłówek okna nazw firm (Z30 §8): znak z inicjałami, nazwisko i pod nim
+        zdanie o tym, co się tu robi. Bez niego panel otwarty nad tabelą nie mówił, CZYJEGO dostępu
+        dotyczy — a otwiera się przy wierszu, który zaraz znika pod panelem. -#}
     <div class="dropdown__head">
-        <span class="dropdown__title">{{ o.name }}</span>
-        <span class="dropdown__sub">rola: pracownik</span>
+        {{ znak.kolko(o.name, 'inicjaly--dostep') }}
+        <span class="dropdown__kto">
+            <span class="dropdown__title">{{ o.name }}</span>
+            <span class="dropdown__sub">pracownik · wybierz firmy z dostępem</span>
+        </span>
     </div>
     <div class="dropdown__list">
         {% for s in spolki %}
-            <label class="dropdown__item{{ s.ma_etat ? '' : ' dropdown__item--off' }}">
+            {#- ⚠ Pozycja bez etatu niesie POWÓD w `title` (Z30 §8): wygaszony wiersz bez
+                wyjaśnienia wygląda jak usterka listy, a nie jak reguła. -#}
+            <label class="dropdown__item{{ s.ma_etat ? '' : ' dropdown__item--off' }}"
+                   {%- if not s.ma_etat %} title="Osoba nie ma etatu w tej firmie"{% endif %}>
                 <input type="checkbox" name="spolki[]" value="{{ s.company_id }}"
                        {{ s.ma_dostep ? 'checked' : '' }}{{ s.ma_etat ? '' : ' disabled' }}>
                 <span class="dropdown__name">{{ s.name }}</span>
-                <span class="dropdown__tag">{{ s.ma_etat ? 'z etatem' : 'bez etatu' }}</span>
+                {#- Etykieta etatu jest PLAKIETKĄ: zielona znaczy „tu wolno nadać dostęp",
+                    szara — „tu nie ma do czego". -#}
+                <span class="chip{{ s.ma_etat ? ' chip--accent' : '' }} dropdown__tag">{{ s.ma_etat ? 'z etatem' : 'bez etatu' }}</span>
             </label>
         {% else %}
             <p class="empty-state">Tenant nie ma jeszcze żadnej aktywnej firmy.</p>

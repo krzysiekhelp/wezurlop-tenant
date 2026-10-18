@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.9, 18.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.10, 18.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,51 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.9 → 1.18.10: `/admin/konta` w układzie pulpitu — pasek kafli, znak karty,
+> wiersz z inicjałami** (zlecenie Z30, 18.10.2026, prototyp zatwierdzony przez Krzysztofa).
+> Funkcje, htmx i adresy bez zmian.
+> **(1)** Znika `.page__head`: zdanie o zakresie listy zeszło do nagłówka karty (dotyczy tej
+> listy, nie ekranu), nazwa firmy do **podpisu pierwszego kafla** (bo to ona mówi, czego dotyczy
+> liczba), a „Konto administracyjne" do paska działań karty.
+> **(2)** Zamiast `.card.stats` — pasek kafli `.kafle--auto` (ten sam modyfikator co na
+> `/ustawienia`; nazwa zmieniona z `--piec`, bo obsługuje pięć kafli tam i sześć tutaj).
+> Siódmy kafel „Do odblokowania" **zostaje warunkowo**: to jedyny stan czekający na działanie
+> administratora i pojawia się tylko wtedy, gdy jest co odblokować.
+> **(3)** Nagłówek karty ze znakiem (`.card__head--znak`) plus pasek działań po prawej:
+> wyszukiwarka 300 × 38 z lupą **w polu** i etykietą ukrytą wizualnie (`.visually-hidden` —
+> pole bez żadnej etykiety byłoby polem bez nazwy), „Filtruj" i „+ Konto administracyjne"
+> w stylu `.btn--akcja`. ⚠ Nagłówek jest **własnym kontenerem zapytań** (`container-name: glowa`):
+> `karta` siedzi na `.card__body`, a nagłówek stoi obok niego, nie w nim.
+> **(4)** Tabela osób bez zebry: separator `--c-line-soft`, podświetlenie wiersza pod kursorem,
+> nagłówki 11 px 600 w `--c-text-3`, przy nazwisku **kółko z inicjałami** (`.inicjaly`, bok
+> ze zmiennej — ten sam znak ma 30 px na liście, 34 px w kontrolce dostępu, 26 px w oknie grupy).
+> **(5)** Pole adresu i kontrolka dostępu **bez ramki w spoczynku**: w kolumnie stało kilkadziesiąt
+> ramek pod sobą i lista wyglądała jak formularz. Ramka wraca pod kursorem, a przy pisaniu dochodzi
+> obwódka 3 px w `--c-accent-soft`. „Zapisz" **pojawia się dopiero przy zmianie** — robi to CSS
+> na stanie `disabled`, który ustawia `modules/zapisz.js`; bez JavaScriptu atrybut nie powstaje,
+> więc przycisk jest widoczny i działa (ukrywanie nie może zabrać jedynej drogi zapisu).
+> **(6)** ⚠ **Kolumna „Konto" łamie regułę „zieleń to działanie, nie stan"** — świadomie i tylko
+> tutaj. Plakietki mają kropkę i własne barwy: „brak konta" i „niezaproszone" szare, „zaproszony"
+> `--c-dzis-bg`/`--c-dzis-text`, **„aktywne" zielone**, „zablokowane" `--c-danger-soft`.
+> Powód: pięć szarych plakietek w kolumnie, której się szuka wzrokiem, nie różnicowało niczego,
+> a administrator czyta tę kolumnę właśnie po to, żeby zobaczyć, kto ma działające konto.
+> Pozostałe ekrany zostają przy dawnej regule.
+> **(7)** Lista rozwijana dostępu: 340 px, promień karty, `--shadow-pop`, głowa z inicjałami 34 px
+> w barwie akcji, pozycje z polem wyboru 18 px (zaznaczona ma tło `--c-accent-soft`), „z etatem"
+> jako zielona plakietka, „bez etatu" jako szara, pozycja bez etatu z powodem w podpowiedzi.
+> **(8)** ⚠ **Na telefonie wiersz osoby przestaje być wierszem tabeli i staje się blokiem**
+> (próg 560 px od okna, bo tabela stoi poza `.card__body` i nie ma nad sobą kontenera zapytań).
+> Powód jest zmierzony: `table-layout: fixed` z kolumnami w procentach **nie przewija się w bok**,
+> tylko ściska pięć kolumn do szerokości, przy której kontrolka dostępu ma 60 px, a adres jedną
+> literę. „Nie przewija się" nie znaczy „da się przeczytać".
+> **Nazewnictwo:** na tym ekranie, w liście dostępu i w oknach „spółka" → „firma". Sprawdzone
+> pomiarem na wyrenderowanych ekranach: w widocznym tekście, podpowiedziach i etykietach **nie ma
+> już naszego słowa „spółka"** — zostają wyłącznie nazwy własne firm z programu kadrowego.
+> **Pomiar**: 1920 px — 6 kafli w jednym rzędzie po 250 px, wiersz 1558 × 48, pole szukania
+> 300 × 38, inicjały 30 × 30, panel dostępu 340 px; 1366 px — kafle po 166 px w jednym rzędzie;
+> 375 px — kafle po 2 w rzędzie, wiersz jako blok 341 × 241, pole adresu i kontrolka dostępu
+> na całą szerokość. Zero przewijania w poziomie na każdej z trzech szerokości.
 
 > **Zmiana 1.18.8 → 1.18.9: nazwy wyświetlane firm edytuje się w OKNIE, nie na osobnym ekranie**
 > (zlecenie Z29, 18.10.2026). Przycisk „Zmień nazwy" na `/ustawienia` otwiera okno `.modal`
@@ -50,12 +95,12 @@ co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej ju
 > (zlecenie Z27, 18.10.2026 — prototyp zaakceptowany przez Krzysztofa). Funkcje, formularze
 > i adresy zostały bez zmian; zmienił się wyłącznie układ i to, co widać bez przewijania.
 > **(1)** **Pasek pięciu kafli stanu instalacji** na górze — ten sam komponent `.kafle`/`.kafel`,
-> co na pulpicie, bez otaczającej karty, w modyfikatorze `.kafle--piec`. Kafle odpowiadają
+> co na pulpicie, bez otaczającej karty, w modyfikatorze `.kafle--auto`. Kafle odpowiadają
 > na pytanie „czy instalacja jest gotowa" przed rozwinięciem czegokolwiek: strefa, cron, poczta,
 > weryfikacja dwuetapowa, skrzynka na alerty. Stan nieustawiony idzie barwą wartości
 > (`--kafel__wartosc--odchylenie`, czyli `--c-warn-text`), nie plakietką.
 > ⚠ **Liczbę kolumn robi `auto-fit` z podłogą 160 px, a nie zapytanie kontenerowe.** Pierwsza
-> wersja pytała `@container kafle` o samo `.kafle--piec` i nie zadziałała ani razu — **zapytanie
+> wersja pytała `@container kafle` o samo `.kafle--auto` i nie zadziałała ani razu — **zapytanie
 > kontenerowe nie pyta o siebie**. Na telefonie zostawało pięć kolumn, a nazwa strefy łamała się
 > po jednej literze. Wychodzi 5 kolumn przy 1558 px, 3 przy ~610 px i 2 na telefonie.
 > **(2)** **Nagłówek karty ma znak**: kwadrat o boku `--control-h` (38 px — tyle co pole
@@ -722,7 +767,14 @@ innych ekranach (przełącznik roku, zakres uprawnień) i tam zostaje taki, jaki
 *Pasek kafli pulpitu (1.18, zlecenie Z15; `--piec` 1.18.7, Z27)*
 `.kafle` `.kafel` `.kafel__glowa` `.kafel__etykieta` `.kafel__dana` `.kafel__wartosc`
 `.kafel__wartosc--brak` `.kafel__wartosc--odchylenie` `.kafel__reszta` `.kafel__opis`
-`.kafle--piec` (pasek pięciu kafli stanu instalacji — liczba kolumn z `auto-fit`, nie z progu)
+`.kafle--auto` (pasek pięciu kafli stanu instalacji — liczba kolumn z `auto-fit`, nie z progu)
+
+*Lista osób i kont (1.18.10, zlecenie Z30)*
+`.inicjaly` `.inicjaly--lista` `.inicjaly--dostep` `.osoba-wiersz` `.osoba-wiersz__nazwa`
+`.pole-szukania` `.pole-szukania__pole` `.card__head--lista` `.card__akcje`
+`.table--osoby` `.card__foot--lista` `.chip__kropka` `.chip--dzis` `.btn--akcja-sm`
+⚠ Makro `partials/inicjaly.twig` liczy inicjały z nazwy osoby w szablonie — to formatowanie
+danej, którą wiersz i tak wyświetla, a nie druga dana z bazy.
 
 *Okno „Nazwy wyświetlane firm" (1.18.9, zlecenie Z29)*
 `.modal--nazwy` `.modal__head--znak` `.nazwy-lista` `.nazwy-wiersz` `.nazwy-wiersz__kadry`
