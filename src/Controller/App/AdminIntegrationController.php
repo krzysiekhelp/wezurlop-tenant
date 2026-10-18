@@ -76,7 +76,13 @@ final class AdminIntegrationController
 
         $notice = $request->query('reset') !== null ? 'reset' : (string) $request->query('ok');
 
-        return $this->render(null, 200, $notice);
+        // ⚠ Okno zakresu klucza działa BEZ JavaScriptu: „Zakres" jest zwykłym odnośnikiem
+        // na ten ekran z `?okno=zakres&klucz=<id>`, a serwer renderuje wtedy `<dialog open>`
+        // (ten sam wzorzec co okno nazw firm, zlecenie Z29). Identyfikator przechodzi przez
+        // białą listę kluczy w `render()` — z adresu bierzemy tylko liczbę (CLAUDE.md §11).
+        $oknoZakres = $request->query('okno') === 'zakres' ? (int) $request->query('klucz') : 0;
+
+        return $this->render(null, 200, $notice, $oknoZakres);
     }
 
     /**
@@ -790,7 +796,7 @@ final class AdminIntegrationController
         ];
     }
 
-    private function render(?string $error, int $status = 200, string $notice = ''): Response
+    private function render(?string $error, int $status = 200, string $notice = '', int $oknoZakres = 0): Response
     {
         // Odczyt jednorazowy: klucz znika z sesji, ZANIM strona zostanie wyrenderowana.
         $new = $this->session->get(self::NEW_KEY);
@@ -866,6 +872,25 @@ final class AdminIntegrationController
                     : null,
             ], $keys),
             // Jedna cisza dla całego ekranu: najdłużej milczący klucz aktywny (zwykle jedyny).
+            // Zgłoszenia przypisane do klucza — gotowe dla okna zakresu (Z35 §4). ⚠ Zgłoszenie
+            // BEZ przypisanego klucza trafia do każdego czynnego klucza: niepokazane nigdzie
+            // czekałoby w bazie bez śladu w interfejsie, a decyzja o firmie jest obowiązkowa.
+            'zgloszenia_kluczy' => array_reduce(
+                $keys,
+                static function (array $acc, array $k) use ($signupsPending): array {
+                    $acc[(int) $k['id']] = array_values(array_filter(
+                        $signupsPending,
+                        static fn (array $s): bool => $s['api_key_id'] === (int) $k['id'] || $s['api_key_id'] === null,
+                    ));
+
+                    return $acc;
+                },
+                [],
+            ),
+            // Które okno zakresu ma przyjść otwarte (ścieżka bez JavaScriptu). Zero = żadne.
+            // ⚠ Biała lista: identyfikator z adresu musi należeć do kluczy tego tenanta,
+            // inaczej `?okno=zakres&klucz=999` kazałoby szablonowi szukać klucza, którego nie ma.
+            'okno_zakres' => isset($names[$oknoZakres]) ? $oknoZakres : 0,
             'cisza'    => self::cisza($keys, $progCiszy),
             // ⚠ Rozjazd odcisków tożsamości: firmy jednego klucza obsługują dwie instalacje connectora.
             // Stan wymagający uwagi — strumień działa, ale osoby z obu firm nie będą scalane.

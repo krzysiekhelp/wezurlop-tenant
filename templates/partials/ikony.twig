@@ -117,4 +117,13 @@
     taki sam kształt, jaki rysują linie w drzewie na ekranie. `strzalka_w_dol` jest wyłącznie
     dla strefy upuszczania, dlatego ma grot, a nie szewron (szewron już znaczy „rozwiń"). -#}
 {% macro drzewo() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><rect x="7.6" y="3.2" width="4.8" height="3.6" rx="1"/><rect x="3" y="13.2" width="4.8" height="3.6" rx="1"/><rect x="12.2" y="13.2" width="4.8" height="3.6" rx="1"/><path d="M10 6.8v3.4M5.4 13.2v-1.6h9.2v1.6"/></svg>{% endmacro %}
+{#- Zlecenie Z35: klucz instalacji, wtyczka connectora, lista przebiegów i znak informacji. -#}
+{#- ⚠ Klucz LEŻY POZIOMO, a zęby schodzą w dół. Pierwsza wersja miała oczko u góry i trzon
+    po przekątnej — przy 20 px i grubości 1,5 czytała się jak LUPA (zmierzone na zrzucie:
+    znak karty „Klucze instalacji" wyglądał jak pole szukania). Zęby muszą być widoczne,
+    bo to one odróżniają klucz od kółka na patyku. -#}
+{% macro klucz() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle cx="6.4" cy="10" r="3.2"/><path d="M9.6 10h7.2M13.4 10v2.6M16 10v2"/></svg>{% endmacro %}
+{% macro wtyczka() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M7.4 3v4M12.6 3v4"/><path d="M5.2 7h9.6v2.4a4.8 4.8 0 0 1-4.8 4.8 4.8 4.8 0 0 1-4.8-4.8Z"/><path d="M10 14.2V17"/></svg>{% endmacro %}
+{% macro lista() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M7.4 5.6h9M7.4 10h9M7.4 14.4h9"/><circle cx="4.2" cy="5.6" r=".9"/><circle cx="4.2" cy="10" r=".9"/><circle cx="4.2" cy="14.4" r=".9"/></svg>{% endmacro %}
+{% macro info() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle cx="10" cy="10" r="6.8"/><path d="M10 9.2v4.2"/><circle cx="10" cy="6.6" r=".9"/></svg>{% endmacro %}
 {% macro strzalka_w_dol() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M10 4.4v11.2"/><path d="m5.6 11.2 4.4 4.4 4.4-4.4"/></svg>{% endmacro %}

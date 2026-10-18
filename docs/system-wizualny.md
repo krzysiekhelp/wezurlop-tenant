@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.14, 18.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.15, 18.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,69 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.14 → 1.18.15: `/admin/integracja` w układzie pulpitu, zakres klucza w oknie,
+> kreska drzewa hierarchii liczona z siatki** (zlecenie Z35 wraz z dopiskiem, 18.10.2026).
+> **(1)** Znika `.page__head`; zdanie o kluczach zeszło do nagłówka karty kluczy, a przycisk
+> kreatora — do tej samej karty, bo to w niej stoi wiersz, którego dotyczy. Dawny drugi przycisk
+> („Wydaj nowy klucz" w stopce) usunięty: otwierał dokładnie to samo okno.
+> **(2)** Sześć kafli (`.kafle--auto`) zamiast `.card.stats`. ⚠ **Pierwszy kafel niesie STAN, nie
+> liczbę** — stąd jedyna kropka w pasku: `.kafel__kropka` z obwódką 4 px rysowaną **cieniem, nie
+> ramką** (ramka powiększyłaby pudełko i zepchnęła tekst). Wartość schodzi do `--t-h2`, bo
+> „podłączanie w toku" w rozmiarze liczby zajmowało trzy linie; wersja connectora też, ale
+> z własnego powodu (to napis, nie liczba).
+> **(3)** Wiersz klucza: kwadrat **34 px** z ikoną klucza (nie 38 jak `.card__znak` — w wierszu
+> tabeli znak stoi obok dwóch linii tekstu i kwadrat równy kontrolce był od nich wyższy),
+> nazwa 14 px 600, pod nią początek klucza w ramce `--c-bg` z `title` „Całego klucza nie
+> pokazujemy". Kolumna **„Firmy w zakresie"** zamiast listy NIP-ów: plakietka „w zakresie /
+> zatwierdzone" (np. `2/2`), nazwy i NIP-y w `title`. To zdejmuje u źródła problem, dla którego
+> ta tabela miała stałe szerokości — treść kolumny rosła z liczbą firm.
+> **(4)** Trzy działania w stylu `.btn--akcja`: „Zakres" ze znacznikiem liczby oczekujących
+> zgłoszeń (`.btn__znacznik`, kółko 18 px `--c-warn`, **widoczne tylko przy liczbie > 0** —
+> kółko z zerem mówiłoby „jest tu coś do zrobienia" dokładnie wtedy, gdy nie ma), „Wymień klucz"
+> i „Unieważnij" (`.btn--akcja-groznie` — **napis** w barwie błędu, tło zostaje białe: czerwony
+> przycisk obiecywałby, że kliknięcie unieważnia, a ono otwiera potwierdzenie).
+> **(5)** ⚠ **Karty „Zakres kluczy" i „Zgłoszenia firm" USUNIĘTE**, ich funkcje są w oknie
+> „Zakres klucza" (`.modal--zakres`, 560 px, osadzone w stronie jak okno nazw firm). Okno działa
+> **bez JavaScriptu**: „Zakres" to zwykły odnośnik `?okno=zakres&klucz=<id>`, a serwer renderuje
+> wtedy `<dialog open>`. ⚠ **Jeden formularz na całe okno, a „Zatwierdź" idzie przez `formaction`**:
+> formularzy nie wolno zagnieżdżać, a w oknie są dwie rzeczy do wysłania (zakres i decyzja
+> o zgłoszeniu). `formaction` wysyła ten sam formularz pod inny adres — bez skryptu, bez
+> zagnieżdżenia, z tym samym tokenem CSRF (zmierzone: `POST …/zgloszenia/<id>/zatwierdz`,
+> token w treści). ⚠ Zgłoszenie **bez przypisanego klucza** trafia do okna każdego czynnego
+> klucza — niepokazane nigdzie czekałoby w bazie bez śladu w interfejsie.
+> **(6)** Przebiegi: tabela bez zebry, godzina `HH:MM` nad datą 11 px. ⚠ Godzina bez sekund ma
+> własną nazwę (`czas_godzina_krotka`, `Strefa::godzinaKrotka`), a nie obcinanie w szablonie —
+> reguła „prognoza bez sekund, pomiar z sekundami" dalej obowiązuje, a tutaj krótsza postać mówi
+> **mniej**, niż wiemy, co jest bezpiecznym kierunkiem.
+> **(7)** Okno kreatora: `.kroki` to **poziomy pasek czterech kafelków**, czyli wskaźnik postępu,
+> a nie lista z formularzami w środku; to, co jest do zrobienia teraz, stoi jednym blokiem pod
+> paskiem. Zrobiony krok dostaje barwę zgody, bieżący i przyszły zostają obojętne — kolor znaczy
+> „to już jest", a nie „tu patrz". ⚠ Przycisk „Wygeneruj nowy klucz" **zniknął z kreatora**:
+> unieważniał czynny klucz od ręki, stojąc obok zdania „klucz jest wydany", czyli najgroźniejsza
+> operacja ekranu wyglądała jak podpowiedź. Zamiast niego ramka `.notka-info`. Cztery liczby
+> i odnośnik „otwórz jako osobny ekran" usunięte, w stopce tylko „Zamknij".
+> **Pomiar**: 1920 px — 6 kafli w rzędzie (kafel 250 × 114), wiersz klucza 1558 × 73, znak 34 × 34,
+> wiersz przebiegu 1558 × 49, okno zakresu 560 × 537, okno kreatora 620 × 532, kroki 4 w rzędzie
+> po 137 px; 1366 px — też 6 kafli (166 × 134); 375 px — kafle po 2, wiersz klucza jako blok
+> 341 × 354, przebieg 341 × 178, okna 341 px, kroki 2 × 2. Zero przewijania w poziomie na trzech
+> szerokościach (⚠ przy 375 px wyszło najpierw 528 px treści w 341 px karty: komórka z nazwą
+> prawną spółki nie zawija się, bo `.table td` ma `nowrap` — stąd `white-space: normal`
+> i `min-width: 0` w bloku telefonu).
+>
+> **Dopisek do Z35 — kreska drzewa na `/admin/hierarchia`.** `.hier__node::before` miała stałe
+> `top: 26px`, czyli środek karty sprzed Z34; po Z34 karta ma 68 px i kreska wypadała nad
+> przyciskiem zwijania. ⚠ **Kreska jest teraz ELEMENTEM SIATKI** węzła (wiersz 1, `align-self:
+> center`), więc trafia w środek wiersza — przy każdej wysokości karty, także gdy na telefonie
+> plakietki zawiną ją do 165 px. ⚠ **Pułapka, która kosztowała jeden pomiar**: `::before` jest
+> pierwszym dzieckiem siatki, więc przypięty do wiersza 1 zabrał komórkę uchwytowi, a ten zszedł
+> z automatu do wiersza 2 — pierwszy wiersz miał wtedy 1 px, a kreska wisiała 42 px (1920) i 77 px
+> (375) nad środkiem karty. Dlatego wiersze `.hier__zwin`, `.hier__card` i `.hier__branch`
+> są przypisane **jawnie**. Zasłona szyny pod ostatnim dzieckiem dalej liczy się z tokenu
+> `--hier-karta-h` (68 px, na telefonie 108 px), bo element siatki nie sięgnie od środka
+> pierwszego wiersza do dołu węzła. **Pomiar po zmianie**: |środek kreski − środek `.hier__zwin`|
+> = **0 px** i |środek kreski − środek karty| = **0 px** na 1920 i 375 px, dla wszystkich
+> 6 węzłów w gałęziach.
 
 > **Zmiana 1.18.13 → 1.18.14: `/admin/hierarchia` w układzie pulpitu, „Nieustawieni" to
 > „Bez przełożonego"** (zlecenie Z34, 18.10.2026).
@@ -897,6 +960,20 @@ innych ekranach (przełącznik roku, zakres uprawnień) i tam zostaje taki, jaki
 `.card__znak--cichy` `.bez-grupy__tytuly` `.bez-grupy__opis` `.bez-grupy__siatka`
 `.bez-grupy__osoba` `.bez-grupy__imie` `.modal--grupa` `.chip--mala` `.assign__hurt`
 `.ikona-akcja` `.ikona-akcja--edycja` `.ikona-akcja--usun` `.ikona-akcja__form`
+
+*Integracja (1.18.15, zlecenie Z35)*
+`.kafel__wartosc--stan` `.kafel__wartosc--napis` `.kafel__kropka` (`--ok` `--uwaga` `--blad`)
+`.klucz-wiersz` `.klucz-wiersz__znak` `.klucz-wiersz__dane` `.klucz-wiersz__nazwa` `.klucz-wiersz__prefix`
+`.zakres-chip` `.btn__znacznik` `.btn--akcja-groznie` `.klucz-akcje` `.table--klucze`
+`.notka-info` `.notka-info__znak` `.notka-gotowe` `.notka-gotowe__znak`
+`.table--przebiegi` `.przebieg-czas` `.przebieg-czas__godzina` `.przebieg-czas__data` `.przebieg-liczba`
+`.modal--zakres` `.zakres__etykieta` `.zakres__zgloszenie` `.zakres__dane` `.zakres__nazwa`
+`.zakres__meta` `.zakres__decyzja` `.zakres__odrzuc` `.zakres__firma` `.zakres__notka`
+`.modal--kreator` `.kreator` `.kreator__stan` `.kreator__teraz` `.kreator__co-dalej`
+`.kreator__form` `.kreator__zgloszenie` `.kreator__czekam` `.kroki` `.krok` (`--zrobione` `--biezacy`)
+`.krok__kolko` `.krok__nazwa` `.krok__stan`
+⚠ Rodzina `.wizard*` przestała być używana (kreator nie ma już formularzy w krokach) — reguły
+zostają w pliku do osobnej decyzji o sprzątaniu, zgłoszonej w raporcie.
 
 *Hierarchia (1.18.14, zlecenie Z34)*
 `.inicjaly--hier` `.card__znak--uwaga` `.hier__licznik`

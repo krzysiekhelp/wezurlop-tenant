@@ -122,6 +122,12 @@
      ⚠ Wartość jest tokenem, bo wchodzi i do siatki węzła, i do wcięcia gałęzi: dwie liczby
      w dwóch miejscach rozjechałyby się przy pierwszej zmianie. */
   --hier-rynna:   20px;
+  /* Wysokość karty osoby w drzewie hierarchii (dopisek do Z35, 18.10.2026). ⚠ Token, bo wchodzi
+     w DWA miejsca naraz: w samą kartę (`min-height`) i w zasłonę szyny pod ostatnim dzieckiem.
+     Dotąd stała 26 px siedziała tylko w kresce i po Z34 — gdy karta urosła z 52 px do 68 —
+     kreska została nad przyciskiem zwijania zamiast na jego wysokości. Na telefonie karta
+     ma 108 px (druga linia plakietek), więc wartość jest nadpisywana w zapytaniu medialnym. */
+  --hier-karta-h: 68px;
   --radius:       8px;
   --radius-card: 10px;
   --shadow-card: 0 1px 2px rgba(20, 24, 32, .04);

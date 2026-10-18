@@ -1,17 +1,32 @@
 {# Stan kreatora podłączenia: to samo, co na ekranie, policzone od nowa z bazy (CLAUDE.md §5).
-   ⚠ Akcja każdego kroku stoi PRZY tym kroku — administrator nie ma szukać formularza niżej.
    ⚠ Odpytywanie chodzi WYŁĄCZNIE na krokach, na których czekamy na connectora, i niesie znacznik
    stanu: gdy nic się nie zmieniło, serwer odpowiada `204` i htmx NICZEGO nie podmienia — ekran nie
    mruga, a tekst wpisywany w polu nie znika. Gdy piłka jest po stronie administratora (nazwa klucza,
    decyzja o zgłoszeniu) albo wszystko jest gotowe, w podmienionym fragmencie nie ma już `hx-trigger`
    i odpytywanie kończy się samo, bez linii kodu w JS.
-   Klucza pokazywanego raz TU NIE MA: zjadłoby go pierwsze odpytanie. #}
+   Klucza pokazywanego raz TU NIE MA: zjadłoby go pierwsze odpytanie.
+
+   ⚠ **Układ z Z35 §6**: kroki to POZIOMY PASEK czterech kafelków, czyli wskaźnik postępu, a nie
+   lista z formularzami w środku. To, co jest do zrobienia TERAZ, stoi jednym blokiem pod paskiem.
+   Dawniej każdy krok niósł własny formularz, przez co okno miało cztery pola i trzy przyciski
+   naraz, a kolejność czynności trzeba było sobie z tego złożyć. Cztery liczby (ostatnie połączenie,
+   wersja, synchronizacja, pracownicy) zniknęły — są w kaflach ekranu integracji, nad oknem. #}
 {% import 'partials/ikony.twig' as ikona %}
-<div id="kreator-stan" class="stack stack--lg"{% if kreator.gotowe %} data-kreator-gotowe="1"{% endif %}
+<div id="kreator-stan" class="kreator"{% if kreator.gotowe %} data-kreator-gotowe="1"{% endif %}
      hx-get="{{ url('/admin/podlaczenie/stan') }}?znacznik={{ znacznik|url_encode }}"
      hx-target="this"
      hx-swap="outerHTML"
      {% if kreator.czeka_na_connector %}hx-trigger="every 5s"{% endif %}>
+
+    {#- Nazwa bieżącego kroku do zdania o stanie. ⚠ `set` w pętli zostaje widoczny po pętli —
+        to jedyny sposób, żeby wyciągnąć jeden element bez filtra zwracającego iterator. -#}
+    {% set biezacy = null %}
+    {% for krok in kreator.kroki %}{% if krok.stan == 'biezacy' %}{% set biezacy = krok %}{% endif %}{% endfor %}
+
+    {#- Zdanie o stanie stoi w PIERWSZEJ LINII treści, czyli pod tytułem okna (Z35 §6): tytuł jest
+        statyczny, a to zdanie zmienia się po każdym kroku i musi przychodzić z fragmentem. -#}
+    <p class="card__opis kreator__stan">Cztery kroki: klucz, połączenie, firma, dane.
+        {% if kreator.gotowe %}Wszystkie zrobione.{% elseif biezacy is not null %}Teraz: {{ biezacy.nazwa|lower }}.{% endif %}</p>
 
     {% if komunikat is not null %}
         <p class="notice" role="status">{{ komunikat }}</p>
@@ -31,99 +46,94 @@
         </div>
     {% endif %}
 
-    <ol class="wizard">
+    <ol class="kroki">
         {% for krok in kreator.kroki %}
-            <li class="wizard__step wizard__step--{{ krok.stan }}">
-                <span class="wizard__mark" aria-hidden="true">{% if krok.stan == 'zrobione' %}{{ ikona.ptaszek() }}{% else %}{{ loop.index }}{% endif %}</span>
-                <span class="wizard__name">{{ krok.nazwa }}</span>
-                <span class="wizard__state">{% if krok.stan == 'zrobione' %}zrobione{% elseif krok.stan == 'biezacy' %}teraz{% else %}czeka{% endif %}</span>
-                {% if krok.co_dalej is not null %}<p class="wizard__next">{{ krok.co_dalej }}</p>{% endif %}
-
-                {% if krok.akcja == 'klucz' and krok.stan == 'biezacy' %}
-                    <form method="post" action="{{ url('/admin/integracja/klucze') }}" class="wizard__form"
-                          hx-post="{{ url('/admin/integracja/klucze') }}" hx-target="#kreator-stan" hx-swap="outerHTML">
-                        {% include 'partials/csrf.twig' %}
-                        <input type="hidden" name="wroc" value="kreator">
-                        <label class="wizard__field">
-                            <span>Nazwa klucza (do rozpoznania na liście)</span>
-                            <input class="input" type="text" name="nazwa" maxlength="100" placeholder="np. serwer kadrowy w biurze" required autocomplete="off">
-                        </label>
-                        <button type="submit" class="btn btn--primary">Wygeneruj klucz</button>
-                    </form>
-                {% elseif krok.akcja == 'klucz' and krok.stan == 'zrobione' and klucz_id is not null %}
-                    <form method="post" action="{{ url('/admin/integracja/klucze/' ~ klucz_id ~ '/nowy') }}" class="wizard__form"
-                          hx-post="{{ url('/admin/integracja/klucze/' ~ klucz_id ~ '/nowy') }}" hx-target="#kreator-stan" hx-swap="outerHTML">
-                        {% include 'partials/csrf.twig' %}
-                        <input type="hidden" name="wroc" value="kreator">
-                        <p class="wizard__hint">Klucz jest wydany. Jeśli przepadł i nie ma go w konfiguracji connectora, wygeneruj nowy — poprzedni zostanie natychmiast unieważniony.</p>
-                        <button type="submit" class="btn btn--ghost btn--sm">Wygeneruj nowy klucz</button>
-                    </form>
-                {% endif %}
-
-                {% if krok.akcja == 'firma' and krok.stan == 'biezacy' %}
-                    {% if signups is not empty %}
-                        <div class="wizard__form table-scroll">
-                            <table class="table">
-                                <thead><tr><th class="table__grow">Nazwa z programu kadrowego</th><th>NIP</th><th>Zgłoszono</th><th><span class="visually-hidden">Decyzja</span></th></tr></thead>
-                                <tbody>
-                                {% for s in signups %}
-                                    <tr>
-                                        <td class="table__grow">{{ s.name }}</td>
-                                        <td class="table__mute mono">{{ nip_grupami(s.nip) }}</td>
-                                        <td class="table__mute">{{ czas(s.created_at) }}</td>
-                                        <td>
-                                            <div class="btn-row">
-                                                <form method="post" action="{{ url('/admin/integracja/zgloszenia/' ~ s.id ~ '/zatwierdz') }}"
-                                                      hx-post="{{ url('/admin/integracja/zgloszenia/' ~ s.id ~ '/zatwierdz') }}" hx-target="#kreator-stan" hx-swap="outerHTML">
-                                                    {% include 'partials/csrf.twig' %}
-                                                    <input type="hidden" name="wroc" value="kreator">
-                                                    <button type="submit" class="btn btn--primary btn--sm">Zatwierdź</button>
-                                                </form>
-                                                <form method="post" action="{{ url('/admin/integracja/zgloszenia/' ~ s.id ~ '/odrzuc') }}"
-                                                      hx-post="{{ url('/admin/integracja/zgloszenia/' ~ s.id ~ '/odrzuc') }}" hx-target="#kreator-stan" hx-swap="outerHTML">
-                                                    {% include 'partials/csrf.twig' %}
-                                                    <input type="hidden" name="wroc" value="kreator">
-                                                    <button type="submit" class="btn btn--ghost btn--sm">Odrzuć</button>
-                                                </form>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    {% else %}
-                        <p class="wizard__hint">Nic tu nie trzeba wpisywać ręcznie — zgłoszenie pojawi się w tym miejscu samo, gdy connector wyśle firmę.</p>
-                    {% endif %}
-                {% endif %}
+            <li class="krok krok--{{ krok.stan }}">
+                <span class="krok__kolko" aria-hidden="true">{% if krok.stan == 'zrobione' %}{{ ikona.ptaszek() }}{% else %}{{ loop.index }}{% endif %}</span>
+                <span class="krok__nazwa">{{ krok.nazwa }}</span>
+                <span class="krok__stan">{% if krok.stan == 'zrobione' %}zrobione{% elseif krok.stan == 'biezacy' %}teraz{% else %}czeka{% endif %}</span>
             </li>
         {% endfor %}
     </ol>
 
-    {% if firmy is not empty %}
-        <p class="field__hint">Firmy obsługiwane przez tę instalację:
-            {% for f in firmy %}{{ f.name }} ({{ nip_grupami(f.nip) }}){% if not loop.last %}, {% endif %}{% endfor %}.</p>
+    {#- Co zrobić TERAZ: zdanie bieżącego kroku i jedyna akcja, jaka do niego należy. -#}
+    {% if biezacy is not null %}
+        <div class="kreator__teraz">
+            {% if biezacy.co_dalej is not null %}<p class="kreator__co-dalej">{{ biezacy.co_dalej }}</p>{% endif %}
+
+            {% if biezacy.akcja == 'klucz' %}
+                {#- Nowa instalacja: klucza jeszcze nie ma, więc wydanie zostaje w kreatorze. -#}
+                <form method="post" action="{{ url('/admin/integracja/klucze') }}" class="kreator__form"
+                      hx-post="{{ url('/admin/integracja/klucze') }}" hx-target="#kreator-stan" hx-swap="outerHTML">
+                    {% include 'partials/csrf.twig' %}
+                    <input type="hidden" name="wroc" value="kreator">
+                    <label class="field">
+                        <span class="field__label">Nazwa klucza (do rozpoznania na liście)</span>
+                        <input class="input" type="text" name="nazwa" maxlength="100" placeholder="np. serwer kadrowy w biurze" required autocomplete="off">
+                    </label>
+                    <button type="submit" class="btn btn--primary">Wygeneruj klucz</button>
+                </form>
+            {% elseif biezacy.akcja == 'firma' and signups is not empty %}
+                {% for s in signups %}
+                    <div class="kreator__zgloszenie">
+                        <span class="card__znak card__znak--uwaga">{{ ikona.wtyczka() }}</span>
+                        <span class="zakres__dane">
+                            <span class="zakres__nazwa">{{ s.name }}</span>
+                            <span class="zakres__meta">zgłoszona przez connector {{ czas(s.created_at) }}</span>
+                        </span>
+                        <span class="zakres__decyzja">
+                            <form method="post" action="{{ url('/admin/integracja/zgloszenia/' ~ s.id ~ '/odrzuc') }}"
+                                  hx-post="{{ url('/admin/integracja/zgloszenia/' ~ s.id ~ '/odrzuc') }}" hx-target="#kreator-stan" hx-swap="outerHTML">
+                                {% include 'partials/csrf.twig' %}
+                                <input type="hidden" name="wroc" value="kreator">
+                                <button type="submit" class="btn btn--akcja zakres__odrzuc">Odrzuć</button>
+                            </form>
+                            <form method="post" action="{{ url('/admin/integracja/zgloszenia/' ~ s.id ~ '/zatwierdz') }}"
+                                  hx-post="{{ url('/admin/integracja/zgloszenia/' ~ s.id ~ '/zatwierdz') }}" hx-target="#kreator-stan" hx-swap="outerHTML">
+                                {% include 'partials/csrf.twig' %}
+                                <input type="hidden" name="wroc" value="kreator">
+                                <button type="submit" class="btn btn--primary btn--sm">Zatwierdź</button>
+                            </form>
+                        </span>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        </div>
     {% endif %}
 
-    <div class="defs">
-        <div><div class="defs__term">Ostatnie połączenie connectora</div><div class="defs__value">{{ czas_wzgledny(ostatnie_polaczenie) }}</div></div>
-        <div><div class="defs__term">Wersja connectora</div><div class="defs__value">{{ wersja_connectora ?? '—' }}</div></div>
-        <div><div class="defs__term">Ostatnia synchronizacja</div><div class="defs__value">{{ czas_wzgledny(podsumowanie.ostatnia_synchronizacja) }}</div></div>
-        <div><div class="defs__term">Pracownicy / nieobecności</div><div class="defs__value">{{ podsumowanie.pracownicy }} / {{ podsumowanie.nieobecnosci }}</div></div>
-    </div>
+    {#- ⚠ Klucz jest wydany: ramka ZAMIAST przycisku „Wygeneruj nowy klucz" (Z35 §6). Przycisk
+        w kreatorze unieważniał czynny klucz od ręki, stojąc obok zdania „klucz jest wydany" —
+        czyli najgroźniejsza operacja na ekranie wyglądała jak podpowiedź. Wymiana ma jedno
+        miejsce: wiersz klucza na ekranie integracji, z własnym potwierdzeniem. -#}
+    {% if ma_klucz and nowy_klucz is null %}
+        <p class="notka-info">
+            <span class="notka-info__znak" aria-hidden="true">{{ ikona.klucz() }}</span>
+            <span><strong>Klucz jest wydany.</strong> Klucz pokazujemy tylko raz, przy wydaniu. Jeśli przepadł, użyj „Wymień klucz” w wierszu klucza.</span>
+        </p>
+    {% endif %}
 
-    <div class="btn-row">
-        {# Bez JavaScriptu ten odnośnik jest jedynym sposobem odświeżenia — i wystarcza. #}
-        <a class="btn btn--ghost btn--sm" href="{{ url('/admin/podlaczenie') }}"
-           hx-get="{{ url('/admin/podlaczenie/stan') }}" hx-target="#kreator-stan" hx-swap="outerHTML">Odśwież teraz</a>
-        {% if kreator.czeka_na_connector %}
-            <span class="wizard__state">czekam na connectora — sprawdzam co 5 sekund</span>
-        {% endif %}
-    </div>
+    {% if firmy is not empty %}
+        {#- ⚠ Bez NIP-ów (Z35 §6): w oknie kreatora numer nie służy do niczego — firmę rozpoznaje się
+            po nazwie, a NIP-y są tam, gdzie się nimi operuje, czyli w oknie zakresu klucza. -#}
+        <p class="field__hint">Firmy tej instalacji: {{ firmy|length }}
+            ({% for f in firmy %}{{ f.name }}{% if not loop.last %}, {% endif %}{% endfor %}).</p>
+    {% endif %}
 
     {% if kreator.gotowe %}
-        <p class="notice" role="status">Gotowe — connector dowiózł dane. Ostatnia synchronizacja
-            {{ czas(podsumowanie.ostatnia_synchronizacja) }}, {{ podsumowanie.pracownicy }} pracowników,
-            {{ podsumowanie.nieobecnosci }} nieobecności.</p>
+        <p class="notka-gotowe">
+            <span class="notka-gotowe__znak" aria-hidden="true">{{ ikona.ptaszek() }}</span>
+            <span><strong>Gotowe — connector dowiózł dane.</strong> Ostatnia synchronizacja {{ czas(podsumowanie.ostatnia_synchronizacja) }},
+                {{ podsumowanie.pracownicy }} pracowników, {{ podsumowanie.nieobecnosci }} nieobecności.</span>
+        </p>
+    {% endif %}
+
+    {#- „Odśwież teraz" tylko wtedy, gdy kreator na coś czeka (Z35 §6): przy wszystkim zrobionym
+        odświeżanie niczego nie zmieni, a bez JavaScriptu ten odnośnik jest jedyną drogą. -#}
+    {% if kreator.czeka_na_connector %}
+        <div class="btn-row">
+            <a class="btn btn--akcja" href="{{ url('/admin/podlaczenie') }}"
+               hx-get="{{ url('/admin/podlaczenie/stan') }}" hx-target="#kreator-stan" hx-swap="outerHTML">{{ ikona.odswiezenie() }}Odśwież teraz</a>
+            <span class="kreator__czekam">czekam na connectora — sprawdzam co 5 sekund</span>
+        </div>
     {% endif %}
 </div>

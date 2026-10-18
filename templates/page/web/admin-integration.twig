@@ -8,15 +8,10 @@
 {% endblock %}
 
 {% block content %}
-    <div class="page__head">
-        <div class="page__title">
-            <p class="page__sub">Klucze instalacji, zgłoszenia firm i stan synchronizacji. Każda operacja trafia do dziennika zdarzeń.</p>
-        </div>
-        <div class="page__actions">
-            {# Bez JavaScriptu to zwykły odnośnik do ekranu kreatora; z JS otwiera się okno nad stroną. #}
-            <a class="btn btn--primary" href="{{ url('/admin/podlaczenie') }}" data-modal-open="kreator-modal">Kreator podłączenia</a>
-        </div>
-    </div>
+{% import 'partials/ikony.twig' as ikony %}
+{#- ⚠ **Bez `.page__head`** (zlecenie Z35 §1): zdanie o kluczach i zgłoszeniach rozeszło się
+    do nagłówków kart, których dotyczy, a przycisk kreatora zszedł do karty kluczy — bo to tam
+    stoi wiersz klucza, którego dotyczy. Ekran zaczyna się od stanu, nie od opisu ekranu. -#}
 
     {% if notice is not null %}<p class="notice" role="status">{{ notice }}</p>{% endif %}
     {% if error is not null %}<p class="notice notice--danger" role="alert">{{ error }}</p>{% endif %}
@@ -43,41 +38,68 @@
         <p class="notice notice--warn">{% if shown_key.expired %}Klucz „{{ shown_key.name }}” nie został wyświetlony w ciągu 5 minut i przepadł.{% else %}Klucz „{{ shown_key.name }}” był już wyświetlony — nie pokażemy go ponownie.{% endif %} Jeśli go nie zapisano, wygeneruj nowy: obecny zostanie od razu unieważniony.</p>
     {% endif %}
 
-    {# ⚠ To nie jest komunikat o sukcesie, tylko STAN: kropka, słowo, czas względny i liczby (§5.3). #}
-    <section class="card stats" aria-label="Stan połączenia">
-        <div class="stats__item">
-            {# ⚠ Cisza connectora wygrywa nad „Połączone”: klucz może być aktywny, a danych nie ma
-               od trzech dni — i to jest awaria, o której ekran ma mówić pierwszy (zlecenie 21.09 §2.2). #}
-            <span class="status">
-                <span class="status__dot{% if cisza is not null %} dot--warn{% elseif kreator.gotowe %} dot--ok{% elseif podsumowanie.bledy_dzis > 0 %} dot--warn{% endif %}"></span>
-                <span class="card__title">{% if cisza is not null %}Connector milczy{% elseif kreator.gotowe %}Połączone{% elseif connector is not null %}Podłączanie w toku{% else %}Nie podłączono{% endif %}</span>
+    {#- ⚠ Pasek kafli zamiast `.card.stats` (Z35 §2) — ten sam komponent, co na pulpicie,
+        `/ustawienia`, `/admin/konta`, `/admin/grupy` i `/admin/hierarchia`.
+
+        ⚠ **Pierwszy kafel niesie STAN, nie liczbę** — i dlatego jako jedyny ma kropkę. Cisza
+        connectora wygrywa nad „połączony": klucz bywa aktywny, a danych nie ma od trzech dni,
+        i to jest awaria, o której ekran ma mówić pierwszy (zlecenie 21.09 §2.2). -#}
+    <section class="kafle kafle--auto" aria-label="Stan integracji">
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.integracja() }}<span class="kafel__etykieta">Connector</span></span>
+            <span class="kafel__dana">
+                {% if cisza is not null %}
+                    <span class="kafel__wartosc kafel__wartosc--stan kafel__wartosc--uwaga"><span class="kafel__kropka kafel__kropka--uwaga"></span>milczy</span>
+                    <span class="kafel__opis">nie odezwał się od {{ cisza.godzin }} h (próg {{ cisza.prog }} h) — sprawdź maszynę z connectorem i adres serwera kadrowego</span>
+                {% elseif kreator.gotowe %}
+                    <span class="kafel__wartosc kafel__wartosc--stan"><span class="kafel__kropka kafel__kropka--ok"></span>połączony</span>
+                    <span class="kafel__opis">ostatnio {{ czas_wzgledny(podsumowanie.ostatnia_synchronizacja) }}</span>
+                {% elseif connector is not null %}
+                    <span class="kafel__wartosc kafel__wartosc--stan kafel__wartosc--uwaga"><span class="kafel__kropka kafel__kropka--uwaga"></span>podłączanie w toku</span>
+                    <span class="kafel__opis">kreator podłączenia czeka na kolejny krok</span>
+                {% else %}
+                    <span class="kafel__wartosc kafel__wartosc--stan kafel__wartosc--blad"><span class="kafel__kropka kafel__kropka--blad"></span>nie podłączono</span>
+                    <span class="kafel__opis">connector nie zgłosił się ani razu</span>
+                {% endif %}
             </span>
-            {% if cisza is not null %}
-                <span class="stats__key">connector nie odezwał się od {{ cisza.godzin }} h (próg {{ cisza.prog }} h) — sprawdź, czy maszyna z connectorem działa, czy usługa wstała i czy nie zmienił się adres serwera kadrowego</span>
-            {% endif %}
-            <span class="stats__key">ostatnia synchronizacja {{ czas_wzgledny(podsumowanie.ostatnia_synchronizacja) }}</span>
-            {# Czas względny jako pierwsza forma, bezwzględny w strefie tenanta obok (docs §10 punkt 6). #}
-            <span class="stats__key mono">{{ czas(podsumowanie.ostatnia_synchronizacja) }}</span>
         </div>
-        <div class="stats__item">
-            <span class="stats__key">Pracownicy</span>
-            <span class="stats__value">{{ podsumowanie.pracownicy }}</span>
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.zespol() }}<span class="kafel__etykieta">Pracownicy</span></span>
+            <span class="kafel__dana">
+                <span class="kafel__wartosc">{{ podsumowanie.pracownicy }}</span>
+                <span class="kafel__opis">z programu kadrowego</span>
+            </span>
         </div>
-        <div class="stats__item">
-            <span class="stats__key">Nieobecności</span>
-            <span class="stats__value">{{ podsumowanie.nieobecnosci }}</span>
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.kartka_kalendarza() }}<span class="kafel__etykieta">Nieobecności</span></span>
+            <span class="kafel__dana">
+                <span class="kafel__wartosc">{{ podsumowanie.nieobecnosci }}</span>
+                <span class="kafel__opis">zsynchronizowane</span>
+            </span>
         </div>
-        <div class="stats__item">
-            <span class="stats__key">Przebiegi dziś</span>
-            <span class="stats__value">{{ podsumowanie.przebiegi_dzis }}</span>
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.odswiezenie() }}<span class="kafel__etykieta">Przebiegi dziś</span></span>
+            <span class="kafel__dana">
+                <span class="kafel__wartosc">{{ podsumowanie.przebiegi_dzis }}</span>
+                <span class="kafel__opis">od północy</span>
+            </span>
         </div>
-        <div class="stats__item">
-            <span class="stats__key">Zakończone błędem</span>
-            <span class="stats__value">{{ podsumowanie.bledy_dzis }}</span>
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.krzyzyk() }}<span class="kafel__etykieta">Zakończone błędem</span></span>
+            <span class="kafel__dana">
+                {#- Odchylenie to KOLOR WARTOŚCI, nie plakietka — tak samo jak w pozostałych paskach. -#}
+                <span class="kafel__wartosc{{ podsumowanie.bledy_dzis > 0 ? ' kafel__wartosc--odchylenie' : '' }}">{{ podsumowanie.bledy_dzis }}</span>
+                <span class="kafel__opis">od północy</span>
+            </span>
         </div>
-        <div class="stats__item">
-            <span class="stats__key">Wersje</span>
-            <span class="stats__value">{% if connector is not null %}Connector {{ connector.wersja ?? '—' }} <small>· R2 Płatnik {{ connector.wersja_r2 ?? '—' }}</small>{% else %}—{% endif %}</span>
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.serwer() }}<span class="kafel__etykieta">Wersje</span></span>
+            <span class="kafel__dana">
+                {#- ⚠ Wersja to NAPIS, nie liczba: przy 24 px „Connector 1.4.2" łamało się w pół
+                    i czytało jak dwie dane. Stąd własny rozmiar (Z35 §2). -#}
+                <span class="kafel__wartosc kafel__wartosc--napis">{% if connector is not null %}Connector {{ connector.wersja ?? '—' }}{% else %}—{% endif %}</span>
+                <span class="kafel__opis">R2 Płatnik {{ connector is not null ? (connector.wersja_r2 ?? '—') : '—' }}</span>
+            </span>
         </div>
     </section>
 
@@ -122,75 +144,110 @@
     {% endfor %}
 
     <section class="card">
-        <div class="card__head">
-            <h2 class="card__title">Klucze instalacji</h2>
-            <span class="card__meta">{{ keys|length }} {{ keys|length == 1 ? 'klucz' : 'klucze' }} · jedna firma może mieć jeden aktywny</span>
+        <div class="card__head card__head--znak card__head--lista">
+            <span class="card__znak">{{ ikony.klucz() }}</span>
+            <div class="card__tytuly">
+                <h2 class="card__title">Klucze instalacji</h2>
+                <p class="card__opis">Jedna firma może mieć jeden aktywny klucz. Klucz wpisujesz w connectorze.</p>
+            </div>
+            <div class="card__akcje">
+                {#- ⚠ Jeden przycisk kreatora na cały ekran (Z35 §3): dawny „Wydaj nowy klucz" w stopce
+                    karty otwierał dokładnie to samo okno, więc ekran miał dwa przyciski do jednej
+                    czynności i żaden nie mówił, który jest właściwy.
+                    Bez JavaScriptu to zwykły odnośnik do ekranu kreatora; ze skryptem otwiera okno. -#}
+                <a class="btn btn--akcja" href="{{ url('/admin/podlaczenie') }}" data-modal-open="kreator-modal">{{ ikony.plus() }}Podłącz connector</a>
+            </div>
         </div>
         <div class="table-scroll">
             {#- ⚠ Stałe szerokości: zmierzone przy 1440 px, tabela wychodziła 80 px za kartę.
-                Rozpychała ją kolumna „Zakres (NIP)" — wypisuje wszystkie numery klucza, więc jej
-                treść rośnie z liczbą firm. Zawija zamiast rozpychać wiersz.
+                Rozpychała ją kolumna z NIP-ami — wypisywała wszystkie numery klucza, więc rosła
+                z liczbą firm. Z35 §3 zdejmuje ten problem u źródła: zamiast listy numerów stoi
+                plakietka „w zakresie / zatwierdzone", a nazwy i NIP-y są w `title`.
                 ⚠ `table__grow` (width: 100%) zdjęte: z `table-layout: fixed` bije się z colgroup
                 i wygrywa — ta sama pułapka, na której przejechaliśmy się przy dzienniku zdarzeń. -#}
-            <table class="table table--zebra table--stale table--zawija">
+            <table class="table table--stale table--zawija table--klucze">
                 <colgroup>
                     <col class="col--klucz-nazwa"><col class="col--klucz-zakres"><col class="col--klucz-czas">
                     <col class="col--klucz-czas"><col class="col--klucz-stan"><col class="col--klucz-akcja">
                 </colgroup>
                 <thead>
-                    <tr><th>Nazwa</th><th>Zakres (NIP)</th><th>Utworzony</th><th>Ostatnie użycie</th><th>Stan</th><th>Działanie</th></tr>
+                    <tr><th>Nazwa</th><th>Firmy w zakresie</th><th>Utworzony</th><th>Ostatnie użycie</th><th>Stan</th><th>Działania</th></tr>
                 </thead>
                 <tbody>
                 {% for k in keys %}
+                    {#- Zgłoszenia tego klucza: własne i te bez przypisanego klucza. ⚠ Zgłoszenie bez
+                        klucza musi być gdzieś widoczne — niepokazane nigdzie czekałoby w bazie
+                        bez śladu w interfejsie. -#}
+                    {% set czeka = zgloszenia_kluczy[k.id]|length %}
                     <tr>
-                        <td class="cell--zawija">{{ k.name }} <span class="table__mute mono">{{ k.prefix }}…</span></td>
-                        <td class="table__mute mono cell--zawija">{% if k.nips is empty %}{% if k.bez_firm %}<span class="chip chip--warn">brak firm — nie odbierze żadnych danych</span>{% else %}— brak firm w zakresie{% endif %}{% else %}{% for n in k.nips %}{{ nip_grupami(n) }}{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}</td>
+                        <td class="cell--zawija">
+                            <span class="klucz-wiersz">
+                                <span class="klucz-wiersz__znak" aria-hidden="true">{{ ikony.klucz() }}</span>
+                                <span class="klucz-wiersz__dane">
+                                    <span class="klucz-wiersz__nazwa">{{ k.name }}</span>
+                                    {#- ⚠ Sam POCZĄTEK klucza, i tak jest napisane w `title`: całego klucza
+                                        nie pokazujemy nigdy po wydaniu, bo w bazie jest tylko jego skrót. -#}
+                                    <span class="klucz-wiersz__prefix mono" title="Początek klucza. Całego klucza nie pokazujemy.">{{ k.prefix }}…</span>
+                                </span>
+                            </span>
+                        </td>
+                        <td>
+                            {% if k.bez_firm %}
+                                <span class="chip chip--warn"><span class="chip__kropka"></span>brak firm</span>
+                            {% else %}
+                                {#- Nazwy i NIP-y schodzą do `title`: w kolumnie stoi liczba, bo to ona mówi,
+                                    czy zakres jest kompletny, a nazwy rosły w nieskończoność. -#}
+                                <span class="chip zakres-chip" title="{% for f in firmy %}{{ f.name }} ({{ nip_grupami(f.nip) }}){{ f.nip in k.nips ? ' — w zakresie' : ' — poza zakresem' }}{% if not loop.last %}; {% endif %}{% endfor %}">{{ ikony.firma() }}{{ k.nips|length }}/{{ firmy|length }}</span>
+                            {% endif %}
+                        </td>
                         <td class="table__mute">{{ czas_data(k.created_at) }}</td>
                         <td class="table__mute">{{ czas_wzgledny(k.last_used_at) }}</td>
                         <td>
                             {% if k.state == 'active' %}
-                                <span class="status"><span class="status__dot{{ k.milczy is not null ? ' dot--warn' : ' dot--ok' }}"></span>{{ k.milczy is not null ? 'milczy' : 'aktywny' }}</span>
-                                {% if k.milczy is not null %}<span class="chip chip--warn">bez użycia od {{ czas_wzgledny(k.last_used_at) }}</span>{% endif %}
+                                {% if k.milczy is not null %}
+                                    <span class="chip chip--warn"><span class="chip__kropka"></span>milczy od {{ czas_wzgledny(k.last_used_at) }}</span>
+                                {% else %}
+                                    <span class="chip chip--accent"><span class="chip__kropka"></span>aktywny</span>
+                                {% endif %}
                             {% elseif k.state == 'issued' %}
                                 {# Klucz wydany, którego connector jeszcze nie użył — stan wymagający uwagi,
                                    ale NIE powód, żeby cokolwiek zabijać: stary klucz pracuje dalej. #}
-                                <span class="status"><span class="status__dot{{ k.czeka_godzin is not null ? ' dot--warn' : '' }}"></span>wydany, jeszcze nieużyty</span>
-                                {% if k.czeka_godzin is not null %}<span class="chip chip--warn">czeka od {{ czas_wzgledny(k.created_at) }} — wklej go w connectorze</span>{% endif %}
-                            {% else %}<span class="chip">{{ k.powod }}</span>{% endif %}
+                                <span class="chip chip--warn"><span class="chip__kropka"></span>czeka na pierwsze użycie</span>
+                                {% if k.czeka_godzin is not null %}<span class="cell__sub">czeka od {{ czas_wzgledny(k.created_at) }} — wklej go w connectorze</span>{% endif %}
+                            {% else %}
+                                <span class="chip chip--danger"><span class="chip__kropka"></span>{{ k.powod }}</span>
+                            {% endif %}
                         </td>
                         <td>
                             {% if k.state == 'active' or k.state == 'issued' %}
-                                <div class="btn-row btn-row--jedna-linia">
-                                    {# Dwie operacje i ani jednej więcej (model z 20.09.2026). Oba odnośniki
-                                       prowadzą do kroku potwierdzenia — bez JS otwiera się pełny ekran,
-                                       z JS ta sama treść ląduje w oknie nad tabelą (§5.6). #}
-                                    <a class="btn btn--ghost btn--sm" href="{{ url('/admin/integracja/klucze/' ~ k.id ~ '/wymien') }}"
+                                <div class="btn-row btn-row--jedna-linia klucz-akcje">
+                                    {#- ⚠ „Zakres" to zwykły odnośnik z prawdziwym adresem (`?okno=zakres`),
+                                        a okno stoi już w stronie — bez JavaScriptu ekran wraca z otwartym
+                                        oknem, ze skryptem otwiera je na miejscu (wzorzec z Z29). -#}
+                                    <a class="btn btn--akcja" href="{{ url('/admin/integracja') }}?okno=zakres&amp;klucz={{ k.id }}"
+                                       data-modal-open="zakres-{{ k.id }}">{{ ikony.firma() }}Zakres{% if czeka > 0 %}<span class="btn__znacznik" aria-hidden="true">{{ czeka }}</span><span class="visually-hidden">— {{ czeka }} {{ czeka == 1 ? 'zgłoszenie czeka' : 'zgłoszenia czekają' }} na decyzję</span>{% endif %}</a>
+                                    {#- Oba odnośniki prowadzą do kroku potwierdzenia — bez JS otwiera się
+                                        pełny ekran, z JS ta sama treść ląduje w oknie nad tabelą (§5.6). -#}
+                                    <a class="btn btn--akcja" href="{{ url('/admin/integracja/klucze/' ~ k.id ~ '/wymien') }}"
                                        hx-get="{{ url('/admin/integracja/klucze/' ~ k.id ~ '/wymien') }}"
                                        hx-target="#potwierdzenie-tresc" hx-swap="innerHTML"
-                                       data-modal-open="potwierdzenie-modal">Nowy klucz</a>
-                                    <a class="btn btn--ghost btn--sm" href="{{ url('/admin/integracja/klucze/' ~ k.id ~ '/uniewaznij') }}"
+                                       data-modal-open="potwierdzenie-modal">{{ ikony.odswiezenie() }}Wymień klucz</a>
+                                    <a class="btn btn--akcja btn--akcja-groznie" href="{{ url('/admin/integracja/klucze/' ~ k.id ~ '/uniewaznij') }}"
                                        hx-get="{{ url('/admin/integracja/klucze/' ~ k.id ~ '/uniewaznij') }}"
                                        hx-target="#potwierdzenie-tresc" hx-swap="innerHTML"
-                                       data-modal-open="potwierdzenie-modal">Unieważnij</a>
+                                       data-modal-open="potwierdzenie-modal">{{ ikony.krzyzyk() }}Unieważnij</a>
                                 </div>
                             {% else %}
                                 {#- ⚠ Kasowanie TYLKO dla klucza unieważnionego — czynnego nie ma czym
                                     skasować z tego ekranu i nie chodzi o ukryty przycisk: warunek
                                     `status <> 'active'` stoi w zapytaniu (`ApiKeyRepository::usun`).
                                     Czynny klucz trzeba najpierw unieważnić, bo to decyzja o zatrzymaniu
-                                    synchronizacji u klienta i ma własny ekran potwierdzenia.
-                                    ⚠ Odnośnik prowadzi do kroku potwierdzenia, jak dwa powyżej: bez JS
-                                    pełny ekran, z JS to samo w oknie. Skasowania nie da się cofnąć,
-                                    więc jednego kliknięcia tu nie ma. -#}
-                                {#- ⚠ Ten sam pojemnik co przy dwóch przyciskach wyżej, choć przycisk
-                                    jest jeden: wyrównanie należy do KOLUMNY, nie do liczby przycisków.
-                                    Bez tego „Skasuj" stałby przy lewej krawędzi, a „Nowy klucz
-                                    / Unieważnij" przy prawej — w jednej kolumnie, jeden pod drugim. -#}
-                                <div class="btn-row btn-row--jedna-linia">
-                                    <a class="btn btn--ghost btn--sm" href="{{ url('/admin/integracja/klucze/' ~ k.id ~ '/usun') }}"
+                                    synchronizacji u klienta i ma własny ekran potwierdzenia. -#}
+                                <div class="btn-row btn-row--jedna-linia klucz-akcje">
+                                    <a class="btn btn--akcja btn--akcja-groznie" href="{{ url('/admin/integracja/klucze/' ~ k.id ~ '/usun') }}"
                                        hx-get="{{ url('/admin/integracja/klucze/' ~ k.id ~ '/usun') }}"
                                        hx-target="#potwierdzenie-tresc" hx-swap="innerHTML"
-                                       data-modal-open="potwierdzenie-modal">Skasuj</a>
+                                       data-modal-open="potwierdzenie-modal">{{ ikony.kosz() }}Skasuj</a>
                                 </div>
                             {% endif %}
                         </td>
@@ -202,123 +259,56 @@
             </table>
         </div>
         <div class="card__foot">
-            {# ⚠ Treść poprawiona: ekran mówił „stary działa 30 dni”, a obowiązuje reguła z 20.09.2026. #}
-            <span>Po wydaniu nowego klucza stary działa do chwili, w której nowy po raz pierwszy zakończy przebieg — wtedy zostaje unieważniony automatycznie. Nie ma żadnego terminu: dopóki nowy klucz nie zadziała, synchronizacja idzie na starym. Kursory i rekordy należą do firmy, nie do klucza — wydanie klucza nie powoduje ponownego ładowania danych.</span>
-            <a class="btn btn--ghost btn--sm" href="{{ url('/admin/podlaczenie') }}" data-modal-open="kreator-modal">Wydaj nowy klucz</a>
+            {#- ⚠ Notka w ramce ze znakiem „i", a nie zdanie w stopce (Z35 §3): to jest odpowiedź
+                na pytanie „czy wymiana klucza coś zepsuje", zadawane dokładnie w chwili patrzenia
+                na przycisk „Wymień klucz". Treść zgodna z regułą z 20.09.2026 — ekran mówił kiedyś
+                „stary działa 30 dni", a żadnego terminu nie ma. -#}
+            <p class="notka-info">
+                <span class="notka-info__znak" aria-hidden="true">{{ ikony.info() }}</span>
+                <span><strong>Wymiana klucza</strong> nie przerywa synchronizacji: stary klucz działa, dopóki nowy nie zakończy pierwszego przebiegu, potem sam się unieważnia. Dane firmy zostają, nic nie ładuje się od nowa.</span>
+            </p>
         </div>
     </section>
 
-    {% if firmy is not empty %}
-        <section class="card">
-            <div class="card__head">
-                <h2 class="card__title">Zakres kluczy</h2>
-                <span class="card__meta">firma wchodzi do zakresu przez zatwierdzenie zgłoszenia — ręcznie tylko wyjątkowo</span>
-            </div>
-            <div class="card__body">
-                {% for k in keys|filter(k => k.state == 'active' or k.state == 'issued') %}
-                    {# ⚠ Formularz jest kolumną z odstępem: jako blok przyklejał przycisk do ostatniego
-                       pola wyboru, a lista miała ten sam odstęp co nagłówek grupy. #}
-                    <form method="post" action="{{ url('/admin/integracja/klucze/' ~ k.id ~ '/firmy') }}" class="form-column">
-                        {% include 'partials/csrf.twig' %}
-                        <div class="checklist">
-                            <span class="checklist__label">{{ k.name }}</span>
-                            {% for f in firmy %}
-                                <label class="checklist__item">
-                                    <input type="checkbox" name="firmy[]" value="{{ f.id }}"{{ f.nip in k.nips ? ' checked' : '' }}>
-                                    <span>{{ f.name }}</span>
-                                    <span class="table__mute mono">{{ nip_grupami(f.nip) }}</span>
-                                </label>
-                            {% endfor %}
-                        </div>
-                        {# ⚠ Przycisk ma szerokość treści, nie całej karty (§5.3). #}
-                        <button type="submit" class="btn btn--ghost btn--sm">Zapisz zakres</button>
-                    </form>
-                {% endfor %}
-            </div>
-        </section>
-    {% endif %}
-
     <section class="card">
-        <div class="card__head">
-            <h2 class="card__title">Zgłoszenia firm</h2>
-            <span class="card__meta">{{ signups|length }} {{ signups|length == 1 ? 'oczekuje' : 'oczekują' }}</span>
-        </div>
-        <div class="card__body">
-            <p>Connector sam zgłasza firmę, którą obsługuje. Po zatwierdzeniu firma powstaje w aplikacji, a jej NIP trafia do zakresu klucza — nie trzeba nic wpisywać ręcznie.</p>
-            {% for s in signups %}
-                <div class="notice notice--warn">
-                    <div class="btn-row">
-                        <div class="field">
-                            <span>NIP <span class="mono">{{ nip_grupami(s.nip) }}</span> — „{{ s.name }}”</span>
-                            <span class="field__hint">zgłoszona {{ czas(s.created_at) }}{% if connector is not null and connector.wersja is not null %} · connector {{ connector.wersja }}{% endif %}</span>
-                        </div>
-                        <span class="toolbar__spacer"></span>
-                        <a class="btn btn--ghost btn--sm" href="{{ url('/admin/integracja/zgloszenia/' ~ s.id ~ '/odrzuc') }}"
-                           hx-get="{{ url('/admin/integracja/zgloszenia/' ~ s.id ~ '/odrzuc') }}"
-                           hx-target="#potwierdzenie-tresc" hx-swap="innerHTML"
-                           data-modal-open="potwierdzenie-modal">Odrzuć</a>
-                        <form method="post" action="{{ url('/admin/integracja/zgloszenia/' ~ s.id ~ '/zatwierdz') }}">
-                            {% include 'partials/csrf.twig' %}
-                            <button type="submit" class="btn btn--primary btn--sm">Zatwierdź</button>
-                        </form>
-                    </div>
-                </div>
-            {% else %}
-                <p class="table__empty">Brak zgłoszeń czekających na decyzję. Pojawią się tu same, gdy connector się połączy.</p>
-            {% endfor %}
-
-            {% for f in firmy %}
-                <div class="btn-row">
-                    <span class="status"><span class="status__dot"></span>zatwierdzona</span>
-                    <span>NIP <span class="mono">{{ nip_grupami(f.nip) }}</span> — {{ f.name }}</span>
-                    <span class="toolbar__spacer"></span>
-                    <span class="chip">w zakresie klucza</span>
-                </div>
-            {% endfor %}
-
-            {% if rejected is not empty %}
-                <div class="field">
-                    <span class="field__label">Odrzucone — connector nie zgłasza ich ponownie, dopóki decyzja obowiązuje</span>
-                    {% for s in rejected %}
-                        <div class="btn-row">
-                            <span class="table__mute">NIP <span class="mono">{{ nip_grupami(s.nip) }}</span> — {{ s.name }}</span>
-                            <span class="toolbar__spacer"></span>
-                            <form method="post" action="{{ url('/admin/integracja/zgloszenia/' ~ s.id ~ '/przywroc') }}">
-                                {% include 'partials/csrf.twig' %}
-                                <button type="submit" class="btn btn--quiet btn--sm">Cofnij odrzucenie</button>
-                            </form>
-                        </div>
-                    {% endfor %}
+        <div class="card__head card__head--znak card__head--lista">
+            <span class="card__znak">{{ ikony.lista() }}</span>
+            <div class="card__tytuly">
+                <h2 class="card__title">Ostatnie przebiegi</h2>
+                <p class="card__opis">Każda firma synchronizuje się osobno.</p>
+            </div>
+            {% if can('data.view') %}
+                <div class="card__akcje">
+                    <a class="btn btn--akcja" href="{{ url('/dane/synchronizacja') }}">Pełny stan synchronizacji ›</a>
                 </div>
             {% endif %}
         </div>
-    </section>
-
-    <section class="card">
-        <div class="card__head">
-            <h2 class="card__title">Ostatnie przebiegi</h2>
-            {% if can('data.view') %}<a href="{{ url('/dane/synchronizacja') }}">Pełny stan synchronizacji</a>{% endif %}
-        </div>
         <div class="table-scroll">
-            <table class="table table--zebra">
+            <table class="table table--przebiegi">
                 <thead>
                     <tr><th>Rozpoczęty</th><th class="table__grow">Firma</th><th class="table__num">Czas</th><th class="table__num">Rekordy</th><th class="table__num">Konflikty</th><th>Wynik</th></tr>
                 </thead>
                 <tbody>
                 {% for r in runs %}
                     <tr>
-                        <td class="mono">{{ czas_godzina(r.started_at) }} <span class="table__mute">{{ czas_data(r.started_at) }}</span></td>
-                        <td class="table__grow table__mute">{{ r.company }}</td>
-                        <td class="table__num">{{ r.seconds is null ? '—' : r.seconds ~ ' s' }}</td>
-                        <td class="table__num">{{ r.rekordy }}</td>
-                        <td class="table__num">{{ r.konflikty }}</td>
+                        {#- ⚠ Godzina nad datą, bez sekund i bez słowa „dziś" (Z35 §5): przebiegi idą
+                            co kilka minut, więc to godzina rozróżnia wiersze, a data je tylko grupuje.
+                            „Dziś" przy dwudziestu wierszach z tego samego dnia nie niosło niczego. -#}
+                        <td class="przebieg-czas">
+                            <span class="przebieg-czas__godzina">{{ czas_godzina_krotka(r.started_at) }}</span>
+                            <span class="przebieg-czas__data">{{ czas_data(r.started_at) }}</span>
+                        </td>
+                        <td class="table__grow">{{ r.company }}</td>
+                        <td class="table__num przebieg-liczba" data-etykieta="czas">{{ r.seconds is null ? '—' : r.seconds ~ ' s' }}</td>
+                        <td class="table__num przebieg-liczba" data-etykieta="rekordy">{{ r.rekordy }}</td>
+                        <td class="table__num przebieg-liczba" data-etykieta="konflikty">{{ r.konflikty }}</td>
                         <td>
                             {% if r.status == 'closed' %}
-                                <span class="status"><span class="status__dot dot--ok"></span>zakończony{% if r.pelne %} — pełne ładowanie{% endif %}</span>
+                                <span class="chip chip--accent"><span class="chip__kropka"></span>zakończony{% if r.pelne %} · pełne ładowanie{% endif %}</span>
                             {% elseif r.status == 'open' %}
-                                <span class="status"><span class="status__dot dot--warn"></span>w toku ({{ r.phase }})</span>
+                                <span class="chip chip--warn"><span class="chip__kropka"></span>w toku ({{ r.phase }})</span>
                             {% else %}
-                                <span class="chip chip--danger">przerwany — {{ r.status }}</span>
+                                <span class="chip chip--danger"><span class="chip__kropka"></span>przerwany — {{ r.status }}</span>
                             {% endif %}
                         </td>
                     </tr>
@@ -330,21 +320,38 @@
         </div>
     </section>
 
+    {#- Okno zakresu dla każdego klucza, który da się jeszcze obsłużyć. Osadzone w stronie,
+        żeby działało bez JavaScriptu (patrz komentarz w partialu). -#}
+    {% for k in keys|filter(k => k.state == 'active' or k.state == 'issued') %}
+        {% include 'partials/okno-zakres-klucza.twig' with {
+            'k': k,
+            'firmy': firmy,
+            'zgloszenia': zgloszenia_kluczy[k.id],
+            'otwarte': okno_zakres == k.id
+        } only %}
+    {% endfor %}
+
     {# Okno potwierdzeń: treść dociąga htmx z tej samej trasy, którą bez JS otwiera zwykły odnośnik. #}
     <dialog id="potwierdzenie-modal" class="modal" aria-labelledby="potwierdzenie-modal-title">
         <div class="modal__head">
             <h3 id="potwierdzenie-modal-title">Potwierdzenie</h3>
-            <button type="button" class="modal__close" data-modal-close="potwierdzenie-modal" aria-label="Zamknij okno">×</button>
+            <button type="button" class="modal__close" data-modal-close="potwierdzenie-modal" aria-label="Zamknij okno">{{ ikony.krzyzyk() }}</button>
         </div>
         <div class="modal__body" id="potwierdzenie-tresc">
             <p class="table__empty">Wczytuję…</p>
         </div>
     </dialog>
 
-    <dialog id="kreator-modal" class="modal" aria-labelledby="kreator-modal-title">
-        <div class="modal__head">
-            <h3 id="kreator-modal-title">Podłączenie programu kadrowego</h3>
-            <button type="button" class="modal__close" data-modal-close="kreator-modal" aria-label="Zamknij okno">×</button>
+    <dialog id="kreator-modal" class="modal modal--kreator" aria-labelledby="kreator-modal-title">
+        <div class="modal__head modal__head--znak">
+            <span class="card__znak">{{ ikony.wtyczka() }}</span>
+            <div class="card__tytuly">
+                <h3 id="kreator-modal-title">Podłączenie connectora</h3>
+                {#- ⚠ Zdanie o stanie („Cztery kroki… Wszystkie zrobione.") przychodzi Z FRAGMENTEM,
+                    nie stąd: zmienia się po każdym kroku, a nagłówek okna jest statyczny.
+                    Stoi w pierwszej linii treści, czyli dokładnie pod tytułem. -#}
+            </div>
+            <button type="button" class="modal__close" data-modal-close="kreator-modal" aria-label="Zamknij okno">{{ ikony.krzyzyk() }}</button>
         </div>
         {# Treść dociągana po otwarciu okna — dopóki jest zamknięte, nie leci ani jedno żądanie. #}
         <div class="modal__body"
@@ -354,6 +361,13 @@
              hx-swap="innerHTML">
             <p class="table__empty">Wczytuję stan podłączenia…</p>
         </div>
-        <div class="modal__foot"><a href="{{ url('/admin/podlaczenie') }}">Otwórz kreator jako osobny ekran</a></div>
+        {#- ⚠ W stopce tylko „Zamknij" (Z35 §6). Odnośnik „Otwórz kreator jako osobny ekran" zniknął:
+            adres `/admin/podlaczenie` zostaje dla przeglądarki bez JavaScriptu (tam prowadzi
+            przycisk „Podłącz connector"), ale w oknie był trzecim wyjściem do tego samego miejsca. -#}
+        <div class="modal__foot">
+            <div class="btn-row btn-row--jedna-linia">
+                <button type="button" class="btn btn--primary" data-modal-close="kreator-modal">Zamknij</button>
+            </div>
+        </div>
     </dialog>
 {% endblock %}

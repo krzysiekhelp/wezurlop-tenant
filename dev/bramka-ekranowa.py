@@ -2803,13 +2803,24 @@ def sprawdz_kasowanie_klucza(b) -> dict:
         kod_bez_csrf = usun({"potwierdzam": "1"})
         po_probach = probka("stan", str(kid))
 
-        # ⚠ **Wyrównanie kolumny „Działanie" mierzone przy OBU rodzajach wiersza naraz** — a to
-        # da się zrobić tylko teraz, kiedy w wykazie stoi i klucz czynny (dwa przyciski),
+        # ⚠ **Wyrównanie kolumny „Działania" mierzone przy OBU rodzajach wiersza naraz** — a to
+        # da się zrobić tylko teraz, kiedy w wykazie stoi i klucz czynny (trzy przyciski),
         # i unieważniony (jeden). Reguła: wszystkie dociśnięte do prawej krawędzi komórki tym
-        # samym odstępem i każdy rząd w JEDNEJ linii. Przed poprawką rząd miał 72 px wysokości
-        # zamiast 32, bo dwa przyciski nie mieściły się w kolumnie 158 px i zawijały.
+        # samym odstępem i mieszczące się w niej.
+        #
+        # ⚠ **Przepięte po Z35 (18.10.2026), bo zmienił się przedmiot pomiaru.** Dawna reguła
+        # brzmiała „każdy rząd w jednej linii" i była policzona dla DWÓCH przycisków (158 px
+        # komórki wobec 231 px potrzebnych, rząd 72 px zamiast 32). Po Z35 przyciski są trzy
+        # i potrzebują 361 px, a kolumna daje 287 px przy oknie 1440 — zlecenie na to pozwala
+        # wprost („zawijane, jeśli się nie mieszczą"). Kryterium mówi więc to, co ma znaczyć:
+        # **przy 1920 px jedna linia, przy 1440 najwyżej dwie, nigdy trzy**, zawsze w granicach
+        # komórki i zawsze z tym samym odstępem od prawej.
+        #
+        # ⚠ **Druga zmiana: liczymy WSZYSTKIE przyciski, nie dwa pierwsze.** Dawny warunek
+        # porównywał `bs[0]` z `bs[1]`, więc trzeci mógł zawinąć się niezauważony — zmierzone:
+        # przy 1440 px dwa pierwsze stały na 404, trzeci na 444, a kryterium świeciło na zielono.
         pg.goto(BAZA + "/admin/integracja", wait_until="networkidle")
-        wyrownanie = pg.evaluate("""() => Array.from(document.querySelectorAll('.btn-row--jedna-linia'))
+        POMIAR_DZIALAN = """() => Array.from(document.querySelectorAll('.btn-row--jedna-linia'))
             .map(r => {
               const td = r.closest('td');
               const bs = Array.from(r.querySelectorAll('a.btn'));
@@ -2825,9 +2836,17 @@ def sprawdz_kasowanie_klucza(b) -> dict:
                       miesci_sie: Math.round(r.getBoundingClientRect().width) <= Math.ceil(wnetrze) + 1,
                       od_prawej: Math.round(td.getBoundingClientRect().right - bs[bs.length - 1].getBoundingClientRect().right),
                       wysokosc: Math.round(r.getBoundingClientRect().height),
-                      w_jednej_linii: bs.length < 2
-                        || Math.abs(bs[0].getBoundingClientRect().top - bs[1].getBoundingClientRect().top) < 2};
-            }).filter(x => x !== null)""")
+                      w_jednej_linii: bs.every(x =>
+                        Math.abs(x.getBoundingClientRect().top - bs[0].getBoundingClientRect().top) < 2)};
+            }).filter(x => x !== null)"""
+        wyrownanie = pg.evaluate(POMIAR_DZIALAN)
+        # ⚠ Drugi pomiar przy 1920 px: to jest szerokość, przy której reguła „jedna linia"
+        # ma obowiązywać. Bez niej kryterium przepuściłoby układ, w którym przyciski zawijają
+        # się ZAWSZE — a wtedy kolumna działań byłaby po prostu za wąska.
+        pg.set_viewport_size({"width": 1920, "height": 900})
+        pg.goto(BAZA + "/admin/integracja", wait_until="networkidle")
+        wyrownanie_1920 = pg.evaluate(POMIAR_DZIALAN)
+        pg.set_viewport_size({"width": 1440, "height": 900})
 
         # ⚠ Ekran potwierdzenia MUSI istnieć dla klucza unieważnionego.
         pg.goto(BAZA + f"/admin/integracja/klucze/{kid}/usun", wait_until="networkidle")
@@ -2856,14 +2875,19 @@ def sprawdz_kasowanie_klucza(b) -> dict:
                 and not ekran["kod"] and ekran["tytul"] != ""
                 and ekran["mowi_o_przebiegach"] and ekran["mowi_o_dzienniku"]
                 and not po_usunieciu["istnieje"] and not w_wykazie
-                # ⚠ Kolumna „Działanie": oba rodzaje wiersza (jeden przycisk i dwa) dociśnięte
-                # do prawej TYM SAMYM odstępem i każdy w jednej linii.
+                # ⚠ Kolumna „Działania": oba rodzaje wiersza (jeden przycisk i trzy) dociśnięte
+                # do prawej TYM SAMYM odstępem i mieszczące się w komórce.
                 and len(wyrownanie) >= 2
                 and len({w["od_prawej"] for w in wyrownanie}) == 1
-                and all(w["w_jednej_linii"] for w in wyrownanie)
                 and all(w["miesci_sie"] for w in wyrownanie)
-                and max(w["wysokosc"] for w in wyrownanie) <= 40
-                and {w["przyciskow"] for w in wyrownanie} == {1, 2}
+                and {w["przyciskow"] for w in wyrownanie} == {1, 3}
+                # Przy 1440 px wolno zawinąć się na dwie linie (32 + odstęp + 32 = 72), nigdy na trzy.
+                and max(w["wysokosc"] for w in wyrownanie) <= 72
+                # Przy 1920 px jedna linia i ani piksela więcej niż wysokość przycisku.
+                and len(wyrownanie_1920) >= 2
+                and all(w["w_jednej_linii"] for w in wyrownanie_1920)
+                and all(w["miesci_sie"] for w in wyrownanie_1920)
+                and max(w["wysokosc"] for w in wyrownanie_1920) <= 40
             ),
             "klucz_bramki": klucz,
             "czynny_odmowa": kod_czynny,
@@ -2873,6 +2897,7 @@ def sprawdz_kasowanie_klucza(b) -> dict:
             "bez_csrf": kod_bez_csrf,
             "stan_po_probach": po_probach,
             "wyrownanie_kolumny_dzialanie": wyrownanie,
+            "wyrownanie_przy_1920": wyrownanie_1920,
             "ekran_potwierdzenia": ekran,
             "po_skasowaniu": po_usunieciu,
             "prefiks_nadal_w_wykazie": w_wykazie,

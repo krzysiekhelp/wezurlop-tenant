@@ -1,0 +1,85 @@
+{#- Okno „Zakres klucza" (zlecenie Z35 §4, 18.10.2026 — prototyp zaakceptowany przez Krzysztofa).
+    Zastępuje dwie karty z dawnego ekranu: „Zakres kluczy" i „Zgłoszenia firm". Zmienne:
+    k (klucz), firmy (zatwierdzone firmy tenanta), zgloszenia (oczekujące zgłoszenia tego klucza),
+    otwarte (czy okno ma przyjść otwarte — ścieżka bez JavaScriptu).
+
+    ⚠ **Okno jest OSADZONE w stronie, nie dociągane htmx-em** — tak samo jak okno nazw firm (Z29).
+    Powód jest ten sam: „Zakres" to zwykły odnośnik na ten ekran z `?okno=zakres&klucz=<id>`,
+    więc bez JavaScriptu serwer renderuje `<dialog open>` i zakres da się zmienić bez skryptów.
+    Dociągane okno znaczyłoby, że przy wyłączonym JS nie ma jak zatwierdzić zgłoszenia firmy.
+
+    ⚠ **`data-modal-trwale`**: wspólna obsługa okien czyści `.modal__body` przy zamknięciu
+    (treść kreatora przychodzi z serwera i nie może zostać na drugie otwarcie). Tutaj treść jest
+    z serwera przy renderowaniu strony — wyczyszczona nie wróciłaby, więc okno wyłącza sprzątanie.
+    To jest to „drugie otwarcie z kompletem pól" z warunków odbioru.
+
+    ⚠ **JEDEN formularz na całe okno, a zatwierdzenie zgłoszenia idzie przez `formaction`.**
+    Formularzy nie wolno zagnieżdżać, a w oknie stoją dwie rzeczy do wysłania: zakres klucza
+    (pola wyboru) i decyzja o zgłoszeniu. Przycisk `submit` z `formaction` wysyła TEN SAM
+    formularz pod inny adres — czyli bez JavaScriptu, bez zagnieżdżenia i bez drugiego tokenu
+    CSRF. Akcja zatwierdzenia czyta wyłącznie identyfikator ze ścieżki, więc dodatkowe pola
+    `firmy[]` są dla niej obojętne. -#}
+{% import 'partials/ikony.twig' as ikony %}
+<dialog id="zakres-{{ k.id }}" class="modal modal--zakres" aria-labelledby="zakres-{{ k.id }}-tytul"
+        data-modal-trwale{{ otwarte ? ' open' : '' }}>
+    <div class="modal__head modal__head--znak">
+        <span class="card__znak">{{ ikony.firma() }}</span>
+        <div class="card__tytuly">
+            <h3 id="zakres-{{ k.id }}-tytul">Zakres klucza „{{ k.name }}”</h3>
+            <p class="card__opis">Firmy, których dane connector może wysyłać tym kluczem. Nowe firmy zgłasza sam connector.</p>
+        </div>
+        <button type="button" class="modal__close" data-modal-close="zakres-{{ k.id }}" aria-label="Zamknij okno">{{ ikony.krzyzyk() }}</button>
+    </div>
+
+    <form class="modal__wrap" method="post" action="{{ url('/admin/integracja/klucze/' ~ k.id ~ '/firmy') }}">
+        {% include 'partials/csrf.twig' %}
+        <div class="modal__body">
+            {% if zgloszenia is not empty %}
+                {#- ⚠ Sekcja stoi NAD zakresem, bo to jedyna rzecz w tym oknie, która czeka na decyzję:
+                    zakres zwykle zostaje bez zmian, a zgłoszenie nie przejdzie samo. -#}
+                <p class="zakres__etykieta">Czeka na decyzję</p>
+                {% for s in zgloszenia %}
+                    <div class="zakres__zgloszenie">
+                        <span class="card__znak card__znak--uwaga">{{ ikony.wtyczka() }}</span>
+                        <span class="zakres__dane">
+                            <span class="zakres__nazwa">{{ s.name }}</span>
+                            <span class="zakres__meta">NIP {{ nip_grupami(s.nip) }} · zgłoszona przez connector {{ czas(s.created_at) }}</span>
+                        </span>
+                        <span class="zakres__decyzja">
+                            {#- Odrzucenie prowadzi do kroku potwierdzenia: bez JS pełny ekran,
+                                z JS ta sama treść w oknie potwierdzeń (tak jak przy kluczach). -#}
+                            <a class="btn btn--akcja zakres__odrzuc" href="{{ url('/admin/integracja/zgloszenia/' ~ s.id ~ '/odrzuc') }}"
+                               hx-get="{{ url('/admin/integracja/zgloszenia/' ~ s.id ~ '/odrzuc') }}"
+                               hx-target="#potwierdzenie-tresc" hx-swap="innerHTML"
+                               data-modal-open="potwierdzenie-modal">Odrzuć</a>
+                            <button type="submit" class="btn btn--primary btn--sm"
+                                    formaction="{{ url('/admin/integracja/zgloszenia/' ~ s.id ~ '/zatwierdz') }}">Zatwierdź</button>
+                        </span>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <p class="zakres__etykieta">W zakresie klucza</p>
+            {% for f in firmy %}
+                <label class="zakres__firma">
+                    <input type="checkbox" name="firmy[]" value="{{ f.id }}"{{ f.nip in k.nips ? ' checked' : '' }}>
+                    <span class="zakres__dane">
+                        <span class="zakres__nazwa">{{ f.name }}</span>
+                        <span class="zakres__meta">NIP {{ nip_grupami(f.nip) }}</span>
+                    </span>
+                    <span class="chip chip--accent"><span class="chip__kropka"></span>zatwierdzona</span>
+                </label>
+            {% else %}
+                <p class="table__empty">Żadna firma nie jest jeszcze zatwierdzona. Pierwsza pojawi się tu jako zgłoszenie, gdy connector się połączy.</p>
+            {% endfor %}
+
+            <p class="zakres__notka">Zatwierdzenie zgłoszenia tworzy firmę w aplikacji i dodaje ją do zakresu klucza. Ręcznie zmieniaj zakres tylko wyjątkowo.</p>
+        </div>
+        <div class="modal__foot">
+            <div class="btn-row btn-row--jedna-linia">
+                <button type="button" class="btn btn--ghost" data-modal-close="zakres-{{ k.id }}">Anuluj</button>
+                <button type="submit" class="btn btn--primary">Zapisz zakres</button>
+            </div>
+        </div>
+    </form>
+</dialog>

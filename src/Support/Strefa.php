@@ -50,6 +50,21 @@ final class Strefa
     }
 
     /**
+     * Godzina ZDARZENIA bez sekund — „12:45”.
+     *
+     * ⚠ Osobna nazwa, a nie `godzina()` obcinana w szablonie (zlecenie Z35, 18.10.2026).
+     * Reguła z 22.09.2026 („prognoza bez sekund, pomiar z sekundami”) mówi o tym, żeby nie
+     * UDAWAĆ pomiaru tam, gdzie go nie ma — i dalej obowiązuje. Tutaj jest odwrotnie: sekunda
+     * jest zmierzona, ale w tabeli dwudziestu przebiegów nie rozróżnia niczego, bo przebiegi
+     * idą co kilka minut, a rozdziela je godzina. Krótsza postać mówi MNIEJ, niż wiemy,
+     * i to jest bezpieczny kierunek; pełny czas z sekundami zostaje w `czas()` pod ręką.
+     */
+    public static function godzinaKrotka(?string $utc, string $strefa): string
+    {
+        return self::czas($utc, $strefa, 'H:i');
+    }
+
+    /**
      * Godzina PROGNOZY — „12:45”, bez sekund.
      *
      * ⚠ Osobna funkcja, nie `godzina()` z obciętym końcem: reguła przyjęta 22.09.2026 mówi

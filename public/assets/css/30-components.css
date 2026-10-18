@@ -3303,14 +3303,23 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   border-left: 1px solid var(--c-line);
 }
 .hier__branch:not(.hier__branch--root) > .hier__node { position: relative; }
+/* ⚠ **Kreska jest ELEMENTEM SIATKI węzła, nie elementem pozycjonowanym od jego góry**
+   (dopisek do Z35, 18.10.2026). Stała `top: 26px` była środkiem karty sprzed Z34; po tamtej
+   zmianie karta ma 68 px i kreska wypadała nad przyciskiem zwijania, a przycisk „pod kreską".
+   Jako element siatki w pierwszym wierszu z `align-self: center` kreska trafia w środek
+   TEGO WIERSZA, czyli w środek karty i w środek przycisku — przy każdej wysokości karty,
+   także na telefonie i gdy plakietki zawiną się do drugiej linii. Liczby do poprawiania
+   już nie ma. Łokieć biegnie od szyny (lewa krawędź gałęzi) do rynny uchwytu, czyli wychodzi
+   poza swoją komórkę w lewo ujemnym marginesem. */
 .hier__branch:not(.hier__branch--root) > .hier__node::before {
   content: "";
-  position: absolute;
-  /* Łokieć biegnie od szyny (lewa krawędź gałęzi, czyli −16 px) do rynny uchwytu. */
-  left: calc(-1 * var(--s-4));
+  grid-column: 1;
+  grid-row: 1;
+  align-self: center;
+  justify-self: start;
+  margin-left: calc(-1 * var(--s-4));
   width: var(--s-4);
-  /* Na wysokości środka karty pierwszego wiersza: karta ma 24 px wyściółki + wiersz tekstu. */
-  top: 26px;
+  height: 0;
   border-top: 1px solid var(--c-line);
 }
 /* ⚠ Ostatnie dziecko zasłania szynę PONIŻEJ swojego łokcia — inaczej linia biegnie dalej
@@ -3319,7 +3328,10 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   content: "";
   position: absolute;
   left: calc(-1 * var(--s-4) - 1px);
-  top: 27px;
+  /* Zasłona zaczyna się tam, gdzie kreska — czyli w połowie wysokości karty. ⚠ Ta jedna
+     wartość dalej liczy się z tokenu, a nie z siatki: element siatki nie umie sięgnąć
+     od środka pierwszego wiersza do dołu całego węzła, a tylko tyle tu trzeba zamalować. */
+  top: calc(var(--hier-karta-h) / 2);
   bottom: calc(-1 * var(--s-2));
   width: 1px;
   background: var(--c-surface);
@@ -3375,6 +3387,9 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 @media (hover: hover) {
   .hier__card:hover { background: var(--c-surface-hover); border-color: var(--c-line-strong); }
 }
+/* Karta w drzewie trzyma wysokość z tokenu: `min-height`, nie `height` — treść wyższa
+   od tokenu dalej się mieści, a zasłona szyny ma z czego liczyć swój początek. */
+.hier__tree .hier__card { min-height: var(--hier-karta-h); }
 /* ⚠ Treść karty bierze CAŁĄ wolną szerokość i stoi do lewej (Z34 §6). Bez tego `.hier__card`
    z `justify-content: space-between` i trzema dziećmi stawiał nazwisko POŚRODKU wiersza —
    widać to było dopiero na szerokim drzewie, gdzie między znakiem a plakietkami zostaje metr
@@ -3435,7 +3450,10 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 /* ⚠ Telefon: panele jeden pod drugim, „Bez przełożonego" PIERWSZY (to lista zadań), a drzewo
    z mniejszym wcięciem — przy 20 px na poziom cztery poziomy nie mieściły się w 343 px. */
 @media (max-width: 560px) {
-  .hier { grid-template-columns: minmax(0, 1fr); }
+  /* ⚠ Na telefonie karta ma dwie linie plakietek, czyli 108 px. Token dotyczy TYLKO zasłony
+     szyny pod ostatnim dzieckiem — sama kreska bierze środek wiersza siatki i nie potrzebuje
+     żadnej liczby, także wtedy, gdy nazwisko zawinie kartę do 165 px (zmierzone). */
+  .hier { grid-template-columns: minmax(0, 1fr); --hier-karta-h: 108px; }
   .hier__panel { order: 1; }
   .hier__tree { order: 2; }
   .hier__card { grid-template-columns: auto minmax(0, 1fr) auto; }
@@ -3444,8 +3462,11 @@ body:has(dialog.modal[open]) { overflow: hidden; }
      liczy się z tej samej zmiennej, więc skraca się razem z nią. */
   .hier__branch:not(.hier__branch--root) { margin-left: var(--s-2); padding-left: var(--s-2); }
   .hier__branch:not(.hier__branch--root) > .hier__node::before {
-    left: calc(-1 * var(--s-2));
+    margin-left: calc(-1 * var(--s-2));
     width: var(--s-2);
+  }
+  .hier__branch:not(.hier__branch--root) > .hier__node:last-child::after {
+    left: calc(-1 * var(--s-2) - 1px);
   }
 }
 /* Pasek zmian: przyklejony do dołu, bo decyzja o zapisie musi być pod ręką na każdej
@@ -3513,8 +3534,15 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   align-items: start;
   gap: var(--s-2) 0;
 }
-.hier__node > .hier__card,
-.hier__node > .hier__branch { grid-column: 2; }
+/* ⚠ **Wiersze przypisane JAWNIE**, odkąd kreska jest elementem siatki (dopisek do Z35):
+   pseudoelement `::before` jest PIERWSZYM dzieckiem siatki, więc przypięty do wiersza 1
+   zabierał tę komórkę uchwytowi, a ten z automatu schodził do wiersza 2 — i cały pierwszy
+   wiersz miał 1 px wysokości (zmierzone: kreska 42 px nad środkiem karty na 1920 px i 77 px
+   na 375 px, czyli dokładnie to, co zlecenie kazało naprawić, tylko w drugą stronę).
+   Automatyczne rozmieszczanie przestaje tu cokolwiek zgadywać. */
+.hier__node > .hier__zwin { grid-row: 1; }
+.hier__node > .hier__card { grid-column: 2; grid-row: 1; }
+.hier__node > .hier__branch { grid-column: 2; grid-row: 2; }
 /* ⚠ Zdanie zamiast planszy pokazuje się WYŁĄCZNIE na wąskim ekranie: wariantu mobilnego
    tego ekranu nie ma i nie będzie (decyzja 22.09.2026), ale człowiek, który ciągnie kartę
    palcem i nic się nie dzieje, zgłasza usterkę. Ścieżka menu działa dalej.
@@ -4036,11 +4064,17 @@ body:has(dialog.modal[open]) { overflow: hidden; }
    ⚠ Szerokości NIE zabieram „Stanowi": tam granicą jest plakietka, która nie może się złamać.
    Siedem punktów procentowych pochodzi z kolumn, których treść **wolno zawinąć** — nazwy klucza
    (2), zakresu NIP (3) i obu kolumn z datami (po 1). Suma nadal 100%, tabela nie rośnie. */
+/* ⚠ **Przeliczone dla TRZECH przycisków (Z35 §3).** Kolumna „Zakres (NIP)" wypisywała wszystkie
+   numery klucza i brała 17% — po zmianie stoi w niej plakietka „2/2", czyli 70 px, więc 9%
+   wystarcza z zapasem. Te osiem punktów idzie do kolumny działań, bo doszedł trzeci przycisk:
+   zmierzone przy oknie 1440 trzy przyciski potrzebują 287 px, a 21% dawało 196 px i rząd
+   zawijał się na dwie linie (112 px wysokości zamiast 72). „Stanowi" dalej nie zabieramy nic:
+   tam granicą jest plakietka, która nie może się złamać. */
 .col--klucz-nazwa  { width: 18%; }
-.col--klucz-zakres { width: 17%; }
+.col--klucz-zakres { width: 9%; }
 .col--klucz-czas   { width: 11%; }
 .col--klucz-stan   { width: 22%; }
-.col--klucz-akcja  { width: 21%; }
+.col--klucz-akcja  { width: 29%; }
 /* /dane — lista firm. */
 .col--firma-nazwa  { width: 26%; }
 .col--firma-nip    { width: 14%; }
@@ -4513,3 +4547,292 @@ body:has(dialog.modal[open]) { overflow: hidden; }
    i robi przewijanie w poziomie całej karty — czyli naruszenie bramki, a nie drobiazg. */
 .kafle--auto .kafel__wartosc { white-space: normal; overflow-wrap: anywhere; }
 
+
+/* ——— /admin/integracja: kafle stanu, wiersz klucza, przebiegi, okna (zlecenie Z35) ————————
+   ⚠ Rodzina stoi NA KOŃCU pliku, za `.table`, `.chip`, `.card` i `.kafel` — reguła o tej samej
+   szczegółowości wygrywa kolejnością w pliku, a wszystkie te komponenty nadpisujemy punktowo.
+   Na tym przejechaliśmy się trzy razy (Z27, Z30, Z31). */
+
+/* Pierwszy kafel niesie STAN, czyli słowo, nie liczbę: typografia schodzi z 24 px do `--t-h2`,
+   bo „podłączanie w toku" w rozmiarze liczby zajmowało trzy linie i rozpychało cały pasek. */
+.kafel__wartosc--stan {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-size: var(--t-h2);
+  white-space: normal;
+}
+.kafel__wartosc--uwaga { color: var(--c-warn-text); }
+.kafel__wartosc--blad  { color: var(--c-danger-text); }
+/* ⚠ Kropka ma OBWÓDKĘ 4 px w barwie miękkiej (Z35 §2) — ta sama sygnatura, co kropka „dziś"
+   w kalendarzu: punkt 8 px ginął obok tekstu 20 px, a obwódka daje mu wielkość bez dokładania
+   drugiego koloru. Rysowana cieniem, nie ramką: ramka powiększyłaby pudełko i zepchnęła tekst. */
+.kafel__kropka {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c-text-4);
+  box-shadow: 0 0 0 4px var(--c-neutral-soft);
+  flex: none;
+  margin-inline-start: 2px;
+}
+.kafel__kropka--ok    { background: var(--c-accent); box-shadow: 0 0 0 4px var(--c-accent-soft); }
+.kafel__kropka--uwaga { background: var(--c-warn);   box-shadow: 0 0 0 4px var(--c-warn-soft); }
+.kafel__kropka--blad  { background: var(--c-danger); box-shadow: 0 0 0 4px var(--c-danger-soft); }
+/* Wersja connectora to napis, nie liczba — 20 px i wolno mu się zawinąć. */
+.kafel__wartosc--napis { font-size: var(--t-h2); white-space: normal; }
+
+/* ——— wiersz klucza ——— */
+.klucz-wiersz { display: flex; align-items: flex-start; gap: var(--s-3); min-width: 0; }
+/* ⚠ Kwadrat 34 px, nie 38 jak `.card__znak`: w wierszu tabeli znak stoi obok dwóch linii tekstu
+   (nazwa + początek klucza), a kwadrat równy kontrolce był od nich wyższy i wiersz puchł. */
+.klucz-wiersz__znak {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-card);
+  background: var(--c-accent-soft);
+  color: var(--c-accent-text);
+}
+.klucz-wiersz__znak .ico { width: 18px; height: 18px; }
+.klucz-wiersz__dane { display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; }
+.klucz-wiersz__nazwa { font-size: var(--t-body); font-weight: var(--w-semibold); color: var(--c-text); }
+/* Początek klucza w małej ramce: to jest fragment sekretu, więc ma wyglądać jak dana techniczna,
+   a nie jak podpis — ramka i tło `--c-bg` odcinają go od nazwy nad nim. */
+.klucz-wiersz__prefix {
+  align-self: flex-start;
+  padding: 0 var(--s-1);
+  border: 1px solid var(--c-line);
+  border-radius: 4px;
+  background: var(--c-bg);
+  color: var(--c-text-3);
+  font-size: 11px;
+  line-height: 18px;
+}
+/* Plakietka zakresu: ikona firmy i liczba „w zakresie / zatwierdzone". */
+.zakres-chip { gap: var(--s-1); }
+.zakres-chip .ico { width: 14px; height: 14px; }
+/* ⚠ Znacznik liczby oczekujących zgłoszeń na przycisku „Zakres" — kółko 18 px w barwie ostrzeżenia.
+   Widoczny TYLKO przy liczbie większej od zera (warunek stoi w szablonie): kółko z zerem mówiłoby
+   „jest tu coś do zrobienia" dokładnie wtedy, gdy nie ma. */
+.btn__znacznik {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  margin-inline-start: var(--s-1);
+  padding: 0 4px;
+  border-radius: 9px;
+  background: var(--c-warn);
+  color: var(--c-surface);
+  font-size: var(--t-label);
+  font-weight: var(--w-semibold);
+  font-variant-numeric: tabular-nums;
+}
+/* Działanie nieodwracalne: napis w barwie błędu, ale PRZYCISK zostaje zwykłym `.btn--akcja` —
+   czerwone tło obiecywałoby, że kliknięcie unieważnia klucz, a ono otwiera potwierdzenie. */
+.btn--akcja-groznie { color: var(--c-danger-text); }
+@media (hover: hover) {
+  .btn--akcja-groznie:hover { background: var(--c-danger-soft); border-color: var(--c-danger); color: var(--c-danger-text); }
+}
+.klucz-akcje { flex-wrap: wrap; justify-content: flex-end; }
+.table--klucze td { vertical-align: top; }
+
+/* ——— notka w ramce ze znakiem ——— */
+.notka-info, .notka-gotowe {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+  padding: var(--s-3);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
+  background: var(--c-bg);
+  color: var(--c-text-3);
+  font-size: var(--t-caption);
+  line-height: var(--lh-body);
+}
+.notka-info strong, .notka-gotowe strong { color: var(--c-text); font-weight: var(--w-semibold); }
+.notka-info__znak, .notka-gotowe__znak {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--c-text-4);
+}
+.notka-info__znak .ico, .notka-gotowe__znak .ico { width: 18px; height: 18px; }
+/* Wynik podłączenia: ta sama ramka w barwach zgody — zielone tło mówi „skończone", a nie „uwaga". */
+.notka-gotowe { border-color: var(--c-accent); background: var(--c-accent-soft); color: var(--c-accent-text); }
+.notka-gotowe strong { color: var(--c-accent-text); }
+.notka-gotowe__znak { color: var(--c-accent); }
+
+/* ——— tabela przebiegów ——— */
+.przebieg-czas { display: flex; flex-direction: column; gap: 2px; white-space: nowrap; }
+.przebieg-czas__godzina { font-size: var(--t-body); font-weight: var(--w-semibold); font-variant-numeric: tabular-nums; }
+.przebieg-czas__data { font-size: 11px; color: var(--c-text-4); font-variant-numeric: tabular-nums; }
+.przebieg-liczba { color: var(--c-text-3); font-variant-numeric: tabular-nums; }
+
+/* ——— okno zakresu klucza ——— */
+.modal--zakres { width: min(560px, calc(100vw - 2 * var(--s-4))); }
+/* Etykieta sekcji: 11 px wersalikami — ta sama sygnatura, co nagłówek kolumny wpisów w kalendarzu. */
+.zakres__etykieta {
+  font-size: var(--t-label);
+  font-weight: var(--w-semibold);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--c-text-4);
+}
+.zakres__zgloszenie, .kreator__zgloszenie {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-3);
+  border: 1px solid var(--c-warn-line);
+  border-radius: var(--radius-card);
+  background: var(--c-warn-bg);
+}
+.zakres__dane { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
+.zakres__nazwa { font-size: var(--t-body); font-weight: var(--w-semibold); color: var(--c-text); }
+.zakres__meta { font-size: var(--t-caption); color: var(--c-text-3); }
+.zakres__decyzja { display: flex; align-items: center; gap: var(--s-2); flex: 0 0 auto; }
+.zakres__odrzuc { color: var(--c-danger-text); }
+/* Wiersz firmy w zakresie: całe pudełko jest etykietą pola wyboru, więc kliknięcie w nazwę
+   przestawia zakres — przy trzech firmach szukanie kwadracika 18 px było jedyną trudnością. */
+.zakres__firma {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-3);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
+  background: var(--c-surface);
+  cursor: pointer;
+}
+.zakres__firma input[type="checkbox"] { width: 18px; height: 18px; flex: none; accent-color: var(--c-accent); }
+/* ⚠ Zaznaczenie widać na CAŁYM wierszu, nie tylko w kwadraciku: `:has()` pyta o stan dziecka,
+   więc tło nie wymaga ani jednej linii JS. Przeglądarka bez `:has()` pokazuje sam kwadracik
+   — mniej czytelnie, ale poprawnie. */
+.zakres__firma:has(input:checked) { border-color: var(--c-accent); background: var(--c-accent-soft); }
+.zakres__notka {
+  padding: var(--s-3);
+  border-radius: var(--radius-card);
+  background: var(--c-bg);
+  color: var(--c-text-3);
+  font-size: var(--t-caption);
+  line-height: var(--lh-body);
+}
+
+/* ——— okno kreatora: pasek czterech kroków ——— */
+.modal--kreator { width: min(620px, calc(100vw - 2 * var(--s-4))); }
+.kreator { display: flex; flex-direction: column; gap: var(--s-4); }
+.kreator__stan { margin-top: calc(-1 * var(--s-2)); }
+/* Cztery kafelki w jednym rzędzie: równe kolumny, bo krok nie jest ważniejszy od sąsiada. */
+.kroki { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--s-2); list-style: none; }
+.krok {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-1);
+  padding: var(--s-3) var(--s-2);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
+  background: var(--c-surface);
+  text-align: center;
+}
+.krok__kolko {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--c-neutral-soft);
+  color: var(--c-text-3);
+  font-size: var(--t-caption);
+  font-weight: var(--w-semibold);
+}
+.krok__kolko .ico { width: 14px; height: 14px; }
+.krok__nazwa { font-size: var(--t-caption); font-weight: var(--w-semibold); color: var(--c-text-2); }
+.krok__stan { font-size: var(--t-label); color: var(--c-text-4); }
+/* Zrobiony krok dostaje barwę zgody, bieżący i przyszły zostają obojętne (Z35 §6): kolor znaczy
+   „to już jest", a nie „tu patrz" — inaczej pasek czterech kroków miałby cztery kolory. */
+.krok--zrobione { border-color: var(--c-accent); background: var(--c-accent-soft); }
+.krok--zrobione .krok__kolko { background: var(--c-accent); color: var(--c-surface); }
+.krok--zrobione .krok__nazwa { color: var(--c-accent-text); }
+.krok--biezacy { border-color: var(--c-line-strong); }
+.krok--biezacy .krok__kolko { background: var(--c-text-2); color: var(--c-surface); }
+.kreator__teraz { display: flex; flex-direction: column; gap: var(--s-3); }
+.kreator__co-dalej { font-size: var(--t-body); color: var(--c-text-2); line-height: var(--lh-body); }
+.kreator__form { display: flex; flex-direction: column; gap: var(--s-3); align-items: flex-start; }
+.kreator__form .field { width: 100%; max-width: 360px; }
+.kreator__czekam { font-size: var(--t-caption); color: var(--c-text-4); }
+
+/* ——— telefon (Z35, 375 px) ———————————————————————————————————————————————
+   ⚠ Próg bierzemy z OKNA, nie z kontenera: dotyczy całego ekranu naraz (tabele, okna, kroki),
+   a nie jednej karty, która bywa węższa od swojego sąsiada. */
+@media (max-width: 640px) {
+  /* Wiersz klucza przestaje być wierszem: komórki idą jedna pod drugą, nagłówki znikają.
+     Tabela sześciu kolumn na 343 px to albo przewijanie w poziomie, albo nazwa łamana po literze. */
+  .table--klucze, .table--klucze tbody, .table--klucze tr, .table--klucze td { display: block; width: auto; }
+  .table--klucze thead { display: none; }
+  .table--klucze colgroup { display: none; }
+  .table--klucze tr {
+    padding: var(--s-3);
+    border: 1px solid var(--c-line);
+    border-radius: var(--radius-card);
+    background: var(--c-surface);
+  }
+  .table--klucze tr + tr { margin-top: var(--s-3); }
+  .table--klucze td { padding: 0; border: 0; }
+  .table--klucze td + td { margin-top: var(--s-2); }
+  .klucz-akcje { justify-content: flex-start; }
+  /* Przebiegi tak samo: godzina z datą i firma, pod spodem wynik i liczby w jednej linii. */
+  .table--przebiegi, .table--przebiegi tbody, .table--przebiegi tr { display: block; width: auto; }
+  .table--przebiegi thead { display: none; }
+  /* ⚠ Rozmieszczenie JAWNE, nie z auto-flow: zlecenie mówi „godzina z datą i firma, pod spodem
+     wynik i liczby", a przy sześciu komórkach puszczonych samopas trzy liczby lądowały
+     w dwóch kolumnach naprzemiennie i wiersz miał trzy piętra zamiast dwóch. */
+  .table--przebiegi tr {
+    display: grid;
+    grid-template-columns: repeat(6, auto);
+    gap: var(--s-2);
+    align-items: start;
+    padding: var(--s-3);
+    border: 1px solid var(--c-line);
+    border-radius: var(--radius-card);
+    background: var(--c-surface);
+  }
+  .table--przebiegi td:nth-child(1) { grid-area: 1 / 1 / 2 / 3; }
+  .table--przebiegi td:nth-child(2) { grid-area: 1 / 3 / 2 / 7; }
+  .table--przebiegi td:nth-child(6) { grid-area: 2 / 1 / 3 / 3; }
+  .table--przebiegi td:nth-child(3) { grid-area: 2 / 3 / 3 / 5; }
+  .table--przebiegi td:nth-child(4) { grid-area: 2 / 5 / 3 / 6; }
+  .table--przebiegi td:nth-child(5) { grid-area: 2 / 6 / 3 / 7; }
+  /* ⚠ Nagłówek tabeli znika razem z `thead`, więc liczby zostają bez nazwy: „0 s · 0 · 0" nie mówi
+     nic. Etykieta idzie z CSS, bo to wyłącznie forma wąskiego ekranu — w szablonie nazywa je
+     nagłówek kolumny, ten sam dla obu szerokości. */
+  /* Etykieta NAD liczbą, obie do lewej: w jednej linii („rekordy 0") liczba zawijała się pod
+     etykietę i wyrównanie do prawej z `.table__num` zostawiało ją w innym miejscu w każdej
+     z trzech komórek. Kolumna z etykietą nad wartością czyta się jak mała definicja. */
+  .table--przebiegi td.przebieg-liczba { display: flex; flex-direction: column; text-align: left; }
+  .table--przebiegi td.przebieg-liczba::before {
+    content: attr(data-etykieta);
+    color: var(--c-text-4);
+    font-size: var(--t-label);
+    line-height: var(--lh-tight);
+  }
+  .table--przebiegi tr + tr { margin-top: var(--s-3); }
+  /* ⚠ `white-space: normal` i `min-width: 0` — bez tego komórka z nazwą firmy nie zawija się
+     (`.table td` ma `nowrap`), kolumna `1fr` rozpycha się do szerokości pełnej nazwy i siatka
+     wychodzi poza kartę: zmierzone 528 px zawartości w 341 px karty, czyli przewijanie
+     w poziomie, którego bramka nie przepuszcza. Nazwa prawna spółki ma po prostu 46 znaków. */
+  .table--przebiegi td { display: block; min-width: 0; padding: 0; border: 0; text-align: left; white-space: normal; word-break: break-word; }
+  .table--przebiegi td.przebieg-liczba { grid-column: span 1; font-size: var(--t-caption); }
+  /* Kroki kreatora 2 × 2: cztery kafelki w rzędzie dają 70 px na kafelek, czyli nazwę w pionie. */
+  .kroki { grid-template-columns: repeat(2, 1fr); }
+  /* Okna na pełną szerokość z marginesem `--s-4` — tak samo jak pozostałe okna tenanta. */
+  .modal--zakres, .modal--kreator { width: calc(100vw - 2 * var(--s-4)); }
+  .zakres__zgloszenie, .kreator__zgloszenie, .zakres__firma { flex-wrap: wrap; }
+  .zakres__decyzja { width: 100%; justify-content: flex-end; }
+}
