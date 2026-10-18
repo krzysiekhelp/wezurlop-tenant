@@ -90,7 +90,7 @@
                             pod inny adres, więc jest POST z tokenem CSRF bez drugiego formularza
                             i bez JavaScriptu. Akcja czyta identyfikator ze ścieżki, a `?okno=zakres`
                             wraca do tego samego otwartego okna. -#}
-                        <button type="submit" class="btn btn--akcja btn--sm zakres__przywroc"
+                        <button type="submit" class="btn btn--akcja btn--sm"
                                 formaction="{{ url('/admin/integracja/zgloszenia/' ~ s.id ~ '/przywroc') }}?okno=zakres&amp;klucz={{ k.id }}">Przywróć</button>
                     </div>
                 {% endfor %}
