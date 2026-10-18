@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.17, 18.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.18, 18.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,28 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.17 → 1.18.18: menu „⋯" karty w drzewie idzie w róg na wąskim ekranie**
+> (zlecenie Z38, 18.10.2026).
+> Karta w drzewie dostaje przy ≤ 560 px **ten sam układ, co karta w panelu** (Z34 §6):
+> siatka `'znak tresc menu' '. chipy chipy'`, menu w prawym górnym rogu, plakietki w drugim
+> rzędzie. ⚠ Powód jest zmierzony przy Z37, nie estetyczny: na wąskim ekranie plakietki
+> zawijały się do drugiego rzędu i „⋯" lądowało **w środku karty**, a Chromium **dociąga dotyk
+> do najbliższego celu klikalnego** — przytrzymanie w geometrycznym środku karty otwierało
+> menu zamiast chwytać kartę. Po zmianie menu stoi **98 px od środka** i cała karta poza nim
+> jest pewnym miejscem chwytu.
+> ⚠ **Dotychczasowa reguła w bloku telefonu ustawiała samo `grid-template-columns` na karcie,
+> która jest `display: flex` — czyli nie robiła nic.** Dopiero `display: grid` nadaje jej
+> znaczenie; to jest cichy rodzaj martwej reguły, którą widać wyłącznie przy pomiarze układu.
+> ⚠ Ten sam układ stoi w dwóch miejscach (`.hier__panel .hier__card` bez warunku szerokości
+> i `.hier__card` w bloku ≤ 560 px) i jednej regułą się tego nie zapisze — panel obowiązuje
+> na każdej szerokości. Zgodność pilnuje **pomiar chwytu w geometrycznym środku karty**,
+> a nie zgodność zapisu.
+> **Pomiar**: 375 px — karta 236 × 108, menu `[293, 361, 32, 32]` (prawy górny róg), środek
+> karty `[216, 406]`, pod środkiem `.hier__fakty`; przytrzymanie w środku → **cień karty = 1**,
+> menu **nie otwarte**; dotknięcie „⋯" → menu otwarte, 3 pozycje. 768 px i 1920 px: karta
+> dalej jednym rzędem 68 px, menu przy prawej krawędzi, chwyt w środku też działa.
+> Zestaw dotykowy Z37 (8 scenariuszy × 2 rozmiary) przechodzi bez zmian po tej przebudowie.
 
 > **Zmiana 1.18.16 → 1.18.17: przeciąganie kart PALCEM na `/admin/hierarchia`**
 > (zlecenie Z37, 18.10.2026).

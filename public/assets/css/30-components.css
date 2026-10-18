@@ -3422,7 +3422,30 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   .hier { grid-template-columns: minmax(0, 1fr); --hier-karta-h: 108px; }
   .hier__panel { order: 1; }
   .hier__tree { order: 2; }
-  .hier__card { grid-template-columns: auto minmax(0, 1fr) auto; }
+  /* ⚠ **Menu „⋯" idzie w prawy górny róg karty, tak jak w panelu** (zlecenie Z38).
+     Powód jest zmierzony przy Z37: na wąskim ekranie karta jest niska, plakietki zawijają się
+     do drugiego rzędu i „⋯" ląduje **w środku karty** — a Chromium **dociąga dotyk do
+     najbliższego celu klikalnego**, więc przytrzymanie w geometrycznym środku karty otwierało
+     menu zamiast chwytać kartę. Po przeniesieniu menu w róg cała karta poza nim jest pewnym
+     miejscem chwytu, a menu dalej otwiera się dotknięciem.
+     ⚠ To jest DOKŁADNIE ten sam układ, co `.hier__panel .hier__card` wyżej (Z34 §6) — jedna
+     reguła dla obu nie da się napisać, bo panel obowiązuje na każdej szerokości, a drzewo
+     tylko tutaj. Gdy zmienia się jedna, druga musi iść za nią; pilnuje tego pomiar chwytu
+     w środku karty (punkt geometryczny), nie sama zgodność zapisu.
+     ⚠ Dotychczasowa reguła ustawiała tu wyłącznie `grid-template-columns` — na karcie, która
+     jest `display: flex`, czyli NIE ROBIŁA NIC. Dopiero `display: grid` nadaje jej znaczenie. */
+  .hier__card {
+    display: grid;
+    position: relative;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: 'znak tresc menu' '. chipy chipy';
+    align-items: start;
+    gap: var(--s-2) var(--s-3);
+  }
+  .hier__card > .inicjaly { grid-area: znak; }
+  .hier__card-main { grid-area: tresc; }
+  .hier__card-chips { grid-area: chipy; }
+  .hier__card-chips > .menu { position: absolute; top: var(--s-2); right: var(--s-2); }
   /* ⚠ Wcięcie gałęzi z 24+16 px na 8+8 px: przy czterech poziomach dawne wcięcie zjadało 160 px
      z 343 px szerokości i karta czwartego poziomu zostawała z 60 px na nazwisko. Łokieć linii
      liczy się z tej samej zmiennej, więc skraca się razem z nią. */
