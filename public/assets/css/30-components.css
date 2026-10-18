@@ -1571,8 +1571,15 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 
 /* ⚠ Trzy karty obok siebie, na telefonie jedna pod drugą. `auto-fit` z podłogą 240 px zamiast
    progu od okna: te karty stoją raz w kolumnie treści 1558 px, a raz w 343 px na telefonie,
-   i obie sytuacje wychodzą z jednej reguły. */
-.ustaw-trio { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--s-4); align-items: start; }
+   i obie sytuacje wychodzą z jednej reguły.
+   ⚠ **Karty rozciągają się do wysokości rzędu** (zlecenie Z28, 18.10.2026). Pierwsza wersja miała
+   `align-items: start` i karty wychodziły 213 / 150 / 212 px — „Powiadomienia" mają jeden wiersz,
+   pozostałe po dwa, więc środkowa karta wisiała krócej i rząd wyglądał na niedokończony.
+   Teraz zostaje domyślne `stretch` siatki, czyli NIE MA tu żadnej deklaracji — i to jest cała
+   reguła: wysokość bierze się z najwyższej karty w rzędzie.
+   ⚠ Na telefonie nic się nie zmienia, bo każda karta jest wtedy JEDYNA w swoim rzędzie i rząd
+   ma dokładnie jej wysokość. Dlatego nie trzeba tu ani progu, ani drugiej reguły. */
+.ustaw-trio { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--s-4); }
 
 /* Para etykieta/wartość w małych kartach. Bez przycisku — żaden z tych wierszy nie jest dziś
    do kliknięcia, a przycisk, który tylko wygląda na działanie, jest gorszy niż jego brak. */

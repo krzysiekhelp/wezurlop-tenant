@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.7, 18.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.8, 18.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,15 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.7 → 1.18.8: trzy małe karty na `/ustawienia` mają równą wysokość**
+> (zlecenie Z28, 18.10.2026). `.ustaw-trio` straciło `align-items: start` i zostaje przy
+> domyślnym `stretch` siatki — zmierzone: **213 / 150 / 212 px przed, 213 / 213 / 213 px po**,
+> przy 1920 i 1366 px. „Powiadomienia" mają jeden wiersz, a pozostałe karty po dwa, więc środkowa
+> wisiała krócej i rząd wyglądał na niedokończony.
+> ⚠ Na telefonie nic się nie zmienia i nie trzeba tam ani progu, ani drugiej reguły: każda karta
+> jest wtedy jedyna w swoim rzędzie, więc rząd ma dokładnie jej wysokość (zmierzone przy 375 px:
+> 213 / 150 / 212 px, trzy rzędy).
 
 > **Zmiana 1.18.6 → 1.18.7: ekran `/ustawienia` ma układ pulpitu, nie listy kart**
 > (zlecenie Z27, 18.10.2026 — prototyp zaakceptowany przez Krzysztofa). Funkcje, formularze
