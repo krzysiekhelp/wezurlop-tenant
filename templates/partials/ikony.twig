@@ -75,3 +75,16 @@
 {% macro termin() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M3.4 10h8.2M8.6 7 11.6 10l-3 3M15.8 4.6v10.8"/></svg>{% endmacro %}
 {% macro kalendarz_wiersze() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><rect x="3.2" y="4.5" width="13.6" height="12" rx="1.6"/><path d="M3.2 8.3h13.6M7 3v3M13 3v3M6.2 11.4h7.6M6.2 13.8h5"/></svg>{% endmacro %}
 {% macro odswiezenie() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M15.9 12.1a6.3 6.3 0 1 1-1.5-6.6l3.3 3.1"/><path d="M17.7 4.4v4.2h-4.2"/></svg>{% endmacro %}
+
+{#- ══════════ Ekran ustawień (zlecenie Z27) ══════════
+    ⚠ Pięć rysunków, których nie było: nagłówki kart i kafle stanu instalacji mówią o poczcie,
+    alertach, zmianie nazw, serwerze i kopiowaniu, a rodzina miała tylko ikony menu. Styl ten sam
+    co reszta: pole 20 × 20, rysunek w obszarze ~13,6 px, kontur z `currentColor` (grubość
+    i zakończenia z `.ico`), zero wypełnień poza kropkami.
+    ⚠ Kropki rysujemy `fill="currentColor" stroke="none"` — tak samo jak w `skala_miesiac`:
+    kółko o promieniu 1 px narysowane konturem 1,5 px zlewa się w plamę. -#}
+{% macro koperta() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><rect x="3.2" y="5" width="13.6" height="10" rx="1.6"/><path d="m3.8 6.4 6.2 4.4 6.2-4.4"/></svg>{% endmacro %}
+{% macro dzwonek() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M10 3.6a4.1 4.1 0 0 1 4.1 4.1v2.9l1.3 2.3H4.6l1.3-2.3V7.7A4.1 4.1 0 0 1 10 3.6Z"/><path d="M8.5 15a1.7 1.7 0 0 0 3 0"/></svg>{% endmacro %}
+{% macro olowek() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M13.4 3.8 16.2 6.6 7.5 15.3l-3.5.7.7-3.5Z"/><path d="m11.6 5.6 2.8 2.8"/></svg>{% endmacro %}
+{% macro serwer() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><rect x="3.2" y="4.2" width="13.6" height="5" rx="1.4"/><rect x="3.2" y="10.8" width="13.6" height="5" rx="1.4"/><circle cx="6.2" cy="6.7" r="1" fill="currentColor" stroke="none"/><circle cx="6.2" cy="13.3" r="1" fill="currentColor" stroke="none"/></svg>{% endmacro %}
+{% macro kopiuj() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><rect x="7.2" y="7.2" width="9" height="9" rx="1.6"/><path d="M12.8 7.2V5.6a1.6 1.6 0 0 0-1.6-1.6H5.4a1.6 1.6 0 0 0-1.6 1.6v5.8a1.6 1.6 0 0 0 1.6 1.6h1.8"/></svg>{% endmacro %}

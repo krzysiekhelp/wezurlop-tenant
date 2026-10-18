@@ -181,6 +181,7 @@ final class SettingsController
     private function render(string $notice, ?string $error): Response
     {
         $strefa = $this->settings->get('timezone', Strefa::DOMYSLNA);
+        $alertEmail = trim((string) $this->settings->get('alert_email', ''));
 
         return $this->view->render('settings.twig', [
             'strefa' => $strefa,
@@ -196,17 +197,29 @@ final class SettingsController
             // ⚠ Cron: te same dane, które czyta `/diagnostyka` (jedna klasa, dwa ekrany).
             // Tu odpowiadamy na inne pytanie: „co mam wpisać u hostingodawcy".
             'cron' => $this->cron->stan(),
-            'groups' => [
-                ['title' => 'Weryfikacja dwuetapowa', 'rows' => [
-                    ['label' => 'Administrator tenanta', 'value' => 'wymagana'],
-                    ['label' => 'Przełożeni i kadry', 'value' => 'do ustalenia (Etap 3)'],
+            // ⚠ Adres alertów osobno, a nie tylko w grupie niżej: kafel na górze ekranu musi
+            // ODRÓŻNIĆ „ustawiony" od „nieustawionego", a napis zastępczy („— nie ustawiono")
+            // tego nie niesie — kafel pokazałby go jako zwykłą wartość (zlecenie Z27 §2).
+            'alert_email' => $alertEmail === '' ? null : $alertEmail,
+            // ⚠ **Grupy niosą teraz ZNAK wiersza, a nie tylko napis.** Trzy karty na dole ekranu
+            // mają plakietki o trzech znaczeniach (wymagane / do ustalenia / nieustawione),
+            // a o tym, co wiersz znaczy, wie kontroler — nie szablon (CLAUDE.md §5).
+            // Znaki: `ok` zielona, `szary` szara, `uwaga` bursztynowa, `dana` sama wartość.
+            'grupy' => [
+                ['tytul' => 'Weryfikacja dwuetapowa', 'ikona' => 'tarcza', 'wiersze' => [
+                    ['etykieta' => 'Administrator tenanta', 'wartosc' => 'wymagana', 'znak' => 'ok'],
+                    ['etykieta' => 'Przełożeni i kadry', 'wartosc' => 'do ustalenia (Etap 3)', 'znak' => 'szary'],
                 ]],
-                ['title' => 'Powiadomienia', 'rows' => [
-                    ['label' => 'Skrzynka na alerty', 'value' => $this->settings->get('alert_email', '— nie ustawiono')],
+                ['tytul' => 'Powiadomienia', 'ikona' => 'dzwonek', 'wiersze' => [
+                    ['etykieta' => 'Skrzynka na alerty',
+                     'wartosc' => $alertEmail === '' ? 'nie ustawiono' : $alertEmail,
+                     'znak' => $alertEmail === '' ? 'uwaga' : 'dana'],
                 ]],
-                ['title' => 'Integracja', 'rows' => [
-                    ['label' => 'Próg ciszy connectora (klucz w użyciu milczy)', 'value' => $this->settings->get('key_idle_alert_hours', '24') . ' h'],
-                    ['label' => 'Próg klucza wydanego i nieużytego', 'value' => $this->settings->get('key_unused_alert_hours', '72') . ' h'],
+                ['tytul' => 'Integracja', 'ikona' => 'integracja', 'wiersze' => [
+                    ['etykieta' => 'Próg ciszy connectora (klucz w użyciu milczy)',
+                     'wartosc' => $this->settings->get('key_idle_alert_hours', '24') . ' h', 'znak' => 'dana'],
+                    ['etykieta' => 'Próg klucza wydanego i nieużytego',
+                     'wartosc' => $this->settings->get('key_unused_alert_hours', '72') . ' h', 'znak' => 'dana'],
                 ]],
             ],
         ]);

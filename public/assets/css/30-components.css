@@ -457,6 +457,28 @@
 
 .btn--sm { height: var(--control-h-sm); min-height: var(--control-h-sm); padding: 0 var(--s-3); font-size: var(--t-small); }
 
+/* ⚠ **Działanie drugorzędne z ikoną** (zlecenie Z27 §8): jeden styl dla „Zmień nazwy",
+   „Konfiguruj", „Sprawdź cron" i „Kopiuj". To MODYFIKATOR `.btn--ghost`, a nie nowy przycisk —
+   geometria, ramka i tło zostają stamtąd, dokładają się barwa akcji, waga napisu i ikona.
+   ⚠ Dlaczego modyfikator, a nie zmiana samego `.btn--ghost`: ta klasa stoi w 92 miejscach
+   w szablonach, więc przemalowanie jej na barwę akcji przerysowałoby pół programu — to jest
+   decyzja zakresowa, nie poprawka ekranu ustawień.
+   ⚠ Wysokość zostaje `--control-h` (38 px, z `.btn`), czyli dokładnie tyle co pole obok przy
+   „Kopiuj". W prototypie stały dwie liczby, 36 i 40 px; w tym systemie kontrolka ma 38, więc
+   dwie liczby zlewają się w jedną i przycisk przy polu jest z nim równy co do piksela. */
+.btn--akcja {
+  padding: 0 var(--s-3);
+  border-color: var(--c-line-strong);
+  background: var(--c-surface);
+  color: var(--c-accent-text);
+  font-size: var(--t-small);
+  font-weight: var(--w-semibold);
+}
+.btn--akcja .ico { width: 16px; height: 16px; flex: 0 0 auto; }
+@media (hover: hover) {
+  .btn--akcja:hover { background: var(--c-accent-soft); border-color: var(--c-accent); color: var(--c-accent-text); }
+}
+
 .btn[disabled] { opacity: .5; cursor: not-allowed; }
 
 /* ⚠ `flex-wrap: wrap` jest obowiązkowe, nie kosmetyczne. Stary `devices__actions` je miał,
@@ -1412,6 +1434,152 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 .settings-list__copy small { font-size: var(--t-caption); color: var(--c-text-3); }
 
 .settings-list__row > span:last-child { color: var(--c-text-4); }
+
+/* ——— ekran ustawień: układ z 18.10.2026 (zlecenie Z27) ————————————————————————
+
+   ⚠ Cała rodzina `.ustaw-*` **dokłada układ, nie nowy język wizualny**: karta, kafel, plakietka,
+   przycisk i pole są tymi samymi komponentami, co wszędzie indziej. To jest powód, dla którego
+   nie ma tu ani jednej nowej barwy. */
+
+/* ⚠ **Znak karty: kwadrat z ikoną po lewej stronie tytułu** (§3 zlecenia). Sama ikona 20 px przy
+   tytule 16 px ginie; kwadrat w tle `--c-accent-soft` daje nagłówkom kart jeden rytm na całym
+   ekranie i od razu mówi, o czym jest karta.
+   ⚠ Bok kwadratu to **wysokość kontrolki** (`--control-h`), a nie osobna liczba: w prototypie
+   stało 40 px, a kontrolka w tym systemie ma 38 — kwadrat równy przyciskowi i polu trzyma jeden
+   rytm pionowy, własna liczba rozjeżdżałaby się przy każdej zmianie wysokości kontrolek. */
+.card__head--znak { align-items: flex-start; justify-content: flex-start; gap: var(--s-3); }
+.card__znak {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: var(--control-h);
+  height: var(--control-h);
+  border-radius: var(--radius-card);
+  background: var(--c-accent-soft);
+  color: var(--c-accent-text);
+}
+/* ⚠ Ikona w znaku ma 20 px, a nie domyślne 18 z `.ico`: w kwadracie 38 px osiemnastka zostawia
+   po 10 px światła z każdej strony i rysunek pływa w środku. To jedyne miejsce, w którym ikona
+   jest większa od reszty rodziny — bo jedyne, w którym stoi na własnym tle, a nie w tekście. */
+.card__znak .ico { width: 20px; height: 20px; }
+.card__tytuly { display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; }
+/* ⚠ Opis karty stoi POD tytułem, a nie po prawej stronie nagłówka (tam stał `.card__meta`):
+   wyrównany do prawej czytał się jak druga, niezależna informacja, a jest podpisem tytułu. */
+.card__opis { font-size: var(--t-caption); color: var(--c-text-3); line-height: var(--lh-body); }
+
+/* Dwie kolumny: po lewej zdanie o skutkach, po prawej decyzja do podjęcia. */
+.ustaw-dwie {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, auto);
+  gap: var(--s-5);
+  align-items: start;
+}
+@container karta (max-width: 700px) {
+  .ustaw-dwie { grid-template-columns: minmax(0, 1fr); }
+}
+@supports not (container-type: inline-size) {
+  @media (max-width: 1020px) { .ustaw-dwie { grid-template-columns: minmax(0, 1fr); } }
+}
+/* ⚠ Pole i przycisk w jednym rzędzie — przycisk pod polem sugerował, że zapisuje coś więcej
+   niż to jedno pole. `flex-wrap` jest obowiązkowy: na telefonie przycisk schodzi pod pole. */
+.ustaw-rzad { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
+/* ⚠ Szerokość pola jest ZMIERZONA, nie dobrana: najdłuższa nazwa strefy z listy
+   („America/Argentina/Buenos_Aires") ma przy 14 px około 215 px, a kontrolka dokłada wyściółkę
+   i strzałkę. Przy węższym polu nazwa ucina się wielokropkiem w jedynym miejscu, w którym
+   trzeba ją przeczytać w całości. `max-width` oddaje wszystko, gdy karta jest węższa. */
+.ustaw-rzad__pole { width: 280px; max-width: 100%; }
+
+/* ⚠ **Wiersz konfiguracji z przyciskiem** (§5 zlecenia; system wizualny 1.18.7).
+   Cały wiersz jest jednym odnośnikiem, a przycisk po prawej jest jego CZĘŚCIĄ, nie drugim celem
+   kliknięcia — stąd `<span class="btn">` wewnątrz `<a>`, a nie zagnieżdżone działanie
+   (zagnieżdżanie przycisku w odnośniku jest niedozwolone i daje dwa różne cele dla klawiatury).
+   ⚠ Obie szerokości z jednej zmiennej: dwa przyciski w kolumnie o dwóch różnych szerokościach
+   czytają się jak dwa różne rodzaje działania. */
+.settings-list--akcje { --ustaw-akcja-w: 156px; }
+.settings-list--akcje .settings-list__row {
+  gap: var(--s-4);
+  padding: var(--s-3) var(--s-4);
+  border-radius: var(--radius);
+}
+.settings-list__akcja { flex: 0 0 auto; width: var(--ustaw-akcja-w); justify-content: flex-start; }
+/* ⚠ Trzy klasy w selektorze nie są ozdobą: reguła bazowa `.settings-list__row > span:last-child`
+   (napisana dla samego „›") maluje ostatnie dziecko na `--c-text-4` i ma wyższą szczegółowość
+   niż sam modyfikator przycisku. Bez tego przycisk działania byłby szary. */
+.settings-list--akcje .settings-list__row .settings-list__akcja { color: var(--c-accent-text); }
+.settings-list__dalej { margin-left: auto; }
+/* ⚠ Na wąskiej karcie przycisk schodzi pod nazwę: przy 343 px ekranu zabierał połowę wiersza
+   i nazwa „Nazwy wyświetlane spółek" łamała się na trzy linie obok guzika (zmierzone na
+   zrzucie 375 px). Próg pyta o KARTĘ, nie o okno — ten sam ekran stoi w kolumnie 1558 px
+   i w 343 px, a reguła dotyczy potomka kontenera, więc zapytanie działa. */
+@container karta (max-width: 380px) {
+  .settings-list--akcje .settings-list__row { flex-wrap: wrap; }
+  .settings-list--akcje .settings-list__copy { flex: 1 0 100%; }
+  .settings-list__akcja { width: 100%; }
+}
+@media (hover: hover) {
+  .settings-list--akcje .settings-list__row:hover { background: var(--c-surface-hover); }
+  .settings-list--akcje .settings-list__row:hover .settings-list__akcja {
+    background: var(--c-accent-soft);
+    border-color: var(--c-accent);
+  }
+}
+
+/* ⚠ Cztery kafelki danych crona na TLE STRONY wewnątrz karty: to cztery odpowiedzi czytane obok
+   siebie, a nie lista par czytana jedna za drugą. `auto-fit` zamiast progów — podłoga 160 px
+   bierze się z najdłuższej etykiety („Zadeklarowana częstotliwość" ma przy 12 px około 150 px),
+   więc kafelki same schodzą do dwóch i do jednej kolumny, bez trzech liczb w arkuszu. */
+.ustaw-dane { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--s-3); }
+.ustaw-dana {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  min-width: 0;
+  padding: var(--s-3);
+  border-radius: var(--radius);
+  background: var(--c-bg);
+}
+.ustaw-dana__etykieta { font-size: var(--t-caption); color: var(--c-text-3); line-height: var(--lh-tight); }
+.ustaw-dana__wartosc {
+  font-size: var(--t-lead);
+  font-weight: var(--w-semibold);
+  color: var(--c-text);
+  line-height: var(--lh-tight);
+  overflow-wrap: anywhere;
+}
+/* Ta sama para stanów, co w `.kafel__wartosc` i `.stats__value`: „nie wiemy" jest cichsze. */
+.ustaw-dana__wartosc--brak { color: var(--c-text-3); font-weight: var(--w-regular); }
+.ustaw-dana__podpis { font-size: var(--t-caption); color: var(--c-text-4); line-height: var(--lh-tight); }
+
+/* Pasek sondy: zdanie po lewej, działanie po prawej — w ramce, bo to jedna rzecz, a nie dwie. */
+.ustaw-pasek {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius);
+}
+.ustaw-pasek__tresc { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); min-width: 0; }
+
+/* Zwijana instrukcja dla hostingodawcy — tytuł i metryka w jednym wierszu `summary`. */
+.disclosure__tytul { font-size: var(--t-body); font-weight: var(--w-medium); color: var(--c-text); }
+.disclosure__meta { margin-left: auto; font-size: var(--t-caption); color: var(--c-text-3); }
+.disclosure > summary .ico { flex: 0 0 auto; }
+
+/* ⚠ Trzy karty obok siebie, na telefonie jedna pod drugą. `auto-fit` z podłogą 240 px zamiast
+   progu od okna: te karty stoją raz w kolumnie treści 1558 px, a raz w 343 px na telefonie,
+   i obie sytuacje wychodzą z jednej reguły. */
+.ustaw-trio { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--s-4); align-items: start; }
+
+/* Para etykieta/wartość w małych kartach. Bez przycisku — żaden z tych wierszy nie jest dziś
+   do kliknięcia, a przycisk, który tylko wygląda na działanie, jest gorszy niż jego brak. */
+.ustaw-para { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); padding: var(--s-3) 0; }
+.ustaw-para + .ustaw-para { border-top: 1px solid var(--c-line-soft); }
+.ustaw-para__etykieta { font-size: var(--t-caption); color: var(--c-text-3); min-width: 0; }
+.ustaw-para__wartosc { font-size: var(--t-body); font-weight: var(--w-semibold); color: var(--c-text); white-space: nowrap; }
 
 @media (hover: hover) {
   .settings-list__row:is(a, button):hover { color: var(--c-text); text-decoration: none; }
@@ -3746,3 +3914,34 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   @media (max-width: 900px) { .kafel { grid-column: span 3; } }
   @media (max-width: 560px) { .kafel__wartosc { font-size: var(--t-h2); white-space: normal; } }
 }
+
+/* ⚠ **Pasek pięciu kafli, a nie sześciu** — i dlatego jest modyfikator, a nie nowy komponent:
+   `.kafel` ma zostać tym samym kafelkiem, co na pulpicie (ta sama ramka, ten sam rytm), zmienia
+   się wyłącznie liczba kolumn.
+
+   ⚠ **Liczbę kolumn robi `auto-fit`, a NIE zapytanie kontenerowe — i to nie jest wybór stylu.**
+   Pierwsza wersja miała `@container kafle (max-width: …) { .kafle--piec { grid-template-columns: … } }`
+   i nie zadziałała ani razu: **zapytanie kontenerowe nie pyta o SIEBIE**, a `.kafle--piec` jest
+   tym samym elementem, co kontener `kafle`. Na telefonie zostawało pięć kolumn i nazwa strefy
+   łamała się po jednej literze (zmierzone na zrzucie 375 px). Pulpit omija to inaczej —
+   przestawia `grid-column` DZIECI, bo dziecko kontenerem nie jest.
+   `auto-fit` z podłogą 160 px daje 5 kolumn w kolumnie treści 1558 px, 3 przy ~610 px
+   i 2 na telefonie (343 px), bez ani jednego progu w arkuszu: puste tory się zwijają,
+   a `1fr` rozdziela miejsce między te zajęte.
+   ⚠ `grid-column: auto` na dziecku jest konieczne: progowe reguły pulpitu (`.kafel { grid-column:
+   span 2 }`) trafiają i tutaj, bo kontener nazywa się tak samo — a `span 2` przy torach
+   z `auto-fit` daje kafelki na dwa tory i wiersz rozsypany w pół. */
+.kafle--piec { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+.kafle--piec .kafel { grid-column: auto; }
+/* Przy wąskim pasku dana schodzi do `--t-h2` — tak samo jak na pulpicie, tylko próg jest inny,
+   bo tu daną bywa nazwa strefy albo adres poczty, a nie liczba. Reguła dotyczy DZIECKA, więc
+   zapytanie kontenerowe działa. */
+@container kafle (max-width: 614px) {
+  .kafle--piec .kafel__wartosc { font-size: var(--t-h2); }
+}
+/* ⚠ **Tu dana MOŻE się zawinąć, na pulpicie nie mogła** — i to nie jest niezgodność, tylko inna
+   treść: pulpit pokazuje liczby i daty („27 dni 6 godz."), które złamane w pół czytają się jak
+   dwie dane, a ten pasek pokazuje słowa i ADRES POCZTY. Adres bez zawijania wychodzi poza kafelek
+   i robi przewijanie w poziomie całej karty — czyli naruszenie bramki, a nie drobiazg. */
+.kafle--piec .kafel__wartosc { white-space: normal; overflow-wrap: anywhere; }
+

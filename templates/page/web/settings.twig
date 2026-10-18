@@ -3,10 +3,8 @@
 {% block nazwa_ekranu %}Ustawienia{% endblock %}
 
 {% block content %}
-    <div class="page__head">
-        <div class="page__title">
-            <p class="page__sub">Konfiguracja instalacji.</p>
-        </div>
-    </div>
+    {#- ⚠ **Bez nagłówka strony** (zlecenie Z27 §1): zdanie „Konfiguracja instalacji." nie mówiło
+        nic ponad nazwę ekranu, która stoi już w belce, a `.page__head` bez tytułu i bez akcji
+        zostawiał nad paskiem kafli pustą ramkę wysokości wiersza. -#}
     {% include 'partials/page/settings.twig' %}
 {% endblock %}

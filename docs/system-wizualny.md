@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.6, 18.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.7, 18.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,51 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.6 → 1.18.7: ekran `/ustawienia` ma układ pulpitu, nie listy kart**
+> (zlecenie Z27, 18.10.2026 — prototyp zaakceptowany przez Krzysztofa). Funkcje, formularze
+> i adresy zostały bez zmian; zmienił się wyłącznie układ i to, co widać bez przewijania.
+> **(1)** **Pasek pięciu kafli stanu instalacji** na górze — ten sam komponent `.kafle`/`.kafel`,
+> co na pulpicie, bez otaczającej karty, w modyfikatorze `.kafle--piec`. Kafle odpowiadają
+> na pytanie „czy instalacja jest gotowa" przed rozwinięciem czegokolwiek: strefa, cron, poczta,
+> weryfikacja dwuetapowa, skrzynka na alerty. Stan nieustawiony idzie barwą wartości
+> (`--kafel__wartosc--odchylenie`, czyli `--c-warn-text`), nie plakietką.
+> ⚠ **Liczbę kolumn robi `auto-fit` z podłogą 160 px, a nie zapytanie kontenerowe.** Pierwsza
+> wersja pytała `@container kafle` o samo `.kafle--piec` i nie zadziałała ani razu — **zapytanie
+> kontenerowe nie pyta o siebie**. Na telefonie zostawało pięć kolumn, a nazwa strefy łamała się
+> po jednej literze. Wychodzi 5 kolumn przy 1558 px, 3 przy ~610 px i 2 na telefonie.
+> **(2)** **Nagłówek karty ma znak**: kwadrat o boku `--control-h` (38 px — tyle co pole
+> i przycisk, więc nagłówek trzyma ten sam rytm), promień `--radius-card`, tło `--c-accent-soft`,
+> ikona 20 px w `--c-accent-text`. Opis karty zszedł **spod tytułu** zamiast stać po prawej:
+> wyrównany do prawej czytał się jak druga, niezależna informacja, a jest podpisem tytułu.
+> **(3)** ⚠ **NOWY WZORZEC: wiersz konfiguracji z przyciskiem** (`.settings-list--akcje`).
+> Cały wiersz jest jednym odnośnikiem, a przycisk po prawej jest jego **częścią**, nie drugim
+> celem kliknięcia — stąd `<span class="btn …">` wewnątrz `<a>`, bo przycisku w odnośniku
+> zagnieździć nie wolno. Oba przyciski mają jedną szerokość z jednej zmiennej
+> (`--ustaw-akcja-w`): dwa przyciski w kolumnie o dwóch szerokościach czytają się jak dwa różne
+> rodzaje działania. Po najechaniu tło wiersza `--c-surface-hover`, a przycisku `--c-accent-soft`
+> z ramką `--c-accent`. Na karcie węższej niż 380 px przycisk schodzi pod nazwę.
+> **(4)** **Działanie drugorzędne z ikoną** (`.btn--akcja`): ramka `--c-line-strong`, tło
+> `--c-surface`, napis `--t-small` 600 w `--c-accent-text`, ikona 16 px, wysokość `--control-h`.
+> ⚠ To **modyfikator `.btn--ghost`**, nie nowy przycisk: sama klasa `.btn--ghost` stoi w 92
+> miejscach w szablonach, więc przemalowanie jej byłoby przerysowaniem pół programu — czyli
+> decyzją zakresową, nie poprawką jednego ekranu. W prototypie stały dwie wysokości (36 i 40 px);
+> w tym systemie kontrolka ma 38, więc obie zlewają się w jedną i „Kopiuj" jest równe polu.
+> **(5)** **Cron**: cztery kafelki danych na tle strony (`--c-bg`, promień `--radius`) zamiast
+> listy par, pasek z ramką „Ostatnie potwierdzenie …" plus „Sprawdź cron", a instrukcja
+> „Co ustawić u hostingodawcy" przestała być osobną kartą i jest **zwiniętą sekcją `<details>`**
+> wewnątrz karty crona. Zniknęła plakietka „cron podejmuje zadania": stan spodziewany nie
+> potrzebuje znaku, a plakietki zostają tam, gdzie coś jest nie tak.
+> **(6)** **Trzy małe karty obok siebie** na dole (weryfikacja, powiadomienia, integracja),
+> na telefonie jedna pod drugą. Plakietki niosą znaczenie: zielona „wymagana", szara
+> „do ustalenia (Etap 3)", bursztynowa „nie ustawiono"; progi godzinowe są wartością 14 px 600,
+> nie plakietką. ⚠ Znak wiersza przychodzi **z kontrolera** (`w.znak`), szablon tylko dobiera
+> klasę — o tym, co wiersz znaczy, wie serwer.
+> **(7)** Zniknęły: zdanie „Konfiguracja instalacji." razem z pustym `.page__head` i plakietka
+> stanu poczty w wierszu listy (stan jest w kaflu i na ekranie poczty — trzy miejsca na jedną
+> daną to trzy miejsca do rozjechania).
+> **Pomiar**: 1920, 1366 i 375 px — zero przewijania w poziomie na stronie i w każdej karcie,
+> pasek kafli 5 / 5 / 2 w rzędzie, oba przyciski wierszy po 156 × 38 px.
 
 > **Zmiana 1.18.5 → 1.18.6: przyklejony wiersz dni JEST górną krawędzią bloku z siatką**
 > (zlecenie Z26, 18.10.2026 — poprawka Z24/Z25 po sprawdzeniu z Krzysztofem w jego przeglądarce,
@@ -638,9 +683,19 @@ pudełka (lista ucięta stylem dalej niesie cały HTML dla czytnika ekranu).
 ⚠ Kwadraty `.kal-btn` to **osobny komponent, nie `.segmented`** — `.segmented` stoi na czterech
 innych ekranach (przełącznik roku, zakres uprawnień) i tam zostaje taki, jaki jest.
 
-*Pasek kafli pulpitu (1.18, zlecenie Z15)*
+*Pasek kafli pulpitu (1.18, zlecenie Z15; `--piec` 1.18.7, Z27)*
 `.kafle` `.kafel` `.kafel__glowa` `.kafel__etykieta` `.kafel__dana` `.kafel__wartosc`
 `.kafel__wartosc--brak` `.kafel__wartosc--odchylenie` `.kafel__reszta` `.kafel__opis`
+`.kafle--piec` (pasek pięciu kafli stanu instalacji — liczba kolumn z `auto-fit`, nie z progu)
+
+*Ekran ustawień (1.18.7, zlecenie Z27)*
+`.card__head--znak` `.card__znak` `.card__tytuly` `.card__opis`
+`.ustaw-dwie` `.ustaw-rzad` `.ustaw-rzad__pole`
+`.settings-list--akcje` `.settings-list__akcja` `.settings-list__dalej`
+`.ustaw-dane` `.ustaw-dana` `.ustaw-dana__etykieta` `.ustaw-dana__wartosc`
+`.ustaw-dana__wartosc--brak` `.ustaw-dana__podpis`
+`.ustaw-pasek` `.ustaw-pasek__tresc` `.ustaw-trio` `.ustaw-para` `.ustaw-para__etykieta`
+`.ustaw-para__wartosc` `.disclosure__tytul` `.disclosure__meta` `.btn--akcja`
 
 *Wybór zakresu i kontekstu*
 `.menu` `.menu--wybor` `.menu__trigger` `.menu__trigger--osoby` `.menu__body` `.menu__item`

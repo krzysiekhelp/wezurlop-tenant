@@ -1,27 +1,125 @@
-{#- Ustawienia tenanta. Zmienne: strefa, strefy, notice, error, groups (title, rows: label, value). -#}
+{#- Ustawienia tenanta (układ z 18.10.2026, zlecenie Z27 — prototyp zaakceptowany przez
+    Krzysztofa). Zmienne: strefa, strefy, teraz_utc, notice, error, poczta_rodzaj, alert_email,
+    cron, grupy (tytul, ikona, wiersze: etykieta, wartosc, znak).
+
+    ⚠ **Zmienił się wyłącznie wygląd.** Adresy, formularze i działania są te same co przed Z27:
+    `POST /ustawienia/strefa`, `POST /ustawienia/cron/sprawdz`, odnośniki do `/ustawienia/spolki`
+    i `/ustawienia/poczta`, kopiowanie poleceń przez `data-copy`. Ekran ma nowy układ, nie nowe
+    funkcje — i to jest cały zakres zlecenia.
+
+    ⚠ **Pasek kafli to TEN SAM komponent co na pulpicie** (`.kafle`/`.kafel`), bez otaczającej
+    karty. Powód jest ten sam, co tam (system wizualny 1.18, Z20): karta wokół kafli-kart to
+    ramka w ramce. Różni się jedna rzecz — pięć kolumn zamiast sześciu (`.kafle--piec`).
+
+    ⚠ **Ikonę wybiera JAWNY WARUNEK**, nie wywołanie makra po napisie z serwera. Ta sama zasada
+    co na pulpicie: po `{{ ikony.koperta() }}` widać, który rysunek należy do którego miejsca,
+    i da się to wygrepować. -#}
+{% import 'partials/ikony.twig' as ikony %}
+
 {% if notice is not null %}<p class="notice" role="status">{{ notice }}</p>{% endif %}
 {% if error is not null %}<p class="notice notice--danger" role="alert">{{ error }}</p>{% endif %}
 
+{#- ══════════ Pasek stanu instalacji (§2 zlecenia) ══════════
+    ⚠ Pięć kafli odpowiada na pytanie „czy instalacja jest gotowa", zanim ktokolwiek rozwinie
+    którąkolwiek kartę niżej. Każdy z nich ma odpowiednik w karcie poniżej — to jest skrót,
+    a nie drugie źródło prawdy. -#}
+<section class="kafle kafle--piec" aria-label="Stan instalacji">
+    <div class="kafel">
+        <span class="kafel__glowa">{{ ikony.zegar() }}<span class="kafel__etykieta">Strefa czasowa</span></span>
+        <span class="kafel__dana">
+            <span class="kafel__wartosc">{{ strefa }}</span>
+            <span class="kafel__opis">teraz {{ czas_ze_strefa(teraz_utc) }}</span>
+        </span>
+    </div>
+    <div class="kafel">
+        <span class="kafel__glowa">{{ ikony.odswiezenie() }}<span class="kafel__etykieta">Cron</span></span>
+        <span class="kafel__dana">
+            {#- ⚠ Trzy stany, nie dwa: „zadeklarowany, ale niepotwierdzony" to nie to samo
+                co „działa" — do pierwszego przebiegu pilne wiadomości domyka żądanie. -#}
+            {% if cron.awaria %}
+                <span class="kafel__wartosc kafel__wartosc--odchylenie">nie działa</span>
+            {% elseif not cron.potwierdzony %}
+                <span class="kafel__wartosc kafel__wartosc--odchylenie">niepotwierdzony</span>
+            {% else %}
+                <span class="kafel__wartosc">działa</span>
+            {% endif %}
+            <span class="kafel__opis">
+                {%- if cron.nigdy %}nigdy nie przebiegł
+                {%- elseif cron.wiek == 0 %}ostatni przebieg mniej niż minutę temu
+                {%- else %}ostatni przebieg {{ cron.wiek }} min temu{% endif -%}
+            </span>
+        </span>
+    </div>
+    <div class="kafel">
+        <span class="kafel__glowa">{{ ikony.koperta() }}<span class="kafel__etykieta">Poczta wychodząca</span></span>
+        <span class="kafel__dana">
+            {% if poczta_rodzaj == 'smtp' %}
+                <span class="kafel__wartosc">gotowa</span>
+                <span class="kafel__opis">SMTP skonfigurowany</span>
+            {% elseif poczta_rodzaj == 'plik' %}
+                <span class="kafel__wartosc kafel__wartosc--odchylenie">zrzut do pliku</span>
+                <span class="kafel__opis">tryb deweloperski, nic nie wychodzi</span>
+            {% else %}
+                <span class="kafel__wartosc kafel__wartosc--odchylenie">brak</span>
+                <span class="kafel__opis">nie skonfigurowano</span>
+            {% endif %}
+        </span>
+    </div>
+    <div class="kafel">
+        <span class="kafel__glowa">{{ ikony.licencja() }}<span class="kafel__etykieta">Weryfikacja 2-etapowa</span></span>
+        <span class="kafel__dana">
+            <span class="kafel__wartosc">wymagana</span>
+            <span class="kafel__opis">dla administratora</span>
+        </span>
+    </div>
+    <div class="kafel">
+        <span class="kafel__glowa">{{ ikony.dzwonek() }}<span class="kafel__etykieta">Skrzynka na alerty</span></span>
+        <span class="kafel__dana">
+            {#- ⚠ Brak adresu jest OSTRZEŻENIEM, nie brakiem danej: alerty o próbach logowania
+                i o milczącym kluczu integracji nie mają wtedy dokąd pójść. -#}
+            {% if alert_email is null %}
+                <span class="kafel__wartosc kafel__wartosc--odchylenie">brak</span>
+                <span class="kafel__opis">nie ustawiono adresu</span>
+            {% else %}
+                <span class="kafel__wartosc">{{ alert_email }}</span>
+                <span class="kafel__opis">adres alertowy</span>
+            {% endif %}
+        </span>
+    </div>
+</section>
+
+{#- ══════════ Strefa czasowa ══════════ -#}
 <section class="card">
-    <div class="card__head">
-        <h2 class="card__title">Strefa czasowa</h2>
-        <span class="card__meta">czas w bazie zostaje w UTC — to ustawienie mówi, w czym go pokazujemy</span>
+    {#- ⚠ **Znak karty to kwadrat z ikoną, nie sama ikona** (§3 zlecenia): przy tytule 16 px
+        sama kreska 20 px ginie, a kwadrat 40 px daje nagłówkom kart jeden rytm na całym ekranie.
+        Opis zszedł SPOD tytułu zamiast stać po prawej — wyrównany do prawej czytał się jak
+        druga, niezależna informacja, a jest podpisem tytułu. -#}
+    <div class="card__head card__head--znak">
+        <span class="card__znak">{{ ikony.zegar() }}</span>
+        <div class="card__tytuly">
+            <h2 class="card__title">Strefa czasowa</h2>
+            <p class="card__opis">Czas w bazie zostaje w UTC — to ustawienie mówi, w czym go pokazujemy.</p>
+        </div>
     </div>
     <div class="card__body">
-        <p class="measure">Wszystkie godziny w aplikacji, w powiadomieniach i w eksportach pokazujemy w tej strefie.
-            Daty kalendarzowe — początek i koniec nieobecności, daty zatrudnienia — nie zależą od strefy i nie zmienią się.</p>
-        <form method="post" action="{{ url('/ustawienia/strefa') }}" class="form-column">
-            {% include 'partials/csrf.twig' %}
-            <label class="field">
-                <span class="field__label">Strefa czasowa instalacji</span>
-                <select class="select" name="strefa">
-                    {% for s in strefy %}
-                        <option value="{{ s }}"{{ s == strefa ? ' selected' : '' }}>{{ s }}</option>
-                    {% endfor %}
-                </select>
-            </label>
-            <button type="submit" class="btn btn--primary">Zapisz strefę</button>
-        </form>
+        <div class="ustaw-dwie">
+            <p class="measure">Wszystkie godziny w aplikacji, w powiadomieniach i w eksportach pokazujemy w tej strefie.
+                Daty kalendarzowe — początek i koniec nieobecności, daty zatrudnienia — nie zależą od strefy i nie zmienią się.</p>
+            <form method="post" action="{{ url('/ustawienia/strefa') }}" class="field">
+                {% include 'partials/csrf.twig' %}
+                <span class="field__label" id="strefa-etykieta">Strefa czasowa instalacji</span>
+                {#- ⚠ Pole i przycisk w JEDNYM rzędzie: wybór strefy to jedna decyzja, a przycisk
+                    pod polem sugerował, że zapisuje coś więcej niż to pole. -#}
+                <div class="ustaw-rzad">
+                    <select class="select ustaw-rzad__pole" name="strefa" aria-labelledby="strefa-etykieta">
+                        {% for s in strefy %}
+                            <option value="{{ s }}"{{ s == strefa ? ' selected' : '' }}>{{ s }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn--primary">Zapisz strefę</button>
+                </div>
+            </form>
+        </div>
         <div class="defs">
             <div><div class="defs__term">Teraz w strefie instalacji</div><div class="defs__value">{{ czas_ze_strefa(teraz_utc) }}</div></div>
         </div>
@@ -30,30 +128,40 @@
     </div>
 </section>
 
-{#- Odnośnik do osobnego ekranu: nazwy wyświetlane spółek (§8). Wiersz listy, nie kafelek —
-    to przejście dalej, nie ustawienie do zmiany w miejscu. -#}
+{#- ══════════ Firmy i poczta (§5 zlecenia) ══════════
+    ⚠ Oba wiersze prowadzą dalej, więc **cały wiersz jest odnośnikiem**, a przycisk po prawej
+    jest jego częścią, nie drugim celem kliknięcia (jeden `<a>`, zero zagnieżdżonych działań).
+    ⚠ **Plakietki stanu poczty już tu nie ma** (§5): stan jest w kaflu na górze ekranu i na
+    ekranie poczty, a trzy miejsca na tę samą daną to trzy miejsca do rozjechania. -#}
 <section class="card">
-    <div class="card__head"><h2 class="card__title">Firmy i poczta</h2></div>
+    <div class="card__head card__head--znak">
+        <span class="card__znak">{{ ikony.firma() }}</span>
+        <div class="card__tytuly">
+            <h2 class="card__title">Firmy i poczta</h2>
+            <p class="card__opis">Nazwy widoczne dla ludzi i kanał, którym wychodzą wiadomości.</p>
+        </div>
+    </div>
     <div class="card__body card__body--tight">
-        <ul class="settings-list">
+        <ul class="settings-list settings-list--akcje">
             <li><a class="settings-list__row" href="{{ url('/ustawienia/spolki') }}">
-                <span class="settings-list__copy">Nazwy wyświetlane spółek</span>
-                <span aria-hidden="true">›</span>
+                <span class="settings-list__copy">
+                    <strong>Nazwy wyświetlane spółek</strong>
+                    <small>Jak firmy nazywają się w aplikacji</small>
+                </span>
+                <span class="btn btn--ghost btn--akcja settings-list__akcja">{{ ikony.olowek() }}Zmień nazwy<span class="settings-list__dalej" aria-hidden="true">›</span></span>
             </a></li>
-            {#- ⚠ Stan poczty widać już tutaj: „nieskonfigurowana" znaczy, że zaproszenia
-                i resety haseł nie docierają do nikogo, więc nie może być schowane o klik dalej. -#}
             <li><a class="settings-list__row" href="{{ url('/ustawienia/poczta') }}">
-                <span class="settings-list__copy">Poczta wychodząca (SMTP)</span>
-                {% if poczta_rodzaj == 'smtp' %}<span class="chip">skonfigurowana</span>
-                {% elseif poczta_rodzaj == 'plik' %}<span class="chip chip--warn">zrzut do pliku (dev)</span>
-                {% else %}<span class="chip chip--danger">nieskonfigurowana</span>{% endif %}
-                <span aria-hidden="true">›</span>
+                <span class="settings-list__copy">
+                    <strong>Poczta wychodząca (SMTP)</strong>
+                    <small>Serwer, port i nadawca wiadomości</small>
+                </span>
+                <span class="btn btn--ghost btn--akcja settings-list__akcja">{{ ikony.ustawienia() }}Konfiguruj<span class="settings-list__dalej" aria-hidden="true">›</span></span>
             </a></li>
         </ul>
     </div>
 </section>
 
-{#- ══════════ CRON — „co mam wpisać u hostingodawcy" (zlecenie §7) ══════════
+{#- ══════════ CRON — „co mam wpisać u hostingodawcy" ══════════
 
     ⚠ To NIE jest powtórzenie diagnostyki: dane idą z tej samej klasy (`Service\CronStan`),
     ale odpowiadają na inne pytanie. Diagnostyka mówi „czy wszystko gra" i czyta ją ktoś, kto
@@ -63,9 +171,12 @@
     ⚠ Bez przycisku „uruchom teraz": kolejka ma chodzić w tle, a uruchomienie w żądaniu przy
     limicie 30 s to dokładnie ta pułapka, przez którą wysyłka kiedyś wisiała w formularzu. -#}
 <section class="card">
-    <div class="card__head">
-        <h2 class="card__title">Cron — zadania w tle</h2>
-        <span class="card__meta">bez niego nic nie dzieje się poza kliknięciem użytkownika</span>
+    <div class="card__head card__head--znak">
+        <span class="card__znak">{{ ikony.odswiezenie() }}</span>
+        <div class="card__tytuly">
+            <h2 class="card__title">Cron — zadania w tle</h2>
+            <p class="card__opis">Bez niego nic nie dzieje się poza kliknięciem użytkownika.</p>
+        </div>
     </div>
     <div class="card__body">
         {% if cron.awaria %}
@@ -79,42 +190,76 @@
             <p class="notice notice--warn" role="status">Cron jest zadeklarowany, ale jeszcze nie potwierdzony przebiegiem. Do tego czasu pilne wiadomości wychodzą także po zwykłych żądaniach.</p>
         {% endif %}
 
-        <div class="defs">
-            {#- ⚠ OBIE formy, i czas bezwzględny NIE w `title`: `title` nie istnieje na telefonie
-                i nie wchodzi na zrzut ekranu — a zrzut od klienta to często jedyne, co dostajemy.
-                „Ile temu" jest prawdą w chwili renderowania, więc karta otwarta przed godziną
-                kłamie; tylko data z sekundami i strefą da się zestawić z logiem i z dziennikiem. -#}
-            <div>
-                <div class="defs__term">Ostatni przebieg</div>
-                <div class="defs__value">
-                    {%- if cron.nigdy %}<span class="chip chip--danger">nigdy</span>
-                    {%- else %}{{ cron.wiek == 0 ? 'mniej niż minutę temu' : cron.wiek ~ ' min temu' }}
-                    <span class="cell__druga">{{ czas_pelny(cron.ostatni_utc) }}</span>
-                    {%- endif %}
-                </div>
+        {#- ⚠ Cztery kafelki danych na tle strony, a nie lista par: to są CZTERY ODPOWIEDZI
+            na cztery pytania („kiedy ostatnio", „kiedy znowu", „jak często", „jaki serwer"),
+            czytane obok siebie, a nie jedna za drugą.
+            ⚠ OBIE formy czasu, i czas bezwzględny NIE w `title`: `title` nie istnieje na telefonie
+            i nie wchodzi na zrzut ekranu — a zrzut od klienta to często jedyne, co dostajemy.
+            „Ile temu" jest prawdą w chwili renderowania, więc karta otwarta przed godziną
+            kłamie; tylko data z sekundami i strefą da się zestawić z logiem i z dziennikiem. -#}
+        <div class="ustaw-dane">
+            <div class="ustaw-dana">
+                <span class="ustaw-dana__etykieta">Ostatni przebieg</span>
+                {% if cron.nigdy %}
+                    <span class="ustaw-dana__wartosc"><span class="chip chip--danger">nigdy</span></span>
+                {% else %}
+                    <span class="ustaw-dana__wartosc">{{ cron.wiek == 0 ? 'mniej niż minutę temu' : cron.wiek ~ ' min temu' }}</span>
+                    <span class="ustaw-dana__podpis">{{ czas_pelny(cron.ostatni_utc) }}</span>
+                {% endif %}
             </div>
-            {#- ⚠ Nie przy awarii: prognoza wyliczona z ostatniego przebiegu wypada wtedy
+            {#- ⚠ Prognoza znika przy awarii: wyliczona z ostatniego przebiegu wypada wtedy
                 w przeszłości i obiecuje coś, co nie nastąpi (patrz ekran Poczty). -#}
-            {% if cron.najblizszy_utc and not cron.awaria %}
-                <div>
-                    <div class="defs__term">Najbliższy spodziewany</div>
-                    {#- Odpowiedź na pytanie, które administrator zadaje tu naprawdę: „czy mam
-                        czekać, czy coś jest zepsute". -#}
+            <div class="ustaw-dana">
+                <span class="ustaw-dana__etykieta">Najbliższy spodziewany</span>
+                {% if cron.najblizszy_utc and not cron.awaria %}
                     {#- ⚠ Bez sekund: to prognoza z zadeklarowanej częstotliwości, a nie pomiar —
                         „około 12:20:01" udawałoby dokładność, której nie mamy. Pełny czas niżej. -#}
-                    <div class="defs__value">około {{ czas_prognoza(cron.najblizszy_utc) }}
-                        <span class="cell__druga">{{ czas_pelny(cron.najblizszy_utc) }}</span>
-                    </div>
-                </div>
-            {% endif %}
-            <div>
-                <div class="defs__term">Zadeklarowana częstotliwość</div>
-                <div class="defs__value">{{ cron.minuty > 0 ? 'co ' ~ cron.minuty ~ ' min' : 'nieznana' }}</div>
+                    <span class="ustaw-dana__wartosc">około {{ czas_prognoza(cron.najblizszy_utc) }}</span>
+                    <span class="ustaw-dana__podpis">{{ czas_pelny(cron.najblizszy_utc) }}</span>
+                {% else %}
+                    <span class="ustaw-dana__wartosc ustaw-dana__wartosc--brak">nie wiadomo</span>
+                    <span class="ustaw-dana__podpis">dopóki cron nie przebiegnie</span>
+                {% endif %}
             </div>
-            <div>
-                <div class="defs__term">Profil serwera</div>
-                <div class="defs__value">{{ cron.profil ?: 'nieustalony' }}</div>
+            <div class="ustaw-dana">
+                <span class="ustaw-dana__etykieta">Zadeklarowana częstotliwość</span>
+                <span class="ustaw-dana__wartosc">{{ cron.minuty > 0 ? 'co ' ~ cron.minuty ~ ' min' : 'nieznana' }}</span>
+                <span class="ustaw-dana__podpis">{{ cron.minuty > 0 ? 'z konfiguracji instalacji' : 'nie podano przy instalacji' }}</span>
             </div>
+            <div class="ustaw-dana">
+                <span class="ustaw-dana__etykieta">Profil serwera</span>
+                <span class="ustaw-dana__wartosc">{{ cron.profil ?: 'nieustalony' }}</span>
+                <span class="ustaw-dana__podpis">{{ cron.po_http ? 'zadanie uruchamiane po HTTP' : 'zadanie z crontaba' }}</span>
+            </div>
+        </div>
+
+        {#- ══ Sonda: „czy cron podejmuje zadania" — pytanie inne niż „kiedy ostatnio przebiegł" ══
+            ⚠ Znacznik przebiegu mówi, że runner ruszył; sonda mówi, że **zadanie postawione teraz**
+            zostało podjęte. Przy pierwszej instalacji to jedyna różnica, która ma znaczenie.
+            ⚠ **Zielonej plakietki „cron podejmuje zadania" już nie ma** (§6 zlecenia): stan
+            spodziewany nie potrzebuje znaku — wystarczy zdanie z datą potwierdzenia. Plakietki
+            zostają tam, gdzie coś jest nie tak (sonda czeka, sonda bez odpowiedzi). -#}
+        <div class="ustaw-pasek">
+            <span class="ustaw-pasek__tresc">
+                {% if cron.sonda.stan == 'czeka' %}
+                    <span class="chip chip--warn">sonda czeka</span>
+                    <span class="field__hint">Postawiona {{ czas_pelny(cron.sonda.wyslana_utc) }}. Podejmie ją najbliższy przebieg crona; jeśli nie zniknie w ciągu {{ cron.sonda.termin_min }} min, cron nie jest ustawiony.</span>
+                {% elseif cron.sonda.stan == 'potwierdzona' %}
+                    <span class="field__hint">Ostatnie potwierdzenie: {{ czas_pelny(cron.sonda.wynik_utc) }}.</span>
+                {% elseif cron.sonda.stan == 'bez_odpowiedzi' %}
+                    <span class="chip chip--danger">sonda bez odpowiedzi</span>
+                    <span class="field__hint">Postawiona {{ czas_pelny(cron.sonda.wyslana_utc) }} i nikt jej nie podjął — <strong>cron nie jest ustawiony</strong>. Polecenie do wklejenia jest niżej.</span>
+                {% else %}
+                    <span class="field__hint">Sonda sprawdza co innego niż znacznik przebiegu: czy zadanie postawione teraz zostanie podjęte.</span>
+                {% endif %}
+            </span>
+            <form method="post" action="{{ url('/ustawienia/cron/sprawdz') }}">
+                {% include 'partials/csrf.twig' %}
+                {#- ⚠ To NIE jest „uruchom teraz": stawia zadanie i wraca. Wykonać ma je przebieg
+                    crona — uruchomienie runnera w żądaniu przy limicie 30 s to ta pułapka,
+                    przez którą wysyłka kiedyś wisiała w formularzu. -#}
+                <button type="submit" class="btn btn--ghost btn--akcja">{{ ikony.odswiezenie() }}Sprawdź cron</button>
+            </form>
         </div>
 
         {#- ⚠ Lista zależności nie jest ozdobą: bez niej klient uzna cron za szczegół techniczny
@@ -123,101 +268,100 @@
             eskalacje i przypomnienia o wnioskach, sprzątanie sesji i danych tymczasowych,
             sprawdzenia kluczy integracji.</p>
 
-        {#- ══ Sonda: „czy cron podejmuje zadania" — pytanie inne niż „kiedy ostatnio przebiegł" ══
-            ⚠ Znacznik przebiegu mówi, że runner ruszył; sonda mówi, że **zadanie postawione teraz**
-            zostało podjęte. Przy pierwszej instalacji to jedyna różnica, która ma znaczenie. -#}
-        <div class="btn-row">
-            {% if cron.sonda.stan == 'czeka' %}
-                <span class="chip chip--warn">sonda czeka</span>
-                <span class="field__hint">Postawiona {{ czas_pelny(cron.sonda.wyslana_utc) }}. Podejmie ją najbliższy przebieg crona; jeśli nie zniknie w ciągu {{ cron.sonda.termin_min }} min, cron nie jest ustawiony.</span>
-            {% elseif cron.sonda.stan == 'potwierdzona' %}
-                <span class="chip">cron podejmuje zadania</span>
-                <span class="field__hint">Ostatnie potwierdzenie: {{ czas_pelny(cron.sonda.wynik_utc) }}.</span>
-            {% elseif cron.sonda.stan == 'bez_odpowiedzi' %}
-                <span class="chip chip--danger">sonda bez odpowiedzi</span>
-                <span class="field__hint">Postawiona {{ czas_pelny(cron.sonda.wyslana_utc) }} i nikt jej nie podjął — <strong>cron nie jest ustawiony</strong>. Polecenie do wklejenia jest niżej.</span>
-            {% endif %}
-            <span class="toolbar__spacer"></span>
-            <form method="post" action="{{ url('/ustawienia/cron/sprawdz') }}">
-                {% include 'partials/csrf.twig' %}
-                {#- ⚠ To NIE jest „uruchom teraz": stawia zadanie i wraca. Wykonać ma je przebieg
-                    crona — uruchomienie runnera w żądaniu przy limicie 30 s to ta pułapka,
-                    przez którą wysyłka kiedyś wisiała w formularzu. -#}
-                <button type="submit" class="btn btn--ghost">Sprawdź cron</button>
-            </form>
-        </div>
-
         {% if cron.minuty == 0 or cron.minuty > 15 %}
             <p class="notice" role="status">Cron rzadszy niż co 15 minut: pilne wiadomości domykamy
                 dodatkowo <strong>po zwykłym żądaniu</strong> użytkownika{% if cron.kolejka_po_zadaniu %} (włączone){% endif %}.
                 Rzadszy cron znaczy <strong>wolniejszą eskalację, nigdy zgubione zadanie</strong>.</p>
         {% endif %}
-    </div>
-</section>
 
-<section class="card">
-    <div class="card__head">
-        <h2 class="card__title">Co ustawić u hostingodawcy</h2>
-        <span class="card__meta">polecenie wyliczone z tej instalacji — nie przykład</span>
-    </div>
-    <div class="card__body">
-        {#- Profil serwera podpowiada kolejność, ale pokazujemy OBA warianty: `SERVER_SOFTWARE`
-            wybiera kandydata, nie rozstrzyga (CLAUDE.md §0). -#}
-        {% set najpierw_http = cron.po_http %}
+        {#- ══ Co ustawić u hostingodawcy — SEKCJA ZWIJANA WEWNĄTRZ karty crona (§6 zlecenia) ══
+            ⚠ Przestała być osobną kartą, bo nią nie jest: to instrukcja do TEGO ustawienia,
+            a jako czwarta karta z własnym tytułem wyglądała na osobny temat i rozpychała ekran
+            na wysokość, przez którą stan crona i polecenie nigdy nie były widoczne naraz.
+            ⚠ Domyślnie zwinięta: czyta ją człowiek, który instaluje system — raz. -#}
+        <details class="disclosure">
+            <summary>
+                {{ ikony.serwer() }}
+                <span class="disclosure__tytul">Co ustawić u hostingodawcy</span>
+                <span class="disclosure__meta">polecenie wyliczone z tej instalacji — nie przykład</span>
+            </summary>
+            <div class="disclosure__body">
+                {#- Profil serwera podpowiada kolejność, ale pokazujemy OBA warianty: `SERVER_SOFTWARE`
+                    wybiera kandydata, nie rozstrzyga (CLAUDE.md §0). -#}
+                {% set najpierw_http = cron.po_http %}
 
-        {% for wariant in (najpierw_http ? ['http', 'crontab'] : ['crontab', 'http']) %}
-            {% if wariant == 'crontab' %}
-                <h3 class="pane__title">Hosting z crontabem{{ najpierw_http ? '' : ' (zalecane)' }}</h3>
-                <p class="field__hint">Wklej jako zadanie crona użytkownika, pod którym działa PHP serwera.</p>
-                <div class="secret">
-                    <div class="secret__row">
-                        <input class="secret__value mono" id="cron-crontab" type="text" value="{{ cron.polecenie_crontab }}" readonly
-                               aria-label="Wpis crontaba dla tej instalacji" autocomplete="off" spellcheck="false">
-                        <button type="button" class="btn btn--ghost" data-copy="cron-crontab" data-copy-done="cron-crontab-ok">Kopiuj</button>
-                        <span class="secret__done" id="cron-crontab-ok" role="status" hidden>Skopiowano</span>
-                    </div>
-                    <p class="field__hint">Jeśli hostingodawca podaje inną ścieżkę do PHP (np. <span class="mono">/usr/local/bin/php8.3</span>), użyj jego — ścieżka do skryptu jest już prawdziwa.</p>
-                </div>
-            {% else %}
-                <h3 class="pane__title">Hosting bez crontaba (plik uruchamiany po HTTP){{ najpierw_http ? ' — Twój przypadek' : '' }}</h3>
-                <p class="field__hint">Część hostingów (np. home.pl) uruchamia zadanie cykliczne jako
-                    <strong>plik o narzuconej nazwie w katalogu domeny</strong>, wywoływany przez HTTP.
-                    Utwórz <span class="mono">{{ cron.plik_http }}</span> w katalogu domeny z taką treścią:</p>
-                <div class="secret">
-                    <div class="secret__row">
-                        <input class="secret__value mono" id="cron-shim" type="text" value="{{ cron.tresc_shim }}" readonly
-                               aria-label="Treść pliku cron uruchamianego po HTTP" autocomplete="off" spellcheck="false">
-                        <button type="button" class="btn btn--ghost" data-copy="cron-shim" data-copy-done="cron-shim-ok">Kopiuj</button>
-                        <span class="secret__done" id="cron-shim-ok" role="status" hidden>Skopiowano</span>
-                    </div>
-                    <p class="field__hint">To <strong>shim</strong>: jeden <span class="mono">require</span>, zero logiki i zero konfiguracji.
-                        Cała robota siedzi w <span class="mono">{{ cron.sciezka_shim }}</span>.</p>
-                </div>
-                {#- ⚠ Plik jest osiągalny z internetu, więc mówimy, co go chroni — i pokazujemy
-                    WYNIK sprawdzenia, nie deklarację (ta sama zasada co przy `.htaccess`). -#}
-                <p class="field__hint">Plik jest osiągalny z internetu, dlatego chroni go blokada
-                    równoległych przebiegów i minimalny odstęp {{ (cron.odstep_http_s / 60)|round }} min
-                    wymuszony w PHP — niezależnie od blokady w konfiguracji serwera.
-                    Ostatni przyjęty przebieg po HTTP: {{ cron.ostatni_przebieg_http ? czas_pelny(cron.ostatni_przebieg_http|date('Y-m-d H:i:s', 'UTC')) : 'brak' }}.
-                    Ostatnie odrzucone (za wczesne) wywołanie: {{ cron.ostatnie_odrzucenie ? czas_pelny(cron.ostatnie_odrzucenie|date('Y-m-d H:i:s', 'UTC')) : 'jeszcze żadnego' }}.</p>
-            {% endif %}
-        {% endfor %}
-    </div>
-</section>
-
-{% for group in groups %}
-    <section class="card">
-        <div class="card__head"><h2 class="card__title">{{ group.title }}</h2></div>
-        {#- ⚠ Pary etykieta/wartość to NIE tabela rekordów (§11.4): akcent ma być na WARTOŚCI,
-            a tabela dwukolumnowa stawia ją obok etykiety i przy wąskiej karcie przewija w bok
-            (zmierzone: 340 px karty przy 347 i 392 px tabeli). `.defs` stawia etykietę NAD
-            wartością i cichszą, więc znaczenie ekranu zostaje zachowane. -#}
-        <div class="card__body">
-            <div class="defs">
-                {% for row in group.rows %}
-                    <div><div class="defs__term">{{ row.label }}</div><div class="defs__value">{{ row.value }}</div></div>
+                {% for wariant in (najpierw_http ? ['http', 'crontab'] : ['crontab', 'http']) %}
+                    {% if wariant == 'crontab' %}
+                        <h3 class="pane__title">Hosting z crontabem{{ najpierw_http ? '' : ' (zalecane)' }}</h3>
+                        <p class="field__hint">Wklej jako zadanie crona użytkownika, pod którym działa PHP serwera.</p>
+                        <div class="secret">
+                            <div class="secret__row">
+                                <input class="secret__value mono" id="cron-crontab" type="text" value="{{ cron.polecenie_crontab }}" readonly
+                                       aria-label="Wpis crontaba dla tej instalacji" autocomplete="off" spellcheck="false">
+                                <button type="button" class="btn btn--ghost btn--akcja" data-copy="cron-crontab" data-copy-done="cron-crontab-ok">{{ ikony.kopiuj() }}Kopiuj</button>
+                                <span class="secret__done" id="cron-crontab-ok" role="status" hidden>Skopiowano</span>
+                            </div>
+                            <p class="field__hint">Jeśli hostingodawca podaje inną ścieżkę do PHP (np. <span class="mono">/usr/local/bin/php8.3</span>), użyj jego — ścieżka do skryptu jest już prawdziwa.</p>
+                        </div>
+                    {% else %}
+                        <h3 class="pane__title">Hosting bez crontaba (plik uruchamiany po HTTP){{ najpierw_http ? ' — Twój przypadek' : '' }}</h3>
+                        <p class="field__hint">Część hostingów (np. home.pl) uruchamia zadanie cykliczne jako
+                            <strong>plik o narzuconej nazwie w katalogu domeny</strong>, wywoływany przez HTTP.
+                            Utwórz <span class="mono">{{ cron.plik_http }}</span> w katalogu domeny z taką treścią:</p>
+                        <div class="secret">
+                            <div class="secret__row">
+                                <input class="secret__value mono" id="cron-shim" type="text" value="{{ cron.tresc_shim }}" readonly
+                                       aria-label="Treść pliku cron uruchamianego po HTTP" autocomplete="off" spellcheck="false">
+                                <button type="button" class="btn btn--ghost btn--akcja" data-copy="cron-shim" data-copy-done="cron-shim-ok">{{ ikony.kopiuj() }}Kopiuj</button>
+                                <span class="secret__done" id="cron-shim-ok" role="status" hidden>Skopiowano</span>
+                            </div>
+                            <p class="field__hint">To <strong>shim</strong>: jeden <span class="mono">require</span>, zero logiki i zero konfiguracji.
+                                Cała robota siedzi w <span class="mono">{{ cron.sciezka_shim }}</span>.</p>
+                        </div>
+                        {#- ⚠ Plik jest osiągalny z internetu, więc mówimy, co go chroni — i pokazujemy
+                            WYNIK sprawdzenia, nie deklarację (ta sama zasada co przy `.htaccess`). -#}
+                        <p class="field__hint">Plik jest osiągalny z internetu, dlatego chroni go blokada
+                            równoległych przebiegów i minimalny odstęp {{ (cron.odstep_http_s / 60)|round }} min
+                            wymuszony w PHP — niezależnie od blokady w konfiguracji serwera.
+                            Ostatni przyjęty przebieg po HTTP: {{ cron.ostatni_przebieg_http ? czas_pelny(cron.ostatni_przebieg_http|date('Y-m-d H:i:s', 'UTC')) : 'brak' }}.
+                            Ostatnie odrzucone (za wczesne) wywołanie: {{ cron.ostatnie_odrzucenie ? czas_pelny(cron.ostatnie_odrzucenie|date('Y-m-d H:i:s', 'UTC')) : 'jeszcze żadnego' }}.</p>
+                    {% endif %}
                 {% endfor %}
             </div>
-        </div>
-    </section>
-{% endfor %}
+        </details>
+    </div>
+</section>
+
+{#- ══════════ Trzy karty stanu (§7 zlecenia) ══════════
+    ⚠ Obok siebie, bo to trzy krótkie odpowiedzi, a nie trzy tematy: jedna pod drugą zajmowały
+    ekran wysokością, którą czytelnik przewija w całości, żeby zobaczyć sześć wierszy.
+    ⚠ Żaden z tych wierszy nie jest dziś do kliknięcia, więc **żaden nie dostaje przycisku** —
+    przycisk, który tylko wygląda na działanie, jest gorszy niż jego brak. -#}
+<div class="ustaw-trio">
+    {% for grupa in grupy %}
+        <section class="card">
+            <div class="card__head card__head--znak">
+                <span class="card__znak">
+                    {%- if grupa.ikona == 'tarcza' %}{{ ikony.licencja() }}
+                    {%- elseif grupa.ikona == 'dzwonek' %}{{ ikony.dzwonek() }}
+                    {%- elseif grupa.ikona == 'integracja' %}{{ ikony.integracja() }}{% endif -%}
+                </span>
+                <div class="card__tytuly"><h2 class="card__title">{{ grupa.tytul }}</h2></div>
+            </div>
+            <div class="card__body card__body--tight">
+                {% for w in grupa.wiersze %}
+                    <div class="ustaw-para">
+                        <span class="ustaw-para__etykieta">{{ w.etykieta }}</span>
+                        {#- ⚠ Znak wiersza przychodzi Z KONTROLERA (`w.znak`), a szablon tylko
+                            dobiera do niego klasę. Napis „wymagana" i napis „nie ustawiono"
+                            znaczą co innego, a o tym, co znaczą, wie serwer. -#}
+                        {% if w.znak == 'ok' %}<span class="chip chip--accent">{{ w.wartosc }}</span>
+                        {% elseif w.znak == 'szary' %}<span class="chip">{{ w.wartosc }}</span>
+                        {% elseif w.znak == 'uwaga' %}<span class="chip chip--warn">{{ w.wartosc }}</span>
+                        {% else %}<span class="ustaw-para__wartosc">{{ w.wartosc }}</span>{% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        </section>
+    {% endfor %}
+</div>
