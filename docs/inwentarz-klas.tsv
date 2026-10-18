@@ -5,7 +5,7 @@ access--odchylenie	30-components.css		TYLKO_NOWY	1	0		fragments/account-block-co
 access--poczatek	30-components.css		MARTWA_REGULA	0	0		
 access__licznik	30-components.css		TYLKO_NOWY	2	1		fragments/person-panel.twig,fragments/person-row.twig
 access__strzalka	30-components.css		TYLKO_NOWY	2	1		fragments/person-panel.twig,fragments/person-row.twig
-app	20-layout.css		TYLKO_NOWY	1	35		layout/web.twig
+app	20-layout.css		TYLKO_NOWY	1	34		layout/web.twig
 app-shell	20-layout-mobile.css		TYLKO_NOWY	1	13		layout/mobile.twig
 assign	30-components.css		TYLKO_NOWY	1	1		fragments/group-assign.twig
 assign__blad	30-components.css		TYLKO_NOWY	1	1		fragments/group-assign.twig
@@ -18,6 +18,7 @@ assign__empty	30-components.css		TYLKO_NOWY	1	1		fragments/group-assign.twig
 assign__foot	30-components.css		TYLKO_NOWY	1	1	modules/grupy.js	fragments/group-assign.twig
 assign__form	30-components.css		TYLKO_NOWY	1	1		fragments/group-assign.twig
 assign__head	30-components.css		TYLKO_NOWY	1	1		fragments/group-assign.twig
+assign__hurt	30-components.css		TYLKO_NOWY	1	1		fragments/group-assign.twig
 assign__list	30-components.css		TYLKO_NOWY	1	1		fragments/group-assign.twig
 assign__name	30-components.css		TYLKO_NOWY	1	1		fragments/group-assign.twig
 assign__note	30-components.css		TYLKO_NOWY	1	1		fragments/group-assign.twig
@@ -36,48 +37,75 @@ bez-grupy	30-components.css		TYLKO_NOWY	1	1		page/web/groups.twig
 bez-grupy__body	30-components.css		TYLKO_NOWY	1	1		page/web/groups.twig
 bez-grupy__count	30-components.css		TYLKO_NOWY	1	1		page/web/groups.twig
 bez-grupy__head	30-components.css		TYLKO_NOWY	1	1		page/web/groups.twig
+bez-grupy__imie	30-components.css		TYLKO_NOWY	1	1		page/web/groups.twig
 bez-grupy__nazwa	30-components.css		TYLKO_NOWY	1	1		page/web/groups.twig
+bez-grupy__opis	30-components.css		TYLKO_NOWY	1	1		page/web/groups.twig
+bez-grupy__osoba	30-components.css		TYLKO_NOWY	1	1		page/web/groups.twig
+bez-grupy__siatka	30-components.css		TYLKO_NOWY	1	1		page/web/groups.twig
 bez-grupy__sklad	30-components.css		TYLKO_NOWY	1	1		page/web/groups.twig
-bez-grupy__uwaga	30-components.css		TYLKO_NOWY	1	1		page/web/groups.twig
-bloki	30-components.css		TYLKO_NOWY	1	2		partials/page/calendar.twig
+bez-grupy__tytuly	30-components.css		TYLKO_NOWY	1	1		page/web/groups.twig
+bez-grupy__uwaga	30-components.css		MARTWA_REGULA	0	0		
+bloki	30-components.css		TYLKO_NOWY	1	2	modules/kalendarz-przyklej.js	partials/page/calendar.twig
 bottom-nav	20-layout-mobile.css		TYLKO_NOWY	1	13		partials/nav-mobile.twig
 brand	20-layout.css		MARTWA_REGULA	0	0		
-btn	10-base.css 30-components.css		TYLKO_NOWY	52	4		fragments/access-panel.twig,fragments/account-block-confirm.twig,fragments/admin-account-form.twig,fragments/calendar-picker.twig,fragments/confirm.twig,fragments/connect-wizard.twig,…
+btn	10-base.css 30-components.css		TYLKO_NOWY	53	4		fragments/access-panel.twig,fragments/account-block-confirm.twig,fragments/admin-account-form.twig,fragments/calendar-picker.twig,fragments/confirm.twig,fragments/connect-wizard.twig,…
 btn--			PREFIKS_Z_DANYCH	1	1		fragments/person-panel.twig
+btn--akcja	30-components.css		TYLKO_NOWY	9	2		fragments/connect-wizard.twig,fragments/person-row.twig,page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/event-log.twig,page/web/groups.twig,…
+btn--akcja-groznie	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
+btn--akcja-nieczynny	30-components.css		TYLKO_NOWY	1	1		page/web/event-log.twig
+btn--akcja-sm	30-components.css		TYLKO_NOWY	1	1		fragments/person-row.twig
 btn--apple	30-components.css		TYLKO_NOWY	2	2		page/auth/login.twig,partials/page/styleguide.twig
 btn--block	30-components.css		TYLKO_NOWY	4	2		fragments/group-assign.twig,page/auth/login.twig,partials/page/styleguide.twig,partials/pickbox.twig
-btn--danger	30-components.css		TYLKO_NOWY	6	2		fragments/confirm.twig,fragments/devices.twig,page/web/admin-integration.twig,page/web/diagnostics.twig,partials/page/styleguide.twig,partials/page/two-factor.twig
-btn--ghost	30-components.css		TYLKO_NOWY	34	4		fragments/calendar-picker.twig,fragments/confirm.twig,fragments/connect-wizard.twig,fragments/devices.twig,fragments/employee-absences.twig,fragments/group-assign.twig,…
+btn--danger	30-components.css		TYLKO_NOWY	7	2		fragments/confirm.twig,fragments/devices.twig,page/web/admin-integration.twig,page/web/diagnostics.twig,page/web/groups.twig,partials/page/styleguide.twig,…
+btn--ghost	30-components.css		TYLKO_NOWY	36	4		fragments/calendar-picker.twig,fragments/confirm.twig,fragments/connect-wizard.twig,fragments/devices.twig,fragments/employee-absences.twig,fragments/hierarchy-person.twig,…
 btn--google	30-components.css		TYLKO_NOWY	2	2		page/auth/login.twig,partials/page/styleguide.twig
 btn--primary	30-components.css		TYLKO_NOWY	31	2		fragments/access-panel.twig,fragments/admin-account-form.twig,fragments/connect-wizard.twig,fragments/hierarchy-person.twig,fragments/person-panel.twig,page/auth/invitation.twig,…
-btn--quiet	30-components.css		TYLKO_NOWY	8	2		fragments/access-panel.twig,fragments/account-block-confirm.twig,fragments/admin-account-form.twig,fragments/person-panel.twig,page/auth/two-factor.twig,page/web/admin-accounts.twig,…
-btn--sm	30-components.css		TYLKO_NOWY	23	4		fragments/access-panel.twig,fragments/calendar-picker.twig,fragments/connect-wizard.twig,fragments/devices.twig,fragments/employee-absences.twig,fragments/group-assign.twig,…
-btn-row	30-components.css		TYLKO_NOWY	13	2		fragments/access-panel.twig,fragments/connect-wizard.twig,fragments/devices.twig,fragments/employee-absences.twig,fragments/person-panel.twig,page/auth/link-inna-sesja.twig,…
-btn-row--jedna-linia	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
-card	20-layout-mobile.css 30-components.css		TYLKO_NOWY	40	9		fragments/employee-absences.twig,fragments/hierarchy-person.twig,layout/auth.twig,layout/error.twig,layout/install.twig,page/web/admin-account.twig,…
+btn--quiet	30-components.css		TYLKO_NOWY	8	2		fragments/access-panel.twig,fragments/account-block-confirm.twig,fragments/admin-account-form.twig,fragments/group-assign.twig,fragments/person-panel.twig,page/auth/two-factor.twig,…
+btn--sm	30-components.css		TYLKO_NOWY	17	4		fragments/access-panel.twig,fragments/calendar-picker.twig,fragments/connect-wizard.twig,fragments/devices.twig,fragments/employee-absences.twig,fragments/group-assign.twig,…
+btn-row	30-components.css		TYLKO_NOWY	17	2		fragments/access-panel.twig,fragments/connect-wizard.twig,fragments/devices.twig,fragments/employee-absences.twig,fragments/person-panel.twig,page/auth/link-inna-sesja.twig,…
+btn-row--jedna-linia	30-components.css		TYLKO_NOWY	7	2		page/web/admin-integration.twig,page/web/event-log.twig,page/web/groups.twig,partials/grupa-nazwa-form.twig,partials/grupa-nowa-form.twig,partials/okno-nazwy-firm.twig,…
+btn__znacznik	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
+card	20-layout-mobile.css 30-components.css		TYLKO_NOWY	39	9		fragments/employee-absences.twig,fragments/hierarchy-person.twig,layout/auth.twig,layout/error.twig,layout/install.twig,page/web/admin-account.twig,…
+card--kal-naglowek	30-components.css		TYLKO_NOWY	1	2	modules/kalendarz-przyklej.js	partials/page/calendar.twig
+card--kal-siatka	30-components.css		TYLKO_NOWY	1	2		partials/page/calendar.twig
 card--os	30-components.css		TYLKO_NOWY	2	2		page/web/groups.twig,partials/page/calendar.twig
 card--panel	30-components.css		TYLKO_NOWY	1	2		partials/page/calendar.twig
 card-grid	30-components.css		TYLKO_NOWY	1	2		partials/page/dashboard.twig
+card__akcje	30-components.css		TYLKO_NOWY	4	1		page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/event-log.twig,page/web/groups.twig
 card__body	20-layout-mobile.css 30-components.css		TYLKO_NOWY	33	2		fragments/hierarchy-person.twig,layout/error.twig,page/install/installer.twig,page/web/admin-account.twig,page/web/admin-integration.twig,page/web/confirm.twig,…
 card__body--flush	30-components.css		TYLKO_NOWY	1	2		partials/os-czasu.twig
 card__body--tight	30-components.css		TYLKO_NOWY	2	2		partials/page/calendar.twig,partials/page/settings.twig
-card__foot	10-base.css 20-layout-mobile.css 30-components.css		TYLKO_NOWY	10	1		fragments/employee-absences.twig,fragments/hierarchy-person.twig,page/install/installer.twig,page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/data-employees.twig,…
-card__head	20-layout-mobile.css 30-components.css		TYLKO_NOWY	19	2		fragments/employee-absences.twig,fragments/hierarchy-person.twig,page/install/installer.twig,page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/connect.twig,…
+card__foot	10-base.css 20-layout-mobile.css 30-components.css		TYLKO_NOWY	9	1		fragments/employee-absences.twig,fragments/hierarchy-person.twig,page/install/installer.twig,page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/data-employees.twig,…
+card__foot--lista	30-components.css		TYLKO_NOWY	1	1		page/web/admin-accounts.twig
+card__foot--notka	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
+card__head	20-layout-mobile.css 30-components.css		TYLKO_NOWY	20	2		fragments/employee-absences.twig,fragments/hierarchy-person.twig,page/install/installer.twig,page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/connect.twig,…
 card__head--akcja	30-components.css		TYLKO_NOWY	1	2		partials/page/requests.twig
-card__meta	30-components.css		TYLKO_NOWY	16	2		fragments/hierarchy-person.twig,page/web/admin-integration.twig,page/web/data-calendar.twig,page/web/data-employee.twig,page/web/data-sync-run.twig,page/web/group.twig,…
+card__head--lista	30-components.css		TYLKO_NOWY	4	1		page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/event-log.twig,page/web/groups.twig
+card__head--znak	30-components.css		TYLKO_NOWY	6	2		page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/event-log.twig,page/web/groups.twig,page/web/hierarchy.twig,partials/page/settings.twig
+card__meta	30-components.css		TYLKO_NOWY	13	2		fragments/hierarchy-person.twig,page/web/admin-integration.twig,page/web/data-calendar.twig,page/web/data-employee.twig,page/web/data-sync-run.twig,page/web/group.twig,…
+card__opis	30-components.css		TYLKO_NOWY	10	2		fragments/connect-wizard.twig,fragments/group-assign.twig,page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/event-log.twig,page/web/groups.twig,…
+card__opis--lead	30-components.css		TYLKO_NOWY	2	1		page/web/admin-accounts.twig,page/web/event-log.twig
 card__title	30-components.css		TYLKO_NOWY	13	2		fragments/employee-absences.twig,fragments/hierarchy-person.twig,page/web/admin-integration.twig,page/web/connect.twig,page/web/data-calendar.twig,page/web/data-employee.twig,…
-cell--kontrolka	30-components.css		TYLKO_NOWY	3	1		fragments/person-row.twig,page/web/admin-accounts.twig,page/web/settings-companies.twig
-cell--osoba	30-components.css		TYLKO_NOWY	2	1		fragments/person-row.twig,page/web/settings-companies.twig
+card__tytuly	30-components.css		TYLKO_NOWY	9	2		fragments/group-assign.twig,page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/event-log.twig,page/web/groups.twig,page/web/hierarchy.twig,…
+card__znak	30-components.css		TYLKO_NOWY	10	2		fragments/connect-wizard.twig,fragments/group-assign.twig,page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/event-log.twig,page/web/groups.twig,…
+card__znak--cichy	30-components.css		TYLKO_NOWY	1	1		page/web/groups.twig
+card__znak--niebezpieczny	30-components.css		TYLKO_NOWY	1	1		page/web/groups.twig
+card__znak--uwaga	30-components.css		TYLKO_NOWY	3	1		fragments/connect-wizard.twig,page/web/hierarchy.twig,partials/okno-zakres-klucza.twig
+cell--kontrolka	30-components.css		TYLKO_NOWY	2	1		fragments/person-row.twig,page/web/admin-accounts.twig
+cell--osoba	30-components.css		TYLKO_NOWY	1	1		fragments/person-row.twig
 cell--zawija	30-components.css		TYLKO_NOWY	3	1		page/web/admin-integration.twig,page/web/data-sync.twig,partials/diagnostics-table.twig
-cell__druga	30-components.css		TYLKO_NOWY	4	2		fragments/person-panel.twig,page/web/event-log.twig,page/web/settings-companies.twig,partials/page/settings.twig
-cell__sub	30-components.css		TYLKO_NOWY	3	1		fragments/person-row.twig,page/web/event-log.twig,page/web/settings-companies.twig
-checklist	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
-checklist__item	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
-checklist__label	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
-chip	30-components.css		TYLKO_NOWY	26	4	modules/hierarchia.js	fragments/devices.twig,fragments/employee-absences.twig,fragments/hierarchy-person.twig,fragments/invite-result.twig,fragments/person-panel.twig,fragments/person-row.twig,…
-chip--accent	30-components.css		TYLKO_NOWY	1	1		fragments/employee-absences.twig
+cell__druga	30-components.css		TYLKO_NOWY	1	1		fragments/person-panel.twig
+cell__sub	30-components.css		TYLKO_NOWY	3	2		fragments/person-row.twig,page/web/admin-integration.twig,partials/okno-nazwy-firm.twig
+checklist	30-components.css		MARTWA_REGULA	0	0		
+checklist__item	30-components.css		MARTWA_REGULA	0	0		
+checklist__label	30-components.css		MARTWA_REGULA	0	0		
+chip	30-components.css		TYLKO_NOWY	30	4	modules/hierarchia.js	fragments/access-panel.twig,fragments/devices.twig,fragments/employee-absences.twig,fragments/group-assign.twig,fragments/hierarchy-person.twig,fragments/invite-result.twig,…
+chip--accent	30-components.css		TYLKO_NOWY	6	2	modules/hierarchia.js	fragments/employee-absences.twig,fragments/person-row.twig,page/web/admin-integration.twig,partials/okno-zakres-klucza.twig,partials/page/hierarchy-card.twig,partials/page/settings.twig
 chip--danger	30-components.css		TYLKO_NOWY	11	2		fragments/person-panel.twig,fragments/person-row.twig,page/web/admin-integration.twig,page/web/data-companies.twig,page/web/data-sync-run.twig,page/web/data-sync.twig,…
-chip--warn	30-components.css		TYLKO_NOWY	16	2		fragments/hierarchy-person.twig,fragments/invite-result.twig,fragments/person-row.twig,page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/data-companies.twig,…
+chip--dzis	30-components.css		TYLKO_NOWY	2	1	modules/hierarchia.js	fragments/person-row.twig,partials/page/hierarchy-card.twig
+chip--mala	30-components.css		TYLKO_NOWY	1	1		fragments/group-assign.twig
+chip--warn	30-components.css		TYLKO_NOWY	16	2		fragments/hierarchy-person.twig,fragments/invite-result.twig,fragments/person-row.twig,page/web/admin-integration.twig,page/web/data-companies.twig,page/web/data-employee.twig,…
+chip__kropka	30-components.css		TYLKO_NOWY	4	1	modules/hierarchia.js	fragments/person-row.twig,page/web/admin-integration.twig,partials/okno-zakres-klucza.twig,partials/page/hierarchy-card.twig
 col--diag-nazwa	30-components.css		TYLKO_NOWY	1	1		partials/diagnostics-table.twig
 col--diag-stan	30-components.css		TYLKO_NOWY	1	1		partials/diagnostics-table.twig
 col--diag-uwaga	30-components.css		TYLKO_NOWY	1	1		partials/diagnostics-table.twig
@@ -90,21 +118,22 @@ col--firma-nazwa	30-components.css		TYLKO_NOWY	1	1		page/web/data-companies.twig
 col--firma-nip	30-components.css		TYLKO_NOWY	1	1		page/web/data-companies.twig
 col--firma-stan	30-components.css		TYLKO_NOWY	1	1		page/web/data-companies.twig
 col--firma-sync	30-components.css		TYLKO_NOWY	1	1		page/web/data-companies.twig
-col--kiedy	30-components.css		TYLKO_NOWY	1	1		page/web/event-log.twig
+col--kiedy	30-components.css		MARTWA_REGULA	0	0		
 col--klucz-akcja	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
-col--klucz-czas	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
 col--klucz-nazwa	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
 col--klucz-stan	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
+col--klucz-utworzony	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
+col--klucz-uzycie	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
 col--klucz-zakres	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
 col--konto	30-components.css		TYLKO_NOWY	1	1		page/web/admin-accounts.twig
-col--kto	30-components.css		TYLKO_NOWY	1	1		page/web/event-log.twig
-col--nazwa-nasza	30-components.css		TYLKO_NOWY	1	1		page/web/settings-companies.twig
-col--nazwa-r2	30-components.css		TYLKO_NOWY	1	1		page/web/settings-companies.twig
+col--kto	30-components.css		MARTWA_REGULA	0	0		
+col--nazwa-nasza	30-components.css		MARTWA_REGULA	0	0		
+col--nazwa-r2	30-components.css		MARTWA_REGULA	0	0		
 col--osoba	30-components.css		TYLKO_NOWY	1	1		page/web/admin-accounts.twig
-col--osoby	30-components.css		TYLKO_NOWY	1	1		page/web/settings-companies.twig
+col--osoby	30-components.css		MARTWA_REGULA	0	0		
 col--pick	30-components.css		TYLKO_NOWY	1	1		page/web/admin-accounts.twig
-col--podmiot	30-components.css		TYLKO_NOWY	1	1		page/web/event-log.twig
-col--spolka	30-components.css		TYLKO_NOWY	1	1		page/web/event-log.twig
+col--podmiot	30-components.css		MARTWA_REGULA	0	0		
+col--spolka	30-components.css		MARTWA_REGULA	0	0		
 col--sync-connector	30-components.css		TYLKO_NOWY	1	1		page/web/data-sync.twig
 col--sync-czas	30-components.css		TYLKO_NOWY	1	1		page/web/data-sync.twig
 col--sync-firma	30-components.css		TYLKO_NOWY	1	1		page/web/data-sync.twig
@@ -114,26 +143,28 @@ col--sync-pola	30-components.css		TYLKO_NOWY	1	1		page/web/data-sync.twig
 col--sync-rekordy	30-components.css		TYLKO_NOWY	1	1		page/web/data-sync.twig
 col--sync-sek	30-components.css		TYLKO_NOWY	1	1		page/web/data-sync.twig
 col--sync-stan	30-components.css		TYLKO_NOWY	1	1		page/web/data-sync.twig
-col--zdarzenie	30-components.css		TYLKO_NOWY	1	1		page/web/event-log.twig
+col--zdarzenie	30-components.css		MARTWA_REGULA	0	0		
 company-mark	30-components.css		TYLKO_NOWY	2	2		partials/page/context.twig,partials/page/styleguide.twig
 confirm	30-components.css		TYLKO_NOWY	1	1		fragments/confirm.twig
 confirm__actions	30-components.css		TYLKO_NOWY	1	1		fragments/confirm.twig
 confirm__lead	30-components.css		TYLKO_NOWY	1	1		fragments/confirm.twig
 confirm__list	30-components.css		TYLKO_NOWY	2	1		fragments/account-block-confirm.twig,fragments/confirm.twig
 confirm__title	30-components.css		TYLKO_NOWY	1	1		fragments/confirm.twig
-crumbs	10-base.css 20-layout.css		TYLKO_NOWY	1	35		layout/web.twig
-crumbs__now	20-layout.css		TYLKO_NOWY	1	35		layout/web.twig
-crumbs__sep	20-layout.css		TYLKO_NOWY	12	1		page/web/admin-account.twig,page/web/admin-integration.twig,page/web/confirm.twig,page/web/connect.twig,page/web/data-employee.twig,page/web/data-employees.twig,…
-defs	20-layout-mobile.css 30-components.css		TYLKO_NOWY	11	2		fragments/account-block-confirm.twig,fragments/confirm.twig,fragments/connect-wizard.twig,fragments/invite-result.twig,fragments/person-panel.twig,page/web/admin-integration.twig,…
-defs__term	30-components.css		TYLKO_NOWY	11	2		fragments/account-block-confirm.twig,fragments/confirm.twig,fragments/connect-wizard.twig,fragments/invite-result.twig,fragments/person-panel.twig,page/web/admin-integration.twig,…
-defs__value	30-components.css		TYLKO_NOWY	11	2		fragments/account-block-confirm.twig,fragments/confirm.twig,fragments/connect-wizard.twig,fragments/invite-result.twig,fragments/person-panel.twig,page/web/admin-integration.twig,…
+crumbs	10-base.css 20-layout.css		TYLKO_NOWY	1	34		layout/web.twig
+crumbs__now	20-layout.css		TYLKO_NOWY	1	34		layout/web.twig
+crumbs__sep	20-layout.css		TYLKO_NOWY	11	1		page/web/admin-account.twig,page/web/admin-integration.twig,page/web/confirm.twig,page/web/connect.twig,page/web/data-employee.twig,page/web/data-employees.twig,…
+defs	20-layout-mobile.css 30-components.css		TYLKO_NOWY	10	2		fragments/account-block-confirm.twig,fragments/confirm.twig,fragments/invite-result.twig,fragments/person-panel.twig,page/web/admin-integration.twig,page/web/data-employee.twig,…
+defs__term	30-components.css		TYLKO_NOWY	10	2		fragments/account-block-confirm.twig,fragments/confirm.twig,fragments/invite-result.twig,fragments/person-panel.twig,page/web/admin-integration.twig,page/web/data-employee.twig,…
+defs__value	30-components.css		TYLKO_NOWY	10	2		fragments/account-block-confirm.twig,fragments/confirm.twig,fragments/invite-result.twig,fragments/person-panel.twig,page/web/admin-integration.twig,page/web/data-employee.twig,…
 diag-group	30-components.css		TYLKO_NOWY	1	1		partials/diagnostics-table.twig
-disclosure	30-components.css		TYLKO_NOWY	1	1		page/web/data-employee.twig
-disclosure__body	30-components.css		TYLKO_NOWY	1	1		page/web/data-employee.twig
+disclosure	30-components.css		TYLKO_NOWY	2	2		page/web/data-employee.twig,partials/page/settings.twig
+disclosure__body	30-components.css		TYLKO_NOWY	2	2		page/web/data-employee.twig,partials/page/settings.twig
+disclosure__meta	30-components.css		TYLKO_NOWY	1	2		partials/page/settings.twig
+disclosure__tytul	30-components.css		TYLKO_NOWY	1	2		partials/page/settings.twig
 divider	30-components.css		TYLKO_NOWY	1	1		page/auth/login.twig
 dot--err	30-components.css		TYLKO_NOWY	1	1		page/web/data-employee.twig
-dot--ok	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
-dot--warn	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
+dot--ok	30-components.css		MARTWA_REGULA	0	0		
+dot--warn	30-components.css		MARTWA_REGULA	0	0		
 drawer	30-components.css		TYLKO_NOWY	1	1		page/web/admin-accounts.twig
 drawer__body	30-components.css		TYLKO_NOWY	2	1		fragments/account-block-confirm.twig,fragments/person-panel.twig
 drawer__foot	30-components.css		TYLKO_NOWY	3	1		fragments/account-block-confirm.twig,fragments/admin-account-form.twig,fragments/person-panel.twig
@@ -148,37 +179,57 @@ dropdown__form	30-components.css		TYLKO_NOWY	1	0	modules/dropdown-dostep.js	frag
 dropdown__head	30-components.css		TYLKO_NOWY	1	0		fragments/access-panel.twig
 dropdown__item	30-components.css		TYLKO_NOWY	1	0		fragments/access-panel.twig
 dropdown__item--off	30-components.css		MARTWA_REGULA	0	0		
+dropdown__kto	30-components.css		TYLKO_NOWY	1	0		fragments/access-panel.twig
 dropdown__licencja	30-components.css		TYLKO_NOWY	1	0		fragments/access-panel.twig
 dropdown__list	30-components.css		TYLKO_NOWY	1	0		fragments/access-panel.twig
 dropdown__name	30-components.css		TYLKO_NOWY	1	0		fragments/access-panel.twig
 dropdown__sub	30-components.css		TYLKO_NOWY	1	0		fragments/access-panel.twig
 dropdown__tag	30-components.css		TYLKO_NOWY	1	0		fragments/access-panel.twig
 dropdown__title	30-components.css		TYLKO_NOWY	1	0		fragments/access-panel.twig
+dz-czas	30-components.css		TYLKO_NOWY	1	1		page/web/event-log.twig
+dz-dzien	30-components.css		TYLKO_NOWY	1	1		page/web/event-log.twig
+dz-firma	30-components.css		TYLKO_NOWY	1	1		page/web/event-log.twig
+dz-kto	30-components.css		TYLKO_NOWY	1	1		page/web/event-log.twig
+dz-lista	30-components.css		TYLKO_NOWY	1	1		page/web/event-log.twig
+dz-podsumowanie	30-components.css		TYLKO_NOWY	1	1		page/web/event-log.twig
+dz-pusto	30-components.css		TYLKO_NOWY	1	1		page/web/event-log.twig
+dz-tresc	30-components.css		TYLKO_NOWY	1	1		page/web/event-log.twig
+dz-wpis	30-components.css		TYLKO_NOWY	1	1		page/web/event-log.twig
+dz-wybor	30-components.css		TYLKO_NOWY	1	1		page/web/event-log.twig
+dz-zdanie	30-components.css		TYLKO_NOWY	1	1		page/web/event-log.twig
+dz-znak	30-components.css		TYLKO_NOWY	1	1		page/web/event-log.twig
+dz-znak--			PREFIKS_Z_DANYCH	1	1		page/web/event-log.twig
+dz-znak--dodanie	30-components.css		MARTWA_REGULA	0	0		
+dz-znak--logowanie	30-components.css		MARTWA_REGULA	0	0		
+dz-znak--usuniecie	30-components.css		MARTWA_REGULA	0	0		
 dzien-dzis	30-components.css		TYLKO_NOWY	3	2		partials/miesiac-ja.twig,partials/os-czasu.twig,partials/skala-roku.twig
 empty-state	30-components.css		TYLKO_NOWY	19	4		fragments/access-panel.twig,fragments/invite-result.twig,fragments/person-panel.twig,page/web/admin-accounts.twig,page/web/data-calendar.twig,page/web/data-companies.twig,…
 eyebrow	30-components.css		TYLKO_NOWY	11	9		layout/auth.twig,page/auth/external-login.twig,page/auth/invitation.twig,page/auth/link-invalid.twig,page/auth/login.twig,page/auth/reset-password.twig,…
-field	10-base.css 30-components.css		TYLKO_NOWY	29	2		fragments/admin-account-form.twig,fragments/group-assign.twig,fragments/hierarchy-person.twig,fragments/person-panel.twig,page/auth/login.twig,page/auth/reset-request.twig,…
+field	10-base.css 30-components.css		TYLKO_NOWY	28	2		fragments/admin-account-form.twig,fragments/connect-wizard.twig,fragments/group-assign.twig,fragments/hierarchy-person.twig,fragments/person-panel.twig,page/auth/login.twig,…
 field--check	30-components.css		TYLKO_NOWY	5	2		partials/install/step-10.twig,partials/install/step-4.twig,partials/install/step-7.twig,partials/page/styleguide.twig,partials/page/two-factor-codes.twig
 field--error	30-components.css		TYLKO_NOWY	1	2		partials/page/styleguide.twig
-field__hint	30-components.css		TYLKO_NOWY	27	2		fragments/admin-account-form.twig,fragments/calendar-picker.twig,fragments/connect-wizard.twig,fragments/invite-result.twig,fragments/person-panel.twig,page/auth/link-inna-sesja.twig,…
-field__label	30-components.css		TYLKO_NOWY	14	2		fragments/admin-account-form.twig,fragments/group-assign.twig,fragments/hierarchy-person.twig,fragments/person-panel.twig,page/web/admin-accounts.twig,page/web/admin-integration.twig,…
-flash	20-layout.css 20-layout-mobile.css		TYLKO_NOWY	2	58	modules/flash.js	partials/flash.twig,partials/page/styleguide.twig
+field__hint	30-components.css		TYLKO_NOWY	28	2		fragments/admin-account-form.twig,fragments/calendar-picker.twig,fragments/connect-wizard.twig,fragments/invite-result.twig,fragments/person-panel.twig,page/auth/link-inna-sesja.twig,…
+field__label	30-components.css		TYLKO_NOWY	13	2		fragments/admin-account-form.twig,fragments/connect-wizard.twig,fragments/group-assign.twig,fragments/hierarchy-person.twig,fragments/person-panel.twig,page/web/data-employees.twig,…
+flash	20-layout.css 20-layout-mobile.css		TYLKO_NOWY	2	57	modules/flash.js	partials/flash.twig,partials/page/styleguide.twig
 form-card	20-layout.css		TYLKO_NOWY	1	9		layout/auth.twig
-form-column	30-components.css		TYLKO_NOWY	3	2		fragments/person-panel.twig,page/web/admin-integration.twig,partials/page/settings.twig
+form-column	30-components.css		TYLKO_NOWY	1	1		fragments/person-panel.twig
 form-grid	30-components.css		TYLKO_NOWY	7	2		fragments/admin-account-form.twig,page/web/settings-mail.twig,partials/install/step-4.twig,partials/install/step-5.twig,partials/install/step-6.twig,partials/install/step-9.twig,…
 form-link	30-components.css		TYLKO_NOWY	1	1		page/auth/login.twig
 group-list	30-components.css		TYLKO_NOWY	1	1		page/web/groups.twig
 group-list__count	30-components.css		TYLKO_NOWY	1	1		page/web/groups.twig
+group-list__czlonkowie	30-components.css		TYLKO_NOWY	1	1		page/web/groups.twig
 group-list__main	30-components.css		TYLKO_NOWY	1	1		page/web/groups.twig
-group-list__menu	30-components.css		TYLKO_NOWY	1	1		page/web/groups.twig
+group-list__menu	30-components.css		MARTWA_REGULA	0	0		
 group-list__name	30-components.css		TYLKO_NOWY	1	1		page/web/groups.twig
+group-list__nazwiska	30-components.css		TYLKO_NOWY	1	1		page/web/groups.twig
 group-list__note	30-components.css		TYLKO_NOWY	1	1		page/web/groups.twig
 group-list__row	30-components.css		TYLKO_NOWY	1	1		page/web/groups.twig
 group-list__sklad	30-components.css		TYLKO_NOWY	1	1		page/web/groups.twig
-group-list__wiecej	30-components.css		TYLKO_NOWY	1	1		page/web/groups.twig
+group-list__wiecej	30-components.css		MARTWA_REGULA	0	0		
 has-native-bridge			BRAK_REGUL	0	0	modules/bridge.js	
 hero-panel	20-layout.css		TYLKO_NOWY	1	9		layout/auth.twig
 hier	30-components.css		TYLKO_NOWY	1	1		page/web/hierarchy.twig
+hier-ciagnie-palcem	30-components.css		TYLKO_NOWY	0	0	modules/hierarchia.js	
 hier__bar	30-components.css		TYLKO_NOWY	1	1		page/web/hierarchy.twig
 hier__bar-actions	30-components.css		TYLKO_NOWY	1	1		page/web/hierarchy.twig
 hier__bar-item	30-components.css		TYLKO_NOWY	0	0	modules/hierarchia.js	
@@ -192,9 +243,11 @@ hier__card--uwaga	30-components.css		TYLKO_NOWY	0	0	modules/hierarchia.js
 hier__card-chips	30-components.css		TYLKO_NOWY	1	1	modules/hierarchia.js	partials/page/hierarchy-card.twig
 hier__card-main	30-components.css		TYLKO_NOWY	1	1		partials/page/hierarchy-card.twig
 hier__cel	30-components.css		TYLKO_NOWY	0	0	modules/hierarchia.js	
+hier__cien	30-components.css		TYLKO_NOWY	0	0	modules/hierarchia.js	
 hier__drop	30-components.css		TYLKO_NOWY	1	1		page/web/hierarchy.twig
 hier__drop--panel	30-components.css		TYLKO_NOWY	1	1		page/web/hierarchy.twig
 hier__fakty	30-components.css		TYLKO_NOWY	1	1		partials/page/hierarchy-card.twig
+hier__licznik	30-components.css		TYLKO_NOWY	1	1		page/web/hierarchy.twig
 hier__list	30-components.css		TYLKO_NOWY	1	1		page/web/hierarchy.twig
 hier__node	30-components.css		TYLKO_NOWY	2	1	modules/hierarchia.js	page/web/hierarchy.twig,partials/page/hierarchy-branch.twig
 hier__node--ciagniety	30-components.css		TYLKO_NOWY	0	0	modules/hierarchia.js	
@@ -207,6 +260,18 @@ htmx-indicator	30-components.css		TYLKO_NOWY	1	2		partials/page/styleguide.twig
 htmx-request	30-components.css		TYLKO_NOWY	1	2		partials/page/styleguide.twig
 ico	20-layout.css 20-layout-mobile.css 30-components.css		TYLKO_NOWY	3	1		fragments/person-panel.twig,fragments/person-row.twig,partials/ikony.twig
 ico--sm	30-components.css		TYLKO_NOWY	3	1		fragments/person-panel.twig,fragments/person-row.twig,partials/ikony.twig
+ikona-akcja	30-components.css		TYLKO_NOWY	1	1		page/web/groups.twig
+ikona-akcja--edycja	30-components.css		TYLKO_NOWY	1	1		page/web/groups.twig
+ikona-akcja--usun	30-components.css		TYLKO_NOWY	1	1		page/web/groups.twig
+ikona-akcja__form	30-components.css		TYLKO_NOWY	1	1		page/web/groups.twig
+inicjaly	30-components.css		TYLKO_NOWY	1	0		partials/inicjaly.twig
+inicjaly--assign	30-components.css		MARTWA_REGULA	0	0		
+inicjaly--bez-grupy	30-components.css		MARTWA_REGULA	0	0		
+inicjaly--dostep	30-components.css		MARTWA_REGULA	0	0		
+inicjaly--grupa	30-components.css		MARTWA_REGULA	0	0		
+inicjaly--hier	30-components.css		MARTWA_REGULA	0	0		
+inicjaly--lista	30-components.css		MARTWA_REGULA	0	0		
+inicjaly--wygaszone	30-components.css		MARTWA_REGULA	0	0		
 inline-form	30-components.css		TYLKO_NOWY	4	4		fragments/account-block-confirm.twig,fragments/person-panel.twig,page/web/diagnostics.twig,partials/logout.twig
 input	10-base.css 30-components.css		TYLKO_NOWY	26	2		fragments/admin-account-form.twig,fragments/connect-wizard.twig,fragments/group-assign.twig,fragments/hierarchy-person.twig,fragments/person-panel.twig,fragments/person-row.twig,…
 input--area	30-components.css		TYLKO_NOWY	2	2		partials/page/new-request.twig,partials/page/styleguide.twig
@@ -217,16 +282,25 @@ installer-brand	30-components.css		TYLKO_NOWY	1	1		layout/install.twig
 installer-frame	30-components.css		TYLKO_NOWY	1	1		layout/install.twig
 installer-shell	30-components.css		TYLKO_NOWY	1	1		layout/install.twig
 js			BRAK_REGUL	0	0	app-mobile.js app-web.js	
-kafel	30-components.css		TYLKO_NOWY	1	2		partials/page/dashboard.twig
-kafel__dana	30-components.css		TYLKO_NOWY	1	2		partials/page/dashboard.twig
-kafel__etykieta	30-components.css		TYLKO_NOWY	1	2		partials/page/dashboard.twig
-kafel__glowa	30-components.css		TYLKO_NOWY	1	2		partials/page/dashboard.twig
-kafel__opis	30-components.css		TYLKO_NOWY	1	2		partials/page/dashboard.twig
-kafel__reszta	30-components.css		TYLKO_NOWY	1	2		partials/page/dashboard.twig
-kafel__wartosc	30-components.css		TYLKO_NOWY	1	2		partials/page/dashboard.twig
+kafel	30-components.css		TYLKO_NOWY	6	2		page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/groups.twig,page/web/hierarchy.twig,partials/page/dashboard.twig,partials/page/settings.twig
+kafel__dana	30-components.css		TYLKO_NOWY	6	2		page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/groups.twig,page/web/hierarchy.twig,partials/page/dashboard.twig,partials/page/settings.twig
+kafel__etykieta	30-components.css		TYLKO_NOWY	6	2		page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/groups.twig,page/web/hierarchy.twig,partials/page/dashboard.twig,partials/page/settings.twig
+kafel__glowa	30-components.css		TYLKO_NOWY	6	2		page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/groups.twig,page/web/hierarchy.twig,partials/page/dashboard.twig,partials/page/settings.twig
+kafel__kropka	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
+kafel__kropka--blad	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
+kafel__kropka--ok	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
+kafel__kropka--uwaga	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
+kafel__opis	30-components.css		TYLKO_NOWY	6	2		page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/groups.twig,page/web/hierarchy.twig,partials/page/dashboard.twig,partials/page/settings.twig
+kafel__reszta	30-components.css		TYLKO_NOWY	2	2		page/web/admin-accounts.twig,partials/page/dashboard.twig
+kafel__wartosc	30-components.css		TYLKO_NOWY	6	2		page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/groups.twig,page/web/hierarchy.twig,partials/page/dashboard.twig,partials/page/settings.twig
+kafel__wartosc--blad	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
 kafel__wartosc--brak	30-components.css		TYLKO_NOWY	1	2		partials/page/dashboard.twig
-kafel__wartosc--odchylenie	30-components.css		TYLKO_NOWY	1	2		partials/page/dashboard.twig
-kafle	30-components.css		TYLKO_NOWY	1	2		partials/page/dashboard.twig
+kafel__wartosc--napis	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
+kafel__wartosc--odchylenie	30-components.css		TYLKO_NOWY	3	2	modules/hierarchia.js	page/web/admin-accounts.twig,partials/page/dashboard.twig,partials/page/settings.twig
+kafel__wartosc--stan	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
+kafel__wartosc--uwaga	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
+kafle	30-components.css		TYLKO_NOWY	6	2		page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/groups.twig,page/web/hierarchy.twig,partials/page/dashboard.twig,partials/page/settings.twig
+kafle--auto	30-components.css		TYLKO_NOWY	5	2		page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/groups.twig,page/web/hierarchy.twig,partials/page/settings.twig
 kal-btn	30-components.css		TYLKO_NOWY	1	2		partials/naglowek-kalendarza.twig
 kal-btn--ikona	30-components.css		TYLKO_NOWY	1	2		partials/naglowek-kalendarza.twig
 kal-btn--on	30-components.css		MARTWA_REGULA	0	0		
@@ -237,6 +311,27 @@ kal-nav__dol	30-components.css		TYLKO_NOWY	1	2		partials/naglowek-kalendarza.twi
 kal-nav__gora	30-components.css		TYLKO_NOWY	1	2		partials/naglowek-kalendarza.twig
 kal-nav__lewa	30-components.css		TYLKO_NOWY	1	2		partials/naglowek-kalendarza.twig
 kal-nav__prawa	30-components.css		TYLKO_NOWY	1	2		partials/naglowek-kalendarza.twig
+klucz-akcje	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
+klucz-wiersz	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
+klucz-wiersz__dane	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
+klucz-wiersz__nazwa	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
+klucz-wiersz__prefix	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
+klucz-wiersz__znak	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
+kreator	30-components.css		TYLKO_NOWY	1	1		fragments/connect-wizard.twig
+kreator__co-dalej	30-components.css		TYLKO_NOWY	1	1		fragments/connect-wizard.twig
+kreator__czekam	30-components.css		TYLKO_NOWY	1	1		fragments/connect-wizard.twig
+kreator__form	30-components.css		TYLKO_NOWY	1	1		fragments/connect-wizard.twig
+kreator__stan	30-components.css		TYLKO_NOWY	1	1		fragments/connect-wizard.twig
+kreator__teraz	30-components.css		TYLKO_NOWY	1	1		fragments/connect-wizard.twig
+kreator__zgloszenie	30-components.css		TYLKO_NOWY	1	1		fragments/connect-wizard.twig
+krok	30-components.css		TYLKO_NOWY	1	1		fragments/connect-wizard.twig
+krok--			PREFIKS_Z_DANYCH	1	1		fragments/connect-wizard.twig
+krok--biezacy	30-components.css		MARTWA_REGULA	0	0		
+krok--zrobione	30-components.css		MARTWA_REGULA	0	0		
+krok__kolko	30-components.css		TYLKO_NOWY	1	1		fragments/connect-wizard.twig
+krok__nazwa	30-components.css		TYLKO_NOWY	1	1		fragments/connect-wizard.twig
+krok__stan	30-components.css		TYLKO_NOWY	1	1		fragments/connect-wizard.twig
+kroki	30-components.css		TYLKO_NOWY	1	1		fragments/connect-wizard.twig
 legend	30-components.css		TYLKO_NOWY	1	2		partials/legenda-kalendarza.twig
 legend__item	30-components.css		TYLKO_NOWY	1	2		partials/legenda-kalendarza.twig
 legend__mark	30-components.css		TYLKO_NOWY	1	2		partials/legenda-kalendarza.twig
@@ -249,27 +344,32 @@ m-auth__logo	20-layout-mobile.css		TYLKO_NOWY	1	9		layout/auth-mobile.twig
 m-auth__tag	20-layout-mobile.css		TYLKO_NOWY	1	9		layout/auth-mobile.twig
 m-content	20-layout-mobile.css		TYLKO_NOWY	1	13		layout/mobile.twig
 m-topbar	20-layout-mobile.css		TYLKO_NOWY	1	13		layout/mobile.twig
-main	20-layout.css		TYLKO_NOWY	1	35		layout/web.twig
+main	20-layout.css		TYLKO_NOWY	1	34		layout/web.twig
 measure	10-base.css		TYLKO_NOWY	3	2		fragments/account-block-confirm.twig,fragments/confirm.twig,partials/page/settings.twig
-menu	30-components.css		TYLKO_NOWY	3	2		page/web/groups.twig,partials/naglowek-kalendarza.twig,partials/page/hierarchy-card.twig
+menu	30-components.css		TYLKO_NOWY	2	2		partials/naglowek-kalendarza.twig,partials/page/hierarchy-card.twig
 menu--wybor	30-components.css		TYLKO_NOWY	1	2		partials/naglowek-kalendarza.twig
-menu__body	30-components.css		TYLKO_NOWY	2	1		page/web/groups.twig,partials/page/hierarchy-card.twig
-menu__item	30-components.css		TYLKO_NOWY	2	1		page/web/groups.twig,partials/page/hierarchy-card.twig
-menu__powod	30-components.css		TYLKO_NOWY	2	1		page/web/group.twig,page/web/groups.twig
-menu__trigger	30-components.css		TYLKO_NOWY	3	2		page/web/groups.twig,partials/naglowek-kalendarza.twig,partials/page/hierarchy-card.twig
+menu__body	30-components.css		TYLKO_NOWY	1	1		partials/page/hierarchy-card.twig
+menu__item	30-components.css		TYLKO_NOWY	1	1		partials/page/hierarchy-card.twig
+menu__powod	30-components.css		TYLKO_NOWY	1	1		page/web/group.twig
+menu__trigger	30-components.css		TYLKO_NOWY	2	2		partials/naglowek-kalendarza.twig,partials/page/hierarchy-card.twig
 menu__trigger--osoby	30-components.css		TYLKO_NOWY	1	2		partials/naglowek-kalendarza.twig
 mies	30-components.css		TYLKO_NOWY	1	2		partials/miesiac-ja.twig
 mies__kalendarz	30-components.css		TYLKO_NOWY	1	2		partials/miesiac-ja.twig
 mies__naglowek	30-components.css		TYLKO_NOWY	1	2		partials/miesiac-ja.twig
 mies__wpisy	30-components.css		TYLKO_NOWY	1	2		partials/miesiac-ja.twig
-modal	30-components.css		TYLKO_NOWY	5	1		page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/group.twig,page/web/groups.twig,page/web/hierarchy.twig
+modal	30-components.css		TYLKO_NOWY	7	2		page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/group.twig,page/web/groups.twig,page/web/hierarchy.twig,partials/okno-nazwy-firm.twig,…
 modal--assign	30-components.css		TYLKO_NOWY	1	1		page/web/groups.twig
-modal__body	30-components.css		TYLKO_NOWY	6	1	modules/ui.js	fragments/group-assign.twig,page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/group.twig,page/web/groups.twig,page/web/hierarchy.twig
-modal__close	10-base.css 30-components.css		TYLKO_NOWY	8	1		fragments/account-block-confirm.twig,fragments/group-assign.twig,fragments/person-panel.twig,page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/group.twig,…
-modal__foot	30-components.css		TYLKO_NOWY	2	1		page/web/admin-accounts.twig,page/web/admin-integration.twig
-modal__head	30-components.css		TYLKO_NOWY	6	1		fragments/group-assign.twig,page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/group.twig,page/web/groups.twig,page/web/hierarchy.twig
-modal__wrap	30-components.css		TYLKO_NOWY	1	1		page/web/groups.twig
-mono	10-base.css		TYLKO_NOWY	11	2		fragments/connect-wizard.twig,page/web/admin-integration.twig,page/web/connect.twig,page/web/data-employee.twig,page/web/data-employees.twig,page/web/event-log.twig,…
+modal--grupa	30-components.css		TYLKO_NOWY	1	1		page/web/groups.twig
+modal--kreator	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
+modal--nazwy	30-components.css		TYLKO_NOWY	1	2		partials/okno-nazwy-firm.twig
+modal--zakres	30-components.css		TYLKO_NOWY	1	1		partials/okno-zakres-klucza.twig
+modal__body	30-components.css		TYLKO_NOWY	8	2	modules/ui.js	fragments/group-assign.twig,page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/group.twig,page/web/groups.twig,page/web/hierarchy.twig,…
+modal__close	10-base.css 30-components.css		TYLKO_NOWY	10	2		fragments/account-block-confirm.twig,fragments/group-assign.twig,fragments/person-panel.twig,page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/group.twig,…
+modal__foot	30-components.css		TYLKO_NOWY	5	2		page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/groups.twig,partials/okno-nazwy-firm.twig,partials/okno-zakres-klucza.twig
+modal__head	30-components.css		TYLKO_NOWY	8	2		fragments/group-assign.twig,page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/group.twig,page/web/groups.twig,page/web/hierarchy.twig,…
+modal__head--znak	30-components.css		TYLKO_NOWY	5	2		fragments/group-assign.twig,page/web/admin-integration.twig,page/web/groups.twig,partials/okno-nazwy-firm.twig,partials/okno-zakres-klucza.twig
+modal__wrap	30-components.css		TYLKO_NOWY	3	2		page/web/groups.twig,partials/okno-nazwy-firm.twig,partials/okno-zakres-klucza.twig
+mono	10-base.css		TYLKO_NOWY	10	2		fragments/connect-wizard.twig,page/web/admin-integration.twig,page/web/connect.twig,page/web/data-employee.twig,page/web/data-employees.twig,page/web/settings-mail.twig,…
 month-grid	30-components.css		TYLKO_NOWY	1	1		page/web/data-calendar.twig
 month-grid__cell	30-components.css		TYLKO_NOWY	1	1		page/web/data-calendar.twig
 month-grid__cell--absence	30-components.css		TYLKO_NOWY	1	1		page/web/data-calendar.twig
@@ -290,25 +390,39 @@ msiatka__kratka--zasilek	30-components.css		MARTWA_REGULA	0	0
 msiatka__nazwa	30-components.css		TYLKO_NOWY	1	2		partials/skala-roku.twig
 msiatka__siatka	30-components.css		TYLKO_NOWY	2	2		partials/miesiac-ja.twig,partials/skala-roku.twig
 msiatka__suma	30-components.css		TYLKO_NOWY	1	2		partials/skala-roku.twig
-nav-group	20-layout.css		TYLKO_NOWY	1	35		partials/nav-web.twig
-nav-group__label	20-layout.css		TYLKO_NOWY	1	35		partials/nav-web.twig
-nav-item	20-layout.css 20-layout-mobile.css		TYLKO_NOWY	2	35		partials/nav-mobile.twig,partials/nav-web.twig
+nav-group	20-layout.css		TYLKO_NOWY	1	34		partials/nav-web.twig
+nav-group__label	20-layout.css		TYLKO_NOWY	1	34		partials/nav-web.twig
+nav-item	20-layout.css 20-layout-mobile.css		TYLKO_NOWY	2	34		partials/nav-mobile.twig,partials/nav-web.twig
 nav-item--active	20-layout-mobile.css		TYLKO_NOWY	1	13		partials/nav-mobile.twig
-nav-item--on	20-layout.css		TYLKO_NOWY	1	35		partials/nav-web.twig
-nav-item__badge	20-layout.css		TYLKO_NOWY	1	35		partials/nav-web.twig
-nav-item__ico	20-layout.css		TYLKO_NOWY	1	35		partials/nav-web.twig
-notice	30-components.css		TYLKO_NOWY	46	58	modules/flash.js	fragments/admin-account-form.twig,fragments/connect-wizard.twig,fragments/devices.twig,fragments/error.twig,fragments/group-assign.twig,fragments/invite-result.twig,…
-notice--danger	30-components.css		TYLKO_NOWY	20	2	modules/flash.js	fragments/admin-account-form.twig,fragments/error.twig,fragments/group-assign.twig,fragments/person-panel.twig,page/auth/invitation.twig,page/auth/login.twig,…
+nav-item--on	20-layout.css		TYLKO_NOWY	1	34		partials/nav-web.twig
+nav-item__badge	20-layout.css		TYLKO_NOWY	1	34		partials/nav-web.twig
+nav-item__ico	20-layout.css		TYLKO_NOWY	1	34		partials/nav-web.twig
+nazwy-lista	30-components.css		TYLKO_NOWY	1	2		partials/okno-nazwy-firm.twig
+nazwy-podpowiedz	30-components.css		TYLKO_NOWY	4	2		page/web/groups.twig,partials/grupa-nazwa-form.twig,partials/grupa-nowa-form.twig,partials/okno-nazwy-firm.twig
+nazwy-wiersz	30-components.css		TYLKO_NOWY	1	2		partials/okno-nazwy-firm.twig
+nazwy-wiersz__kadry	30-components.css		TYLKO_NOWY	1	2		partials/okno-nazwy-firm.twig
+nazwy-wiersz__meta	30-components.css		TYLKO_NOWY	1	2		partials/okno-nazwy-firm.twig
+nazwy-wiersz__nazwa	30-components.css		TYLKO_NOWY	1	2		partials/okno-nazwy-firm.twig
+nazwy-wiersz__pole	30-components.css		TYLKO_NOWY	1	2		partials/okno-nazwy-firm.twig
+notice	30-components.css		TYLKO_NOWY	48	57	modules/flash.js	fragments/admin-account-form.twig,fragments/connect-wizard.twig,fragments/devices.twig,fragments/error.twig,fragments/group-assign.twig,fragments/invite-result.twig,…
+notice--danger	30-components.css		TYLKO_NOWY	22	2	modules/flash.js	fragments/admin-account-form.twig,fragments/error.twig,fragments/group-assign.twig,fragments/person-panel.twig,page/auth/invitation.twig,page/auth/login.twig,…
 notice--dev	30-components.css		TYLKO_NOWY	3	2		partials/page/new-request.twig,partials/page/requests.twig,partials/page/styleguide.twig
 notice--warn	30-components.css		TYLKO_NOWY	18	2		fragments/admin-account-form.twig,fragments/connect-wizard.twig,page/auth/link-inna-sesja.twig,page/auth/link-invalid.twig,page/install/installer.twig,page/web/admin-integration.twig,…
+notka-gotowe	30-components.css		TYLKO_NOWY	1	1		fragments/connect-wizard.twig
+notka-gotowe__znak	30-components.css		TYLKO_NOWY	1	1		fragments/connect-wizard.twig
+notka-info	30-components.css		TYLKO_NOWY	2	1		fragments/connect-wizard.twig,page/web/admin-integration.twig
+notka-info__znak	30-components.css		TYLKO_NOWY	2	1		fragments/connect-wizard.twig,page/web/admin-integration.twig
 objasnienia			BRAK_REGUL	1	2		partials/page/calendar.twig
-page	20-layout.css		TYLKO_NOWY	1	35		layout/web.twig
-page__actions	20-layout.css		TYLKO_NOWY	10	1		page/web/admin-integration.twig,page/web/connect.twig,page/web/data-calendar.twig,page/web/data-companies.twig,page/web/data-employee.twig,page/web/data-employees.twig,…
+osoba-wiersz	30-components.css		TYLKO_NOWY	1	1		fragments/person-row.twig
+osoba-wiersz--zwolniony	30-components.css		MARTWA_REGULA	0	0		
+osoba-wiersz__nazwa	30-components.css		TYLKO_NOWY	2	1		fragments/access-panel.twig,fragments/person-row.twig
+page	20-layout.css		TYLKO_NOWY	1	34		layout/web.twig
+page__actions	20-layout.css		TYLKO_NOWY	8	1		page/web/connect.twig,page/web/data-calendar.twig,page/web/data-companies.twig,page/web/data-employee.twig,page/web/data-employees.twig,page/web/data-sync-run.twig,…
 page__akcja-powod	30-components.css		TYLKO_NOWY	1	1		page/web/group.twig
-page__head	20-layout.css		TYLKO_NOWY	31	1		fragments/calendar.twig,page/web/admin-account.twig,page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/confirm.twig,page/web/connect.twig,…
+page__head	20-layout.css		TYLKO_NOWY	24	1		fragments/calendar.twig,page/web/admin-account.twig,page/web/confirm.twig,page/web/connect.twig,page/web/context.twig,page/web/dashboard.twig,…
 page__head--akcja	20-layout.css		MARTWA_REGULA	0	0		
-page__sub	20-layout.css		TYLKO_NOWY	32	2		fragments/calendar.twig,page/web/admin-account.twig,page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/confirm.twig,page/web/connect.twig,…
-page__title	20-layout.css		TYLKO_NOWY	31	1		fragments/calendar.twig,page/web/admin-account.twig,page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/confirm.twig,page/web/connect.twig,…
+page__sub	20-layout.css		TYLKO_NOWY	25	2		fragments/calendar.twig,page/web/admin-account.twig,page/web/confirm.twig,page/web/connect.twig,page/web/context.twig,page/web/dashboard.twig,…
+page__title	20-layout.css		TYLKO_NOWY	24	1		fragments/calendar.twig,page/web/admin-account.twig,page/web/confirm.twig,page/web/connect.twig,page/web/context.twig,page/web/dashboard.twig,…
 pager	30-components.css		TYLKO_NOWY	2	1		page/web/admin-accounts.twig,page/web/data-sync-run.twig
 pager__info	30-components.css		TYLKO_NOWY	2	1		page/web/admin-accounts.twig,page/web/data-sync-run.twig
 pane	30-components.css		TYLKO_NOWY	2	1		fragments/account-block-confirm.twig,fragments/person-panel.twig
@@ -316,7 +430,7 @@ pane__head	30-components.css		TYLKO_NOWY	3	1		fragments/account-block-confirm.tw
 pane__head--wtorny	30-components.css		TYLKO_NOWY	1	1		partials/page/person-permissions.twig
 pane__meta	30-components.css		TYLKO_NOWY	1	1		fragments/person-panel.twig
 pane__title	30-components.css		TYLKO_NOWY	4	2		fragments/account-block-confirm.twig,fragments/person-panel.twig,partials/page/person-permissions.twig,partials/page/settings.twig
-pick__adres	30-components.css		TYLKO_NOWY	4	2		fragments/person-row.twig,page/web/settings-companies.twig,partials/grupa-nazwa-form.twig,partials/grupa-nowa-form.twig
+pick__adres	30-components.css		TYLKO_NOWY	1	1		fragments/person-row.twig
 pick__box	30-components.css		TYLKO_NOWY	2	1	modules/selectbar.js	fragments/person-row.twig,page/web/admin-accounts.twig
 pickbox	30-components.css		TYLKO_NOWY	1	0		partials/pickbox.twig
 pickbox--bez-masowych	30-components.css		MARTWA_REGULA	0	0		
@@ -335,9 +449,15 @@ pickbox__note	30-components.css		TYLKO_NOWY	1	2		fragments/calendar-picker.twig
 pickbox__row	30-components.css		TYLKO_NOWY	1	0		partials/pickbox.twig
 pickbox__szukaj	30-components.css		TYLKO_NOWY	1	0		partials/pickbox.twig
 pickbox__tag	30-components.css		TYLKO_NOWY	1	2		fragments/calendar-picker.twig
+pole-szukania	30-components.css		TYLKO_NOWY	3	1		fragments/group-assign.twig,page/web/admin-accounts.twig,page/web/hierarchy.twig
+pole-szukania__pole	30-components.css		TYLKO_NOWY	1	1		page/web/admin-accounts.twig
 progress	30-components.css		TYLKO_NOWY	1	2		partials/page/styleguide.twig
 progress--warning	30-components.css		TYLKO_NOWY	1	2		partials/page/styleguide.twig
 progress-line	30-components.css		TYLKO_NOWY	1	2		partials/page/styleguide.twig
+przebieg-czas	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
+przebieg-czas__data	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
+przebieg-czas__godzina	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
+przebieg-liczba	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
 qr-card	30-components.css		TYLKO_NOWY	1	2		partials/page/two-factor.twig
 rok	30-components.css		TYLKO_NOWY	1	2		partials/skala-roku.twig
 secret	30-components.css		TYLKO_NOWY	7	2		fragments/connect-wizard.twig,page/install/installer.twig,page/web/admin-integration.twig,page/web/connect.twig,partials/page/settings.twig,partials/page/styleguide.twig,…
@@ -352,7 +472,10 @@ selectbar	30-components.css		TYLKO_NOWY	1	1		page/web/admin-accounts.twig
 selectbar__count	30-components.css		TYLKO_NOWY	1	1		page/web/admin-accounts.twig
 selectbar__opt	30-components.css		TYLKO_NOWY	1	1		page/web/admin-accounts.twig
 settings-list	30-components.css		TYLKO_NOWY	8	2		fragments/devices.twig,fragments/hierarchy-person.twig,fragments/invite-result.twig,page/web/settings-mail.twig,partials/page/context.twig,partials/page/profile.twig,…
+settings-list--akcje	30-components.css		TYLKO_NOWY	1	2		partials/page/settings.twig
+settings-list__akcja	30-components.css		TYLKO_NOWY	1	2		partials/page/settings.twig
 settings-list__copy	30-components.css		TYLKO_NOWY	7	2		fragments/devices.twig,fragments/hierarchy-person.twig,fragments/invite-result.twig,page/web/settings-mail.twig,partials/page/context.twig,partials/page/settings.twig,…
+settings-list__dalej	30-components.css		TYLKO_NOWY	2	2		page/web/groups.twig,partials/page/settings.twig
 settings-list__row	30-components.css		TYLKO_NOWY	8	2		fragments/devices.twig,fragments/hierarchy-person.twig,fragments/invite-result.twig,page/web/settings-mail.twig,partials/page/context.twig,partials/page/profile.twig,…
 sg-flash-demo	30-components.css		TYLKO_NOWY	1	2		partials/page/styleguide.twig
 sg-h1	30-components.css		TYLKO_NOWY	1	2		partials/page/styleguide.twig
@@ -376,61 +499,64 @@ sg-swatch--c-text-3	30-components.css		MARTWA_REGULA	0	0
 sg-swatch--c-warn	30-components.css		MARTWA_REGULA	0	0		
 sg-swatch--c-warn-soft	30-components.css		MARTWA_REGULA	0	0		
 sg-swatches	30-components.css		TYLKO_NOWY	1	2		partials/page/styleguide.twig
-sidebar	20-layout.css		TYLKO_NOWY	1	35		layout/web.twig
-sidebar__brand	20-layout.css		TYLKO_NOWY	1	35		layout/web.twig
+sidebar	20-layout.css		TYLKO_NOWY	1	34		layout/web.twig
+sidebar__brand	20-layout.css		TYLKO_NOWY	1	34		layout/web.twig
 spinner	30-components.css		TYLKO_NOWY	1	2		partials/page/styleguide.twig
-spolka	20-layout.css 20-layout-mobile.css		TYLKO_NOWY	1	48		partials/znacznik-spolki.twig
-spolka--staly	20-layout.css 20-layout-mobile.css		TYLKO_NOWY	1	48		partials/znacznik-spolki.twig
-spolka--wybor	20-layout.css		TYLKO_NOWY	1	48		partials/znacznik-spolki.twig
-spolka__grupa	20-layout.css		TYLKO_NOWY	1	48		partials/znacznik-spolki.twig
-spolka__nazwa	20-layout.css 20-layout-mobile.css		TYLKO_NOWY	1	48		partials/znacznik-spolki.twig
-spolka__panel	20-layout.css 20-layout-mobile.css		TYLKO_NOWY	1	48		partials/znacznik-spolki.twig
-spolka__pozycja	20-layout.css		TYLKO_NOWY	1	48		partials/znacznik-spolki.twig
+spolka	20-layout.css 20-layout-mobile.css		TYLKO_NOWY	1	47		partials/znacznik-spolki.twig
+spolka--staly	20-layout.css 20-layout-mobile.css		TYLKO_NOWY	1	47		partials/znacznik-spolki.twig
+spolka--wybor	20-layout.css		TYLKO_NOWY	1	47		partials/znacznik-spolki.twig
+spolka__grupa	20-layout.css		TYLKO_NOWY	1	47		partials/znacznik-spolki.twig
+spolka__nazwa	20-layout.css 20-layout-mobile.css		TYLKO_NOWY	1	47		partials/znacznik-spolki.twig
+spolka__panel	20-layout.css 20-layout-mobile.css		TYLKO_NOWY	1	47		partials/znacznik-spolki.twig
+spolka__pozycja	20-layout.css		TYLKO_NOWY	1	47		partials/znacznik-spolki.twig
 spolka__pozycja--on	20-layout.css		MARTWA_REGULA	0	0		
-spolka__stopka	20-layout.css		TYLKO_NOWY	1	48		partials/znacznik-spolki.twig
-spolka__strzalka	20-layout.css		TYLKO_NOWY	1	48		partials/znacznik-spolki.twig
-spolka__trigger	20-layout.css 20-layout-mobile.css		TYLKO_NOWY	1	48		partials/znacznik-spolki.twig
-spolka__uwaga	20-layout.css		TYLKO_NOWY	1	48		partials/spolka-uwaga.twig
-stack	30-components.css		TYLKO_NOWY	13	2		fragments/admin-account-form.twig,fragments/connect-wizard.twig,fragments/invite-result.twig,page/auth/invitation.twig,page/auth/login.twig,page/auth/reset-password.twig,…
-stack--lg	30-components.css		TYLKO_NOWY	1	1		fragments/connect-wizard.twig
+spolka__stopka	20-layout.css		TYLKO_NOWY	1	47		partials/znacznik-spolki.twig
+spolka__strzalka	20-layout.css		TYLKO_NOWY	1	47		partials/znacznik-spolki.twig
+spolka__trigger	20-layout.css 20-layout-mobile.css		TYLKO_NOWY	1	47		partials/znacznik-spolki.twig
+spolka__uwaga	20-layout.css		TYLKO_NOWY	1	47		partials/spolka-uwaga.twig
+stack	30-components.css		TYLKO_NOWY	12	2		fragments/admin-account-form.twig,fragments/invite-result.twig,page/auth/invitation.twig,page/auth/login.twig,page/auth/reset-password.twig,page/auth/reset-request.twig,…
+stack--lg	30-components.css		MARTWA_REGULA	0	0		
 stack--sm	30-components.css		MARTWA_REGULA	0	0		
-stats	20-layout-mobile.css 30-components.css		TYLKO_NOWY	5	2		page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/data-employee.twig,page/web/hierarchy.twig,partials/page/styleguide.twig
-stats__item	20-layout-mobile.css 30-components.css		TYLKO_NOWY	5	2		page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/data-employee.twig,page/web/hierarchy.twig,partials/page/styleguide.twig
-stats__key	30-components.css		TYLKO_NOWY	5	2		page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/data-employee.twig,page/web/hierarchy.twig,partials/page/styleguide.twig
-stats__value	30-components.css		TYLKO_NOWY	5	2		page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/data-employee.twig,page/web/hierarchy.twig,partials/page/styleguide.twig
+stats	20-layout-mobile.css 30-components.css		TYLKO_NOWY	2	2		page/web/data-employee.twig,partials/page/styleguide.twig
+stats__item	20-layout-mobile.css 30-components.css		TYLKO_NOWY	2	2		page/web/data-employee.twig,partials/page/styleguide.twig
+stats__key	30-components.css		TYLKO_NOWY	2	2		page/web/data-employee.twig,partials/page/styleguide.twig
+stats__value	30-components.css		TYLKO_NOWY	2	2		page/web/data-employee.twig,partials/page/styleguide.twig
 stats__value--brak	30-components.css		MARTWA_REGULA	0	0		
-stats__value--odchylenie	30-components.css		TYLKO_NOWY	1	1	modules/hierarchia.js	page/web/admin-accounts.twig
-status	30-components.css		TYLKO_NOWY	2	1		page/web/admin-integration.twig,page/web/data-employee.twig
+stats__value--odchylenie	30-components.css		MARTWA_REGULA	0	0		
+status	30-components.css		TYLKO_NOWY	1	1		page/web/data-employee.twig
 status-brand	30-components.css		TYLKO_NOWY	1	0		layout/error.twig
 status-card	30-components.css		TYLKO_NOWY	1	0		layout/error.twig
 status-code	30-components.css		TYLKO_NOWY	1	0		layout/error.twig
 status-layout	30-components.css		TYLKO_NOWY	1	0		layout/error.twig
-status__dot	30-components.css		TYLKO_NOWY	2	1		page/web/admin-integration.twig,page/web/data-employee.twig
+status__dot	30-components.css		TYLKO_NOWY	1	1		page/web/data-employee.twig
 step-dot	30-components.css		TYLKO_NOWY	2	2		page/install/installer.twig,partials/page/styleguide.twig
 step-dot--active	30-components.css		TYLKO_NOWY	2	2		page/install/installer.twig,partials/page/styleguide.twig
 step-dot--done	30-components.css		TYLKO_NOWY	2	2		page/install/installer.twig,partials/page/styleguide.twig
 stepper	30-components.css		TYLKO_NOWY	2	2		page/install/installer.twig,partials/page/styleguide.twig
-table	30-components.css		TYLKO_NOWY	18	4		fragments/connect-wizard.twig,fragments/employee-absences.twig,page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/data-calendar.twig,page/web/data-companies.twig,…
+table	30-components.css		TYLKO_NOWY	15	4		fragments/employee-absences.twig,page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/data-calendar.twig,page/web/data-companies.twig,page/web/data-employee.twig,…
+table--klucze	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
 table--kolumny-prawe	30-components.css		TYLKO_NOWY	1	4		partials/lista-nieobecnosci.twig
 table--limit	30-components.css		TYLKO_NOWY	1	2		partials/page/dashboard.twig
+table--osoby	30-components.css		TYLKO_NOWY	1	1		page/web/admin-accounts.twig
+table--przebiegi	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
 table--rekordy	30-components.css		TYLKO_NOWY	3	4		partials/lista-nieobecnosci.twig,partials/page/requests.twig,partials/page/styleguide.twig
-table--stale	30-components.css		TYLKO_NOWY	7	1		page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/data-companies.twig,page/web/data-sync.twig,page/web/event-log.twig,page/web/settings-companies.twig,…
+table--stale	30-components.css		TYLKO_NOWY	5	1		page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/data-companies.twig,page/web/data-sync.twig,partials/diagnostics-table.twig
 table--zawija	30-components.css		TYLKO_NOWY	4	1		page/web/admin-integration.twig,page/web/data-companies.twig,page/web/data-sync.twig,partials/diagnostics-table.twig
-table--zebra	30-components.css		TYLKO_NOWY	9	4		fragments/employee-absences.twig,page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/data-employees.twig,page/web/data-sync-run.twig,page/web/data-sync.twig,…
-table-scroll	30-components.css		TYLKO_NOWY	16	4		fragments/connect-wizard.twig,fragments/employee-absences.twig,page/web/admin-integration.twig,page/web/data-calendar.twig,page/web/data-companies.twig,page/web/data-employee.twig,…
-table__empty	30-components.css		TYLKO_NOWY	5	1		fragments/employee-absences.twig,page/web/admin-integration.twig,page/web/data-employee.twig,page/web/data-employees.twig,page/web/event-log.twig
+table--zebra	30-components.css		TYLKO_NOWY	6	4		fragments/employee-absences.twig,page/web/data-employees.twig,page/web/data-sync-run.twig,page/web/data-sync.twig,partials/lista-nieobecnosci.twig,partials/page/requests.twig
+table-scroll	30-components.css		TYLKO_NOWY	14	4		fragments/employee-absences.twig,page/web/admin-integration.twig,page/web/data-calendar.twig,page/web/data-companies.twig,page/web/data-employee.twig,page/web/data-employees.twig,…
+table__empty	30-components.css		TYLKO_NOWY	5	1		fragments/employee-absences.twig,page/web/admin-integration.twig,page/web/data-employee.twig,page/web/data-employees.twig,partials/okno-zakres-klucza.twig
 table__group	30-components.css		TYLKO_NOWY	1	1		fragments/employee-absences.twig
-table__grow	30-components.css		TYLKO_NOWY	5	1		fragments/connect-wizard.twig,fragments/employee-absences.twig,page/web/admin-integration.twig,page/web/data-employee.twig,page/web/data-employees.twig
+table__grow	30-components.css		TYLKO_NOWY	4	1		fragments/employee-absences.twig,page/web/admin-integration.twig,page/web/data-employee.twig,page/web/data-employees.twig
 table__lead	30-components.css		TYLKO_NOWY	3	4		partials/lista-nieobecnosci.twig,partials/page/requests.twig,partials/page/styleguide.twig
-table__mute	30-components.css		TYLKO_NOWY	11	4		fragments/connect-wizard.twig,fragments/employee-absences.twig,fragments/hierarchy-person.twig,fragments/invite-result.twig,page/web/admin-integration.twig,page/web/data-employee.twig,…
-table__name	30-components.css		TYLKO_NOWY	4	1		fragments/person-row.twig,page/web/admin-accounts.twig,page/web/data-employees.twig,page/web/event-log.twig
+table__mute	30-components.css		TYLKO_NOWY	9	4		fragments/employee-absences.twig,fragments/hierarchy-person.twig,fragments/invite-result.twig,page/web/admin-integration.twig,page/web/data-employee.twig,page/web/data-employees.twig,…
+table__name	30-components.css		TYLKO_NOWY	3	1		fragments/person-row.twig,page/web/admin-accounts.twig,page/web/data-employees.twig
 table__note	30-components.css		TYLKO_NOWY	1	4		partials/lista-nieobecnosci.twig
-table__num	30-components.css		TYLKO_NOWY	7	4		fragments/employee-absences.twig,page/web/admin-integration.twig,page/web/data-employee.twig,page/web/data-employees.twig,page/web/settings-companies.twig,partials/lista-nieobecnosci.twig,…
+table__num	30-components.css		TYLKO_NOWY	6	4		fragments/employee-absences.twig,page/web/admin-integration.twig,page/web/data-employee.twig,page/web/data-employees.twig,partials/lista-nieobecnosci.twig,partials/page/dashboard.twig
 table__num--odchylenie	30-components.css		TYLKO_NOWY	1	2		partials/page/dashboard.twig
 table__row--sub	30-components.css		TYLKO_NOWY	1	2		partials/page/dashboard.twig
 table__state	30-components.css		TYLKO_NOWY	2	2		partials/page/requests.twig,partials/page/styleguide.twig
 table__sum	30-components.css		TYLKO_NOWY	1	2		partials/page/dashboard.twig
-team-grid	30-components.css		TYLKO_NOWY	1	2		partials/os-czasu.twig
+team-grid	30-components.css		TYLKO_NOWY	1	2	modules/kalendarz-przyklej.js	partials/os-czasu.twig
 team-grid--days-			PREFIKS_Z_DANYCH	1	2		partials/os-czasu.twig
 team-grid--days-28	30-components.css		MARTWA_REGULA	0	0		
 team-grid--days-29	30-components.css		MARTWA_REGULA	0	0		
@@ -484,33 +610,36 @@ team-grid__head--person	30-components.css		TYLKO_NOWY	1	2		partials/os-czasu.twi
 team-grid__numer	30-components.css		TYLKO_NOWY	1	2		partials/os-czasu.twig
 team-grid__person	30-components.css		TYLKO_NOWY	1	2		partials/os-czasu.twig
 team-scroll	30-components.css		TYLKO_NOWY	1	2		partials/os-czasu.twig
-toolbar	20-layout.css 30-components.css		TYLKO_NOWY	5	1		fragments/hierarchy-person.twig,page/web/admin-accounts.twig,page/web/data-employees.twig,page/web/event-log.twig,page/web/hierarchy.twig
-toolbar__result	20-layout.css		TYLKO_NOWY	3	1		page/web/data-employees.twig,page/web/event-log.twig,page/web/hierarchy.twig
-toolbar__spacer	20-layout.css		TYLKO_NOWY	5	2		page/web/admin-integration.twig,page/web/data-employees.twig,page/web/event-log.twig,page/web/hierarchy.twig,partials/page/settings.twig
-topbar	20-layout.css		TYLKO_NOWY	1	35		layout/web.twig
-topbar__prawa	20-layout.css		TYLKO_NOWY	1	35		layout/web.twig
-topbar__srodek	20-layout.css		TYLKO_NOWY	1	35		layout/web.twig
-user-menu	20-layout.css		TYLKO_NOWY	1	35		layout/web.twig
-user-menu__avatar	20-layout.css		TYLKO_NOWY	1	35		layout/web.twig
-user-menu__button	20-layout.css		TYLKO_NOWY	1	35		layout/web.twig
-user-menu__item	20-layout.css		TYLKO_NOWY	1	35		layout/web.twig
-user-menu__name	20-layout.css		TYLKO_NOWY	1	35		layout/web.twig
-user-menu__panel	20-layout.css		TYLKO_NOWY	1	35		layout/web.twig
-visually-hidden	10-base.css		TYLKO_NOWY	1	1		fragments/connect-wizard.twig
+toolbar	20-layout.css 30-components.css		TYLKO_NOWY	3	1		fragments/hierarchy-person.twig,page/web/data-employees.twig,page/web/hierarchy.twig
+toolbar__result	20-layout.css		TYLKO_NOWY	2	1		page/web/data-employees.twig,page/web/hierarchy.twig
+toolbar__spacer	20-layout.css		TYLKO_NOWY	2	1		page/web/data-employees.twig,page/web/hierarchy.twig
+topbar	20-layout.css		TYLKO_NOWY	1	34		layout/web.twig
+topbar__prawa	20-layout.css		TYLKO_NOWY	1	34		layout/web.twig
+topbar__srodek	20-layout.css		TYLKO_NOWY	1	34		layout/web.twig
+user-menu	20-layout.css		TYLKO_NOWY	1	34		layout/web.twig
+user-menu__avatar	20-layout.css		TYLKO_NOWY	1	34		layout/web.twig
+user-menu__button	20-layout.css		TYLKO_NOWY	1	34		layout/web.twig
+user-menu__item	20-layout.css		TYLKO_NOWY	1	34		layout/web.twig
+user-menu__name	20-layout.css		TYLKO_NOWY	1	34		layout/web.twig
+user-menu__panel	20-layout.css		TYLKO_NOWY	1	34		layout/web.twig
+ustaw-dana	30-components.css		TYLKO_NOWY	1	2		partials/page/settings.twig
+ustaw-dana__etykieta	30-components.css		TYLKO_NOWY	1	2		partials/page/settings.twig
+ustaw-dana__podpis	30-components.css		TYLKO_NOWY	1	2		partials/page/settings.twig
+ustaw-dana__wartosc	30-components.css		TYLKO_NOWY	1	2		partials/page/settings.twig
+ustaw-dana__wartosc--brak	30-components.css		TYLKO_NOWY	1	2		partials/page/settings.twig
+ustaw-dane	30-components.css		TYLKO_NOWY	1	2		partials/page/settings.twig
+ustaw-dwie	30-components.css		TYLKO_NOWY	1	2		partials/page/settings.twig
+ustaw-para	30-components.css		TYLKO_NOWY	1	2		partials/page/settings.twig
+ustaw-para__etykieta	30-components.css		TYLKO_NOWY	1	2		partials/page/settings.twig
+ustaw-para__wartosc	30-components.css		TYLKO_NOWY	1	2		partials/page/settings.twig
+ustaw-pasek	30-components.css		TYLKO_NOWY	1	2		partials/page/settings.twig
+ustaw-pasek__tresc	30-components.css		TYLKO_NOWY	1	2		partials/page/settings.twig
+ustaw-rzad	30-components.css		TYLKO_NOWY	1	2		partials/page/settings.twig
+ustaw-rzad__pole	30-components.css		TYLKO_NOWY	1	2		partials/page/settings.twig
+ustaw-trio	30-components.css		TYLKO_NOWY	1	2		partials/page/settings.twig
+visually-hidden	10-base.css		TYLKO_NOWY	6	1		fragments/access-panel.twig,fragments/group-assign.twig,fragments/person-row.twig,page/web/admin-accounts.twig,page/web/admin-integration.twig,page/web/hierarchy.twig
 widocznosc	30-components.css		TYLKO_NOWY	1	1		partials/page/person-permissions.twig
 widocznosc__zakres	30-components.css		TYLKO_NOWY	1	1		partials/page/person-permissions.twig
-wizard	30-components.css		TYLKO_NOWY	1	1		fragments/connect-wizard.twig
-wizard__field	30-components.css		TYLKO_NOWY	1	1		fragments/connect-wizard.twig
-wizard__form	30-components.css		TYLKO_NOWY	1	1		fragments/connect-wizard.twig
-wizard__hint	30-components.css		TYLKO_NOWY	1	1		fragments/connect-wizard.twig
-wizard__mark	30-components.css		TYLKO_NOWY	1	1		fragments/connect-wizard.twig
-wizard__name	30-components.css		TYLKO_NOWY	1	1		fragments/connect-wizard.twig
-wizard__next	30-components.css		TYLKO_NOWY	1	1		fragments/connect-wizard.twig
-wizard__state	30-components.css		TYLKO_NOWY	1	1		fragments/connect-wizard.twig
-wizard__step	30-components.css		TYLKO_NOWY	1	1		fragments/connect-wizard.twig
-wizard__step--			PREFIKS_Z_DANYCH	1	1		fragments/connect-wizard.twig
-wizard__step--biezacy	30-components.css		MARTWA_REGULA	0	0		
-wizard__step--zrobione	30-components.css		MARTWA_REGULA	0	0		
 wpisy			BRAK_REGUL	1	2		partials/miesiac-ja.twig
 wpisy__kropka	30-components.css		TYLKO_NOWY	1	2		partials/miesiac-ja.twig
 wpisy__kropka--			PREFIKS_Z_DANYCH	1	2		partials/miesiac-ja.twig
@@ -524,3 +653,15 @@ wpisy__tresc	30-components.css		TYLKO_NOWY	1	2		partials/miesiac-ja.twig
 wybor-osob	30-components.css		TYLKO_NOWY	1	2		partials/naglowek-kalendarza.twig
 wybor-osob__etykieta	30-components.css		TYLKO_NOWY	1	2		partials/naglowek-kalendarza.twig
 wybor-osob__stan	30-components.css		TYLKO_NOWY	1	2		partials/naglowek-kalendarza.twig
+zakres-chip	30-components.css		TYLKO_NOWY	1	1		page/web/admin-integration.twig
+zakres__dane	30-components.css		TYLKO_NOWY	2	1		fragments/connect-wizard.twig,partials/okno-zakres-klucza.twig
+zakres__decyzja	30-components.css		TYLKO_NOWY	2	1		fragments/connect-wizard.twig,partials/okno-zakres-klucza.twig
+zakres__etykieta	30-components.css		TYLKO_NOWY	1	1		partials/okno-zakres-klucza.twig
+zakres__firma	30-components.css		TYLKO_NOWY	1	1		partials/okno-zakres-klucza.twig
+zakres__meta	30-components.css		TYLKO_NOWY	2	1		fragments/connect-wizard.twig,partials/okno-zakres-klucza.twig
+zakres__nazwa	30-components.css		TYLKO_NOWY	2	1		fragments/connect-wizard.twig,partials/okno-zakres-klucza.twig
+zakres__notka	30-components.css		TYLKO_NOWY	1	1		partials/okno-zakres-klucza.twig
+zakres__odrzuc	30-components.css		TYLKO_NOWY	2	1		fragments/connect-wizard.twig,partials/okno-zakres-klucza.twig
+zakres__odrzucone	30-components.css		TYLKO_NOWY	1	1		partials/okno-zakres-klucza.twig
+zakres__odrzucone-opis	30-components.css		TYLKO_NOWY	1	1		partials/okno-zakres-klucza.twig
+zakres__zgloszenie	30-components.css		TYLKO_NOWY	1	1		partials/okno-zakres-klucza.twig
