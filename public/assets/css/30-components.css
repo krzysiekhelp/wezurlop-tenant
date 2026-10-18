@@ -4970,40 +4970,9 @@ body:has(dialog.modal[open]) { overflow: hidden; }
    ⚠ Rodzina stoi na końcu pliku, za `.card`, `.table` i `.btn` — reguła o tej samej
    szczegółowości wygrywa kolejnością w pliku. */
 
-/* Pasek filtrów rodzaju: pod nagłówkiem karty, oddzielony kreską od listy. */
-.dz-filtry {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s-2);
-  padding: var(--s-3) var(--s-5);
-  border-bottom: 1px solid var(--c-line-soft);
-}
-.dz-filtr {
-  display: inline-flex;
-  align-items: center;
-  height: 32px;
-  padding: 0 var(--s-3);
-  border: 1px solid var(--c-line);
-  border-radius: 16px;
-  background: var(--c-surface);
-  color: var(--c-text-3);
-  font-size: var(--t-small);
-  font-weight: var(--w-medium);
-  text-decoration: none;
-  white-space: nowrap;
-}
-@media (hover: hover) {
-  .dz-filtr:hover { border-color: var(--c-line-strong); color: var(--c-text); }
-}
-/* ⚠ Wybrany filtr ma TŁO, nie samą ramkę: pasek ma siedem pozycji i przy różnicy wyłącznie
-   w grubości ramki trzeba szukać, który jest czynny. */
-.dz-filtr--wybrany {
-  border-color: var(--c-accent);
-  background: var(--c-accent-soft);
-  color: var(--c-accent-text);
-  font-weight: var(--w-semibold);
-}
-
+/* ⚠ **Pasek chipów `.dz-filtry` / `.dz-filtr` skasowany (Z42).** Rodzaj zdarzeń wybiera się
+   listą rozwijaną obok konta, w tym samym formularzu nagłówka — więc po pasku nie zostaje ani
+   reguła, ani znacznik. Filtr nie ma własnego wyglądu: to zwykły `.select`. */
 .dz-lista { list-style: none; display: flex; flex-direction: column; }
 /* Nagłówek dnia — etykieta, nie tytuł: 12 px, 600, barwa danej drugorzędnej. */
 .dz-dzien {
@@ -5075,11 +5044,12 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 }
 
 @media (max-width: 640px) {
-  /* Filtr konta pod zdaniem nagłówka, na całą szerokość. */
-  .dz-filtry { padding: var(--s-3) var(--s-4); flex-wrap: nowrap; overflow-x: auto; }
-  /* ⚠ Pasek filtrów przewija się W SOBIE, a nie razem ze stroną: `overflow-x: auto` tutaj
-     i `flex-wrap: nowrap`, żeby siedem pozycji nie złamało się na cztery linie. Strona
-     dalej nie ma przewijania w poziomie — to jest ta różnica, o którą chodzi. */
+  /* ⚠ Oba filtry jeden pod drugim na całą szerokość, „Pokaż" pod nimi. Przy 375 px dwie listy
+     obok siebie dałyby po ~150 px, czyli nazwę rodzaju i nazwisko ucięte do kilku znaków —
+     a z listy, która nie mówi, co się wybiera, nie da się korzystać.
+     ⚠ Razem z paskiem chipów znikła jedyna rzecz w tej aplikacji, która przewijała się w sobie
+     w poziomie (`overflow-x: auto` na `.dz-filtry`). Lista rozwijana tego nie potrzebuje. */
+  .dz-wybor .select { width: 100%; }
   .dz-wpis {
     grid-template-columns: 32px minmax(0, 1fr);
     padding: var(--s-3) var(--s-4);

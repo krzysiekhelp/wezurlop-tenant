@@ -22,10 +22,17 @@
             {#- Filtr konta: zwykły formularz GET, działa bez JavaScriptu i daje adres do wklejenia (§5).
                 ⚠ Etykieta zostaje dla czytnika ekranu (`aria-label`), choć nie widać jej na ekranie:
                 pole wyboru bez nazwy jest dla czytnika „combo box" i niczym więcej. -#}
-            <form class="card__akcje" method="get" action="{{ url('/admin/dziennik') }}">
-                {#- ⚠ Rodzaj jedzie jako pole ukryte: wybór konta nie może kasować wybranego rodzaju,
-                    bo to są dwa niezależne filtry, które mają działać razem. -#}
-                {% if rodzaj is not null %}<input type="hidden" name="rodzaj" value="{{ rodzaj }}">{% endif %}
+            <form class="card__akcje dz-wybor" method="get" action="{{ url('/admin/dziennik') }}">
+                {#- ⚠ Rodzaj był tu dotąd polem UKRYTYM, a wybierało się go paskiem siedmiu chipów
+                    nad listą (Z36). Od Z42 jest zwykłą listą rozwijaną obok konta: oba filtry
+                    stoją w jednym formularzu, oba stosuje ten sam przycisk „Pokaż" i oba dalej
+                    działają bez JavaScriptu. -#}
+                <select class="select" name="rodzaj" aria-label="Rodzaj zdarzeń">
+                    <option value="">wszystkie zdarzenia</option>
+                    {% for r in rodzaje %}
+                        <option value="{{ r.klucz }}"{{ rodzaj == r.klucz ? ' selected' : '' }}>{{ r.nazwa }}</option>
+                    {% endfor %}
+                </select>
                 <select class="select" name="konto" aria-label="Konto, którego dotyczą wpisy">
                     <option value="">wszystkie konta</option>
                     {% for k in konta %}
@@ -35,19 +42,6 @@
                 <button type="submit" class="btn btn--akcja">Pokaż</button>
             </form>
         </div>
-
-        {#- Pasek filtrów rodzaju — zwykłe odnośniki, więc filtr działa po stronie serwera
-            i bez JavaScriptu. Każdy niesie ze sobą wybrane konto, żeby filtry się łączyły. -#}
-        <nav class="dz-filtry" aria-label="Rodzaj zdarzeń">
-            <a class="dz-filtr{{ rodzaj is null ? ' dz-filtr--wybrany' : '' }}"
-               href="{{ url('/admin/dziennik') }}{% if konto %}?konto={{ konto }}{% endif %}"
-               {{- rodzaj is null ? ' aria-current="page"' : '' }}>Wszystkie</a>
-            {% for r in rodzaje %}
-                <a class="dz-filtr{{ rodzaj == r.klucz ? ' dz-filtr--wybrany' : '' }}"
-                   href="{{ url('/admin/dziennik') }}?rodzaj={{ r.klucz }}{% if konto %}&amp;konto={{ konto }}{% endif %}"
-                   {{- rodzaj == r.klucz ? ' aria-current="page"' : '' }}>{{ r.nazwa }}</a>
-            {% endfor %}
-        </nav>
 
         <ul class="dz-lista">
             {% for w in wpisy %}

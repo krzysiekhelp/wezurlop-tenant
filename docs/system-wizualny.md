@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.21, 18.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.22, 18.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,26 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.21 → 1.18.22: rodzaj zdarzeń na `/admin/dziennik` wybiera się LISTĄ, nie paskiem
+> chipów** (zlecenie Z42, 18.10.2026).
+> Pasek siedmiu chipów (`.dz-filtry`, `.dz-filtr`, `.dz-filtr--wybrany`) **znika razem z regułami** —
+> rodzaj stoi teraz jako `<select name="rodzaj">` w formularzu nagłówka karty, przed listą kont,
+> w tej samej wysokości (38 px) i tym samym stylu `.select`. `aria-label` „Rodzaj zdarzeń",
+> opcje małą literą („wszystkie zdarzenia", „konta i uprawnienia", „integracja i system"),
+> wartości parametru bez zmian. Oba filtry stosuje jeden przycisk „Pokaż", oba dalej działają
+> bez JavaScriptu i oba jadą w stronicowaniu.
+> ⚠ **Rodzaj przestał być polem ukrytym.** Dotąd wybór konta niósł rodzaj w `<input type="hidden">`,
+> bo wybierało się go gdzie indziej; teraz oba filtry są w jednym formularzu i problem znika
+> u źródła, a nie przez pamiętanie o polu.
+> ⚠ **Nazwy rodzajów małą literą w `KodyZdarzen::RODZAJE`**, bo to są teraz pozycje listy obok
+> „wszystkie konta", a nie napisy na chipach. Jedynym ich odbiorcą jest ten ekran.
+> ⚠ Telefon: obie listy na całą szerokość, jedna pod drugą, „Pokaż" pod nimi (zmierzone przy
+> 375 px: 293 px każda, y 1041 / 1087 / 1133). Razem z paskiem chipów znika **jedyne w tej
+> aplikacji pudełko przewijane w poziomie** (`overflow-x: auto` na `.dz-filtry` przy 640 px) —
+> lista rozwijana tego nie potrzebuje.
+> ⚠ Liczby sprawdzone wobec bazy dla każdej pozycji: 5199 + 324 + 2189 + 972 + 1463 + 148 = 10 295,
+> czyli tyle, ile bez filtra; w połączeniu z kontem i stroną też zgodne co do wpisu.
 
 > **Zmiana 1.18.20 → 1.18.21: wiersz klucza na `/admin/integracja` wyśrodkowany, podpisy kolumn
 > w jednej linii, notka na szerokość tabeli** (zlecenie Z41, 18.10.2026).
@@ -182,6 +202,8 @@ co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej ju
 > działa po stronie serwera** — to zwykłe odnośniki z `?rodzaj=`, łączące się z filtrem konta
 > i ze stronicowaniem; bez JavaScriptu działa tak samo. Wybrany ma TŁO, nie samą ramkę: przy
 > siedmiu pozycjach różnica w grubości ramki każe szukać, który jest czynny.
+> ⚠ **Pasek chipów zastąpiony listą rozwijaną w 1.18.22 (Z42)** — zostaje tu zapisany, bo wyjaśnia,
+> skąd wziął się filtr po stronie serwera, ale znaczników `.dz-filtry` i `.dz-filtr` już nie ma.
 > ⚠ Zestaw filtrów pokrywa **wszystkie** rodziny kodów (ostatni jest zbiorczy: „Integracja
 > i system"), bo rodzina zostawiona poza filtrami byłaby osiągalna wyłącznie przez „Wszystkie" —
 > a dotyczy to także `security.*`. Zmierzone: 4777 + 2035 + 907 + 126 + 289 + 1357 = 9491,
@@ -1176,7 +1198,9 @@ innych ekranach (przełącznik roku, zakres uprawnień) i tam zostaje taki, jaki
 ale NIE blokuje przewijania — blokadę na czas chwytu robi `touchmove` w `modules/hierarchia.js`.
 
 *Dziennik zdarzeń (1.18.16, zlecenie Z36)*
-`.dz-filtry` `.dz-filtr` `.dz-filtr--wybrany` `.dz-lista` `.dz-dzien` `.dz-wpis`
+`.dz-wybor` (1.18.22, zlecenie Z42 — formularz obu filtrów w nagłówku karty; zastąpił
+`.dz-filtry` `.dz-filtr` `.dz-filtr--wybrany`, które **skasowano razem z regułami**)
+`.dz-lista` `.dz-dzien` `.dz-wpis`
 `.dz-znak` (`--logowanie` `--dodanie` `--usuniecie`) `.dz-tresc` `.dz-zdanie` `.dz-kto`
 `.dz-firma` `.dz-czas` `.dz-pusto` `.dz-podsumowanie` `.btn--akcja-nieczynny`
 ⚠ Treść zdań mieszka w `Support/ZdanieZdarzenia.php`, ikony w `partials/ikona-zdarzenia.twig`

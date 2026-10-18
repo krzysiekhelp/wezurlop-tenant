@@ -165,19 +165,24 @@ final class KodyZdarzen
      *
      * @var array<string, array{nazwa: string, prefiksy: list<string>}>
      */
+    /**
+     * ⚠ Nazwy małą literą, bo od Z42 są POZYCJAMI LISTY ROZWIJANEJ obok „wszystkie konta",
+     * a nie napisami na chipach. Lista czyta się wtedy jak zdanie („wszystkie zdarzenia",
+     * „konta i uprawnienia"), a nie jak siedem tytułów.
+     */
     private const RODZAJE = [
-        'logowania' => ['nazwa' => 'Logowania', 'prefiksy' => ['auth.', '2fa.', 'session.']],
-        'konta'     => ['nazwa' => 'Konta i uprawnienia', 'prefiksy' => ['account.', 'access.', 'permission.', 'person.', 'calendar.']],
-        'grupy'     => ['nazwa' => 'Grupy', 'prefiksy' => ['group.']],
-        'hierarchia' => ['nazwa' => 'Hierarchia', 'prefiksy' => ['hierarchy.']],
-        'firmy'     => ['nazwa' => 'Firmy', 'prefiksy' => ['tenant.', 'context.', 'employment.']],
-        'integracja' => ['nazwa' => 'Integracja i system', 'prefiksy' => [
+        'logowania' => ['nazwa' => 'logowania', 'prefiksy' => ['auth.', '2fa.', 'session.']],
+        'konta'     => ['nazwa' => 'konta i uprawnienia', 'prefiksy' => ['account.', 'access.', 'permission.', 'person.', 'calendar.']],
+        'grupy'     => ['nazwa' => 'grupy', 'prefiksy' => ['group.']],
+        'hierarchia' => ['nazwa' => 'hierarchia', 'prefiksy' => ['hierarchy.']],
+        'firmy'     => ['nazwa' => 'firmy', 'prefiksy' => ['tenant.', 'context.', 'employment.']],
+        'integracja' => ['nazwa' => 'integracja i system', 'prefiksy' => [
             'api.', 'integration.', 'sync.', 'leave.', 'security.', 'maintenance.', 'install.', 'mail.',
         ]],
     ];
 
     /**
-     * Pozycje paska filtrów — „Wszystkie" dokłada szablon, bo to brak filtra, a nie rodzaj.
+     * Pozycje listy filtra — „wszystkie zdarzenia" dokłada szablon, bo to brak filtra, a nie rodzaj.
      *
      * @return list<array{klucz: string, nazwa: string}>
      */
