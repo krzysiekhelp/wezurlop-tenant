@@ -107,6 +107,10 @@ final class ZdanieZdarzenia
         'tenant.company_display_name'   => ['zmienił(a) nazwę firmy z {z} na {na}', 'olowek', self::BARWA_ZWYKLA],
         'tenant.timezone_changed'       => ['zmienił(a) strefę czasową[ na {na}]', 'zegar', self::BARWA_ZWYKLA],
         'tenant.mail_settings_changed'  => ['zmienił(a) ustawienia poczty', 'koperta', self::BARWA_ZWYKLA],
+        // ⚠ Tych dwóch kodów **już nie zapisujemy** (Z43 §C): wysyłka próbna idzie tą samą parą
+        // `mail.sent` / `mail.failed`, co każda inna wiadomość, i niesie odbiorcę. Zdania zostają
+        // dla wpisów SPRZED 19.10.2026 — ekran audytowy nie ma prawa stracić historii dlatego,
+        // że zmienił się kod. Nowych wpisów z tymi kodami nie powstaje.
         'tenant.mail_test_sent'         => ['wysłał(a) list próbny', 'koperta', self::BARWA_DODANIE],
         'tenant.mail_test_failed'       => ['nie zdołał(a) wysłać listu próbnego', 'koperta', self::BARWA_USUNIECIE],
         'tenant.reset'                  => ['wyczyścił(a) dane tenanta', 'kosz', self::BARWA_USUNIECIE],
@@ -156,6 +160,18 @@ final class ZdanieZdarzenia
         'leave.r2_warning'              => ['zgłosił ostrzeżenie z programu kadrowego', 'dzwonek', self::BARWA_ZWYKLA],
         'leave.test_request_removed'    => ['usunął(ęła) próbny wniosek', 'kosz', self::BARWA_USUNIECIE],
 
+        // ——— poczta: FAKT wysyłki, nie zamówienie wiadomości (Z43 §C) ———
+        // ⚠ Podmiotem zdania jest sprawca z wpisu, więc czyta się „Zadanie cykliczne wysłało…"
+        // albo „<administrator> wysłał wiadomość próbną…" — a nie bezosobowe „Wysłano…".
+        // Katalog zdań nie umie zdania bez podmiotu i nie dokładamy mu drugiego trybu dla
+        // jednej rodziny: sprawca jest w tym dzienniku tą daną, o którą pyta się najpierw.
+        // ⚠ `{droga}` pojawia się tylko na `APP_ENV=dev` bez SMTP („zrzut do pliku”) — inaczej
+        // zdanie twierdziłoby, że wiadomość wyszła w świat, a ona wylądowała w `var/mail`.
+        'mail.sent'                     => ['wysłał(a) {rodzaj} do {odbiorca}[ — {droga}]', 'koperta', self::BARWA_DODANIE],
+        // ⚠ `{rodzaj}` przychodzi tu w DOPEŁNIACZU („zaproszenia"), bo zaprzeczone orzeczenie
+        // go wymaga — formę dobiera `ZadaniaKolejki`, nie to zdanie.
+        'mail.failed'                   => ['nie wysłał(a) {rodzaj} do {odbiorca}[ — {powod}]', 'koperta', self::BARWA_USUNIECIE],
+
         // ——— bezpieczeństwo i utrzymanie ———
         'security.ddl_blocked'          => ['zablokował próbę zmiany schematu bazy', 'dzwonek', self::BARWA_USUNIECIE],
         'security.login_spraying_suspected' => ['zauważył próby logowania na wiele kont naraz', 'dzwonek', self::BARWA_USUNIECIE],
@@ -169,6 +185,11 @@ final class ZdanieZdarzenia
         'maintenance.sync_cleanup'      => ['posprzątał dane synchronizacji', 'zegar', self::BARWA_ZWYKLA],
         'maintenance.key_idle_check'    => ['sprawdził ciszę kluczy', 'zegar', self::BARWA_ZWYKLA],
         'maintenance.canary_check'      => ['sprawdził sygnał kontrolny', 'zegar', self::BARWA_ZWYKLA],
+        // ⚠ Liczba stoi w zdaniu TYLKO wtedy, gdy jest większa od jednego, i dokłada ją
+        // kontroler (`deleteQueueJob`): jeden klik usuwa wszystkie czekające zadania tego typu,
+        // więc „usunął zadanie" przy trzech usuniętych zaniżałoby wpis audytowy — a „sztuk: 1"
+        // przy jednym byłoby szumem w każdym normalnym wierszu.
+        'maintenance.job_deleted'       => ['usunął(ęła) z kolejki zadanie {zadanie}[, sztuk: {ile}]', 'kosz', self::BARWA_USUNIECIE],
     ];
 
     /** Ikona rodziny — dla kodu bez własnego zdania. */
@@ -242,9 +263,13 @@ final class ZdanieZdarzenia
      * jak nazwa własna i przeciągało wzrok z nazwiska na okolicznik. Pogrubienie zostaje dla tego,
      * czego wpis dotyczy — kto, komu, jaką grupę.
      *
+     * ⚠ `powod` i `droga` (Z43) są tu z tego samego powodu: w zdaniu o niewysłanej wiadomości
+     * daną jest ODBIORCA, a komunikat serwera SMTP to okolicznik. Pogrubiony przeciągał wzrok
+     * na trzy linijki techniczne i zasłaniał to, czego wpis dotyczy.
+     *
      * @var list<string>
      */
-    private const ZWYKLE = ['gdzie'];
+    private const ZWYKLE = ['gdzie', 'powod', 'droga'];
 
     /**
      * Rozwinięcie wzoru na części: tekst zwykły i wartości z danych (pogrubione).

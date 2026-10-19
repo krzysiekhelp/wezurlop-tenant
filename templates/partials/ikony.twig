@@ -87,6 +87,10 @@
 {% macro dzwonek() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M10 3.6a4.1 4.1 0 0 1 4.1 4.1v2.9l1.3 2.3H4.6l1.3-2.3V7.7A4.1 4.1 0 0 1 10 3.6Z"/><path d="M8.5 15a1.7 1.7 0 0 0 3 0"/></svg>{% endmacro %}
 {% macro olowek() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M13.4 3.8 16.2 6.6 7.5 15.3l-3.5.7.7-3.5Z"/><path d="m11.6 5.6 2.8 2.8"/></svg>{% endmacro %}
 {% macro serwer() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><rect x="3.2" y="4.2" width="13.6" height="5" rx="1.4"/><rect x="3.2" y="10.8" width="13.6" height="5" rx="1.4"/><circle cx="6.2" cy="6.7" r="1" fill="currentColor" stroke="none"/><circle cx="6.2" cy="13.3" r="1" fill="currentColor" stroke="none"/></svg>{% endmacro %}
+{#- Samolocik — „wyślij teraz" (wiadomość próbna, Z43). ⚠ Dwa odcinki, nie trójkąt z dziurą:
+    przy 18 px wypełniony trójkąt z wycięciem zlewał się w plamę, a cała rodzina ikon jest
+    konturowa. Kreska od ogona do środka daje złożenie skrzydła bez drugiego koloru. -#}
+{% macro samolocik() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M17.2 3.2 2.8 8.6l5 2.1 2.1 5Z"/><path d="m7.8 10.7 9.4-7.5"/></svg>{% endmacro %}
 {% macro kopiuj() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><rect x="7.2" y="7.2" width="9" height="9" rx="1.6"/><path d="M12.8 7.2V5.6a1.6 1.6 0 0 0-1.6-1.6H5.4a1.6 1.6 0 0 0-1.6 1.6v5.8a1.6 1.6 0 0 0 1.6 1.6h1.8"/></svg>{% endmacro %}
 
 {#- ══════════ Lista osób i kont (zlecenie Z30) ══════════

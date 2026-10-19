@@ -257,6 +257,33 @@ final class JobRepository
         $stmt->execute(['id' => $id]);
     }
 
+    /**
+     * Usunięcie CZEKAJĄCYCH zadań jednego typu — z ekranu kolejki (zlecenie Z43 §B).
+     *
+     * ⚠ **Zadanie zajęte przez przebieg crona zostaje.** Warunek `locked_until` jest tym samym
+     * warunkiem, którym `claim()` rezerwuje zadanie: skasowanie wiersza w trakcie wykonania
+     * zabrałoby runnerowi grunt pod nogami (wysyłka poszłaby, a `markDone()` nie miałby czego
+     * oznaczyć — przy ponowieniu wiadomość wyszłaby drugi raz). Dlatego liczy się **różnica**
+     * między liczbą usuniętych i liczbą czekających: 0 przy czekającym zadaniu znaczy
+     * „właśnie się wykonuje", a nie „nie ma go".
+     *
+     * ⚠ Zadania `failed` nie dotyczy: ekran pokazuje kolejkę czekającą, a historia nieudanych
+     * jest tym, po czym się diagnozuje — nie ma jej prawa usuwać przycisk na ekranie.
+     *
+     * @return int liczba usuniętych wierszy
+     */
+    public function usunCzekajace(string $type): int
+    {
+        $stmt = $this->db->pdo()->prepare(
+            "DELETE FROM job
+             WHERE type = :type AND status = 'pending'
+               AND (locked_until IS NULL OR locked_until < UTC_TIMESTAMP())"
+        );
+        $stmt->execute(['type' => $type]);
+
+        return $stmt->rowCount();
+    }
+
     public function markDone(int $id): void
     {
         $stmt = $this->db->pdo()->prepare(

@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.23, 18.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.24, 19.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,90 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.23 → 1.18.24: nowy układ `/ustawienia/poczta`, kasowanie zadań z kolejki,
+> wpis w dzienniku o KAŻDEJ wysłanej i niewysłanej wiadomości, krótsze podpisy kolumn klucza**
+> (zlecenie Z43 z dopiskami, 19.10.2026).
+>
+> **(1) Ekran poczty.** `.page__head` i karta „Stan" znikają; cztery dane ze „Stanu" stoją
+> w pasku `.kafle kafle--auto` (Wysyłka, Ostatnia udana wysyłka, Kolejka, Skrzynka na alerty).
+> Kolejność kart idzie za kolejnością pytań: **Serwer poczty → Wiadomość próbna → Kolejka
+> wysyłki** (do Z43 kolejka stała pierwsza, przed konfiguracją). Każda karta ma nagłówek
+> `.card__head--znak` ze znakiem (`serwer`, nowa ikona `samolocik`, `odswiezenie`) i zdanie
+> `.card__opis` pod tytułem.
+> - **Formularz w trzech kolumnach** — `.poczta-forma` (`auto-fit`, podłoga 240 px) z sekcjami
+>   `.poczta-sekcja` i etykietami `.poczta-sekcja__etykieta` (11 px wersaliki, `--c-text-4`):
+>   POŁĄCZENIE (serwer, port, szyfrowanie), LOGOWANIE (użytkownik, hasło), NADAWCA (adres, nazwa).
+>   ⚠ Nie `.form-grid` (1,6fr/1fr): tamta siatka układa pola PARAMI, a te siedem pól to trzy
+>   niezależne decyzje. Zmierzone przy 1920: trzy kolumny po 487 px; przy 1366: po 319 px.
+> - **Ostrzeżenie „Nadawca nazywa się wezurlop…" przestaje być akapitem** nad formularzem
+>   i staje się podpowiedzią przy polu, którego dotyczy — `.field__hint--uwaga` (`--c-warn-text`).
+>   Ostrzeżenie oddzielone od pola, w którym się je naprawia, kazało szukać tego pola.
+> - **Wiadomość próbna bez osobnej stopki**: `.poczta-proba` — pole 360 px, przycisk `.btn--akcja`
+>   z ikoną i notka „Jedna wiadomość, limit czasu 10 s." w jednym rzędzie (zmierzone przy 1920:
+>   jedna linia, 61 px; przy 375 px trzy rzędy jeden pod drugim). Karta jest jednym działaniem,
+>   więc stopka karty byłaby drugim miejscem na tę samą decyzję.
+> - **Kolejka**: cztery szare kafelki `.ustaw-dane` / `.ustaw-dana` (ten sam komponent, co dane
+>   crona na `/ustawienia`) i lista `.poczta-kolejka` z etykietą „W KOLEJCE". Wiersz niesie
+>   **nazwę zadania po polsku**, kod typu `mono` 11 px `--c-text-4`, plakietkę liczby i kosz
+>   `.ikona-akcja--usun .ikona-akcja--sm` (32 px, hover w barwie błędu).
+>   ⚠ Kod typu zostaje obok nazwy z tego samego powodu, co kod zdarzenia w dzienniku: nazwa
+>   po polsku jest tłumaczeniem, a przy zgłoszeniu „nic nie wychodzi" zestawia się `mail.invitation`.
+> - **Telefon (375 px)**: kafle po 2 w rzędzie, kolumny formularza jedna pod drugą, rząd
+>   wiadomości próbnej zawinięty. Zmierzone: 0 przewijania w poziomie przy 1920, 1366 i 375.
+>
+> **(2) Kasowanie zadań z kolejki.** Kosz usuwa **wszystkie czekające zadania tego typu**
+> po potwierdzeniu w oknie w stylu „Usuń grupę"; `POST /ustawienia/poczta/kolejka/usun` z CSRF
+> i uprawnieniem `admin.settings`, wpis `maintenance.job_deleted` w dzienniku.
+> ⚠ **To jest odstępstwo od brzmienia zlecenia („pojedyncze zadanie") i ma jeden powód:** kolejka
+> pokazuje LICZBY i typy, nigdy adresatów (inaczej byłaby listą adresów pracowników dostępną
+> każdemu z `admin.settings`), więc dwa zadania tego samego typu są na tym ekranie
+> **nierozróżnialne** — przycisk wybierający jedno z dwóch identycznych wierszy obiecywałby
+> decyzję, której ekran nie umie pokazać. Okno mówi liczbę wprost, dziennik ją zapisuje.
+> ⚠ **O tym, czego usunąć NIE WOLNO, decyduje jedno pytanie: czy to zadanie wróci.**
+> Źródłem jest `Support\ZadaniaKolejki` — to samo, z którego serwer odmawia, bo wyłączony
+> przycisk nie jest zabezpieczeniem (CLAUDE.md §10). Trzy odpowiedzi:
+> zadanie cykliczne (`JobRunner::CYKLICZNE`) wraca w następnym przebiegu crona → **kosz aktywny**;
+> wiadomość zamówiona przez człowieka (zaproszenie, link do hasła) da się zamówić ponownie
+> tym samym przyciskiem → **kosz aktywny**; **alert nie wróci nigdy** (powstał z epizodu, który
+> minął, a przy ciszy connectora slot alertu jest zajęty na całą długość progu) → **kosz wyłączony**
+> z powodem w `title`. Sonda crona też ma kosz wyłączony: jej usunięcie zostawiłoby znacznik
+> „sonda wysłana" bez wyniku, czyli ekran ustawień **oskarżałby crona klienta** o to, że nie
+> odpowiada. Nieznany typ zadania: kosz wyłączony (domyślnie odmawiaj).
+> Zadanie zajęte przez przebieg crona (`locked_until`) zostaje — zmierzone cztery odmowy serwera:
+> alert, zadanie zablokowane, typ nieznany i typ, którego w kolejce już nie ma.
+>
+> **(3) Dziennik: wysłana i niewysłana poczta.** Nowa para kodów `mail.sent` / `mail.failed`
+> (rodzaj wiadomości, odbiorca, identyfikator zadania, przy błędzie krótki powód bez sekretów).
+> ⚠ Do 19.10.2026 **wysłana poczta nie zostawiała ani jednego wpisu**: były wpisy o ZAMÓWIENIU
+> wiadomości (`account.invited`, `auth.password_reset_requested`), a między nimi a wysyłką stoi
+> kolejka, cron i serwer SMTP klienta. Przy zgłoszeniu „nie dostałem zaproszenia" dziennik
+> odpowiadał „zaproszono", a pytanie było inne. Wpis robi dekorator transportu
+> (`Service\Mail\TransportZDziennikiem`), bo **odbiorcę zna wyłącznie wiadomość** — nie typ
+> zadania. Wysyłka próbna idzie tą samą parą kodów i niesie adresata; `tenant.mail_test_sent`
+> i `tenant.mail_test_failed` **nie powstają od tej daty** (zdania zostają w katalogu dla wpisów
+> wcześniejszych). W filtrze dziennika poczta ma **własny rodzaj** („poczta", prefiks `mail.`),
+> wyjęty ze zbiorczej „integracji i systemu" — prefiks stoi w dokładnie jednym rodzaju.
+>
+> **(4) Krótsze podpisy kolumn klucza i JEDNO rozdanie zamiast trzech** (dopisek Krzysztofa).
+> „Firmy w zakresie" → **„Firmy"**, „Ostatnie użycie" → **„Użycie"**. Skrócenie zdjęło 135 px
+> szerokości minimalnej nagłówka (suma minimów 634 → **499 px**) i pozwoliło zwinąć trzy rozdania
+> kolumn z 1.18.21 w jedno: **17/10/11/10/24/28**. Zmierzone przed → po:
+> 1920 px jedna linia przycisków i wiersz 78 px (bez zmian), 1440 px dwie linie i 105 px
+> (bez zmian), **1366 px trzy linie i 145 px → dwie linie i 105 px**. Próg zawijania podpisów
+> zjechał z 1365 na **1277 px** i wylicza się z najdłuższego podpisu („Utworzony" 106 px przy 11 %
+> kolumny → 964 px tabeli → okno 1278 px). Sprawdzone w całym zakresie układu tabeli
+> (641–1920 px): **żaden podpis nie wychodzi za swoją kolumnę i nigdzie nie ma przewijania
+> w poziomie**.
+>
+> ⚠ **Czego ekran NIE dostał** (dopisek do Z43): odnośnik „Wyczyść zapisane hasło" i karta
+> „Hasło SMTP" **zniknęły razem z obsługą po stronie serwera**. Droga do czyszczenia hasła
+> nie miała własnej trasy — jechała ukrytym polem `wyczysc_haslo=1` w formularzu zapisu,
+> a jedyny inny wywołujący `MailSettings::zapisz()` (instalator) podawał tam zawsze `false`.
+> Parametr `$wyczyscHaslo` zniknął z sygnatury. **Pusty formularz nadal NIE kasuje hasła**, a
+> skrzynkę bez uwierzytelnienia ustawia się **pustym polem użytkownika** — i tylko o tym mówi
+> podpowiedź pod tym polem (prototyp nie miał jej wcale; po usunięciu tamtej karty jest to
+> jedyne miejsce, które tę drogę nazywa).
 
 > **Zmiana 1.18.22 → 1.18.23: komunikat o wyniku operacji to TOAST u dołu ekranu, a pasek
 > `#flash` znika** (zlecenie Z47, 18.10.2026).
@@ -101,6 +185,8 @@ co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej ju
 > „Nazwa" 82, „Stan" 61 — razem **634 px**. Do tego treść: trzy przyciski w jednej linii 401 px,
 > nazwa z kwadratem i początkiem klucza 156, plakietka „unieważniony przez administratora" 229.
 > **Przy 1366 px (tabela 1052 px) nie ma rozdania, które to spina** — same minima to 1120 px.
+> ⚠ **Rozdania zwinięte do JEDNEGO w 1.18.24**, gdy podpisy zostały skrócone — opis niżej zostaje,
+> bo wyjaśnia, skąd brały się trzy progi i dlaczego przestały być potrzebne.
 > Stąd: rozdanie szerokie (13/13/9/12/22/31) trzyma wszystko w jednej linii do ~1650 px,
 > a wąskie (≤ 1600 px: 16/15/11/14/22/22) chroni podpisy, początek klucza i plakietkę,
 > oddając linijkę rzędowi przycisków — przy 1366 px stoją w trzech linijkach, a wiersz ma 145 px.
@@ -1187,6 +1273,12 @@ wymyśli drugi raz** — dokładnie tak powstały dwa paski komunikatu (§4b) i 
 `.toast__tresc` `.toast__zamknij` `.toast--wchodzi` `.toast--wychodzi` `.komunikat--w-toascie`
 ⚠ `.flash` **skasowane** razem z paskiem `#flash`; znacznik komunikatu składa `partials/komunikat.twig`.
 
+*Ekran poczty (1.18.24, zlecenie Z43)*
+`.poczta-forma` `.poczta-sekcja` `.poczta-sekcja__etykieta` `.poczta-proba` `.poczta-proba__pole`
+`.poczta-proba__akcja` `.poczta-proba__notka` `.poczta-kolejka` `.poczta-kolejka__lista`
+`.poczta-kolejka__wiersz` `.poczta-kolejka__dane` `.poczta-kolejka__nazwa` `.poczta-kolejka__kod`
+`.field__hint--uwaga` (podpowiedź pola w barwie ostrzeżenia) `.ikona-akcja--sm` (kosz 32 px)
+
 *Karta i treść*
 `.card` `.card__head` `.card__title` `.card__meta` `.card__body` `.card__body--tight` `.card__foot`
 `.card__foot--notka` (1.18.21, zlecenie Z41 — stopka, w której stoi sama notka w ramce)
@@ -1263,7 +1355,8 @@ ale NIE blokuje przewijania — blokadę na czas chwytu robi `touchmove` w `modu
 `.modal--zakres` `.zakres__etykieta` `.zakres__zgloszenie` `.zakres__dane` `.zakres__nazwa`
 `.zakres__meta` `.zakres__decyzja` `.zakres__odrzuc` `.zakres__firma` `.zakres__notka`
 `.zakres__odrzucone` `.zakres__odrzucone-opis` (1.18.19, zlecenie Z39)
-`.col--klucz-utworzony` `.col--klucz-uzycie` (1.18.21, zlecenie Z41 — zamiast `.col--klucz-czas`)
+`.col--klucz-utworzony` `.col--klucz-uzycie` (1.18.21, zlecenie Z41 — zamiast `.col--klucz-czas`;
+od 1.18.24 obie mają tę samą szerokość, ale zostają dwie, bo różnią się długością PODPISU)
 `.modal--kreator` `.kreator` `.kreator__stan` `.kreator__teraz` `.kreator__co-dalej`
 `.kreator__form` `.kreator__zgloszenie` `.kreator__czekam` `.kroki` `.krok` (`--zrobione` `--biezacy`)
 `.krok__kolko` `.krok__nazwa` `.krok__stan`

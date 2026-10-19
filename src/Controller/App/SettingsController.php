@@ -16,12 +16,16 @@ use Wezurlop\Repository\JobRepository;
 use Throwable;
 use Wezurlop\Repository\TenantSettingRepository;
 use Wezurlop\Service\CronStan;
+use Wezurlop\Service\JobRunner;
 use Wezurlop\Service\Mail\MailMessage;
 use Wezurlop\Service\Mail\MailSettings;
+use Wezurlop\Service\Mail\MailTransport;
 use Wezurlop\Service\Mail\TransportFactory;
+use Wezurlop\Service\Mail\TransportZDziennikiem;
 use Wezurlop\Support\Strefa;
 use Wezurlop\Support\UrlGenerator;
 use Wezurlop\Support\View;
+use Wezurlop\Support\ZadaniaKolejki;
 
 /**
  * Ustawienia tenanta. Poza strefą czasową to nadal rama z Etapu 2 — reszta wartości jest
@@ -47,7 +51,11 @@ final class SettingsController
         'strefa' => 'Strefa czasowa zapisana. Godziny pokazujemy od teraz w tej strefie.',
         'sonda'  => 'Sonda crona w kolejce. Odśwież ten ekran za kilka minut.',
         'poczta' => 'Ustawienia poczty zapisane. Wyślij wiadomość próbną.',
-        'haslo_wyczyszczone' => 'Hasło SMTP wyczyszczone. Serwer wymagający uwierzytelnienia odrzuci wysyłkę.',
+        // ⚠ Dwa komunikaty na jedno usunięcie, bo skutek jest różny i to jest cała treść
+        // odpowiedzi: wiadomość przepada, a zadanie cykliczne wraca samo. Liczba usuniętych
+        // wierszy stoi w oknie potwierdzenia i w dzienniku — tu liczy się SKUTEK.
+        'kolejka'      => 'Zadanie usunięte z kolejki. Ta wiadomość już nie wyjdzie.',
+        'kolejka_cykl' => 'Zadanie usunięte z kolejki. Wróci w następnym przebiegu crona.',
         // ⚠ Jeden komunikat na cały zestaw (Z29): okno zapisuje wszystkie firmy jednym
         // przyciskiem, więc „nazwa zapisana" w liczbie pojedynczej kłamałoby przy dwóch zmianach.
         'nazwy'  => 'Nazwy wyświetlane zapisane.',
@@ -310,7 +318,14 @@ final class SettingsController
      * Zapis ustawień poczty.
      *
      * ⚠ Hasło: puste pole znaczy **„nie zmieniaj"**, bo ekran nigdy nie oddaje sekretu
-     * do przeglądarki (CLAUDE.md §9). Wyczyszczenie hasła jest osobną, jawną decyzją.
+     * do przeglądarki (CLAUDE.md §9) — i to się nie zmienia.
+     *
+     * ⚠ **Czyszczenia hasła z ekranu już nie ma** (dopisek do Z43, 19.10.2026). Droga istniała
+     * wyłącznie dla karty „Hasło SMTP": ukryte pole `wyczysc_haslo=1` w tym samym formularzu,
+     * bez własnej trasy. Została zdjęta razem z kartą — a jedyny inny wywołujący `zapisz()`
+     * (instalator) podawał tam i tak `false`. Skrzynkę bez uwierzytelnienia ustawia się dziś
+     * pustym polem **użytkownika**: wtedy `SmtpTransport` nie włącza `SMTPAuth` i hasło z bazy
+     * nie jest używane.
      *
      * @param array<string, string> $params
      */
@@ -323,7 +338,6 @@ final class SettingsController
         $haslo = $request->postString('haslo', 254);
         $nadawca = strtolower(trim($request->postString('nadawca', 254)));
         $nazwa = trim($request->postString('nazwa_nadawcy', 100));
-        $wyczysc = $request->postString('wyczysc_haslo', 1) === '1';
 
         if ($host === '' || $nadawca === '') {
             return $this->renderMail('', 'Podaj serwer SMTP i adres nadawcy — bez nich poczta nie wychodzi.', null);
@@ -338,14 +352,13 @@ final class SettingsController
             return $this->renderMail('', 'Wybierz szyfrowanie z listy.', null);
         }
 
-        $this->poczta->zapisz($host, $port, $szyfrowanie, $uzytkownik, $haslo, $nadawca, $nazwa, $wyczysc, $this->accountId($request));
+        $this->poczta->zapisz($host, $port, $szyfrowanie, $uzytkownik, $haslo, $nadawca, $nazwa, $this->accountId($request));
         // ⚠ W dzienniku fakt zmiany i host, NIGDY użytkownik ani hasło (CLAUDE.md §14).
         $this->events->record('tenant.mail_settings_changed', $this->accountId($request), null,
             $this->actorLabel($request), 'tenant', null, null,
-            ['host' => $host, 'szyfrowanie' => $szyfrowanie, 'haslo' => $wyczysc ? 'wyczyszczone' : ($haslo !== '' ? 'zmienione' : 'bez zmian')]);
+            ['host' => $host, 'szyfrowanie' => $szyfrowanie, 'haslo' => $haslo !== '' ? 'zmienione' : 'bez zmian']);
 
-        return Response::redirectFor($request, $this->urls->to('/ustawienia/poczta')
-            . '?ok=' . ($wyczysc ? 'haslo_wyczyszczone' : 'poczta'));
+        return Response::redirectFor($request, $this->urls->to('/ustawienia/poczta') . '?ok=poczta');
     }
 
     /**
@@ -372,24 +385,91 @@ final class SettingsController
             return $this->renderMail('', TransportFactory::POWOD_BRAK_KONFIGURACJI, null);
         }
         try {
-            $this->transporty->transport()->send(new MailMessage(
+            // ⚠ Wpis w dzienniku robi TEN SAM dekorator, co w kolejce (Z43 §C): wiadomość próbna
+            // ma zostawić wpis tej samej rodziny `mail.*`, z odbiorcą — a nie własną parę kodów
+            // `tenant.mail_test_*` bez adresu, która wpadała do filtra „firmy".
+            $this->dziennikPoczty($request, 'wiadomość próbną', 'wiadomości próbnej')->send(new MailMessage(
                 $adres,
                 'wezurlop: wiadomość próbna',
                 "To wiadomość próbna z ekranu ustawień poczty.\n"
                 . "Jeśli ją widzisz, wysyłka z tej instalacji działa.\n",
             ));
         } catch (Throwable $e) {
-            $this->events->record('tenant.mail_test_failed', $this->accountId($request), null,
-                $this->actorLabel($request), 'tenant', null, null, ['rodzaj' => $this->transporty->rodzaj()]);
-
             return $this->renderMail('', null, ['ok' => false, 'tekst' => $e->getMessage()]);
         }
-        $this->events->record('tenant.mail_test_sent', $this->accountId($request), null,
-            $this->actorLabel($request), 'tenant', null, null, ['rodzaj' => $this->transporty->rodzaj()]);
 
         return $this->renderMail('', null, ['ok' => true, 'tekst' => $this->transporty->rodzaj() === 'plik'
             ? 'Zapisana do pliku w var/mail (APP_ENV=dev, poczta nieskonfigurowana) — nie wyszła w świat.'
             : 'Wysłana na ' . $adres . '. Jeśli nie dotarła w ciągu kilku minut, sprawdź folder spamu i logi serwera poczty.']);
+    }
+
+    /**
+     * Usunięcie czekających zadań jednego typu z kolejki (zlecenie Z43 §B).
+     *
+     * ⚠ **Reguła „co wolno usunąć" stoi w `ZadaniaKolejki`, nie tutaj i nie w szablonie.**
+     * Ekran wyłącza kosz z tego samego źródła, z którego serwer odmawia — inaczej wyłączony
+     * przycisk byłby całym zabezpieczeniem, czyli żadnym (CLAUDE.md §10).
+     *
+     * ⚠ **Usuwamy wszystkie czekające zadania TEGO TYPU, nie jedno po identyfikatorze** —
+     * i to jest świadome odstępstwo od brzmienia zlecenia. Powód jest w samym ekranie:
+     * kolejka pokazuje LICZBY i typy, nigdy adresatów (bo byłaby listą adresów pracowników
+     * dostępną każdemu z `admin.settings`), więc dwa zadania tego samego typu są na niej
+     * nierozróżnialne. Przycisk, który wybiera jedno z dwóch identycznych wierszy, obiecuje
+     * decyzję, której ekran nie umie pokazać. Okno potwierdzenia mówi liczbę wprost,
+     * a dziennik ją zapisuje.
+     *
+     * @param array<string, string> $params
+     */
+    public function deleteQueueJob(Request $request, array $params): Response
+    {
+        $typ = $request->postString('typ', 64);
+        // Biała lista z helpera (CLAUDE.md §11) — do zapytania nie trafia tekst użytkownika.
+        if (!in_array($typ, ZadaniaKolejki::typy(), true)) {
+            return $this->renderMail('', ZadaniaKolejki::POWOD_NIEZNANY, null);
+        }
+        if (!ZadaniaKolejki::usuwalne($typ)) {
+            return $this->renderMail('', ZadaniaKolejki::powod($typ), null);
+        }
+        $usunietych = $this->jobs->usunCzekajace($typ);
+        if ($usunietych === 0) {
+            // ⚠ Dwa różne „zero": zadanie zajęte przez przebieg crona kontra zadanie, którego
+            // już nie ma. Pierwsze jest odpowiedzią „spróbuj później", drugie „nie ma czego".
+            return $this->renderMail('', $this->jobs->hasPendingType($typ)
+                ? ZadaniaKolejki::POWOD_W_TOKU
+                : 'Tego zadania już nie ma w kolejce. Ktoś je wykonał albo usunął przed chwilą.', null);
+        }
+        // ⚠ W dzienniku nazwa po polsku I kod typu: zdanie czyta człowiek, a kod zestawia się
+        // z kolejką. Bez adresatów — tych kolejka nie zna (patrz wyżej).
+        $this->events->record('maintenance.job_deleted', $this->accountId($request), null,
+            $this->actorLabel($request), 'tenant', null, null,
+            ['zadanie' => ZadaniaKolejki::nazwa($typ), 'typ' => $typ]
+            // ⚠ Liczba tylko wtedy, gdy większa od jednego — zdanie dziennika ma ją wtedy
+            // w swojej części opcjonalnej, a przy jednym zadaniu nie dopisuje „sztuk: 1".
+            + ($usunietych > 1 ? ['ile' => (string) $usunietych] : []));
+
+        return Response::redirectFor($request, $this->urls->to('/ustawienia/poczta')
+            . '?ok=' . (isset(JobRunner::CYKLICZNE[$typ]) ? 'kolejka_cykl' : 'kolejka'));
+    }
+
+    /**
+     * Transport wysyłki próbnej opakowany w zapis do dziennika.
+     *
+     * ⚠ Sprawcą jest **człowiek z ekranu**, nie `cron`: wiadomość próbną wysyła administrator
+     * i w dzienniku ma stać jego nazwa, inaczej wpis o jedynej wysyłce zamówionej ręcznie
+     * wyglądałby jak wpis kolejki.
+     */
+    private function dziennikPoczty(Request $request, string $rodzaj, string $rodzajDopelniacz): MailTransport
+    {
+        return new TransportZDziennikiem(
+            $this->transporty->transport(),
+            $this->events,
+            $rodzaj,
+            $rodzajDopelniacz,
+            $this->actorLabel($request),
+            null,
+            $this->accountId($request),
+            $this->transporty->rodzaj() === 'plik' ? 'zrzut do pliku' : null,
+        );
     }
 
     /**
@@ -422,9 +502,39 @@ final class SettingsController
             // ⚠ Widok kolejki: LICZBY, nigdy treść wiadomości i nigdy adresaci (zlecenie §4).
             // Ekran odpowiada na „czy wysyłka ruszyła", a nie „komu co poszło" — to drugie
             // jest w dzienniku zdarzeń, za osobnym uprawnieniem.
-            'kolejka'     => $this->jobs->podsumowanie(),
+            'kolejka'     => $this->kolejka(),
             'cron'        => $this->cron->stan(),
         ], $error === null ? 200 : 422);
+    }
+
+    /**
+     * Podsumowanie kolejki z nazwami zadań po polsku i regułą usuwania.
+     *
+     * ⚠ **Nazwę i prawo do usunięcia dokłada KONTROLER, nie szablon** (CLAUDE.md §5): szablon
+     * nie woła helperów, a reguła „co wolno usunąć" ma jedno źródło (`ZadaniaKolejki`) — to samo,
+     * z którego odmawia `deleteQueueJob()`.
+     *
+     * @return array{czeka: int, czeka_gotowe: int, czeka_poczta: int, nieudane: int,
+     *     najstarsze_utc: ?string, ostatni_blad_utc: ?string,
+     *     typy: list<array{typ: string, ile: int, nazwa: string, usuwalne: bool, powod: string,
+     *     cykliczne: bool}>}
+     */
+    private function kolejka(): array
+    {
+        $podsumowanie = $this->jobs->podsumowanie();
+        $podsumowanie['typy'] = array_map(
+            static fn (array $wpis): array => $wpis + [
+                'nazwa'    => ZadaniaKolejki::nazwa($wpis['typ']),
+                'usuwalne' => ZadaniaKolejki::usuwalne($wpis['typ']),
+                'powod'    => ZadaniaKolejki::powod($wpis['typ']),
+                // ⚠ Okno potwierdzenia musi powiedzieć, czy zadanie wróci — a to wie `JobRunner`,
+                // bo to on je zamawia. Szablon dostaje gotową odpowiedź, nie mapę do przeglądania.
+                'cykliczne' => isset(JobRunner::CYKLICZNE[$wpis['typ']]),
+            ],
+            $podsumowanie['typy'],
+        );
+
+        return $podsumowanie;
     }
 
     private function accountId(Request $request): ?int

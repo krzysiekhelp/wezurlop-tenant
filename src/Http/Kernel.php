@@ -440,6 +440,7 @@ final class Kernel
             'odmiana_nieobecnosci' => Odmiana::nieobecnosci(...),
             'odmiana_dni_robocze' => Odmiana::dniRobocze(...),
             'odmiana_wpisow' => Odmiana::wpisy(...),
+            'odmiana_zadan' => Odmiana::zadania(...),
             'nip_grupami'  => Nip::human(...),
             'czas_wzgledny' => static fn (?string $utc): string => RelativeTime::format($utc),
             // Instalator działa, zanim ustawienia istnieją — strefa domyślna, ta sama funkcja.
@@ -533,6 +534,8 @@ final class Kernel
                 'odmiana_dni_robocze' => Odmiana::dniRobocze(...),
                 // „1 wpis”, „3 wpisy”, „5 wpisów” — wpisy kadrowe sklejone w jeden ciąg.
                 'odmiana_wpisow' => Odmiana::wpisy(...),
+                // „1 zadanie”, „3 zadania”, „5 zadań” — kafel kolejki na `/ustawienia/poczta` (Z43).
+                'odmiana_zadan' => Odmiana::zadania(...),
                 'nip_grupami'  => Nip::human(...),
                 'czas_wzgledny' => static fn (?string $utc): string => RelativeTime::format($utc),
                 // ⚠ JEDNO miejsce, w którym UTC z bazy staje się czasem użytkownika (docs §10 punkt 3).

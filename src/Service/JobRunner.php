@@ -14,8 +14,10 @@ use Wezurlop\Repository\TenantSettingRepository;
 use Wezurlop\Security\RateLimiter;
 use Wezurlop\Service\Mail\MailTransport;
 use Wezurlop\Service\Mail\TransportFactory;
+use Wezurlop\Service\Mail\TransportZDziennikiem;
 use Wezurlop\Support\Cisza;
 use Wezurlop\Support\Logger;
+use Wezurlop\Support\ZadaniaKolejki;
 
 /**
  * Wykonawca kolejki zadań (bin/run-jobs.php, cron). Pracuje porcjami w budżecie czasu mniejszym niż
@@ -65,6 +67,21 @@ final class JobRunner
     public const JOB_COMPANY_IDLE_ALERT = 'integration.company_idle_alert';
     private const ALERT_RESET = '1970-01-01 00:00:00';
 
+    /**
+     * Zadania cykliczne: typ → co ile sekund. **Jedno źródło dla przebiegu i dla ekranu kolejki**
+     * (zlecenie Z43): `run()` zamawia stąd, a `/ustawienia/poczta` stąd wie, że usunięte zadanie
+     * tego typu wróci w następnym przebiegu. Dwie listy tych samych typów rozjechałyby się przy
+     * pierwszym nowym zadaniu, a ekran obiecywałby powrót zadania, które nie wraca.
+     *
+     * @var array<string, int>
+     */
+    public const CYKLICZNE = [
+        self::JOB_SESSION_CLEANUP => self::SESSION_CLEANUP_EVERY,
+        Canary::JOB_CHECK         => Canary::CHECK_EVERY,
+        self::JOB_SYNC_CLEANUP    => self::SYNC_CLEANUP_EVERY,
+        self::JOB_KEY_IDLE_CHECK  => self::KEY_IDLE_CHECK_EVERY,
+    ];
+
     public function __construct(
         private readonly JobRepository $jobs,
         private readonly AccountMailService $accountMail,
@@ -93,10 +110,9 @@ final class JobRunner
     public function run(float $budgetSeconds): array
     {
         // Zadania cykliczne zapisujemy w tej samej kolejce — rzadszy cron to rzadsze sprzątanie, nic więcej.
-        $this->jobs->ensureScheduled(self::JOB_SESSION_CLEANUP, self::SESSION_CLEANUP_EVERY);
-        $this->jobs->ensureScheduled(Canary::JOB_CHECK, Canary::CHECK_EVERY);
-        $this->jobs->ensureScheduled(self::JOB_SYNC_CLEANUP, self::SYNC_CLEANUP_EVERY);
-        $this->jobs->ensureScheduled(self::JOB_KEY_IDLE_CHECK, self::KEY_IDLE_CHECK_EVERY);
+        foreach (self::CYKLICZNE as $typ => $coIleSekund) {
+            $this->jobs->ensureScheduled($typ, $coIleSekund);
+        }
 
         return $this->process($budgetSeconds, 255, PHP_INT_MAX);
     }
@@ -332,19 +348,19 @@ final class JobRunner
         try {
             $delivered = match ($job['type']) {
                 AccountMailService::JOB_PASSWORD_RESET,
-                AccountMailService::JOB_INVITATION => $this->accountMail->deliver($job['type'], $job['payload'], $this->transport()),
-                RateLimiter::JOB_SECURITY_ALERT     => $this->accountMail->deliverSecurityAlert($job['payload'], $this->transport()),
+                AccountMailService::JOB_INVITATION => $this->accountMail->deliver($job['type'], $job['payload'], $this->transport($job)),
+                RateLimiter::JOB_SECURITY_ALERT     => $this->accountMail->deliverSecurityAlert($job['payload'], $this->transport($job)),
                 Sync\TaskService::JOB_HR_ALERT,
-                Sync\TaskService::JOB_HR_ALERT_URGENT => $this->accountMail->deliverHrAlert($job['payload'], $this->transport()),
+                Sync\TaskService::JOB_HR_ALERT_URGENT => $this->accountMail->deliverHrAlert($job['payload'], $this->transport($job)),
                 self::JOB_SESSION_CLEANUP           => $this->cleanupSessions(),
                 self::JOB_CRON_PROBE                => $this->cronProbe($job['id']),
                 self::JOB_SYNC_CLEANUP              => $this->cleanupSync(),
                 Canary::JOB_CHECK                   => $this->checkCanary(),
                 self::JOB_KEY_IDLE_CHECK            => $this->checkKeyIdle(),
-                self::JOB_KEY_IDLE_ALERT            => $this->accountMail->deliverIntegrationAlert($job['payload'], $this->transport()),
-                self::JOB_KEY_UNUSED_ALERT          => $this->accountMail->deliverUnusedKeyAlert($job['payload'], $this->transport()),
-                self::JOB_COMPANY_IDLE_ALERT        => $this->accountMail->deliverCompanyIdleAlert($job['payload'], $this->transport()),
-                Sync\SyncService::JOB_SPLIT_ALERT    => $this->accountMail->deliverIdentitySplitAlert($job['payload'], $this->transport()),
+                self::JOB_KEY_IDLE_ALERT            => $this->accountMail->deliverIntegrationAlert($job['payload'], $this->transport($job)),
+                self::JOB_KEY_UNUSED_ALERT          => $this->accountMail->deliverUnusedKeyAlert($job['payload'], $this->transport($job)),
+                self::JOB_COMPANY_IDLE_ALERT        => $this->accountMail->deliverCompanyIdleAlert($job['payload'], $this->transport($job)),
+                Sync\SyncService::JOB_SPLIT_ALERT    => $this->accountMail->deliverIdentitySplitAlert($job['payload'], $this->transport($job)),
                 default => throw new \DomainException('Nieznany typ zadania: ' . $job['type']),
             };
             $this->jobs->markDone($job['id']);
@@ -392,9 +408,37 @@ final class JobRunner
      * ⚠ Znacznik udanej wysyłki dokłada sama fabryka (`TransportZeZnacznikiem`) — tu wystarczy
      * o niego nie zapomnieć, a nie budować go drugi raz. Ekran ustawień idzie tą samą drogą,
      * więc wysyłka próbna przez SMTP też odświeża znacznik.
+     *
+     * ⚠ **Wpis w dzienniku zakłada `TransportZDziennikiem`, a nie `execute()`** (Z43 §C):
+     * odbiorcę zna wyłącznie wiadomość, a nie typ zadania. Zadanie, które poczty nie wysyła,
+     * dostaje transport bez dekoratora — inaczej sprzątanie sesji zostawiałoby wpis o wysyłce.
      */
-    private function transport(): MailTransport
+    /**
+     * @param array{id: int, type: string, payload: array<string, mixed>, attempts: int} $job
+     */
+    private function transport(array $job): MailTransport
     {
-        return $this->transportFactory->transport();
+        $transport = $this->transportFactory->transport();
+        $rodzaj = ZadaniaKolejki::wiadomosc($job['type']);
+        if ($rodzaj === '') {
+            // Zadanie bez wiadomości (sprzątanie, sprawdzenia) — nie ma czego zapisywać.
+            return $transport;
+        }
+
+        // ⚠ Sprawcą jest `system`, nie `cron`, i to nie jest drobiazg językowy: katalog zdań
+        // stawia sprawcę na początku zdania, a „Zadanie cykliczne wysłał(a)" nie zgadza się
+        // z żadną formą polskiego orzeczenia. Numer zadania w szczegółach mówi, że wiadomość
+        // poszła z kolejki — a `integration.key_idle` z tego samego przebiegu zapisuje się
+        // tym samym sprawcą od 21.09.2026.
+        return new TransportZDziennikiem(
+            $transport,
+            $this->events,
+            $rodzaj,
+            ZadaniaKolejki::wiadomoscDopelniacz($job['type']),
+            'system',
+            $job['id'],
+            null,
+            $this->transportFactory->rodzaj() === 'plik' ? 'zrzut do pliku' : null,
+        );
     }
 }

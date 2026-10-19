@@ -75,6 +75,18 @@ final class Odmiana
     }
 
     /**
+     * „1 zadanie", „3 zadania", „5 zadań" — kafel kolejki na `/ustawienia/poczta` (Z43).
+     *
+     * ⚠ Prototyp miał w kaflu „N zadania", czyli formę poprawną wyłącznie dla 2–4. Kafel pokazuje
+     * liczbę z bazy, więc zła forma czyta się jak usterka w danych, a nie w zdaniu — ta sama
+     * zasada, co przy dniach i wpisach kadrowych.
+     */
+    public static function zadania(int $ile): string
+    {
+        return abs($ile) === 1 ? 'zadanie' : (self::mnoga($ile) ? 'zadania' : 'zadań');
+    }
+
+    /**
      * Czy liczba bierze formę mnogą „lekką” (2, 3, 4), a nie dopełniacz (5 i więcej).
      *
      * ⚠ Wyjątek nastu (12, 13, 14) jest konieczny: bez niego wychodzi „13 dni robocze”

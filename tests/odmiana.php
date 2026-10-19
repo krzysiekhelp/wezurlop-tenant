@@ -39,6 +39,13 @@ use Wezurlop\Support\Odmiana;
         $check("osoby({$ile})", Odmiana::osoby($ile), $oczekiwane);
     }
 
+    // Kafel kolejki na `/ustawienia/poczta` (Z43): prototyp miał „N zadania", czyli formę
+    // poprawną wyłącznie dla 2–4, a kafel pokazuje liczbę prosto z bazy.
+    foreach ([0 => 'zadań', 1 => 'zadanie', 2 => 'zadania', 5 => 'zadań', 13 => 'zadań',
+              22 => 'zadania'] as $ile => $oczekiwane) {
+        $check("zadania({$ile})", Odmiana::zadania($ile), $oczekiwane);
+    }
+
     // ⚠ Zero to dopełniacz („0 wpisów”, „0 dni roboczych”) — w tych widokach pojawia się przy
     // nieobecności kadrowej, której kadry liczą zero dni.
     $check('wpisy(0)', Odmiana::wpisy(0), 'wpisów');

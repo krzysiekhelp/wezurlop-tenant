@@ -74,6 +74,13 @@ final class KodyZdarzen
         'install.completed'             => 'Zakończenie instalacji',
         'maintenance.cron_probe'        => 'Sonda crona wykonana',
         'maintenance.cron_probe_requested' => 'Sprawdzenie crona (sonda postawiona)',
+        // ⚠ Usunięcie zadania z kolejki jest NIEODWRACALNE dla wiadomości, która w nim stała
+        // (Z43 §B) — stąd własna etykieta, a nie rodzina „Utrzymanie".
+        'maintenance.job_deleted'       => 'Usunięcie zadania z kolejki',
+        // ⚠ Para kodów o FAKCIE wysyłki, nie o zamówieniu wiadomości (Z43 §C). „Zaproszono"
+        // i „wysłano zaproszenie" to dwa różne zdarzenia i dziennik rozróżnia je od 19.10.2026.
+        'mail.sent'                     => 'Wiadomość wysłana',
+        'mail.failed'                   => 'Wiadomość niewysłana',
         'employment.deactivated_by_sync' => 'Wygaszenie zatrudnienia (synchronizacja)',
         // ⚠ Zmiana hierarchii jest zmianą tego, KTO OGLĄDA CZYJE dane kadrowe i przez kogo
         // pójdzie wniosek — dlatego ma własną etykietę, a nie wpada w rodzinę „Zatrudnienie".
@@ -145,6 +152,10 @@ final class KodyZdarzen
         'session.revoked',
         'auth.login_delayed', '2fa.delayed', 'access.revoked', 'account.unblocked_manually',
         'account.invitation_resend_refused',
+        // ⚠ Nieudana wysyłka jest wyróżniona słabo, nie mocno: zadanie jest PONAWIANE, więc
+        // pojedynczy wpis nie jest jeszcze awarią — ale ciąg takich wpisów jest jedynym miejscem,
+        // w którym widać, że poczta klienta przestała wychodzić.
+        'mail.failed', 'maintenance.job_deleted',
         'employment.deactivated_by_sync', 'integration.key_idle', 'integration.key_unused',
         'integration.company_idle',
         'sync.review_requested', 'sync.identity_changed', 'sync.foreign_connector_entry',
@@ -176,8 +187,15 @@ final class KodyZdarzen
         'grupy'     => ['nazwa' => 'grupy', 'prefiksy' => ['group.']],
         'hierarchia' => ['nazwa' => 'hierarchia', 'prefiksy' => ['hierarchy.']],
         'firmy'     => ['nazwa' => 'firmy', 'prefiksy' => ['tenant.', 'context.', 'employment.']],
+        // ⚠ Poczta dostaje WŁASNY rodzaj (Z43 §C), bo od 19.10.2026 rodzina `mail.*` to wpisy
+        // o każdej wysłanej i niewysłanej wiadomości — czyli pierwsze miejsce, do którego się
+        // zagląda przy „nie dostałem zaproszenia". W zbiorczej „integracji i systemie" ginęły
+        // między przebiegami connectora.
+        // ⚠ Prefiks `mail.` stoi w DOKŁADNIE JEDNYM rodzaju: dwa filtry pokazujące ten sam wpis
+        // to dwa liczniki jednej rzeczy, a przy zestawianiu wyników rozjeżdżają się bez ostrzeżenia.
+        'poczta'    => ['nazwa' => 'poczta', 'prefiksy' => ['mail.']],
         'integracja' => ['nazwa' => 'integracja i system', 'prefiksy' => [
-            'api.', 'integration.', 'sync.', 'leave.', 'security.', 'maintenance.', 'install.', 'mail.',
+            'api.', 'integration.', 'sync.', 'leave.', 'security.', 'maintenance.', 'install.',
         ]],
     ];
 

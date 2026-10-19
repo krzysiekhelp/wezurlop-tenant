@@ -382,7 +382,6 @@ final class InstallController
                     (string) $mail['password'],
                     (string) $mail['from'],
                     (string) $mail['from_name'],
-                    false,
                     null,
                 );
                 // Plik-kanarek w storage/ — dobowe sprawdzenie, czy katalog nie stał się dostępny po HTTP.

@@ -83,6 +83,10 @@ $shared = [
     // ⚠ Wysyłka próbna w żądaniu to świadomy wyjątek od „poczta tylko przez kolejkę": sens tego
     // przycisku polega na tym, że administrator widzi błąd SMTP od razu. Limit transportu 10 s.
     ['POST', '/ustawienia/poczta/proba',                 [SettingsController::class, 'testMail'],      'permission' => 'admin.settings', 'zakres' => 'tenant'],
+    // ⚠ Usunięcie zadań z kolejki (Z43 §B): POST, bo zmienia stan (§3), uprawnienie to samo,
+    // co reszta ekranu, a o tym, których typów wolno dotknąć, decyduje biała lista
+    // w `Support\ZadaniaKolejki` — nie parametr żądania.
+    ['POST', '/ustawienia/poczta/kolejka/usun',          [SettingsController::class, 'deleteQueueJob'], 'permission' => 'admin.settings', 'zakres' => 'tenant'],
     // ⚠ Stary adres osobnego ekranu nazw — od Z29 przekierowuje na `/ustawienia?okno=nazwy`,
     // czyli do tego samego okna, które otwiera przycisk „Zmień nazwy". Trasa zostaje, bo prowadzą
     // do niej zakładki, zrzuty ekranu i kryterium bramki.

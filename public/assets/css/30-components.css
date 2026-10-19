@@ -4095,60 +4095,34 @@ body:has(dialog.modal[open]) { overflow: hidden; }
    zmierzone przy oknie 1440 trzy przyciski potrzebują 287 px, a 21% dawało 196 px i rząd
    zawijał się na dwie linie (112 px wysokości zamiast 72). „Stanowi" dalej nie zabieramy nic:
    tam granicą jest plakietka, która nie może się złamać. */
-/* ⚠ **Przeliczone trzeci raz (Z41), bo podpisy kolumn przestały zawijać** — a podpis z `nowrap`
-   ma własną szerokość minimalną, której wcześniej nie miał. Zmierzone szerokości minimalne
-   (tekst podpisu plus wcięcia komórki): „Firmy w zakresie" 144 px, „Ostatnie użycie" 136,
-   „Utworzony" 106, „Działania" 105, „Nazwa" 82, „Stan" 61 — razem 634 px. Do tego treść:
-   trzy przyciski w jednej linii potrzebują 401 px, nazwa z kwadratem i początkiem klucza 156 px,
-   plakietka „unieważniony przez administratora" 229 px.
+/* ⚠ **Przeliczone trzeci raz (Z41), a czwarty i ostatni raz 19.10.2026 — po skróceniu podpisów
+   kolumn** („Firmy w zakresie" → „Firmy", „Ostatnie użycie" → „Użycie", decyzja Krzysztofa).
+   Skrócenie dwóch napisów zdjęło **135 px szerokości minimalnej** z nagłówka tabeli (zmierzone:
+   suma minimów podpisów 634 → 499 px) i to wystarczyło, żeby trzy rozdania kolumn z Z41 zwinąć
+   w JEDNO. Tamte trzy istniały wyłącznie dlatego, że przy 1366 px nie dało się jednocześnie
+   utrzymać podpisów w jednej linii, początku klucza, plakietki „Stanu" i przycisków — dziś da się.
 
-   ⚠ **Przy 1366 px to się nie spina i nie ma takiego rozdania, które by spięło**: tabela ma
-   wtedy 1052 px, a same minima podpisów, plakietki, nazwy i przycisków w jednej linii to
-   1120 px. Dlatego dwa rozdania, a nie jedno:
-   - szerokie (domyślne) trzyma WSZYSTKO w jednej linii — przy 1920 px kolumna działań ma
-     483 px wobec 401 potrzebnych, więc trzy przyciski stoją obok siebie i wiersz ma 78 px,
-   - wąskie (≤ 1600 px) oddaje linijkę przyciskom, a chroni podpisy, początek klucza
-     i plakietkę: te trzy rzeczy albo wyglądają poprawnie, albo wyglądają na zepsute,
-     a rząd przycisków w dwóch czy trzech linijkach to tylko wyższy wiersz.
-   ⚠ „Stan" zostaje 22% w obu rozdaniach — 231 px przy 1366 wobec 229 potrzebnych. Plakietki
-   nie wolno złamać (ma `white-space: nowrap` i ma je zachować). */
-.col--klucz-nazwa     { width: 13%; }
-.col--klucz-zakres    { width: 13%; }
-/* ⚠ Dwie klasy na dwie kolumny z datą, bo ich PODPISY mają różną długość: jedna klasa 11%
-   starczała „Utworzonemu" (106 px) i zostawiała „Ostatnie użycie" (136 px) 20 px za krótkie. */
-.col--klucz-utworzony { width: 9%; }
-.col--klucz-uzycie    { width: 12%; }
-.col--klucz-stan      { width: 22%; }
-.col--klucz-akcja     { width: 31%; }
-/* ⚠ Próg 1600 px wzięty z POMIARU, nie z listy popularnych ekranów: przy oknie 1601 px tabela
-   ma 1287 px i to jest ostatnia szerokość, przy której kolumna działań (31%) daje 399 px, czyli
-   tyle, ile potrzebują trzy przyciski. Niżej i tak zawijają, więc niżej ich szerokość przestaje
-   być warta cokolwiek — i wraca do kolumn, które trzymają treść nietłukącą się. */
-@media (max-width: 1600px) {
-  .col--klucz-nazwa     { width: 14%; }
-  .col--klucz-zakres    { width: 14%; }
-  .col--klucz-utworzony { width: 10%; }
-  .col--klucz-uzycie    { width: 13%; }
-  .col--klucz-akcja     { width: 27%; }
-}
-/* ⚠ Trzecie rozdanie i próg 1430 px biorą się z BRAMKI, nie z upodobania: `sprawdz_kasowanie_klucza`
-   mierzy rząd działań przy 1440 px i wymaga najwyżej dwóch linijek (≤ 72 px), a przy 1920 px
-   jednej. Kolumna działań musi więc mieć przy 1440 px co najmniej ~284 px — stąd 27% w rozdaniu
-   wyżej. Przy 1366 px te same 27% nie zostawiają już 106 px na podpis „Utworzony" ani 156 px
-   na początek klucza, więc poniżej progu bramki przyciskom wolno zejść na trzecią linijkę:
-   wiersz jest wtedy wyższy (145 px), ale żaden podpis nie nachodzi na sąsiada i żaden fragment
-   klucza nie jest przełamany. Próg stoi 10 px pod 1440, żeby pomiar bramki trafiał w rozdanie
-   z dwiema linijkami, a nie w to z trzema. */
-@media (max-width: 1430px) {
-  /* ⚠ Ułamki procenta są tu celowe: przy 1366 px całe punkty dawały podpisowi „Ostatnie użycie"
-     1 px zapasu, a pół punktu to już 6 px. Nadwyżka pochodzi z kolumny działań, która w tym
-     rozdaniu i tak zawija przyciski. */
-  .col--klucz-nazwa     { width: 15%; }
-  .col--klucz-zakres    { width: 14.5%; }
-  .col--klucz-utworzony { width: 11%; }
-  .col--klucz-uzycie    { width: 13.5%; }
-  .col--klucz-akcja     { width: 24%; }
-}
+   Zmierzone szerokości minimalne (napis podpisu plus wcięcia komórki): „Nazwa" 82 px,
+   „Firmy" 69, „Utworzony" 106, „Użycie" 76, „Stan" 61, „Działania" 105. Treść: nazwa
+   z kwadratem i początkiem klucza 156 px, plakietka „unieważniony przez administratora" 229 px,
+   trzy przyciski w jednej linii 401 px, w dwóch 287 px.
+
+   Rozdanie poniżej daje przy 1366 px (tabela 1052): nazwa 179, firmy 105, utworzony 116,
+   użycie 105, stan 252, działania 294 — każda kolumna nad swoim minimum, a przyciski schodzą
+   na DWIE linijki zamiast trzech (wiersz 105 px zamiast 145). Przy 1920 px (tabela 1558)
+   działania mają 436 px wobec 401 potrzebnych, więc trzy przyciski stoją w jednej linii
+   i wiersz ma 78 px. ⚠ „Stan" dalej nie oddaje nic poniżej 229 px: plakietka ma `nowrap`
+   i ma go zachować. */
+.col--klucz-nazwa     { width: 17%; }
+.col--klucz-zakres    { width: 10%; }
+/* ⚠ Dwie klasy na dwie kolumny z datą zostają, choć mają teraz tę samą szerokość: różnią się
+   PODPISY („Utworzony" 106 px wobec „Użycie" 76), więc przy następnej zmianie napisu kolumny
+   znów rozjadą się niezależnie. Jedna klasa oszczędziłaby wiersz arkusza i kosztowała kolejny
+   pomiar. */
+.col--klucz-utworzony { width: 11%; }
+.col--klucz-uzycie    { width: 10%; }
+.col--klucz-stan      { width: 24%; }
+.col--klucz-akcja     { width: 28%; }
 /* /dane — lista firm. */
 .col--firma-nazwa  { width: 26%; }
 .col--firma-nip    { width: 14%; }
@@ -4732,18 +4706,20 @@ body:has(dialog.modal[open]) { overflow: hidden; }
    łamało się przy 1920, „Ostatnie użycie" dochodziło przy 1366, więc nagłówek czytał się jak
    dwupoziomowy. Podpis kolumny nie jest treścią i nie ma prawa zawijać. */
 .table--klucze thead th { white-space: nowrap; }
-/* ⚠ Poniżej 1340 px podpisy wracają do zawijania — i to nie jest ustępstwo, tylko jedyne
-   wyjście: przy tabeli węższej niż ~966 px nie istnieje rozdanie, w którym każdy podpis
-   z `nowrap` mieści się w swojej kolumnie (same minima podpisów to 634 px, a plakietka „Stanu"
-   zabiera 229 i nie wolno jej złamać). Podpis WYCHODZĄCY za kolumnę nachodzi na podpis sąsiada,
-   czyli jest gorszy niż podpis w dwóch linijkach. Zmierzone: przy 1300 px „Firmy w zakresie"
-   mają 9 px zapasu, a przy 1350 px już brakuje — podpis wychodzi za kolumnę o 1 px i rośnie
-   z każdym pikselem w dół. Próg stoi więc 1 px pod 1366 px, czyli pod najwęższym ekranem z listy
-   odbioru: dokładnie tam, gdzie rozdanie przestaje się spinać.
+/* ⚠ Pod pewną szerokością podpisy wracają do zawijania — i to nie jest ustępstwo, tylko jedyne
+   wyjście: podpis WYCHODZĄCY za kolumnę nachodzi na podpis sąsiada, czyli jest gorszy niż podpis
+   w dwóch linijkach. Ekran nie kończy się na 1366 px: układ tabeli obowiązuje aż do 640 px
+   (niżej wiersz staje się kartą), a przy oknie 1000 px tabela ma 686 px i żadne rozdanie
+   nie zmieści „Utworzonego".
+   ⚠ **Próg zjechał z 1365 na 1277 px po skróceniu podpisów** (19.10.2026). Wylicza się z jednego
+   podpisu — najdłuższego, czyli „Utworzony" (106 px przy 11% kolumny): 106 / 0,11 = 964 px
+   tabeli, a tabela w tym zakresie ma `okno − 314 px` (zmierzone przy 1366 i 1440), czyli okno
+   1278 px. Próg stoi 1 px pod tym. Do Z43 to samo wyliczenie dawało 1366 px, bo „Firmy
+   w zakresie" potrzebowały 144 px.
    ⚠ Reguła stoi TUŻ ZA `nowrap`, nie przy szerokościach kolumn: obie mają tę samą specyficzność
    (0,2,1), więc rozstrzyga kolejność w pliku — zapytanie postawione wyżej przegrywało z regułą
    bazową i przy 1200 px podpisy dalej nie zawijały (zmierzone). */
-@media (max-width: 1365px) {
+@media (max-width: 1277px) {
   .table--klucze thead th { white-space: normal; }
 }
 /* ⚠ Plakietka wyrównana `middle`, nie do linii pisma. `vertical-align: middle` na komórce
@@ -5241,3 +5217,85 @@ body:has(dialog.modal[open]) { overflow: hidden; }
    przenosi go do toasta, dokładając tę klasę. Bez JavaScriptu klasa nigdy nie powstaje,
    więc komunikat zostaje tam, gdzie był — to jest cała ścieżka zapasowa i nie ma drugiej. */
 .komunikat--w-toascie { display: none; }
+
+/* ——— /ustawienia/poczta: układ z 19.10.2026 (zlecenie Z43) ——————————————————————
+   ⚠ Rodzina `.poczta-*` **dokłada układ, nie nowy język wizualny**: kafel, karta, pole,
+   plakietka i przycisk-ikona są tymi samymi komponentami, co na pozostałych ekranach. Nie ma
+   tu ani jednej nowej barwy i ani jednego nowego rozmiaru pisma spoza `00-tokens.css`. */
+
+/* ⚠ **Trzy kolumny, a nie `.form-grid`** (1,6fr / 1fr): tamta siatka układa pola PARAMI,
+   a tu siedem pól dzieli się na trzy niezależne decyzje — gdzie się łączymy, kim się
+   przedstawiamy, od kogo idzie wiadomość. `auto-fit` z podłogą 240 px zamiast progów:
+   podłoga bierze się z najszerszego pola sekcji (adres nadawcy z podpowiedzią), więc kolumny
+   same schodzą do dwóch i do jednej — także wtedy, gdy karta jest wąska, a okno nie. */
+.poczta-forma {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--s-5);
+  align-items: start;
+}
+.poczta-sekcja { display: flex; flex-direction: column; gap: var(--s-4); min-width: 0; }
+/* Etykieta sekcji: 11 px wersalikami — ta sama sygnatura, co nagłówek kolumny w tabeli
+   i etykieta sekcji w oknie zakresu klucza. */
+.poczta-sekcja__etykieta {
+  font-size: var(--t-label);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--c-text-4);
+}
+/* ⚠ Podpowiedź w barwie ostrzeżenia — stan „nadawca nazywa się wezurlop" był do Z43 akapitem
+   `.notice--warn` NAD formularzem, czyli ostrzeżeniem oddzielonym od pola, w którym się je
+   naprawia. Kolorujemy wyłącznie to, co wymaga reakcji (system-wizualny §3.1). */
+.field__hint--uwaga { color: var(--c-warn-text); }
+.field__hint--uwaga strong { font-weight: var(--w-semibold); }
+
+/* ⚠ Pole, przycisk i notka w JEDNYM rzędzie: karta „Wiadomość próbna" jest jednym działaniem,
+   więc stopka karty byłaby drugim miejscem na tę samą decyzję. `align-items: flex-end`, bo pole
+   ma nad kontrolką etykietę — wyrównanie do środka stawiało przycisk w połowie etykiety.
+   ⚠ Szerokość pola 360 px jest z prototypu i ma `max-width`: adres e-mail bywa dłuższy niż pole,
+   ale pole dłuższe niż karta robi przewijanie w poziomie, czyli naruszenie bramki. */
+.poczta-proba { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--s-3); }
+.poczta-proba__pole { width: 360px; max-width: 100%; }
+.poczta-proba__akcja { flex: 0 0 auto; }
+/* Notka dotyczy przycisku, więc stoi w jego linii, a nie pod całym rzędem. */
+.poczta-proba__notka { align-self: center; }
+
+/* ——— lista „W KOLEJCE" ——— */
+.poczta-kolejka { display: flex; flex-direction: column; gap: var(--s-2); }
+.poczta-kolejka__lista { display: flex; flex-direction: column; gap: var(--s-1); }
+/* ⚠ Wiersz NIE jest kartą ani wierszem tabeli: to pozycja listy wewnątrz karty, więc tło
+   bierze `--c-bg` tak samo jak kafelki danych wyżej — jedna karta, jeden rytm. */
+.poczta-kolejka__wiersz {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-width: 0;
+  padding: var(--s-2) var(--s-3);
+  border-radius: var(--radius);
+  background: var(--c-bg);
+}
+.poczta-kolejka__dane { display: flex; flex-direction: column; gap: 2px; min-width: 0; margin-right: auto; }
+.poczta-kolejka__nazwa { font-size: var(--t-body); font-weight: var(--w-medium); color: var(--c-text); }
+/* ⚠ Kod typu zostaje na ekranie (`Support\ZadaniaKolejki`): nazwa po polsku jest tłumaczeniem,
+   a przy zgłoszeniu „nic nie wychodzi" zestawia się `mail.invitation`. 11 px i najcichsza barwa,
+   bo to dana druga, nie druga nazwa. */
+.poczta-kolejka__kod { font-size: var(--t-label); color: var(--c-text-4); }
+/* Kosz 32 px, nie 38: stoi w wierszu listy obok dwóch linii tekstu, a kwadrat równy kontrolce
+   był od nich wyższy i rozpychał wiersz — ta sama poprawka, co przy znaku wiersza klucza (Z41). */
+.ikona-akcja--sm { width: var(--control-h-sm); height: var(--control-h-sm); }
+.ikona-akcja--sm .ico { width: 15px; height: 15px; }
+
+/* ⚠ Telefon: kolumny formularza schodzą jedna pod drugą same (`auto-fit`), a rząd wiadomości
+   próbnej musi oddać przyciskowi całą szerokość — inaczej „Wyślij wiadomość próbną" zostaje
+   przy polu 360 px i wychodzi za kartę. Próg pyta o KARTĘ, bo ten sam ekran stoi w kolumnie
+   1558 px i w 343 px (zlecenie Z43 §6). */
+@container karta (max-width: 420px) {
+  .poczta-proba__pole, .poczta-proba__akcja, .poczta-proba__notka { width: 100%; }
+  .poczta-proba__akcja { justify-content: center; }
+}
+@supports not (container-type: inline-size) {
+  @media (max-width: 560px) {
+    .poczta-proba__pole, .poczta-proba__akcja, .poczta-proba__notka { width: 100%; }
+  }
+}

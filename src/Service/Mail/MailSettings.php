@@ -161,7 +161,13 @@ final class MailSettings
      *
      * ⚠ `$haslo === null` albo puste znaczy **„nie zmieniaj"**: pole hasła na ekranie jest zawsze
      * puste (nie oddajemy sekretu do przeglądarki), więc zapis formularza nie może go czyścić.
-     * Do wyczyszczenia służy osobna decyzja (`$wyczyscHaslo`), a nie pusty formularz.
+     * To zostaje bez zmian.
+     *
+     * ⚠ **Parametru `$wyczyscHaslo` już nie ma** (dopisek do Z43, 19.10.2026). Jedyną drogą
+     * do niego była karta „Hasło SMTP" na `/ustawienia/poczta` z ukrytym polem `wyczysc_haslo=1`;
+     * karta zniknęła, a instalator — drugi i ostatni wywołujący — podawał tam zawsze `false`.
+     * Skrzynkę bez uwierzytelnienia ustawia się **pustym polem użytkownika**: `SmtpTransport`
+     * nie włącza wtedy `SMTPAuth` i zapisany szyfrogram nie jest w ogóle używany.
      */
     public function zapisz(
         string $host,
@@ -171,7 +177,6 @@ final class MailSettings
         #[\SensitiveParameter] ?string $haslo,
         string $nadawca,
         string $nazwaNadawcy,
-        bool $wyczyscHaslo,
         ?int $przez,
     ): void {
         $this->settings->set(self::KLUCZ_HOST, trim($host), $przez);
@@ -184,11 +189,6 @@ final class MailSettings
         $this->settings->set(self::KLUCZ_UZYTKOWNIK, trim($uzytkownik), $przez);
         $this->settings->set(self::KLUCZ_NADAWCA, strtolower(trim($nadawca)), $przez);
         $this->settings->set(self::KLUCZ_NAZWA_NADAWCY, trim($nazwaNadawcy), $przez);
-        if ($wyczyscHaslo) {
-            $this->settings->set(self::KLUCZ_HASLO, '', $przez);
-
-            return;
-        }
         if ($haslo !== null && $haslo !== '') {
             $this->settings->set(self::KLUCZ_HASLO, $this->secretBox->seal($haslo), $przez);
         }

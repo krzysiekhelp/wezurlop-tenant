@@ -130,9 +130,47 @@ use Wezurlop\Support\ZdanieZdarzenia;
     ));
     $check('każdy kod z etykietą ma też zdanie', $bezZdania === [], implode(', ', $bezZdania));
 
+    // ——— poczta: wpis o FAKCIE wysyłki (Z43 §C) ———
+    // ⚠ Odbiorca jest tu daną wpisu i musi być pogrubiony, a komunikat serwera SMTP — nie:
+    // pogrubiony powód przeciągał wzrok na trzy linijki techniczne i zasłaniał adres.
+    $wyslane = $zbuduj('mail.sent', ['rodzaj' => 'zaproszenie', 'odbiorca' => 'ktos@przyklad.pl', 'zadanie' => '412']);
+    $check('wysłana wiadomość czyta się po polsku',
+        $tekst($wyslane) === 'wysłał(a) zaproszenie do ktos@przyklad.pl', $tekst($wyslane));
+    $check('pogrubiony jest rodzaj i odbiorca, nie numer zadania',
+        $mocne($wyslane) === ['zaproszenie', 'ktos@przyklad.pl'], implode('|', $mocne($wyslane)));
+    $plik = $zbuduj('mail.sent', ['rodzaj' => 'zaproszenie', 'odbiorca' => 'ktos@przyklad.pl', 'droga' => 'zrzut do pliku']);
+    $check('zrzut do pliku jest w zdaniu, bo wiadomość NIE wyszła w świat',
+        str_contains($tekst($plik), '— zrzut do pliku'), $tekst($plik));
+    // ⚠ Rodzaj przychodzi tu w DOPEŁNIACZU (`ZadaniaKolejki::wiadomoscDopelniacz`), bo polskie
+    // zaprzeczenie go wymaga: jedna forma dawała „nie wysłał link do ustawienia hasła".
+    $nieudane = $zbuduj('mail.failed', ['rodzaj' => 'linku do ustawienia hasła', 'odbiorca' => 'ktos@przyklad.pl',
+        'powod' => 'SMTP: Could not authenticate.']);
+    $check('niewysłana wiadomość niesie powód',
+        $tekst($nieudane) === 'nie wysłał(a) linku do ustawienia hasła do ktos@przyklad.pl — SMTP: Could not authenticate.',
+        $tekst($nieudane));
+    $check('powód błędu NIE jest pogrubiony',
+        !in_array('SMTP: Could not authenticate.', $mocne($nieudane), true), implode('|', $mocne($nieudane)));
+    $bezPowodu = $zbuduj('mail.failed', ['rodzaj' => 'alertu bezpieczeństwa', 'odbiorca' => 'ktos@przyklad.pl']);
+    $check('brak powodu usuwa część opcjonalną, nie zostawia myślnika',
+        !str_contains($tekst($bezPowodu), '—'), $tekst($bezPowodu));
+
+    // ——— usunięcie zadania z kolejki (Z43 §B) ———
+    $jedno = $zbuduj('maintenance.job_deleted', ['zadanie' => 'Zaproszenie do systemu', 'typ' => 'mail.invitation']);
+    $check('usunięcie jednego zadania bez „sztuk: 1”',
+        $tekst($jedno) === 'usunął(ęła) z kolejki zadanie Zaproszenie do systemu', $tekst($jedno));
+    $trzy = $zbuduj('maintenance.job_deleted', ['zadanie' => 'Zaproszenie do systemu', 'typ' => 'mail.invitation', 'ile' => '3']);
+    $check('usunięcie kilku zadań podaje liczbę', str_contains($tekst($trzy), 'sztuk: 3'), $tekst($trzy));
+
     // ——— filtry rodzaju ———
-    $check('filtrów rodzaju jest 6 (plus „Wszystkie” w szablonie)', count(KodyZdarzen::rodzaje()) === 6,
+    // ⚠ Siedem od Z43: poczta dostała własny rodzaj, bo rodzina `mail.*` to od 19.10.2026 wpisy
+    // o każdej wysłanej i niewysłanej wiadomości — w zbiorczej „integracji i systemie" ginęły
+    // między przebiegami connectora.
+    $check('filtrów rodzaju jest 7 (plus „Wszystkie” w szablonie)', count(KodyZdarzen::rodzaje()) === 7,
         (string) count(KodyZdarzen::rodzaje()));
+    $check('poczta ma własny rodzaj i tylko rodzinę `mail.`',
+        KodyZdarzen::prefiksyRodzaju('poczta') === ['mail.'], implode('|', KodyZdarzen::prefiksyRodzaju('poczta')));
+    $check('rodzaj zbiorczy NIE łapie już poczty',
+        !in_array('mail.', KodyZdarzen::prefiksyRodzaju('integracja'), true));
     $check('klucz spoza białej listy nie filtruje niczego', KodyZdarzen::prefiksyRodzaju('; DROP TABLE event_log') === []);
     $check('rodzaj „logowania” obejmuje trzy rodziny', KodyZdarzen::prefiksyRodzaju('logowania') === ['auth.', '2fa.', 'session.']);
     // ⚠ Każda rodzina kodów musi wpadać do DOKŁADNIE jednego filtra — inaczej suma filtrów nie
