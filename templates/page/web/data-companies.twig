@@ -127,7 +127,10 @@
                                 </span>
                             </span>
                             <span class="dane-firma__liczba">
-                                <span class="dane-firma__etykieta">Pracownicy</span>
+                                {#- ⚠ „Zatrudnienia", nie „Pracownicy" — ta sama nazwa, co w kaflu
+                                    nad listą, bo to ta sama liczba: suma kolumny daje kafel.
+                                    Dwie nazwy jednej liczby każą pytać, która jest która. -#}
+                                <span class="dane-firma__etykieta">Zatrudnienia</span>
                                 <span class="dane-firma__wartosc">{{ f.employees }}</span>
                             </span>
                             {# ⚠ Znacznik przez filtr — surowy `RRRR-MM-DD HH:MM:SS` w treści dla użytkownika

@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.26, 19.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.27, 19.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,63 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.26 → 1.18.27: `/dane/firma/{id}` — jedna lista sortowania zamiast dwóch,
+> stan zatrudnienia w nazwisku zamiast w kolumnie** (zlecenie Z45, 19.10.2026).
+> - **`.page__head` znika** razem z przyciskiem „Wszystkie firmy" (powrót daje okruszek w belce)
+>   i z napisem „Wynik: X z Y" — tę samą liczbę mówi stopka („Pokazano 1–25 z 37"), a dwa liczniki
+>   jednej rzeczy rozjeżdżają się przy pierwszym nowym warunku. NIP zszedł do kafla, gdzie jest
+>   daną, a nie dopiskiem do nazwy firmy.
+> - **Trzy kafle `.kafle--auto`**: Zatrudnienia („z programu kadrowego"), NIP („firma z R2
+>   Płatnik"), Tryb („tylko odczyt"). ⚠ Liczba w pierwszym kaflu to ta sama liczba, co „z N"
+>   w stopce — obie z jednego zapytania o liczność.
+> - **Filtry wchodzą do nagłówka karty** (`.card__head--lista`, jak na `/admin/konta`):
+>   wyszukiwarka 240 px z lupą i bez widocznej etykiety, lista porządku 240 px z ikoną, „Pokaż".
+>   ⚠ Pole jest węższe niż na liście osób (240 wobec 300 px), bo obok stoją jeszcze dwie
+>   kontrolki — trzy po 300 px schodziły do drugiego rzędu już przy 1440 px.
+> - ⚠ **JEDNA lista sortowania zamiast dwóch** („Sortuj" + „Kierunek"): sześć pozycji, które
+>   mówią, co się stanie z danymi („Zatrudnieni najpóźniej"), a nie po czym i w którą stronę.
+>   Dwie listy kazały wybierać dwa razy, żeby dostać jedną odpowiedź. Wartość **rozkłada serwer**
+>   na tę samą parę (kolumna + kierunek), która jedzie do białej listy kolumn w repozytorium —
+>   nazwy kolumny nie da się sparametryzować i to się nie zmienia (CLAUDE.md §4).
+>   ⚠ **Stare adresy `?sortuj=nazwisko&kierunek=desc` dalej działają** i wybierają właściwą
+>   pozycję listy: prowadzą do nich zakładki i zrzuty ekranu, a martwy adres, który po cichu
+>   pokazuje inną kolejność, jest gorszy niż jedna gałąź warunku.
+> - **Tabela bez zebry** (`.table--pracownicy`): pasy w co drugim wierszu rysowały siatkę, której
+>   te dane nie potrzebują — wiersz rozpoznaje się po nazwisku, nie po pozycji. Zostaje separator
+>   `--c-line-soft` i podświetlenie pod kursorem (dawała je zebra, więc trzeba było dołożyć).
+>   Nagłówki 11 px wersalikami w jednej linii i cyfry tabelaryczne są w regule bazowej `.table`.
+> - **Kolumna „Stan" znika.** Zakończone zatrudnienie niesie **przekreślone nazwisko** (Z32):
+>   stan zatrudnienia jest cechą TEJ SAMEJ danej, więc nie zabiera kolumny na całą szerokość
+>   tabeli. Przekreślenie jest wyglądem, więc obok stoi tekst ukryty wizualnie, a znak niesie
+>   `title` z datą, jeśli kadry ją podały. ⚠ Kolumna miała dokładnie jedną wartość („zakończone"),
+>   co sprawdzono przed usunięciem.
+>   ⚠ **Ta sama pułapka specyficzności, co w Z32, trafiła tu drugi raz**: `.table--pracownicy
+>   .table__name` maluje nazwisko na `--c-text` i stoi niżej w pliku, więc przy równej
+>   szczegółowości wygrywało kolejnością — zmierzone na gotowym ekranie: kreska była, a napis
+>   dalej czarny, czyli „skreślenie ręką". Selektor wyciszenia wymienia teraz obie tabele.
+> - **Etat ma dwie formy, bo decyduje pozycja**: w kolumnie liczbowej sama liczba („0,50"),
+>   a pełny opis („1/2 etatu") w `title` — ta sama zasada, co w `Odmiana::osoby()`
+>   i `osobyDopelniacz()`. „0,50 (1/2 etatu)" w komórce rozpychało kolumnę i czytało się
+>   jak dwie dane.
+> - **Daty kalendarzowe jako `DD.MM.RRRR`** (`data_dnia`, `Support\DataDnia`): data zatrudnienia
+>   nie ma godziny ani strefy, więc NIE przechodzi przez przeliczanie stref — to dałoby
+>   przesunięcie o jeden dzień przy zmianie czasu.
+> - **Telefon (375 px)**: kafle po dwa, filtry jeden pod drugim na całą szerokość (293 px),
+>   wiersz jako blok — nazwisko z inicjałami w pierwszej linii, reszta w dwóch kolumnach
+>   z nazwą kolumny nad wartością (`::before` z `data-kolumna`, bo `<thead>` w tym układzie
+>   nie istnieje). 0 przewijania w poziomie przy 1920, 1366 i 375.
+> - **Zmierzona zgodność z poprzednim układem**: każda z sześciu pozycji listy daje dokładnie tę
+>   samą kolejność identyfikatorów, co odpowiadający jej stary adres (6/6), pełna lista „Nazwisko
+>   Z–A" jest odwróconą „A–Z" (37 pozycji), stronicowanie niesie porządek i frazę, a wartość
+>   spoza białej listy wraca do domyślnej.
+>
+> ⚠ Przy okazji: kolumna w wierszu firmy na `/dane` nazywa się **„Zatrudnienia"**, tak samo jak
+> kafel nad listą — to ta sama liczba, a dwie nazwy jednej liczby każą pytać, która jest która.
+> Trzy stany zgłoszenia (zatwierdzona, zgłoszona-czeka, odrzucona) zostały zmierzone na ekranie
+> nową próbką `dev/probka-zgloszenia.php`, która zapamiętuje stan zastany i oddaje go co do znaku;
+> do Z45 dwóch z nich nie dało się zobaczyć ani razu, bo na bazie roboczej wszystkie firmy
+> są zatwierdzone.
 
 > **Zmiana 1.18.25 → 1.18.26: adres skrzynki na alerty da się ustawić w aplikacji**
 > (zlecenie Z49, 19.10.2026).
@@ -1381,6 +1438,10 @@ wymyśli drugi raz** — dokładnie tak powstały dwa paski komunikatu (§4b) i 
 `.toasty` `.toasty--nad-nawigacja` `.toast` (`--blad` `--sukces` `--uwaga`) `.toast__znak`
 `.toast__tresc` `.toast__zamknij` `.toast--wchodzi` `.toast--wychodzi` `.komunikat--w-toascie`
 ⚠ `.flash` **skasowane** razem z paskiem `#flash`; znacznik komunikatu składa `partials/komunikat.twig`.
+
+*Lista pracowników firmy (1.18.27, zlecenie Z45)*
+`.table--pracownicy` (tabela bez zebry, podświetlenie wiersza, układ blokowy na telefonie)
+`.table__num--kadrowy` `.pole-szukania__pole--waskie` `.pole-sortowania` `.pole-sortowania__pole`
 
 *Okno skrzynki alertowej (1.18.26, zlecenie Z49)*
 `.modal--alerty` (520 px, stopka o dwóch stronach: sprawdzenie po lewej, decyzje po prawej)

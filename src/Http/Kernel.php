@@ -37,6 +37,7 @@ use Wezurlop\Service\TerminWysylki;
 use Wezurlop\Service\ZasiegPodgladu;
 use Wezurlop\Support\AssetVersions;
 use Wezurlop\Support\Config;
+use Wezurlop\Support\DataDnia;
 use Wezurlop\Support\EnvFile;
 use Wezurlop\Support\Nip;
 use Wezurlop\Support\Odmiana;
@@ -435,6 +436,8 @@ final class Kernel
             'czas_minuty'  => WorkTime::minutes(...),
             'norma_dnia'   => WorkTime::dayNorm(...),
             'etat'         => WorkTime::fte(...),
+            'etat_krotki'  => WorkTime::fteKrotki(...),
+            'etat_opis'    => WorkTime::fteOpis(...),
             'odmiana_osob' => Odmiana::osoby(...),
             'odmiana_osob_d' => Odmiana::osobyDopelniacz(...),
             'odmiana_nieobecnosci' => Odmiana::nieobecnosci(...),
@@ -442,6 +445,7 @@ final class Kernel
             'odmiana_wpisow' => Odmiana::wpisy(...),
             'odmiana_zadan' => Odmiana::zadania(...),
             'nip_grupami'  => Nip::human(...),
+            'data_dnia'    => DataDnia::pl(...),
             'czas_wzgledny' => static fn (?string $utc): string => RelativeTime::format($utc),
             // Instalator działa, zanim ustawienia istnieją — strefa domyślna, ta sama funkcja.
             'czas'          => static fn (?string $utc): string => Strefa::czas($utc, Strefa::DOMYSLNA),
@@ -521,6 +525,10 @@ final class Kernel
                 'czas_minuty'  => WorkTime::minutes(...),
                 'norma_dnia'   => WorkTime::dayNorm(...),
                 'etat'         => WorkTime::fte(...),
+                // ⚠ Dwie formy etatu, bo decyduje pozycja: w kolumnie liczbowej sama liczba
+                // („0,50"), a pełny opis („1/2 etatu") w `title` (Z45 §4).
+                'etat_krotki'  => WorkTime::fteKrotki(...),
+                'etat_opis'    => WorkTime::fteOpis(...),
                 // Odmiana liczebnika — czysta funkcja, jedno miejsce (`Odmiana`), zero logiki w szablonie.
                 // ⚠ Dwie funkcje dla jednego słowa, bo o formie decyduje POZYCJA W ZDANIU:
                 // `odmiana_osob` dla mianownika („zasięg: 53 osoby"), `odmiana_osob_d`
@@ -537,6 +545,10 @@ final class Kernel
                 // „1 zadanie”, „3 zadania”, „5 zadań” — kafel kolejki na `/ustawienia/poczta` (Z43).
                 'odmiana_zadan' => Odmiana::zadania(...),
                 'nip_grupami'  => Nip::human(...),
+                // ⚠ Data KALENDARZOWA z kadr (`2009-03-09` → `09.03.2009`), nie znacznik czasu:
+                // nie przechodzi przez strefę, bo data zatrudnienia godziny nie ma, a przeliczanie
+                // stref dałoby przesunięcie o dzień (`Support\DataDnia`, docs §10 punkt 3).
+                'data_dnia'    => DataDnia::pl(...),
                 'czas_wzgledny' => static fn (?string $utc): string => RelativeTime::format($utc),
                 // ⚠ JEDNO miejsce, w którym UTC z bazy staje się czasem użytkownika (docs §10 punkt 3).
                 // Szablony i kontrolery nie formatują dat same.

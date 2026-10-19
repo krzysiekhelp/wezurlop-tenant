@@ -95,6 +95,59 @@ final class DataController
     }
 
     /**
+     * Porządek listy pracowników: JEDNA lista zamiast dwóch (zlecenie Z45 §3).
+     *
+     * ⚠ Dwie listy („Sortuj" i „Kierunek") kazały wybierać dwa razy, żeby dostać jedną
+     * odpowiedź — a cztery z sześciu sensownych kombinacji nikt nigdy nie wybrał. Lista mówi
+     * teraz, co się stanie z danymi („Zatrudnieni najpóźniej"), a nie po czym i w którą stronę.
+     *
+     * ⚠ Wartość jest ROZKŁADANA po stronie serwera na tę samą parę, która sterowała listą
+     * wcześniej (`$sort`, `$asc`), bo to ona idzie do białej listy kolumn w repozytorium
+     * (CLAUDE.md §4). Nazwy kolumn nie da się sparametryzować i to się nie zmienia.
+     *
+     * @var array<string, array{napis: string, sort: string, asc: bool}>
+     */
+    private const PORZADKI = [
+        'nazwisko-az'           => ['napis' => 'Nazwisko A–Z', 'sort' => 'nazwisko', 'asc' => true],
+        'nazwisko-za'           => ['napis' => 'Nazwisko Z–A', 'sort' => 'nazwisko', 'asc' => false],
+        'zatrudnienie-najpozno' => ['napis' => 'Zatrudnieni najpóźniej', 'sort' => 'zatrudnienie', 'asc' => false],
+        'zatrudnienie-najwczes' => ['napis' => 'Zatrudnieni najwcześniej', 'sort' => 'zatrudnienie', 'asc' => true],
+        'etat-malejaco'         => ['napis' => 'Etat malejąco', 'sort' => 'etat', 'asc' => false],
+        'etat-rosnaco'          => ['napis' => 'Etat rosnąco', 'sort' => 'etat', 'asc' => true],
+    ];
+
+    /** Stare wartości `sortuj` (przed Z45) → klucz porządku przy kierunku rosnącym i malejącym. */
+    private const PORZADKI_STARE = [
+        'nazwisko'     => ['nazwisko-az', 'nazwisko-za'],
+        'zatrudnienie' => ['zatrudnienie-najwczes', 'zatrudnienie-najpozno'],
+        'etat'         => ['etat-rosnaco', 'etat-malejaco'],
+    ];
+
+    /**
+     * Porządek z adresu: klucz nowej listy albo STARA para `sortuj` + `kierunek`.
+     *
+     * ⚠ Stara para zostaje obsługiwana, zamiast zniknąć: prowadzą do niej zakładki, nasze
+     * własne zrzuty ekranu i odnośniki w raportach — a martwy adres, który po cichu pokazuje
+     * inną kolejność, jest gorszy niż jedna gałąź `if` (ta sama zasada, co przy `/ustawienia/spolki`).
+     *
+     * @return array{0: string, 1: string, 2: bool} klucz porządku, kolumna, rosnąco?
+     */
+    private function porzadek(Request $request): array
+    {
+        $wybrany = $request->queryString('sortuj', 24);
+        if (isset(self::PORZADKI[$wybrany])) {
+            return [$wybrany, self::PORZADKI[$wybrany]['sort'], self::PORZADKI[$wybrany]['asc']];
+        }
+        if (isset(self::PORZADKI_STARE[$wybrany])) {
+            $klucz = self::PORZADKI_STARE[$wybrany][$request->queryString('kierunek', 4) === 'desc' ? 1 : 0];
+
+            return [$klucz, self::PORZADKI[$klucz]['sort'], self::PORZADKI[$klucz]['asc']];
+        }
+
+        return ['nazwisko-az', 'nazwisko', true];
+    }
+
+    /**
      * Czy któryś klucz obsługuje firmy z dwóch instalacji connectora — wtedy ta sama osoba
      * zatrudniona w takich firmach jest u nas widziana jako dwie.
      *
@@ -120,10 +173,7 @@ final class DataController
             return $this->errors->errorPage(404, null, $request->isHtmx());
         }
         $search = trim($request->queryString('szukaj', 100));
-        $sort = in_array($request->queryString('sortuj', 20), ['nazwisko', 'zatrudnienie', 'etat'], true)
-            ? $request->queryString('sortuj', 20)
-            : 'nazwisko';
-        $asc = $request->queryString('kierunek', 4) !== 'desc';
+        [$porzadek, $sort, $asc] = $this->porzadek($request);
         $total = $this->data->countEmployees($company['id'], $search);
         $page = self::page($request, $total, self::PAGE);
         $rok = (int) (new DateTimeImmutable('today'))->format('Y');
@@ -133,8 +183,9 @@ final class DataController
             'pracownicy' => $this->data->employees($company['id'], $search, $sort, $asc, self::PAGE, $page['offset'], $rok),
             'rok' => $rok,
             'szukaj' => $search,
-            'sortuj' => $sort,
-            'kierunek' => $asc ? 'asc' : 'desc',
+            // Jedna wartość dla jednej listy — rozkłada ją serwer (patrz `porzadek()`).
+            'porzadek' => $porzadek,
+            'porzadki' => self::PORZADKI,
             'strona' => $page,
         ]);
     }

@@ -137,6 +137,30 @@ final class WorkTime
         return isset($ulamki[$zapis]) ? $zapis . ' (' . $ulamki[$zapis] . ')' : $zapis;
     }
 
+    /**
+     * Etat w kolumnie liczbowej: **sama liczba** („0,50"), bez dopisku (zlecenie Z45 §4).
+     *
+     * ⚠ Dwie formy tej samej danej, bo decyduje POZYCJA — ta sama zasada, co w `Odmiana::osoby()`
+     * i `osobyDopelniacz()`. W kolumnie liczb „0,50 (1/2 etatu)" rozpychało kolumnę i czytało się
+     * jak dwie dane obok siebie; opis przeniósł się do `title`, czyli tam, gdzie się go szuka.
+     */
+    public static function fteKrotki(?float $fte): string
+    {
+        return $fte === null ? '—' : number_format($fte, 2, ',', ' ');
+    }
+
+    /** Pełny opis etatu do atrybutu `title`: „1/2 etatu", a przy nietypowym ułamku „0,80 etatu". */
+    public static function fteOpis(?float $fte): string
+    {
+        if ($fte === null) {
+            return 'brak wartości';
+        }
+        $zapis = self::fteKrotki($fte);
+        $ulamki = ['0,50' => '1/2 etatu', '0,75' => '3/4 etatu', '0,25' => '1/4 etatu', '0,33' => '1/3 etatu'];
+
+        return $ulamki[$zapis] ?? $zapis . ' etatu';
+    }
+
     /** Sam zapis w minutach do atrybutu `title` — żeby oryginalna wartość z kadr była pod ręką. */
     public static function minutes(?int $minutes): string
     {

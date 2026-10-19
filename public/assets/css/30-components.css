@@ -1667,7 +1667,12 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 /* ⚠ Trzy klasy w selektorze, bo `.table--osoby .table__name` (Z30) maluje nazwisko na
    `--c-text` i stoi NIŻEJ w pliku — przy równej szczegółowości wygrywałaby kolejność.
    Zmierzone przed poprawką: kreska wyciszona, napis dalej czarny. */
+/* ⚠ Od Z45 ta sama pułapka na drugim ekranie: `.table--pracownicy .table__name` maluje
+   nazwisko na `--c-text` i stoi NIŻEJ w pliku, więc przy równej szczegółowości wygrywało
+   kolejnością. Zmierzone na gotowym ekranie: kreska była, a napis dalej czarny — czyli dokładnie
+   ten wygląd „skreślenia ręką", przed którym ostrzega uwaga wyżej. */
 .table--osoby .osoba-wiersz--zwolniony .table__name,
+.table--pracownicy .osoba-wiersz--zwolniony .table__name,
 .osoba-wiersz--zwolniony .osoba-wiersz__nazwa,
 .osoba-wiersz--zwolniony .table__name {
   color: var(--c-text-4);
@@ -5392,4 +5397,77 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   .modal--alerty .modal__foot > * { width: 100%; }
   .modal--alerty .modal__foot .btn-row { justify-content: stretch; }
   .modal--alerty .modal__foot .btn-row .btn { flex: 1 1 0; justify-content: center; }
+}
+
+/* ——— /dane/firma/{id}: lista pracowników firmy (zlecenie Z45, 19.10.2026) ——————————
+   ⚠ Rodzina dokłada wyłącznie to, czego nie ma reguła bazowa `.table`: nagłówki 11 px
+   wersalikami, separator `--c-line-soft` i cyfry tabelaryczne w kolumnach liczbowych już tam są.
+   Zebry NIE MA i to jest zmiana: pasy w co drugim wierszu rysowały siatkę, której te dane nie
+   potrzebują — wiersz rozpoznaje się po nazwisku, nie po pozycji. Podświetlenie pod kursorem
+   trzeba było wtedy dołożyć osobno, bo dawało je `.table--zebra`. */
+@media (hover: hover) {
+  .table--pracownicy tbody tr:hover td { background: var(--c-surface-hover); }
+}
+.table--pracownicy .table__name { font-weight: var(--w-semibold); color: var(--c-text); }
+/* Numer kadrowy to IDENTYFIKATOR, nie liczba do porównywania: cyfry tabelaryczne (żeby kolumna
+   stała w jednej osi), ale wyrównanie do lewej — prawe sugerowałoby wielkość. */
+.table--pracownicy .table__num--kadrowy { font-variant-numeric: tabular-nums; }
+
+/* ⚠ Pole szukania w nagłówku karty jest WĘŻSZE niż na liście osób (240 px wobec 300): obok
+   stoi jeszcze lista porządku i przycisk, a nagłówek ma je zmieścić w jednym rzędzie przy 1366 px.
+   Zmierzone: trzy kontrolki po 300 px schodziły do drugiego rzędu już przy 1440. */
+.pole-szukania__pole--waskie { width: 240px; }
+/* Lista porządku z ikoną w środku — ta sama konstrukcja, co pole szukania: ikona jest SIOSTRĄ
+   kontrolki i leży na niej, a wyściółka robi jej miejsce. Ikona nie łapie kliknięć, więc lista
+   rozwija się także kliknięciem w nią. */
+.pole-sortowania { position: relative; display: flex; align-items: center; }
+.pole-sortowania .ico {
+  position: absolute;
+  left: var(--s-3);
+  width: 16px;
+  height: 16px;
+  color: var(--c-text-3);
+  pointer-events: none;
+}
+.pole-sortowania__pole { width: 240px; max-width: 100%; padding-left: calc(var(--s-3) + 16px + var(--s-2)); }
+
+/* ⚠ Telefon: wiersz przestaje być wierszem — nazwisko z inicjałami w pierwszej linii, reszta
+   danych pod spodem w dwóch kolumnach. Próg od OKNA, bo tabela stoi w `.card` poza `.card__body`,
+   czyli bez kontenera zapytań nad sobą (ta sama sytuacja, co w tabeli osób).
+   ⚠ Nagłówki znikają, więc każda komórka musi powiedzieć, czym jest — stąd `::before` z nazwą
+   kolumny. Tekst nagłówka stoi w CSS tylko tutaj i tylko dlatego, że `<thead>` w tym układzie
+   nie istnieje; w szablonie zostaje jeden, prawdziwy nagłówek tabeli. */
+@media (max-width: 640px) {
+  /* Filtry jeden pod drugim na CAŁĄ szerokość: 240 px przy 375 px ekranu zostawiało po prawej
+     pas pustego miejsca, a przycisk „Pokaż" wyglądał na doklejony do niczego. */
+  .card__akcje .pole-szukania, .card__akcje .pole-sortowania, .card__akcje .btn { width: 100%; }
+  .pole-szukania__pole--waskie, .pole-sortowania__pole { width: 100%; }
+  .card__akcje .btn { justify-content: center; }
+  .table--pracownicy, .table--pracownicy tbody { display: block; width: 100%; }
+  .table--pracownicy thead { display: none; }
+  .table--pracownicy tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--s-2) var(--s-3);
+    padding: var(--s-3) var(--s-4);
+    border-bottom: 1px solid var(--c-line-soft);
+  }
+  .table--pracownicy td {
+    display: block;
+    height: auto;
+    padding: 0;
+    border: 0;
+    text-align: left;
+  }
+  .table--pracownicy td:first-child { grid-column: 1 / -1; padding-left: 0; }
+  .table--pracownicy td:last-child { padding-right: 0; }
+  .table--pracownicy td[data-kolumna]::before {
+    content: attr(data-kolumna);
+    display: block;
+    font-size: var(--t-label);
+    letter-spacing: var(--ls-label);
+    text-transform: uppercase;
+    color: var(--c-text-4);
+  }
+  .table--pracownicy .table__empty { grid-column: 1 / -1; }
 }

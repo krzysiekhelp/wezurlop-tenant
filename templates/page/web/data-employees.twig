@@ -7,47 +7,91 @@
     <span class="crumbs__sep">/</span>
 {% endblock %}
 
+{#- ⚠ **Układ z 19.10.2026 (zlecenie Z45, prototyp zaakceptowany w Chrome).** Co się zmieniło
+    i dlaczego:
+      — `.page__head` znika razem z przyciskiem „Wszystkie firmy": powrót daje okruszek w belce,
+        a NIP zszedł do kafla, gdzie jest daną, a nie dopiskiem do nazwy,
+      — „Wynik: X z Y" znika: tę samą liczbę mówi stopka („Pokazano 1–25 z N"), a dwa liczniki
+        jednej rzeczy rozjeżdżają się przy pierwszym nowym warunku,
+      — filtry wchodzą do nagłówka karty, której dotyczą (tak samo jak na `/admin/konta`),
+      — DWIE listy sortowania stają się JEDNĄ: wybór po czym i w którą stronę to było dwie
+        decyzje na jedną odpowiedź.
+      — kolumna „Stan" znika; zakończone zatrudnienie niesie przekreślone nazwisko (Z32),
+        bo to cecha TEJ SAMEJ danej, a nie druga dana obok. -#}
 {% block content %}
-    <div class="page__head">
-        <div class="page__title">
-            {# NIP grupami, przy nazwie firmy — nie osobną linijką techniczną (§5.1). #}
-            <p class="page__sub">NIP {{ nip_grupami(firma.nip) }} · {{ strona.razem }} {{ strona.razem == 1 ? 'zatrudnienie' : 'zatrudnień' }} · dane tylko do odczytu, źródło: R2 Płatnik</p>
-        </div>
-        <div class="page__actions">
-            <a class="btn btn--ghost" href="{{ url('/dane') }}">Wszystkie firmy</a>
-        </div>
-    </div>
+{% import 'partials/ikony.twig' as ikony %}
+{% import 'partials/inicjaly.twig' as znak %}
 
-    {# Filtry POZA kartą — na każdym ekranie w tym samym miejscu (§5). Formularz GET: działa bez JS. #}
-    <form class="toolbar" method="get" action="{{ url('/dane/firma/' ~ firma.id) }}">
-        <label class="field">
-            <span class="field__label">Nazwisko lub imię</span>
-            <input class="input" type="text" name="szukaj" value="{{ szukaj }}" maxlength="100" placeholder="np. Kowalska">
-        </label>
-        <label class="field">
-            <span class="field__label">Sortuj</span>
-            <select class="select" name="sortuj">
-                <option value="nazwisko"{{ sortuj == 'nazwisko' ? ' selected' : '' }}>po nazwisku</option>
-                <option value="zatrudnienie"{{ sortuj == 'zatrudnienie' ? ' selected' : '' }}>po dacie zatrudnienia</option>
-                <option value="etat"{{ sortuj == 'etat' ? ' selected' : '' }}>po etacie</option>
-            </select>
-        </label>
-        <label class="field">
-            <span class="field__label">Kierunek</span>
-            <select class="select" name="kierunek">
-                <option value="asc"{{ kierunek == 'asc' ? ' selected' : '' }}>rosnąco</option>
-                <option value="desc"{{ kierunek == 'desc' ? ' selected' : '' }}>malejąco</option>
-            </select>
-        </label>
-        <button type="submit" class="btn btn--primary">Pokaż</button>
-        <span class="toolbar__spacer"></span>
-        <span class="toolbar__result">Wynik: {{ pracownicy|length }} z {{ strona.razem }}</span>
-    </form>
+    {#- ══════════ Pasek kafli (§2 zlecenia) ══════════ -#}
+    <section class="kafle kafle--auto" aria-label="Firma z programu kadrowego">
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.zespol() }}<span class="kafel__etykieta">Zatrudnienia</span></span>
+            <span class="kafel__dana">
+                {#- ⚠ Ta sama liczba, co w stopce listy („z N"), bo obie biorą się z jednego
+                    zapytania o liczność — nie z dwóch osobnych liczników. -#}
+                <span class="kafel__wartosc">{{ strona.razem }}</span>
+                <span class="kafel__opis">z programu kadrowego</span>
+            </span>
+        </div>
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.firma() }}<span class="kafel__etykieta">NIP</span></span>
+            <span class="kafel__dana">
+                {#- NIP grupami cyfr: dziesięć cyfr ciągiem czyta się literą po literze. -#}
+                <span class="kafel__wartosc kafel__wartosc--napis">{{ nip_grupami(firma.nip) }}</span>
+                <span class="kafel__opis">firma z R2 Płatnik</span>
+            </span>
+        </div>
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.oko() }}<span class="kafel__etykieta">Tryb</span></span>
+            <span class="kafel__dana">
+                {#- ⚠ „Tylko odczyt" nie jest odchyleniem i nie dostaje barwy ostrzeżenia:
+                    tak ten ekran ma działać (§3.1). -#}
+                <span class="kafel__wartosc kafel__wartosc--napis">tylko odczyt</span>
+                <span class="kafel__opis">poprawki robi się w kadrach</span>
+            </span>
+        </div>
+    </section>
 
     <section class="card">
+        {#- ⚠ Karta bez tytułu: ekran nazywa się nazwą firmy i ta nazwa stoi w belce jako jedyny
+            `h1` (reguła z 11.10, kryterium bramki `nazwa_ekranu_w_belce`). -#}
+        <div class="card__head card__head--znak card__head--lista">
+            <span class="card__znak">{{ ikony.firma() }}</span>
+            <div class="card__tytuly">
+                <p class="card__opis card__opis--lead">Pracownicy firmy z programu kadrowego.</p>
+                <p class="card__opis">Dane tylko do odczytu, źródło: R2 Płatnik.</p>
+            </div>
+            {#- Formularz GET: działa bez JavaScriptu, a adres z wynikiem da się wysłać. -#}
+            <form class="card__akcje" method="get" action="{{ url('/dane/firma/' ~ firma.id) }}">
+                <div class="pole-szukania">
+                    {#- ⚠ Etykieta znika WIZUALNIE, nie z dokumentu: pole z lupą i podpowiedzią
+                        mówi widzącemu wszystko, a czytnik ekranu dalej dostaje nazwę pola. -#}
+                    <label class="visually-hidden" for="szukaj">Szukaj pracownika</label>
+                    {{ ikony.lupa() }}
+                    <input class="input pole-szukania__pole pole-szukania__pole--waskie" type="text" id="szukaj"
+                           name="szukaj" value="{{ szukaj }}" maxlength="100" placeholder="szukaj pracownika">
+                </div>
+                <div class="pole-sortowania">
+                    {#- ⚠ JEDNA lista zamiast „Sortuj" + „Kierunek": lista mówi, co się stanie
+                        z danymi, a nie po czym i w którą stronę. Wartość rozkłada serwer na tę
+                        samą parę (kolumna + kierunek), która jedzie do białej listy w repozytorium. -#}
+                    <label class="visually-hidden" for="sortuj">Porządek listy</label>
+                    {{ ikony.skala_lista() }}
+                    <select class="select pole-sortowania__pole" id="sortuj" name="sortuj">
+                        {% for klucz, p in porzadki %}
+                            <option value="{{ klucz }}"{{ porzadek == klucz ? ' selected' : '' }}>{{ p.napis }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn--ghost btn--akcja">Pokaż</button>
+            </form>
+        </div>
+
+        {#- ⚠ Bez zebry (§4 zlecenia): pasy w co drugim wierszu rysowały siatkę, której te dane
+            nie potrzebują — wiersz rozpoznaje się po nazwisku, a nie po pozycji. Zostaje
+            separator `--c-line-soft` z reguły bazowej i podświetlenie pod kursorem. -#}
         <div class="table-scroll">
-            {#- `table--zebra`: lista stronicowana, siedem kolumn (reguła §3.4). -#}
-            <table class="table table--zebra">
+            <table class="table table--pracownicy">
                 <thead>
                     <tr>
                         <th class="table__grow">Pracownik</th>
@@ -56,37 +100,51 @@
                         <th>Zatrudniony od</th>
                         <th>Rozkład czasu pracy</th>
                         <th class="table__num">Nieobecności {{ rok }}</th>
-                        <th>Stan</th>
                     </tr>
                 </thead>
                 <tbody>
                 {% for p in pracownicy %}
+                    {#- ⚠ **Zakończone zatrudnienie to PRZEKREŚLONE nazwisko** (Z32), a nie kolumna
+                        „Stan" z plakietką: stan zatrudnienia jest cechą tej samej danej — osoby —
+                        więc nie zabiera własnej kolumny na całą szerokość tabeli. Przekreślenie
+                        jest wyłącznie wyglądem, dlatego obok stoi tekst ukryty wizualnie,
+                        a cały znak niesie `title` z datą, jeśli kadry ją podały. -#}
+                    {% set zakonczone = not p.active %}
                     <tr>
-                        {# ⚠ Nazwisko w formie źródłowej z R2 — bez text-transform i bez zamiany (§3.2). #}
-                        <td class="table__grow"><a class="table__name" href="{{ url('/dane/pracownik/' ~ p.person_id) }}">{{ p.name }}</a></td>
-                        <td class="table__mute mono">{{ p.identyfikator ?? '—' }}</td>
-                        <td class="table__num">{{ etat(p.fte) }}</td>
-                        <td class="table__mute">{{ p.hired_at ?? '—' }}</td>
-                        <td class="table__mute">{{ p.calendar ?: '—' }}</td>
-                        <td class="table__num">{{ p.absence_days }} dni</td>
-                        {# Stan normalny nie dostaje koloru ani plakietki — kolumna zostaje pusta (§3.1). #}
-                        <td>{% if not p.active %}<span class="chip">zakończone{% if p.terminated_at %} {{ p.terminated_at }}{% endif %}</span>{% endif %}</td>
+                        <td class="table__grow">
+                            <span class="osoba-wiersz{{ zakonczone ? ' osoba-wiersz--zwolniony' : '' }}"
+                                  {%- if zakonczone %} title="Zatrudnienie zakończone{% if p.terminated_at %} {{ data_dnia(p.terminated_at) }}{% endif %}"{% endif %}>
+                                {{- znak.kolko(p.name, 'inicjaly--lista' ~ (zakonczone ? ' inicjaly--wygaszone' : '')) -}}
+                                {# ⚠ Nazwisko w formie źródłowej z R2 — bez text-transform i bez zamiany (§3.2). #}
+                                <a class="table__name osoba-wiersz__nazwa" href="{{ url('/dane/pracownik/' ~ p.person_id) }}">{{ p.name }}</a>
+                                {%- if zakonczone %}<span class="visually-hidden">Zatrudnienie zakończone{% if p.terminated_at %} {{ data_dnia(p.terminated_at) }}{% endif %}</span>{% endif %}
+                            </span>
+                        </td>
+                        <td class="table__mute mono table__num--kadrowy" data-kolumna="Nr kadrowy">{{ p.identyfikator ?? '—' }}</td>
+                        {#- ⚠ Sama liczba w kolumnie, pełny opis w `title`: „1/2 etatu" w komórce
+                            rozpychało kolumnę liczbową i czytało się jak dwie dane. -#}
+                        <td class="table__num" data-kolumna="Etat" title="{{ etat_opis(p.fte) }}">{{ etat_krotki(p.fte) }}</td>
+                        <td class="table__mute" data-kolumna="Zatrudniony od">{{ p.hired_at ? data_dnia(p.hired_at) : '—' }}</td>
+                        <td class="table__mute" data-kolumna="Rozkład czasu pracy">{{ p.calendar ?: '—' }}</td>
+                        <td class="table__num" data-kolumna="Nieobecności {{ rok }}">{{ p.absence_days }} dni</td>
                     </tr>
                 {% else %}
-                    <tr><td colspan="7" class="table__empty">{{ szukaj ? 'Nikt nie pasuje do szukanej frazy.' : 'Ta firma nie ma jeszcze przysłanych pracowników.' }}</td></tr>
+                    <tr><td colspan="6" class="table__empty">{{ szukaj ? 'Nikt nie pasuje do szukanej frazy.' : 'Ta firma nie ma jeszcze przysłanych pracowników.' }}</td></tr>
                 {% endfor %}
                 </tbody>
             </table>
         </div>
-        <div class="card__foot">
+        <div class="card__foot card__foot--lista">
             <span>Pokazano {{ strona.razem > 0 ? strona.offset + 1 : 0 }}–{{ strona.offset + pracownicy|length }} z {{ strona.razem }}</span>
             {% if strona.stron > 1 %}
                 <div class="btn-row">
+                    {#- Stronicowanie niesie szukaną frazę i porządek — inaczej druga strona
+                        pokazywałaby inną listę niż pierwsza. -#}
                     {% if strona.numer > 1 %}
-                        <a class="btn btn--ghost btn--sm" href="{{ url('/dane/firma/' ~ firma.id) }}?szukaj={{ szukaj|url_encode }}&amp;sortuj={{ sortuj|url_encode }}&amp;kierunek={{ kierunek|url_encode }}&amp;strona={{ strona.numer - 1 }}">Poprzednie</a>
+                        <a class="btn btn--ghost btn--akcja" href="{{ url('/dane/firma/' ~ firma.id) }}?szukaj={{ szukaj|url_encode }}&amp;sortuj={{ porzadek|url_encode }}&amp;strona={{ strona.numer - 1 }}">‹ Poprzednie</a>
                     {% endif %}
                     {% if strona.numer < strona.stron %}
-                        <a class="btn btn--ghost btn--sm" href="{{ url('/dane/firma/' ~ firma.id) }}?szukaj={{ szukaj|url_encode }}&amp;sortuj={{ sortuj|url_encode }}&amp;kierunek={{ kierunek|url_encode }}&amp;strona={{ strona.numer + 1 }}">Następne</a>
+                        <a class="btn btn--ghost btn--akcja" href="{{ url('/dane/firma/' ~ firma.id) }}?szukaj={{ szukaj|url_encode }}&amp;sortuj={{ porzadek|url_encode }}&amp;strona={{ strona.numer + 1 }}">Następne ›</a>
                     {% endif %}
                 </div>
             {% endif %}
