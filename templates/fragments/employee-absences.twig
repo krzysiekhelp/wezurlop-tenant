@@ -5,8 +5,17 @@
    ⚠ Endpoint fragmentu sprawdza zalogowanie, uprawnienie i przynależność osoby do firm użytkownika
    dokładnie tak samo jak pełny ekran (CLAUDE.md §5). #}
 <section class="card" id="nieobecnosci">
-        <div class="card__head">
-            <h2 class="card__title">Nieobecności</h2>
+        <div class="card__head card__head--znak card__head--lista">
+            {#- ⚠ `{% import %}` jest LOKALNY dla szablonu — ten fragment bywa renderowany SAM
+                (odpowiedź htmx po przełączeniu roku), więc musi importować ikony u siebie.
+                Bez tej linii przełączenie roku kończyło się błędem „Variable ikony does not exist",
+                czyli kartą, która znikała po kliknięciu. -#}
+            {% import 'partials/ikony.twig' as ikony %}
+            <span class="card__znak">{{ ikony.kartka_kalendarza() }}</span>
+            <div class="card__tytuly">
+                <h2 class="card__title">Nieobecności</h2>
+                <p class="card__opis">Okresy z programu kadrowego.</p>
+            </div>
             {# ⚠ Przyciski to lata, w których ta osoba NAPRAWDĘ ma nieobecności — bez slice'a
                i bez zakładania, które lata istnieją. Przy jednym roku nie ma czego przełączać. #}
             {% if lata|length > 1 %}
@@ -19,8 +28,9 @@
             {% endif %}
         </div>
         <div class="table-scroll">
-            {#- `table--zebra`: nieobecności stronicowane, pięć kolumn. -#}
-        <table class="table table--zebra">
+            {#- ⚠ Bez zebry (Z46 §5): rodzaj niesie plakietka w barwach pasków kalendarza, więc
+                pasy w co drugim wierszu dokładały drugi rytm do tego samego wiersza. -#}
+        <table class="table table--nieobecnosci">
                 <thead>
                     <tr><th class="table__grow">Rodzaj</th><th>Od</th><th>Do</th><th class="table__num">Dni robocze</th><th>Źródło</th></tr>
                 </thead>
@@ -32,8 +42,16 @@
                         {% set poprzedni_rok = n.from|slice(0, 4) %}
                     {% endif %}
                     <tr>
-                        <td class="table__grow">
-                            {{ n.type }}
+                        <td class="table__grow" data-kolumna="Rodzaj">
+                            {#- ⚠ Barwa plakietki idzie za ŹRÓDŁEM rodzaju z R2 (`urlop`, `zasilek`,
+                                `kadrowe`) — tymi samymi trzema barwami, co paski w kalendarzu, żeby
+                                ta sama nieobecność miała ten sam kolor na obu ekranach.
+                                ⚠ Modyfikator z jawnego warunku, nigdy sklejany z danych
+                                (`chip--{{ n.type_source }}`, §4b): pierwsze nowe źródło rodzaju
+                                wytworzyłoby klasę, której system nie ma. -#}
+                            {% if n.type_source == 'urlop' %}<span class="chip chip--urlop">{{ n.type }}</span>
+                            {% elseif n.type_source == 'zasilek' %}<span class="chip chip--zwolnienie">{{ n.type }}</span>
+                            {% else %}<span class="chip chip--kadrowe">{{ n.type }}</span>{% endif %}
                             {#- ⚠ Jedno słowo na jedną rzecz: stopka mówi „wycofanych", więc plakietka też mówi
                                 „wycofana" (do 10.10.2026 stało tu „usunięta" i ta sama rzecz miała
                                 na jednym ekranie dwie nazwy — „usunięta" brzmi jak decyzja kadrowej,
@@ -41,13 +59,13 @@
                             {% if n.removed %} <span class="chip">wycofana</span>{% endif %}
                             {% if n.out_of_window %} <span class="chip">poza oknem</span>{% endif %}
                         </td>
-                        <td class="table__mute">{{ n.from }}</td>
-                        <td class="table__mute">{{ n.to }}</td>
-                        <td class="table__num" title="{{ czas_minuty(n.minutes) }}">
+                        <td class="table__mute table__num--data" data-kolumna="Od">{{ data_dnia(n.from) }}</td>
+                        <td class="table__mute table__num--data" data-kolumna="Do">{{ data_dnia(n.to) }}</td>
+                        <td class="table__num" data-kolumna="Dni robocze" title="{{ czas_minuty(n.minutes) }}">
                             {{ n.days is null ? '—' : n.days }}{% if n.type_source == 'kadrowe' %} <span class="chip" title="Program kadrowy nie wylicza długości dla tego źródła">liczy 0</span>{% endif %}
                         </td>
                         {# ⚠ Źródło rozróżnia to, co wjechało z kadr, od tego, co wyszło od nas (§5.2). #}
-                        <td>{% if n.source == 'connector' %}<span class="chip chip--accent">wniosek w wezurlop</span>{% else %}<span class="table__mute">R2 Płatnik</span>{% endif %}</td>
+                        <td class="table__zrodlo" data-kolumna="Źródło">{% if n.source == 'connector' %}<span class="chip chip--accent">wniosek w wezurlop</span>{% else %}R2 Płatnik{% endif %}</td>
                     </tr>
                 {% else %}
                     {# ⚠ Neutralnie: najczęstszy powód pustej tabeli to brak urlopu, nie awaria synchronizacji. #}

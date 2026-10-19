@@ -5471,3 +5471,78 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   }
   .table--pracownicy .table__empty { grid-column: 1 / -1; }
 }
+
+/* ——— /dane/pracownik/{id}: karta pracownika (zlecenie Z46, 19.10.2026) ——————————————
+   ⚠ Rodzina dokłada trzy rzeczy, których nie ma w komponentach: wiersz limitu z paskiem,
+   kropkę stanu w parze „etykieta — wartość" i plakietki rodzaju nieobecności w barwach pasków
+   kalendarza. Reszta (kafel, karta, plakietka, tabela) jest tym samym, co wszędzie. */
+
+/* ⚠ Dopisek pod wartością, a nie obok niej: „brak daty w kadrach" i „R2 przestało przysyłać…"
+   to WYJAŚNIENIA wartości, nie druga dana. Obok czytały się jak kolejna kolumna pary. */
+.defs__dopisek { display: block; font-size: var(--t-caption); color: var(--c-text-3); line-height: var(--lh-body); }
+/* Odnośnik do firmy w barwie TEKSTU, nie akcji: to nazwa firmy, która prowadzi dalej,
+   a nie przycisk — zieleń robiłaby z niej wezwanie do kliknięcia. */
+.defs__link { color: var(--c-text); font-weight: var(--w-semibold); }
+/* Stan bez plakietki: kropka i słowo, ta sama sygnatura, co „połączony" na ekranie integracji. */
+.stan-kropka { display: inline-flex; align-items: center; gap: var(--s-2); }
+/* ⚠ Kropka zakończonego zatrudnienia BEZ obwódki i w barwie obojętnej: zakończone zatrudnienie
+   nie jest błędem ani ostrzeżeniem, tylko stanem przeszłym (§3.1). */
+.stan-kropka__znak--cichy { background: var(--c-text-4); box-shadow: none; }
+
+/* ——— wiersz limitu z paskiem ——— */
+.limit-wiersz { display: flex; flex-direction: column; gap: var(--s-2); }
+.limit-wiersz + .limit-wiersz { margin-top: var(--s-5); padding-top: var(--s-5); border-top: 1px solid var(--c-line-soft); }
+.limit-wiersz__glowa { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s-2) var(--s-3); }
+.limit-wiersz__nazwa { font-size: var(--t-body); font-weight: var(--w-semibold); color: var(--c-text); }
+.limit-wiersz__rok { font-size: var(--t-caption); color: var(--c-text-3); }
+/* Saldo odjeżdża na prawą krawędź karty — to ono jest odpowiedzią, reszta wiersza ją opisuje. */
+.limit-wiersz__saldo { margin-left: auto; font-size: var(--t-body); color: var(--c-text-2); }
+.limit-wiersz__saldo strong { font-weight: var(--w-semibold); color: var(--c-text); }
+.limit-wiersz__stopka { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--s-2); font-size: var(--t-caption); color: var(--c-text-3); }
+/* ⚠ Wypełnienie w barwie paska urlopu z kalendarza, a prawa krawędź 2 px w barwie akcji: bez niej
+   koniec wypełnienia gubił się w tle przy niskim wykorzystaniu (zmierzone przy 4%). Obie reguły
+   muszą być osobno dla WebKita i Firefoksa — te pseudoelementy nie łączą się w jedną listę. */
+.progress--limit::-webkit-progress-value { background: var(--c-pasek-urlop-tlo); border-right: 2px solid var(--c-accent); }
+.progress--limit::-moz-progress-bar { background: var(--c-pasek-urlop-tlo); border-right: 2px solid var(--c-accent); }
+/* Limit przekroczony: pasek pełny (wartość > maksimum i tak się tak rysuje), a saldo w barwie błędu. */
+.limit-wiersz--przekroczony .limit-wiersz__saldo strong { color: var(--c-danger-text); }
+.limit-wiersz--przekroczony .progress--limit::-webkit-progress-value { background: var(--c-danger-soft); border-right-color: var(--c-danger); }
+.limit-wiersz--przekroczony .progress--limit::-moz-progress-bar { background: var(--c-danger-soft); border-right-color: var(--c-danger); }
+
+/* ——— nieobecności: rodzaj w barwach pasków kalendarza ——— */
+.chip--urlop      { background: var(--c-pasek-urlop-tlo);      color: var(--c-pasek-urlop-tekst); }
+.chip--zwolnienie { background: var(--c-pasek-zwolnienie-tlo); color: var(--c-pasek-zwolnienie-tekst); }
+.chip--kadrowe    { background: var(--c-pasek-kadrowe-tlo);    color: var(--c-pasek-kadrowe-tekst); }
+@media (hover: hover) {
+  .table--nieobecnosci tbody tr:hover td { background: var(--c-surface-hover); }
+}
+.table--nieobecnosci .table__num--data { font-variant-numeric: tabular-nums; }
+.table--nieobecnosci .table__zrodlo { font-size: var(--t-caption); color: var(--c-text-4); }
+
+/* ⚠ Telefon: nieobecności jako bloki — plakietka rodzaju na całą szerokość, pod nią daty i dni
+   w dwóch kolumnach. Ta sama konstrukcja, co w liście pracowników (Z45): nagłówki znikają,
+   więc nazwę kolumny niesie `::before` z `data-kolumna`. */
+@media (max-width: 640px) {
+  .table--nieobecnosci, .table--nieobecnosci tbody { display: block; width: 100%; }
+  .table--nieobecnosci thead { display: none; }
+  .table--nieobecnosci tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--s-2) var(--s-3);
+    padding: var(--s-3) var(--s-4);
+    border-bottom: 1px solid var(--c-line-soft);
+  }
+  .table--nieobecnosci td { display: block; height: auto; padding: 0; border: 0; }
+  .table--nieobecnosci td:first-child { grid-column: 1 / -1; padding-left: 0; }
+  .table--nieobecnosci td:last-child { padding-right: 0; }
+  .table--nieobecnosci td[data-kolumna]:not(:first-child)::before {
+    content: attr(data-kolumna);
+    display: block;
+    font-size: var(--t-label);
+    letter-spacing: var(--ls-label);
+    text-transform: uppercase;
+    color: var(--c-text-4);
+  }
+  .table--nieobecnosci .table__group, .table--nieobecnosci .table__empty { grid-column: 1 / -1; }
+  .limit-wiersz__saldo { margin-left: 0; flex: 1 0 100%; }
+}

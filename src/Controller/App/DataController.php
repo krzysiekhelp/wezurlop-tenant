@@ -10,11 +10,13 @@ use Wezurlop\Http\Middleware\Authenticate;
 use Wezurlop\Http\Request;
 use Wezurlop\Http\Response;
 use Wezurlop\Repository\DataViewRepository;
+use Wezurlop\Service\PulpitPracownika;
 use Wezurlop\Service\Sync\SyncService;
 use Wezurlop\Repository\SyncDomainRepository;
 use Wezurlop\Repository\ApiKeyRepository;
 use Wezurlop\Repository\PermissionRepository;
 use Wezurlop\Support\ErrorHandler;
+use Wezurlop\Support\RodzajeLimitow;
 use Wezurlop\Support\View;
 
 /**
@@ -92,6 +94,72 @@ final class DataController
         $pelne = array_values(array_filter($znaczniki, static fn (?string $z): bool => $z !== null));
 
         return $pelne === [] ? null : max($pelne);
+    }
+
+    /**
+     * Wiersze limitów gotowe do pokazania: nazwa po polsku, proporcja wykorzystania, przekroczenie.
+     *
+     * ⚠ Procent liczy KONTROLER, nie szablon — ale pasek bierze surowe minuty (`max`/`value`
+     * natywnego `<progress>`), bo zaokrąglony procent rysowałby pasek odrobinę inny niż liczby
+     * obok niego. Procent jest tylko do przeczytania („wykorzystane 12 dni (46%)").
+     *
+     * ⚠ **Przekroczenie to `remaining_min < 0`, nie `used > start`**: R2 przysyła też korekty
+     * (`adjustments_min`), więc te dwa warunki potrafią się rozjechać, a prawdę o stanie niesie
+     * pole, które kadry wyliczyły same.
+     *
+     * @param list<array<string, mixed>> $wiersze
+     * @return list<array<string, mixed>>
+     */
+    private static function opisLimitow(array $wiersze): array
+    {
+        return array_map(static function (array $w): array {
+            $start = (int) ($w['available_start_min'] ?? 0);
+            $uzyte = (int) ($w['used_min'] ?? 0);
+            $pozostalo = (int) ($w['remaining_min'] ?? 0);
+
+            return $w + [
+                'nazwa' => RodzajeLimitow::nazwa((string) $w['kind']),
+                // Bez limitu na start procent nie istnieje — „100%" przy zerowym limicie mówiłoby
+                // o wykorzystaniu czegoś, czego nie było.
+                'procent' => $start > 0 ? (int) round(100 * $uzyte / $start) : null,
+                'przekroczony' => $pozostalo < 0,
+            ];
+        }, $wiersze);
+    }
+
+    /**
+     * Cztery kafle karty pracownika (zlecenie Z46 §2).
+     *
+     * ⚠ Urlop sumujemy po wszystkich zatrudnieniach TEGO SAMEGO rodzaju: osoba z etatami w dwóch
+     * firmach ma dwa limity, a kafel odpowiada na pytanie „ile mam urlopu", nie „ile mam w tej
+     * jednej firmie". Rozbicie stoi niżej, na karcie limitów — kafel jest skrótem, nie drugim
+     * źródłem prawdy.
+     *
+     * @param list<array<string, mixed>> $limity
+     * @param list<array<string, mixed>> $employments
+     * @param array<string, mixed> $nieobecnosci
+     * @return array<string, mixed>
+     */
+    private static function kafleKarty(array $limity, array $employments, array $nieobecnosci): array
+    {
+        $urlopowe = array_values(array_filter(
+            $limity,
+            static fn (array $w): bool => $w['kind'] === PulpitPracownika::LIMIT_URLOPOWY,
+        ));
+        $z0 = $employments[0] ?? null;
+
+        return [
+            'ma_limit' => $urlopowe !== [],
+            'pozostalo_min' => array_sum(array_map(static fn (array $w): int => (int) ($w['remaining_min'] ?? 0), $urlopowe)),
+            'start_min' => array_sum(array_map(static fn (array $w): int => (int) ($w['available_start_min'] ?? 0), $urlopowe)),
+            'uzyte_min' => array_sum(array_map(static fn (array $w): int => (int) ($w['used_min'] ?? 0), $urlopowe)),
+            // Rok limitu, a nie rok bieżący: przy limicie sprzed roku kafel ma mówić, czego dotyczy.
+            'rok_limitu' => $urlopowe === [] ? null : max(array_map(static fn (array $w): int => (int) $w['rok'], $urlopowe)),
+            'dni_nieobecnosci' => (int) ($nieobecnosci['dni'] ?? 0),
+            'fte' => $z0['fte'] ?? null,
+            'norma_min' => $z0 === null ? null : ($z0['leave_norm_min'] ?? null),
+            'rozklad' => $z0 === null ? null : ($z0['calendar_name'] ?? $z0['calendar'] ?? null),
+        ];
     }
 
     /**
@@ -285,11 +353,17 @@ final class DataController
         // jako pytanie do autora connectora — do odpowiedzi obowiązuje 480.
         $limity = $this->data->balances($ids);
 
+        $podsumowanie = self::opisLimitow(self::summarise($limity, $employments));
+
         return $this->view->render('data-employee.twig', array_merge($karta, [
             'zatrudnienia' => $employments,
             'limity' => $limity,
-            'podsumowanie_limitow' => self::summarise($limity, $employments),
+            'podsumowanie_limitow' => $podsumowanie,
             'rok' => $rokBiezacy,
+            // ⚠ Kafle liczone z TYCH SAMYCH wierszy, które stoją niżej na karcie „Limity z kadr",
+            // a nie drugim przebiegiem po danych: kafel „Pozostało urlopu" ma być sumą tego,
+            // co widać pod nim (ta sama zasada, co w kaflach na `/dane`).
+            'kafle' => self::kafleKarty($podsumowanie, $employments, $karta['podsumowanie_nieobecnosci']),
             'miesiac' => (new DateTimeImmutable('today'))->format('Y-m'),
         ]));
     }

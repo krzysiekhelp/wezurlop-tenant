@@ -5311,13 +5311,20 @@ def sprawdz_liczniki_nieobecnosci(b) -> dict:
         }""", str(o["last_name"]))
         pg.goto(BAZA + "/dane/pracownik/" + str(o["person_id"]), wait_until="networkidle")
         z_karty = pg.evaluate("""() => {
-          const kafel = Array.from(document.querySelectorAll('.stats__item'))
+          // ⚠ **Selektor przepięty 19.10.2026 (Z46)**: karta liczb (`.card.stats`) ustąpiła paskowi
+          // kafli (`.kafel`), ten sam co na pozostałych ekranach panelu. Kryterium mierzy to samo
+          // twierdzenie — „liczba dni i liczba wycofanych zgadzają się z bazą i z listą firmy" —
+          // tylko element, w którym stoją, jest inny. Stary selektor nie znajdował nic, więc
+          // kryterium zapalało się na pustce zamiast na rozjeździe liczb.
+          const kafel = Array.from(document.querySelectorAll('.kafel'))
             .find(s => /Nieobecno\u015bci w/.test(s.textContent));
-          // ⚠ Czytamy WARTOŚĆ kafelka, nie cały kafelek: etykieta „Nieobecności w 2026"
+          // ⚠ Czytamy WARTOŚĆ i PODPIS kafelka, nie cały kafelek: etykieta „Nieobecności w 2026"
           // i wartość „0 dni" stoją w dwóch elementach bez spacji między nimi, więc
           // `textContent` całości dawał „20260 dni" i wyrażenie wyłuskiwało rok, nie dni.
+          // Liczba wycofanych jest w podpisie (`.kafel__opis`), a nie przy wartości.
           const tekst = kafel
-            ? ((kafel.querySelector('.stats__value') || {}).textContent || '').replace(/\\s+/g, ' ').trim()
+            ? ((kafel.querySelector('.kafel__wartosc') || {}).textContent || '').replace(/\\s+/g, ' ').trim()
+              + ' ' + ((kafel.querySelector('.kafel__opis') || {}).textContent || '').replace(/\\s+/g, ' ').trim()
             : '';
           const dni = tekst.match(/(\\d+)\\s*dni/);
           const wyc = tekst.match(/wycofanych:\\s*(\\d+)/);

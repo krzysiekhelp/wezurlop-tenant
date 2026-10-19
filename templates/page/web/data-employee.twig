@@ -12,75 +12,106 @@
 {% endblock %}
 
 {% block content %}
+{% import 'partials/ikony.twig' as ikony %}
     {% set z0 = zatrudnienia|length > 0 ? zatrudnienia[0] : null %}
-    <div class="page__head">
-        <div class="page__title">
-            {# ⚠ Nazwisko w formie źródłowej z R2 (§3.2). Skrót hmac zszedł do szczegółów technicznych (§5.2). #}
-            <p class="page__sub">
-                {%- if z0 is not null %}{{ z0.company }} · {% endif -%}
-                nr kadrowy {{ osoba.identyfikator ?? '—' }}
-                {%- if z0 is not null and z0.hired_at is not null %} · zatrudniony od {{ z0.hired_at }}{% endif -%}
-            </p>
-        </div>
-        <div class="page__actions">
-            <a class="btn btn--ghost" href="{{ url('/dane/pracownik/' ~ osoba.id ~ '/kalendarz') }}?miesiac={{ miesiac }}">Pokaż w kalendarzu</a>
-        </div>
-    </div>
 
-    {# Cztery liczby w JEDNEJ karcie, rozdzielone cienką linią — nie cztery osobne kafelki (§5.2). #}
-    <section class="card stats">
-        <div class="stats__item">
-            <span class="stats__key">Wymiar etatu</span>
-            <span class="stats__value">{{ z0 is null ? '—' : etat(z0.fte) }}</span>
+    {#- ⚠ **Układ z 19.10.2026 (zlecenie Z46).** `.page__head` znika: firma, numer kadrowy i data
+        zatrudnienia stoją w karcie „Zatrudnienie", więc nagłówek powtarzał ją słowo w słowo,
+        a przycisk „Pokaż w kalendarzu" zszedł do tej karty — dotyczy zatrudnienia, nie ekranu.
+        Karta `.card.stats` ustąpiła paskowi kafli, tak jak na pozostałych ekranach panelu. -#}
+    <section class="kafle kafle--auto" aria-label="Urlop i czas pracy">
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.kalendarz() }}<span class="kafel__etykieta">Pozostało urlopu</span></span>
+            <span class="kafel__dana">
+                {#- ⚠ Bez zieleni: pozostały urlop jest DANĄ, a nie dobrym stanem (§3.1) — zieleń
+                    w tym systemie znaczy akcję albo zgodę. Przekroczony limit to już odchylenie
+                    i dopiero ono dostaje barwę. -#}
+                {% if not kafle.ma_limit %}
+                    <span class="kafel__wartosc kafel__wartosc--brak">—</span>
+                    <span class="kafel__opis">brak limitu w kadrach</span>
+                {% else %}
+                    <span class="kafel__wartosc{{ kafle.pozostalo_min < 0 ? ' kafel__wartosc--odchylenie' : '' }}">{{ czas_pracy(kafle.pozostalo_min) }}</span>
+                    <span class="kafel__opis">z {{ czas_pracy(kafle.start_min) }} na {{ kafle.rok_limitu }}</span>
+                {% endif %}
+            </span>
         </div>
-        <div class="stats__item">
-            <span class="stats__key">Norma dobowa</span>
-            <span class="stats__value">{{ z0 is null ? '—' : norma_dnia(z0.leave_norm_min ?? 480) }}{% if z0 is not null and z0.leave_norm_min is null %} <small>wartość zapasowa</small>{% endif %}</span>
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.wnioski() }}<span class="kafel__etykieta">Wykorzystane</span></span>
+            <span class="kafel__dana">
+                <span class="kafel__wartosc">{{ kafle.ma_limit ? czas_pracy(kafle.uzyte_min) : '—' }}</span>
+                <span class="kafel__opis">urlop wypoczynkowy</span>
+            </span>
         </div>
-        <div class="stats__item">
-            <span class="stats__key">Rozkład czasu pracy</span>
-            <span class="stats__value">{{ z0 is null ? '—' : (z0.calendar_name ?? z0.calendar ?? '—') }}</span>
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.kartka_kalendarza() }}<span class="kafel__etykieta">Nieobecności w {{ rok }}</span></span>
+            <span class="kafel__dana">
+                {#- ⚠ Ta sama liczba, co w stopce karty nieobecności i na liście `/dane/firma/{id}`,
+                    policzona tym samym wzorem: **wycofane się nie liczą**. Do 10.10.2026 lista
+                    dawała tu 0 dni, a ta karta 44. -#}
+                <span class="kafel__wartosc">{{ kafle.dni_nieobecnosci }} dni</span>
+                {#- ⚠ **Wycofane nazwane OSOBNO i w tym samym miejscu, co liczba dni** — tego pilnuje
+                    kryterium bramki `prawda_nieobecnosci`. Przy przepisywaniu karty na kafle dopisek
+                    wypadł z pierwszej wersji i bramka to złapała: zostawała liczba „0 dni" przy
+                    ośmiu plakietkach „wycofana" w tabeli pod spodem, czyli dokładnie ta cisza,
+                    przez którą 10.10.2026 lista i karta pokazywały dwie różne liczby. -#}
+                <span class="kafel__opis">wszystkie rodzaje{% if podsumowanie_nieobecnosci.wycofanych > 0 %} · wycofanych: {{ podsumowanie_nieobecnosci.wycofanych }}{% endif %}</span>
+            </span>
         </div>
-        <div class="stats__item">
-            <span class="stats__key">Nieobecności w {{ rok }}</span>
-            {#- ⚠ Ta sama liczba co na liście `/dane/firma/{id}` i policzona tym samym wzorem:
-                **wycofane się nie liczą**. Do 10.10.2026 lista dawała tu 0 dni, a ta karta 44 —
-                bo karta liczyła też wycofane. -#}
-            <span class="stats__value">{{ podsumowanie_nieobecnosci.dni }} dni{% if podsumowanie_nieobecnosci.wycofanych > 0 %} <small>(wycofanych: {{ podsumowanie_nieobecnosci.wycofanych }})</small>{% endif %}</span>
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.zegar() }}<span class="kafel__etykieta">Etat</span></span>
+            <span class="kafel__dana">
+                <span class="kafel__wartosc">{{ etat_krotki(kafle.fte) }}</span>
+                <span class="kafel__opis">{{ norma_dnia(kafle.norma_min ?? 480) }}{% if kafle.rozklad %} · {{ kafle.rozklad }}{% endif %}</span>
+            </span>
         </div>
     </section>
 
     {% for z in zatrudnienia %}
         <section class="card">
-            <div class="card__head">
-                <h2 class="card__title">Zatrudnienie{% if zatrudnienia|length > 1 %} — {{ z.company }}{% endif %}</h2>
-                <span class="card__meta">aktualizowane z R2 Płatnik</span>
+            <div class="card__head card__head--znak card__head--lista">
+                <span class="card__znak">{{ ikony.konta() }}</span>
+                <div class="card__tytuly">
+                    <h2 class="card__title">Zatrudnienie{% if zatrudnienia|length > 1 %} — {{ z.company }}{% endif %}</h2>
+                    <p class="card__opis">Aktualizowane z R2 Płatnik.</p>
+                </div>
+                <div class="card__akcje">
+                    {#- Przycisk dotyczy TEGO zatrudnienia, więc stoi przy nim, a nie nad ekranem. -#}
+                    <a class="btn btn--ghost btn--akcja" href="{{ url('/dane/pracownik/' ~ osoba.id ~ '/kalendarz') }}?miesiac={{ miesiac }}">{{ ikony.kalendarz() }}Pokaż w kalendarzu ›</a>
+                </div>
             </div>
             <div class="card__body">
                 <div class="defs">
-                    <div><div class="defs__term">Firma</div><div class="defs__value"><a href="{{ url('/dane/firma/' ~ z.company_id) }}">{{ z.company }}</a></div></div>
+                    <div><div class="defs__term">Firma</div><div class="defs__value"><a class="defs__link" href="{{ url('/dane/firma/' ~ z.company_id) }}">{{ z.company }}</a></div></div>
                     <div><div class="defs__term">Numer kadrowy</div><div class="defs__value mono">{{ osoba.identyfikator ?? '—' }}</div></div>
                     <div><div class="defs__term">Wymiar etatu</div><div class="defs__value">{{ etat(z.fte) }}</div></div>
                     <div><div class="defs__term">Rozkład czasu pracy</div><div class="defs__value">{{ z.calendar_name ?? z.calendar ?? '—' }}</div></div>
                     <div><div class="defs__term">Rodzaj umowy</div><div class="defs__value">{{ z.umowy is empty ? '—' : z.umowy|join(', ') }}</div></div>
-                    <div><div class="defs__term">Zatrudniony od</div><div class="defs__value">{{ z.hired_at ?? '—' }}</div></div>
+                    <div><div class="defs__term">Zatrudniony od</div><div class="defs__value">{{ z.hired_at ? data_dnia(z.hired_at) : '—' }}</div></div>
                     {#- ⚠ **Dwa pola, dwa różne fakty — i do 10.10.2026 ekran udawał, że jeden.**
                         Zmierzone na zatrudnieniu #88: „Stan: zakończone" i jednocześnie
                         „Zatrudniony do: — (bez terminu)". Nic w tym sprzecznego, tylko oba napisy
                         milczały o źródle:
                           • `terminated_at` bierze się WYŁĄCZNIE z daty zwolnienia na rekordzie
-                            **pracownika** z R2 (`zwolniony` + `dataZwolnienia`) — tutaj R2
-                            przysłało `dataZwolnienia: null`, więc terminu nie ma,
+                            **pracownika** z R2 (`zwolniony` + `dataZwolnienia`),
                           • `is_active` to **osobne pole**, które my zerujemy, kiedy R2 **przestaje
-                            przysyłać** rekord zatrudnienia (`sync_record.state = 'deleted'`,
-                            wpis `employment.deactivated_by_sync`, data w `deactivated_at`).
+                            przysyłać** rekord zatrudnienia (`sync_record.state = 'deleted'`).
                         Czyli: „zakończone" znaczy „R2 już tego zatrudnienia nie przysyła", a nie
                         „pracownik ma datę końca". Oba napisy mówią to teraz wprost. -#}
-                    <div><div class="defs__term">Zatrudniony do</div><div class="defs__value">{{ z.terminated_at ?? '— (R2 nie przysłało daty zwolnienia)' }}</div></div>
+                    <div><div class="defs__term">Zatrudniony do</div><div class="defs__value">
+                        {%- if z.terminated_at %}{{ data_dnia(z.terminated_at) }}
+                        {%- else %}—<span class="defs__dopisek">brak daty w kadrach</span>{% endif %}
+                    </div></div>
                     <div><div class="defs__term">Norma urlopowa</div><div class="defs__value">{{ norma_dnia(z.leave_norm_min ?? 480) }} za dzień</div></div>
+                    {#- ⚠ **Stan BEZ plakietki** (Z46 §3): plakietka robiła ze stanu zatrudnienia drugą
+                        daną tej samej wagi, co firma i etat. Zostaje zwykły tekst z kropką 8 px —
+                        ta sama sygnatura, co „połączony" na ekranie integracji. Kropka aktywnego
+                        ma obwódkę w barwie miękkiej, kropka zakończonego jest obojętna i bez niej:
+                        zakończone zatrudnienie nie jest błędem, tylko stanem przeszłym. -#}
                     <div><div class="defs__term">Stan</div><div class="defs__value">
-                        <span class="status"><span class="status__dot{% if not z.active %} dot--err{% endif %}"></span>{{ z.active ? 'aktywne' : 'zakończone' }}</span>
-                        {%- if not z.active %} <small>— R2 przestało przysyłać to zatrudnienie{% if z.deactivated_at %} {{ z.deactivated_at|slice(0, 10) }}{% endif %}</small>{% endif %}
+                        <span class="stan-kropka">
+                            <span class="kafel__kropka{{ z.active ? ' kafel__kropka--ok' : ' stan-kropka__znak--cichy' }}"></span>{{ z.active ? 'aktywne' : 'zakończone' }}
+                        </span>
+                        {%- if not z.active %}<span class="defs__dopisek">R2 przestało przysyłać to zatrudnienie{% if z.deactivated_at %} {{ data_dnia(z.deactivated_at|slice(0, 10)) }}{% endif %}</span>{% endif %}
                     </div></div>
                 </div>
             </div>
@@ -88,39 +119,39 @@
     {% endfor %}
 
     <section class="card">
-        <div class="card__head">
-            <h2 class="card__title">Limity z kadr</h2>
-            <span class="card__meta">rok obowiązujący; lat nie sumujemy — zaległy jest już w roku bieżącym</span>
+        <div class="card__head card__head--znak">
+            <span class="card__znak">{{ ikony.diagnostyka() }}</span>
+            <div class="card__tytuly">
+                <h2 class="card__title">Limity z kadr</h2>
+                <p class="card__opis">Rok obowiązujący; lat nie sumujemy — zaległy jest już w roku bieżącym.</p>
+            </div>
         </div>
-        <div class="table-scroll">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th class="table__grow">Rodzaj</th>
-                        {% if zatrudnienia|length > 1 %}<th>Firma</th>{% endif %}
-                        <th>Rok</th>
-                        <th class="table__num">Dostępne na start</th>
-                        <th class="table__num">Wykorzystane</th>
-                        <th class="table__num">Pozostało</th>
-                        <th>Stan</th>
-                    </tr>
-                </thead>
-                <tbody>
-                {% for p in podsumowanie_limitow %}
-                    <tr>
-                        <td class="table__grow">{{ p.kind }}</td>
-                        {% if zatrudnienia|length > 1 %}<td class="table__mute">{{ p.firma }}</td>{% endif %}
-                        <td class="table__mute">{{ p.rok }}{% if p.lata|length > 1 %} <span class="table__mute">(w kadrach: {{ p.lata|join(', ') }})</span>{% endif %}</td>
-                        <td class="table__num" title="{{ czas_minuty(p.available_start_min) }}">{{ czas_pracy(p.available_start_min) }}</td>
-                        <td class="table__num" title="{{ czas_minuty(p.used_min) }}">{{ czas_pracy(p.used_min) }}</td>
-                        <td class="table__num" title="{{ czas_minuty(p.remaining_min) }}">{{ czas_pracy(p.remaining_min) }}</td>
-                        <td>{% if not p.accrued %}<span class="chip chip--warn">nienaliczony</span>{% endif %}</td>
-                    </tr>
-                {% else %}
-                    <tr><td colspan="7" class="table__empty">Program kadrowy nie przysłał jeszcze limitów tej osoby.</td></tr>
-                {% endfor %}
-                </tbody>
-            </table>
+        <div class="card__body">
+            {#- ⚠ **Tabela ustąpiła wierszom z paskiem** (Z46 §4): sześć kolumn liczbowych kazało
+                czytać „dostępne na start", „wykorzystane" i „pozostało" i policzyć w głowie, ile
+                to jest w stosunku do siebie. Pasek mówi to samo bez liczenia, a liczby zostają.
+                ⚠ Pasek to NATYWNY `<progress>` z wartością w atrybucie — bez `style=` w szablonie
+                (§6), bo szerokość wypełnienia jest daną, a nie wyglądem, i nie wolno jej wstawiać
+                stylem w linii. `max` i `value` biorą SUROWE MINUTY, nie zaokrąglony procent:
+                zaokrąglenie rysowałoby pasek odrobinę inny niż liczby obok niego. -#}
+            {% for p in podsumowanie_limitow %}
+                <div class="limit-wiersz{{ p.przekroczony ? ' limit-wiersz--przekroczony' : '' }}">
+                    <div class="limit-wiersz__glowa">
+                        <span class="limit-wiersz__nazwa">{{ p.nazwa }}</span>
+                        <span class="limit-wiersz__rok">{{ p.rok }}{% if p.lata|length > 1 %} · w kadrach: {{ p.lata|join(', ') }}{% endif %}{% if zatrudnienia|length > 1 %} · {{ p.firma }}{% endif %}</span>
+                        {% if not p.accrued %}<span class="chip chip--warn">nienaliczony</span>{% endif %}
+                        <span class="limit-wiersz__saldo">pozostało <strong title="{{ czas_minuty(p.remaining_min) }}">{{ czas_pracy(p.remaining_min) }}</strong> z {{ czas_pracy(p.available_start_min) }}</span>
+                    </div>
+                    <progress class="progress progress--limit" max="{{ p.available_start_min ?: 1 }}" value="{{ p.used_min }}"
+                              aria-label="Wykorzystanie limitu {{ p.nazwa }} w {{ p.rok }}">{{ p.procent ?? 0 }}%</progress>
+                    <div class="limit-wiersz__stopka">
+                        <span title="{{ czas_minuty(p.used_min) }}">wykorzystane {{ czas_pracy(p.used_min) }}{% if p.procent is not null %} ({{ p.procent }}%){% endif %}</span>
+                        <span>na start {{ czas_pracy(p.available_start_min) }}</span>
+                    </div>
+                </div>
+            {% else %}
+                <p class="empty-state">Program kadrowy nie przysłał jeszcze limitów tej osoby.</p>
+            {% endfor %}
         </div>
     </section>
 

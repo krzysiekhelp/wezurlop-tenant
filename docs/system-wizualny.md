@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.27, 19.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.28, 19.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,58 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.27 → 1.18.28: karta pracownika — limity z paskiem zamiast tabeli, stan bez
+> plakietki, rodzaje nieobecności w barwach kalendarza** (zlecenie Z46, 19.10.2026).
+> - **`.page__head` znika**: firma, numer kadrowy i data zatrudnienia stoją w karcie
+>   „Zatrudnienie", więc nagłówek powtarzał ją słowo w słowo. Przycisk „Pokaż w kalendarzu ›"
+>   zszedł do tej karty — dotyczy zatrudnienia, nie ekranu. Karta `.card.stats` ustąpiła paskowi
+>   czterech kafli (Pozostało urlopu, Wykorzystane, Nieobecności w roku, Etat).
+> - ⚠ **„Pozostało urlopu" BEZ zieleni**: to dana, a nie dobry stan (§3.1). Barwę dostaje dopiero
+>   odchylenie — przy ujemnym saldzie kafel idzie na `--c-warn-text`. Bez limitu w kadrach:
+>   „—" i podpis „brak limitu w kadrach", a nie „0 dni" (zero znaczyłoby „limit jest i wynosi zero").
+>   Przy dwóch zatrudnieniach kafel **sumuje** limity tego samego rodzaju, bo odpowiada na pytanie
+>   „ile mam urlopu", a nie „ile w tej jednej firmie" — rozbicie stoi niżej, na karcie limitów.
+> - **Stan zatrudnienia BEZ plakietki** (`.stan-kropka`): plakietka robiła ze stanu drugą daną tej
+>   samej wagi, co firma i etat. Zostaje słowo z kropką 8 px — ta sama sygnatura, co „połączony"
+>   na ekranie integracji. ⚠ Kropka zakończonego zatrudnienia jest **obojętna i bez obwódki**:
+>   zakończone zatrudnienie nie jest błędem ani ostrzeżeniem, tylko stanem przeszłym.
+> - **Limity bez tabeli** (`.limit-wiersz`): sześć kolumn liczbowych kazało czytać trzy liczby
+>   i policzyć w głowie, jak się mają do siebie. Teraz nazwa po polsku (`Support\RodzajeLimitow`
+>   — do dziś ekran pokazywał surowy kod z R2, `wypoczynkowy`), rok, saldo „pozostało **X** z Y",
+>   pasek 10 px i pod nim „wykorzystane X (N%)" oraz „na start Y".
+>   ⚠ **Pasek to natywny `<progress>` z wartością w atrybucie** — bez `style=` w szablonie (§6),
+>   bo szerokość wypełnienia jest daną, nie wyglądem. `max` i `value` biorą **surowe minuty**,
+>   a nie zaokrąglony procent: zaokrąglenie rysowałoby pasek odrobinę inny niż liczby obok niego.
+>   Wypełnienie w barwie paska urlopu z kalendarza, prawa krawędź 2 px `--c-accent` — bez niej
+>   koniec wypełnienia gubił się w tle przy niskim wykorzystaniu.
+>   ⚠ **Przekroczenie to `remaining_min < 0`, nie `used > start`**: R2 przysyła też korekty, więc
+>   te dwa warunki potrafią się rozjechać, a prawdę niesie pole wyliczone przez kadry. Wtedy pasek
+>   jest pełny (wartość > maksimum rysuje się tak sama), a saldo idzie na `--c-danger-text`.
+> - **Nieobecności**: tabela bez zebry, rodzaj jako plakietka w **barwach pasków kalendarza**
+>   (`urlop` / `zasilek` / `kadrowe`), żeby ta sama nieobecność miała ten sam kolor na obu
+>   ekranach; daty `DD.MM.RRRR`, dni cyframi tabelarycznymi, źródło 12 px `--c-text-4`.
+>   ⚠ Modyfikator plakietki z jawnego warunku, nigdy sklejany z danych (§4b).
+>   ⚠ **Fragment karty importuje ikony u siebie**: `{% import %}` jest lokalny dla szablonu,
+>   a ten fragment bywa renderowany sam (odpowiedź htmx po przełączeniu roku) — bez tej linii
+>   przełączenie roku kończyłoby się błędem i kartą, która znika po kliknięciu.
+> - **Telefon (375 px)**: kafle po dwa, wiersz limitu zawija się nad paskiem (pasek 293 px),
+>   nieobecności jako bloki — plakietka rodzaju na całą szerokość, pod nią daty i dni w dwóch
+>   kolumnach z nazwą kolumny nad wartością. 0 przewijania w poziomie przy 1920, 1366 i 375.
+> - ⚠ **Kafel nieobecności niesie liczbę WYCOFANYCH, gdy jakieś są** („wszystkie rodzaje ·
+>   wycofanych: 8") — i to nie jest ozdoba podpisu. Przy przepisywaniu karty na kafle dopisek
+>   wypadł z pierwszej wersji, a **bramka to złapała**: zostawało „0 dni" przy ośmiu plakietkach
+>   „wycofana" w tabeli pod spodem, czyli dokładnie ta cisza, przez którą 10.10.2026 lista firmy
+>   i karta osoby pokazywały dwie różne liczby. Kryterium `prawda_nieobecnosci` dostało nowy
+>   selektor (`.kafel` zamiast `.stats__item`), bo mierzy to samo twierdzenie w innym elemencie.
+> - **Zmierzone stany**: osoba bez limitu i z zakończonym zatrudnieniem (kafel „—", pusta karta
+>   limitów, szara kropka bez obwódki), osoba z drugim rodzajem limitu („Opieka nad dzieckiem
+>   (art. 188 k.p.)" osobnym wierszem), osoba z dwoma zatrudnieniami (dwa wiersze z nazwą firmy,
+>   kafel równy ich sumie), limit przekroczony (pasek pełny, saldo czerwone, „33 dni (106%)").
+>   Przekroczenia nie dało się pokazać na zastanych danych — ani jedna osoba nie ma ujemnego salda
+>   w najnowszym roku — więc powstała próbka `dev/probka-limitu.php`, która rusza dwie liczby
+>   jednego wiersza i przywraca je co do minuty. Przełączanie lat (2026 → 2025 → wszystkie → 2026)
+>   zachowuje znak karty, zdanie, plakietki i format dat.
 
 > **Zmiana 1.18.26 → 1.18.27: `/dane/firma/{id}` — jedna lista sortowania zamiast dwóch,
 > stan zatrudnienia w nazwisku zamiast w kolumnie** (zlecenie Z45, 19.10.2026).
@@ -1438,6 +1490,12 @@ wymyśli drugi raz** — dokładnie tak powstały dwa paski komunikatu (§4b) i 
 `.toasty` `.toasty--nad-nawigacja` `.toast` (`--blad` `--sukces` `--uwaga`) `.toast__znak`
 `.toast__tresc` `.toast__zamknij` `.toast--wchodzi` `.toast--wychodzi` `.komunikat--w-toascie`
 ⚠ `.flash` **skasowane** razem z paskiem `#flash`; znacznik komunikatu składa `partials/komunikat.twig`.
+
+*Karta pracownika (1.18.28, zlecenie Z46)*
+`.limit-wiersz` (`--przekroczony`) `.limit-wiersz__glowa` `.limit-wiersz__nazwa` `.limit-wiersz__rok`
+`.limit-wiersz__saldo` `.limit-wiersz__stopka` `.progress--limit` `.stan-kropka`
+`.stan-kropka__znak--cichy` `.defs__dopisek` `.defs__link` `.table--nieobecnosci`
+`.chip--urlop` `.chip--zwolnienie` `.chip--kadrowe` (barwy pasków kalendarza)
 
 *Lista pracowników firmy (1.18.27, zlecenie Z45)*
 `.table--pracownicy` (tabela bez zebry, podświetlenie wiersza, układ blokowy na telefonie)
