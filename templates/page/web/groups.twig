@@ -40,6 +40,10 @@
     wyboru osób (panel w karcie z `overflow: hidden`, przycisk zapisu nieosiągalny). -#}
 {% block content %}
 {% import 'partials/inicjaly.twig' as znak %}
+{#- ⚠ Adres odświeżania niesie spółkę TEGO ekranu, nie spółkę kontekstu: wszedłszy ze starego
+    odnośnika z `?spolka=`, oglądasz inną firmę niż ta w belce (zdanie o tym stoi niżej),
+    a odświeżenie bez tego parametru podmieniłoby liczby na liczby z innej firmy. -#}
+{% set adres_listy = url('/admin/grupy') ~ '?spolka=' ~ spolka.id %}
 {#- ⚠ **Bez `.page__head`** (zlecenie Z31 §1): zdanie o tym, czym jest grupa, zeszło do nagłówka
     karty — dotyczy listy pod nim, a nie całego ekranu; „Nowa grupa" stanęła w tym samym nagłówku,
     przy liście, do której dodaje. Zdanie o „wszystkich spółkach" zniknęło (§1): administrator
@@ -51,12 +55,39 @@
         różnych załogach, a różnica wyglądałaby na błąd.
         ⚠ „Osób w grupach" liczy LUDZI, nie przypisania: suma liczników przy grupach jest wyższa,
         bo jedna osoba bywa w kilku grupach — i to jest poprawne, to dwie różne rzeczy. -#}
-    <section class="kafle kafle--auto" aria-label="Stan grup w firmie">
+    {#- ⚠ **Pasek kafli jest też NASŁUCHEM odświeżania całego stanu ekranu** (zlecenie Z52,
+        19.10.2026). Zmiana składu grupy dzieje się w oknie, które przykrywa stronę; dotąd strona
+        pod spodem zostawała z liczbami sprzed otwarcia, a karta „Osoby bez grupy" traciła prawdę
+        do najbliższego przeładowania.
+
+        ⚠ **Jedno żądanie i JEDNO liczenie.** Serwer odsyła po zapisie nagłówek `HX-Trigger:
+        grupy-zmienione`, a stąd leci jeden `GET` na ten sam adres, z którego powstała strona.
+        `hx-select-oob` wyjmuje z odpowiedzi pozostałe trzy obszary. Liczby nie są nigdzie
+        przeliczane w przeglądarce — to ta sama droga, którą powstały za pierwszym razem
+        (pamięć: dwa liczniki jednej rzeczy rozjadą się na pierwszym brakującym warunku).
+
+        ⚠ **Wymieniamy PLAKIETKĘ i TREŚĆ karty „Osoby bez grupy", nie cały `<details>`** — bo
+        `<details>` niesie stan `open`, którego serwer nie zna. Podmiana całego pudełka zwijałaby
+        rozwiniętą listę przy każdym dodaniu osoby.
+
+        ⚠ **Okna grup też się odświeżają** (`#grupy-okna`) i to jest naprawa usterki, nie porządek:
+        `<dialog id="grupa-usun-N">` powstaje wyłącznie dla grupy PUSTEJ, a `ui.js` przepuszcza
+        wysłanie formularza, gdy okna o danym identyfikatorze nie ma. Po opróżnieniu grupy kosz
+        w odświeżonym wierszu wskazywał więc okno, którego na stronie nie było — i jedno kliknięcie
+        kasowało grupę **bez potwierdzenia**.
+
+        ⚠ Bez JavaScriptu nie dzieje się tu nic: okna grupy nie ma, zapisy są zwykłymi `POST`-ami
+        z przekierowaniem, czyli strona i tak przychodzi od nowa. -#}
+    <section class="kafle kafle--auto" id="grupy-kafle" aria-label="Stan grup w firmie"
+             hx-get="{{ adres_listy }}"
+             hx-trigger="grupy-zmienione from:body"
+             hx-select="#grupy-kafle" hx-swap="outerHTML"
+             hx-select-oob="#grupy-lista,#bez-grupy-plakietka,#bez-grupy-tresc,#grupy-okna">
         <div class="kafel">
             <span class="kafel__glowa">{{ ikony.etykieta() }}<span class="kafel__etykieta">Grupy</span></span>
             <span class="kafel__dana">
                 <span class="kafel__wartosc">{{ statystyki.grup }}</span>
-                <span class="kafel__opis">w firmie {{ spolka.nazwa }}</span>
+                <span class="kafel__opis">utworzonych w tej firmie</span>
             </span>
         </div>
         <div class="kafel">
@@ -94,13 +125,18 @@
         liczbę i skład** (aneks §1). Odświeżenie robi `modules/grupy.js` jednym żądaniem na ten
         adres, z wyborem tego samego elementu — zamiast przeładowania całej strony, które gubiłoby
         przewinięcie. Bez JavaScriptu okna nie ma, więc nie ma też czego odświeżać. -#}
-    <section class="card card--os" id="grupy-lista"
-             data-grupy-adres="{{ url('/admin/grupy') }}">
+    <section class="card card--os" id="grupy-lista">
         <div class="card__head card__head--znak card__head--lista">
             <span class="card__znak">{{ ikony.etykieta() }}</span>
+            {#- ⚠ **Karta nie ma własnego tytułu** (dopisek do Z52, 19.10.2026). Ekran nazywa się
+                „Grupy" i ta nazwa stoi w belce jako jedyny `h1`; tytuł „Grupy" w nagłówku karty byłby
+                DRUGIM tytułem tego samego ekranu (reguła z 11.10, kryterium bramki
+                `nazwa_ekranu_w_belce`). Dawny tytuł brzmiał „Grupy w firmie X" i obchodził to
+                dopiskiem, który powtarzał nazwę firmy ze znacznika w belce. Zostaje znak i zdanie
+                o tym, co jest na liście — ta sama konstrukcja, co na `/admin/konta` i `/dane`. -#}
             <div class="card__tytuly">
-                <h2 class="card__title">Grupy w firmie {{ spolka.nazwa }}</h2>
-                <p class="card__opis">Etykieta porządkująca listę osób. Jedna osoba może być w kilku grupach. Grupa nie wpływa na to, kto zatwierdza urlop — to ustawia Hierarchia.</p>
+                <p class="card__opis card__opis--lead">Etykieta porządkująca listę osób.</p>
+                <p class="card__opis">Jedna osoba może być w kilku grupach. Grupa nie wpływa na to, kto zatwierdza urlop — to ustawia Hierarchia.</p>
             </div>
             <div class="card__akcje">
                 {#- ⚠ Okno modalne, nie karta na końcu ekranu: tworzenie grupy jest czynnością rzadką,
@@ -215,10 +251,10 @@
                 <span class="bez-grupy__nazwa">Osoby bez grupy</span>
                 <span class="bez-grupy__opis">Nie należą do żadnej grupy. To nie jest błąd — grupa jest tylko etykietą.</span>
             </span>
-            <span class="chip bez-grupy__count">{{ bez_grupy.osob }} {{ odmiana_osob(bez_grupy.osob) }}</span>
+            <span class="chip bez-grupy__count" id="bez-grupy-plakietka">{{ bez_grupy.osob }} {{ odmiana_osob(bez_grupy.osob) }}</span>
             {{ ikony.strzalka() }}
         </summary>
-        <div class="bez-grupy__body">
+        <div class="bez-grupy__body" id="bez-grupy-tresc">
             {% if bez_grupy.sklad is empty %}
                 <p class="bez-grupy__sklad">Każde czynne zatrudnienie w tej firmie ma już jakąś grupę.</p>
             {% else %}
@@ -261,8 +297,10 @@
         <div class="modal__head modal__head--znak">
             <span class="card__znak">{{ ikony.etykieta() }}</span>
             <div class="card__tytuly">
+                {#- ⚠ Podtytuł „w firmie X" ZNIKĄŁ (dopisek do Z52) i nic go nie zastępuje:
+                    firmę pokazuje znacznik w belce, a akapit powtórzony dla samego porządku
+                    byłby wyściółką pod tytułem. -#}
                 <h3 id="grupa-nowa-tytul">Nowa grupa</h3>
-                <p class="card__opis">w firmie {{ spolka.nazwa }}</p>
             </div>
             <button type="button" class="modal__close" data-modal-close="grupa-nowa" aria-label="Zamknij okno">{{ ikony.krzyzyk() }}</button>
         </div>
@@ -279,6 +317,14 @@
         i tę samą stopkę co pozostałe okna grup; różni się jednym — przyciskiem w barwie
         niebezpiecznej. Bez JavaScriptu okno się nie otwiera i kosz po prostu wysyła formularz,
         czyli zachowuje się dokładnie tak, jak dawna pozycja menu „Usuń grupę". -#}
+    {#- ⚠ **Okna grup w jednym pojemniku o stałym identyfikatorze** (Z52): po zmianie składu
+        odświeża się cały ten blok razem z wierszami, bo `grupa-usun-N` istnieje WYŁĄCZNIE dla
+        grupy pustej. Bez tego odświeżony kosz wskazywałby okno, którego na stronie nie ma,
+        a `ui.js` przepuszcza wtedy wysłanie formularza — czyli grupa kasowałaby się bez
+        potwierdzenia. ⚠ `grupa-okno` i `grupa-nowa` stoją POZA tym pojemnikiem: pierwsze bywa
+        otwarte w chwili odświeżenia (to z niego idzie zapis), a podmiana otwartego `<dialog>`
+        zamknęłaby je w połowie pracy. -#}
+    <div id="grupy-okna">
     {% for g in grupy %}
         {% if g.osob == 0 %}
             <dialog id="grupa-usun-{{ g.id }}" class="modal modal--grupa" aria-labelledby="grupa-usun-{{ g.id }}-tytul" data-modal-trwale>
@@ -286,7 +332,9 @@
                     <span class="card__znak card__znak--niebezpieczny">{{ ikony.kosz() }}</span>
                     <div class="card__tytuly">
                         <h3 id="grupa-usun-{{ g.id }}-tytul">Usuń grupę</h3>
-                        <p class="card__opis">{{ g.nazwa }} · w firmie {{ spolka.nazwa }}</p>
+                        {#- ⚠ Bez „w firmie X" (dopisek do Z52): firmę niesie znacznik w belce,
+                            a nazwa grupy wystarcza, żeby wiedzieć, co znika. -#}
+                        <p class="card__opis">{{ g.nazwa }}</p>
                     </div>
                     <button type="button" class="modal__close" data-modal-close="grupa-usun-{{ g.id }}" aria-label="Zamknij okno">{{ ikony.krzyzyk() }}</button>
                 </div>
@@ -311,7 +359,7 @@
                 <span class="card__znak">{{ ikony.etykieta() }}</span>
                 <div class="card__tytuly">
                     <h3 id="grupa-nazwa-{{ g.id }}-tytul">Zmień nazwę grupy</h3>
-                    <p class="card__opis">{{ g.nazwa }} · w firmie {{ spolka.nazwa }}</p>
+                    <p class="card__opis">{{ g.nazwa }}</p>
                 </div>
                 <button type="button" class="modal__close" data-modal-close="grupa-nazwa-{{ g.id }}" aria-label="Zamknij okno">{{ ikony.krzyzyk() }}</button>
             </div>
@@ -320,6 +368,7 @@
                 'wpisana': okno_bledu == 'grupa-nazwa-' ~ g.id ? wpisana_nazwa : ''} only %}
         </dialog>
     {% endfor %}
+    </div>
 
     <noscript>
         <section class="card">

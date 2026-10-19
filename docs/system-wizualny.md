@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.31, 19.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.32, 19.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,38 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.31 → 1.18.32: `/admin/grupy` — cały stan ekranu odświeża się po zmianie składu,
+> karta traci własny tytuł** (zlecenie Z52 z dopiskiem, 19.10.2026).
+> - **Zgłoszenie:** po dodaniu albo usunięciu osób w oknie członków karta „Osoby bez grupy"
+>   nie zmieniała się do przeładowania strony. Przyczyna była głębsza niż jedna karta: odświeżanie
+>   opisał **JavaScript** (`modules/grupy.js` wołał własne `htmx.ajax` z wyborem `#grupy-lista`),
+>   czyli **drugie miejsce**, w którym zapisano, co zależy od składu grup — i to miejsce znało
+>   wyłącznie listę grup.
+> - **Teraz mówi to szablon, przy elementach, których dotyczy.** Serwer odsyła po zapisie
+>   `HX-Trigger: grupy-zmienione` („co się stało"), a pasek kafli nasłuchuje tego zdarzenia
+>   i jednym `GET`-em na adres ekranu pobiera cztery obszary: kafle, listę grup, plakietkę
+>   i treść karty „Osoby bez grupy" oraz okna grup (`hx-select-oob`). ⚠ **Jedno liczenie**:
+>   wszystkie liczby powstają tą samą drogą, co przy pierwszym wejściu — w przeglądarce
+>   nie jest przeliczana żadna.
+> - ⚠ **Wymieniana jest PLAKIETKA i TREŚĆ, nie cały `<details>`**: pudełko niesie stan `open`,
+>   którego serwer nie zna, więc podmiana całości zwijałaby rozwiniętą listę przy każdej zmianie.
+> - ⚠ **Okna grup odświeżają się razem z wierszami** (`#grupy-okna`) — to naprawa usterki:
+>   `<dialog id="grupa-usun-N">` powstaje wyłącznie dla grupy PUSTEJ, a wspólna obsługa okien
+>   przepuszcza wysłanie formularza, gdy okna o danym identyfikatorze nie ma. Po opróżnieniu grupy
+>   odświeżony kosz wskazywał więc okno, którego na stronie nie było, i **jedno kliknięcie kasowało
+>   grupę bez potwierdzenia**. `grupa-okno` i `grupa-nowa` stoją poza tym pojemnikiem, bo pierwsze
+>   bywa otwarte w chwili odświeżenia.
+> - **Karta listy traci własny tytuł** (dopisek do zlecenia). Dawny nagłówek brzmiał „Grupy
+>   w firmie X" — pierwsze słowo powtarzało nazwę ekranu z belki (kryterium bramki
+>   `nazwa_ekranu_w_belce`), a reszta nazwę firmy ze znacznika obok. Zostaje znak i zdanie
+>   wiodące 14 px (`.card__opis--lead`) ze zdaniem 12 px pod nim — ta sama konstrukcja,
+>   co na `/admin/konta` i `/dane`.
+> - **Nazwa firmy schodzi też z podpisu kafla** („utworzonych w tej firmie") **i z podtytułów
+>   okien** grupy. Zostaje w nagłówku kolumny „Pozostali w firmie X" w oknie członków, bo tam
+>   przeciwstawia dwa zbiory, a nie powtarza znacznik.
+> - ⚠ Bez JavaScriptu nic się nie zmienia: okna grupy nie ma, zapisy to `POST` z przekierowaniem,
+>   czyli strona i tak przychodzi od nowa.
 
 > **Zmiana 1.18.30 → 1.18.31: `/dane/pracownik/{id}/kalendarz` — ten sam ekran, co „Tylko ja ·
 > Miesiąc", z danymi wskazanej osoby** (zlecenie Z51, 19.10.2026).

@@ -301,8 +301,25 @@ final class GroupController
         // potwierdzeniem jest sam ekran — osoba przeskakuje do drugiej kolumny i stoi tam
         // z akcją odwrotną przy nazwisku. Wpis w dzienniku robi serwis, a o pominiętych mówi
         // `$pominieci` niżej.
-        return $this->odpowiedz($request, $kontekst, $grupa, $szukaj,
+        $odpowiedz = $this->odpowiedz($request, $kontekst, $grupa, $szukaj,
             $pominieci ? 'pominieci' : null, $wGrupie);
+        // ⚠ **Zmiana składu grupy dotyczy też strony POD oknem** (zlecenie Z52, 19.10.2026):
+        // kafli, wiersza grupy, karty „Osoby bez grupy" i kosza, który dla grupy z ludźmi ma być
+        // wyłączony. Odpowiedź niesie więc nagłówek `HX-Trigger`, a ekran sam dociąga sobie te
+        // obszary jednym żądaniem (`groups.twig`, nasłuch na pasku kafli).
+        //
+        // ⚠ **Serwer mówi „co się stało", nie „co przerysować".** Kontroler nie wie i nie ma
+        // wiedzieć, które elementy strony zależą od składu grup — inaczej dodanie czwartego kafla
+        // znaczyłoby zmianę w kontrolerze. Lista obszarów stoi w szablonie, przy nich samych.
+        //
+        // ⚠ Nagłówek leci WYŁĄCZNIE przy faktycznej zmianie i wyłącznie do htmx: żądanie, które
+        // niczego nie zmieniło, nie ma czego odświeżać, a droga bez JavaScriptu kończy się
+        // przekierowaniem, czyli pełnym przeładowaniem strony.
+        if ($zmienieni === [] || !$request->isHtmx()) {
+            return $odpowiedz;
+        }
+
+        return $odpowiedz->withHeader('HX-Trigger', 'grupy-zmienione');
     }
 
     /**
