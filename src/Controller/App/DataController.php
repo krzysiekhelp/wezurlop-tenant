@@ -54,12 +54,44 @@ final class DataController
     /** @param array<string, string> $params */
     public function companies(Request $request, array $params): Response
     {
+        $firmy = $this->data->companies($this->scope($request));
+
         return $this->view->render('data-companies.twig', [
-            'firmy' => $this->data->companies($this->scope($request)),
+            'firmy' => $firmy,
+            // ⚠ **Kafle liczone z TEJ SAMEJ tablicy, co wiersze niżej** (Z44), a nie drugim
+            // zapytaniem: kafel „Pracownicy" ma być sumą liczb, które widać pod nim. Dwa liczniki
+            // tej samej rzeczy rozjeżdżają się na pierwszym brakującym warunku — i wtedy ekran
+            // sam sobie przeczy, a nikt nie wie, która liczba jest prawdziwa.
+            'podsumowanie' => [
+                'firm' => count($firmy),
+                // ⚠ To suma CZYNNYCH ZATRUDNIEŃ, nie liczba osób: osoba zatrudniona w dwóch
+                // firmach jest w tej sumie dwa razy — tak samo jak w dwóch wierszach listy.
+                // Podpis kafla mówi „we wszystkich firmach" właśnie dlatego.
+                'pracownikow' => array_sum(array_column($firmy, 'employees')),
+                // Najświeższy domknięty przebieg którejkolwiek firmy; `null`, gdy nie było żadnego.
+                'ostatnia_sync' => self::najswiezszy(array_column($firmy, 'last_sync')),
+            ],
             // ⚠ Językiem kadrowej, nie technicznym: ona ma wiedzieć, co z tego wynika dla danych,
             // a nie co to jest odcisk tożsamości. Szczegóły techniczne zostają na ekranie integracji.
             'podwojne_osoby' => $this->rozjazdOsob(),
         ]);
+    }
+
+    /**
+     * Najpóźniejszy znacznik z listy; `null`, gdy nie ma ani jednego.
+     *
+     * ⚠ Porównanie napisów wystarcza i jest celowe: znaczniki z bazy mają stały format
+     * `RRRR-MM-DD GG:MM:SS` w UTC, więc porządek leksykograficzny jest porządkiem czasu.
+     * Parsowanie dat tylko po to, żeby wybrać największą z nich, dokładałoby strefę tam,
+     * gdzie jej nie ma.
+     *
+     * @param list<?string> $znaczniki
+     */
+    private static function najswiezszy(array $znaczniki): ?string
+    {
+        $pelne = array_values(array_filter($znaczniki, static fn (?string $z): bool => $z !== null));
+
+        return $pelne === [] ? null : max($pelne);
     }
 
     /**

@@ -21,8 +21,10 @@
         droga do czyszczenia hasła biegła ukrytym polem `wyczysc_haslo=1` w tym samym formularzu
         i nie miała ani własnej trasy, ani innego wywołującego. Skrzynkę bez uwierzytelnienia
         ustawia się pustym polem użytkownika — i to mówi podpowiedź pod tym polem,
-      — ostrzeżenie „Nadawca nazywa się wezurlop…" zniknęło z ekranu: stan odchylenia niesie
-        podpowiedź przy polu, a nie akapit nad formularzem. -#}
+      — ostrzeżenie „Nadawca nazywa się wezurlop…" zniknęło z ekranu **w całości** (odbiór Z43,
+        19.10): przez jeden commit stało przy polu jako podpowiedź w barwie ostrzeżenia, ale
+        zlecenie kazało je USUNĄĆ, a nie przenieść. Zostaje sama podpowiedź o tym, czym to pole
+        jest, i podpowiedź miejsca z nazwą spółki. -#}
 {% block content %}
 {% import 'partials/ikony.twig' as ikony %}
 
@@ -152,22 +154,19 @@
                         <span class="field__label">Adres nadawcy</span>
                         <input class="input" type="email" name="nadawca" value="{{ nadawca }}" maxlength="254" placeholder="urlopy@firma.pl" required>
                     </label>
-                    <label class="field{{ nazwa_nadawcy_uwaga ? ' field--uwaga' : '' }}">
+                    <label class="field">
                         <span class="field__label">Nazwa nadawcy</span>
+                        {#- ⚠ **Ostrzeżenia o nazwie „wezurlop" nie ma w ŻADNEJ postaci** (Z43 kazał
+                            je usunąć, nie przenieść — rozstrzygnięte 19.10). Przez jeden commit stało
+                            tu jako podpowiedź w barwie ostrzeżenia; zostaje sama podpowiedź o tym,
+                            czym to pole jest. Podpowiedź miejsca (`placeholder`) dalej proponuje nazwę
+                            jedynej spółki, więc pole samo mówi, co się w nim wpisuje.
+                            ⚠ Dlaczego to pole w ogóle istnieje (docs/wymagania-hostingu.md §1a):
+                            zmierzone na doręczonej wiadomości — nadawca „wezurlop" u pracownika
+                            klienta wygląda jak phishing, a wiadomość ma go skłonić do ustawienia hasła. -#}
                         <input class="input" type="text" name="nazwa_nadawcy" value="{{ nazwa_nadawcy }}" maxlength="100"
                                placeholder="{{ nazwa_nadawcy_sugestia ?: 'nazwa Twojej firmy' }}">
-                        {#- ⚠ To jest nazwa, którą pracownik zobaczy w skrzynce obok tematu.
-                            Zmierzone na doręczonej wiadomości: nadawca „wezurlop" u pracownika
-                            klienta wygląda jak phishing — a wiadomość ma go skłonić do ustawienia
-                            hasła (docs/wymagania-hostingu.md §1a).
-                            ⚠ Stan wymagający reakcji (brak nazwy albo nazwa odziedziczona po nas)
-                            jest TUTAJ, a nie w akapicie nad formularzem: ostrzeżenie ma stać przy
-                            polu, w którym się je naprawia. -#}
-                        {% if nazwa_nadawcy_uwaga %}
-                            <span class="field__hint field__hint--uwaga">Pracownik zobaczy w skrzynce <strong>{{ nazwa_nadawcy ?: '(bez nazwy)' }}</strong>. Wpisz nazwę swojej firmy{% if nazwa_nadawcy_sugestia %} (np. „{{ nazwa_nadawcy_sugestia }}"){% endif %} — nieznany nadawca z linkiem do hasła wygląda jak oszustwo.</span>
-                        {% else %}
-                            <span class="field__hint">Nazwa firmy widoczna w skrzynce pracownika. Adres zostaje ten powyżej.</span>
-                        {% endif %}
+                        <span class="field__hint">Nazwa firmy widoczna w skrzynce pracownika. Adres zostaje ten powyżej.</span>
                     </label>
                 </div>
             </form>

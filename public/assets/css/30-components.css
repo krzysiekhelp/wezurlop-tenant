@@ -4123,13 +4123,10 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 .col--klucz-uzycie    { width: 10%; }
 .col--klucz-stan      { width: 24%; }
 .col--klucz-akcja     { width: 28%; }
-/* /dane — lista firm. */
-.col--firma-nazwa  { width: 26%; }
-.col--firma-nip    { width: 14%; }
-.col--firma-stan   { width: 11%; }
-.col--firma-ludzie { width: 11%; }
-.col--firma-sync   { width: 20%; }
-.col--firma-klucz  { width: 18%; }
+/* ⚠ `/dane` — szerokości kolumn tabeli firm SKASOWANE w 1.18.25 (Z44) razem z samą tabelą:
+   ekran pokazuje teraz listę wierszy (`.dane-firma`). Zostawienie ich byłoby pułapką tego samego
+   rodzaju, co reguły skasowanej siatki miesiąca: ktoś poprawia szerokość kolumny, nic się nie
+   zmienia, i szuka przyczyny w danych. Historia reguł jest w gicie. */
 
 /* ——— skala ROKU: dwanaście siatek miesięcznych w ramkach, cztery w rzędzie ————————————————
    (zlecenie `2026-10-11-rok-jako-dwanascie-miesiecy.md`, prototyp zatwierdzony w przeglądarce)
@@ -5244,12 +5241,6 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   text-transform: uppercase;
   color: var(--c-text-4);
 }
-/* ⚠ Podpowiedź w barwie ostrzeżenia — stan „nadawca nazywa się wezurlop" był do Z43 akapitem
-   `.notice--warn` NAD formularzem, czyli ostrzeżeniem oddzielonym od pola, w którym się je
-   naprawia. Kolorujemy wyłącznie to, co wymaga reakcji (system-wizualny §3.1). */
-.field__hint--uwaga { color: var(--c-warn-text); }
-.field__hint--uwaga strong { font-weight: var(--w-semibold); }
-
 /* ⚠ Pole, przycisk i notka w JEDNYM rzędzie: karta „Wiadomość próbna" jest jednym działaniem,
    więc stopka karty byłaby drugim miejscem na tę samą decyzję. `align-items: flex-end`, bo pole
    ma nad kontrolką etykietę — wyrównanie do środka stawiało przycisk w połowie etykiety.
@@ -5298,4 +5289,82 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   @media (max-width: 560px) {
     .poczta-proba__pole, .poczta-proba__akcja, .poczta-proba__notka { width: 100%; }
   }
+}
+
+/* ——— /dane: lista firm z programu kadrowego (zlecenie Z44, 19.10.2026) ————————————
+   ⚠ Rodzina `.dane-*` **dokłada układ, nie nowy język wizualny**: kwadrat znaku, plakietka,
+   przycisk i kafel są tymi samymi komponentami, co wszędzie indziej. Zero nowych barw.
+
+   ⚠ **Wiersz jest odnośnikiem, a przycisk jego CZĘŚCIĄ** (`<span class="btn">` wewnątrz `<a>`),
+   bo przycisk w odnośniku jest w HTML niedozwolony. Ta sama konstrukcja i ta sama reguła
+   najechania, co w wierszu konfiguracji na `/ustawienia` (`.settings-list--akcje`). */
+.dane-firmy { display: flex; flex-direction: column; }
+/* ⚠ Separator rysuje GÓRNA krawędź od drugiego wiersza, a nie dolna każdego: dolna krawędź
+   ostatniego wiersza dublowała się z krawędzią karty. */
+.dane-firmy li + li .dane-firma { border-top: 1px solid var(--c-line-soft); }
+.dane-firma {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  min-width: 0;
+  padding: var(--s-3) var(--s-5);
+  /* Wiersz jest odnośnikiem, więc dziedziczoną zieleń odnośnika trzeba zdjąć TUTAJ — nazwa
+     firmy ma być daną, a nie napisem „kliknij". */
+  color: inherit;
+  text-decoration: none;
+}
+@media (hover: hover) {
+  .dane-firma:hover { background: var(--c-surface-hover); }
+  /* Dopiero najechanie nadaje przyciskowi znaczenie — tak samo jak w `.settings-list--akcje`. */
+  .dane-firma:hover .dane-firma__akcja { background: var(--c-accent-soft); border-color: var(--c-accent); }
+}
+/* ⚠ Kwadrat 38 px w barwie OBOJĘTNEJ (`--c-neutral-soft`), nie akcentu: stoi przy każdej firmie,
+   także odrzuconej i bez klucza, więc zieleń obiecywałaby stan, o którym nic nie wie (Z41).
+   Stan niesie plakietka z kropką i tylko ona. */
+.dane-firma__znak {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: var(--control-h);
+  height: var(--control-h);
+  border-radius: var(--radius-card);
+  background: var(--c-neutral-soft);
+  color: var(--c-text-3);
+}
+.dane-firma__znak .ico { width: 20px; height: 20px; }
+.dane-firma__glowna { display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; margin-right: auto; }
+.dane-firma__nazwa { font-size: var(--t-body); font-weight: var(--w-semibold); color: var(--c-text); }
+.dane-firma__plakietki { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); min-width: 0; }
+/* ⚠ Ikona w plakietce potrzebuje WŁASNEGO odstępu: `.chip` jest `inline-flex`, więc odstęp
+   między dwoma dziećmi znika — ta sama pułapka, co przy kropce stanu (stąd `margin-right`
+   na `.chip__kropka`, a nie `gap` na plakietce). 14 px, bo plakietka ma 22 px wysokości. */
+.dane-firma__plakietki .chip .ico { width: 14px; height: 14px; margin-right: var(--s-1); }
+/* Dwie dane w kolumnach: etykieta nad wartością, wyrównane do lewej krawędzi swojej kolumny.
+   ⚠ Szerokości STAŁE, nie `auto`: przy „jeszcze nie było" i „2 dni temu" kolumny skakałyby
+   z wiersza na wiersz, a liczba pracowników przestałaby stać w jednej osi. */
+.dane-firma__liczba { display: flex; flex-direction: column; gap: 2px; flex: 0 0 auto; width: 96px; }
+.dane-firma__liczba--czas { width: 168px; }
+.dane-firma__etykieta { font-size: var(--t-caption); color: var(--c-text-3); line-height: var(--lh-tight); }
+.dane-firma__wartosc { font-size: var(--t-lead); font-weight: var(--w-semibold); color: var(--c-text); line-height: var(--lh-tight); }
+.dane-firma__czas { font-size: var(--t-body); color: var(--c-text-2); line-height: var(--lh-tight); }
+/* ⚠ Przycisk ma `pointer-events: none`, bo jest NAPISEM w odnośniku, a nie drugim celem:
+   bez tego kursor nad nim zmieniał się na strzałkę i wiersz wyglądał, jakby tam przestawał
+   być klikalny. Kliknięcie i tak obsługuje odnośnik, więc nic nie tracimy. */
+.dane-firma__akcja { flex: 0 0 auto; pointer-events: none; }
+
+/* ⚠ Telefon: wiersz przestaje być rzędem — kwadrat i nazwa w pierwszej linii, plakietki pod nimi,
+   dwie dane obok siebie, przycisk na całą szerokość (§5 zlecenia). Próg od OKNA, bo dotyczy
+   całego ekranu, a nie jednej karty. */
+@media (max-width: 640px) {
+  .dane-firma {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: var(--s-2) var(--s-3);
+    padding: var(--s-4);
+  }
+  .dane-firma__glowna { grid-column: 2 / 3; }
+  .dane-firma__liczba { grid-column: 1 / 2; width: auto; }
+  .dane-firma__liczba--czas { grid-column: 2 / 3; width: auto; }
+  .dane-firma__akcja { grid-column: 1 / -1; width: 100%; justify-content: center; }
 }

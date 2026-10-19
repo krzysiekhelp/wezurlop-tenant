@@ -2,15 +2,19 @@
 
 {% block nazwa_ekranu %}Dane z kadr{% endblock %}
 
+{#- ⚠ **Układ z 19.10.2026 (zlecenie Z44, prototyp zaakceptowany w Chrome).** Co się zmieniło
+    i dlaczego:
+      — `.page__head` znika: zdanie o ekranie zeszło do nagłówka karty, której dotyczy,
+        a „Stan synchronizacji" stanął przy liście, do której się odnosi,
+      — cztery dane o stanie (firmy, pracownicy, ostatnia synchronizacja, tryb) stoją w pasku
+        kafli, czytane obok siebie, zamiast być przemilczane albo rozsypane po tabeli,
+      — tabela sześciu kolumn ustąpiła liście wierszy: przy 1440 px wychodziła 10 px za kartę,
+        a NIP, stan zgłoszenia i nazwa klucza są przy firmie PLAKIETKAMI, nie kolumnami —
+        kolumna „Klucz connectora" z napisem „— brak aktywnego klucza" była najszersza na ekranie
+        i mówiła najmniej. -#}
 {% block content %}
-    <div class="page__head">
-        <div class="page__title">
-            <p class="page__sub">Podgląd tego, co przysłał connector. Dane pochodzą z programu kadrowego i są tu wyłącznie do odczytu — poprawki robi się w kadrach, a przy następnym cyklu trafiają tutaj.</p>
-        </div>
-        <div class="page__actions">
-            <a class="btn btn--ghost" href="{{ url('/dane/synchronizacja') }}">Stan synchronizacji</a>
-        </div>
-    </div>
+{% import 'partials/ikony.twig' as ikony %}
+
     {% if podwojne_osoby is not null %}
         {# ⚠ Bez słowa „odcisk”: to ekran kadrowej. Mówimy, co z tego wynika dla danych, a szczegóły
            techniczne zostają na ekranie integracji. #}
@@ -19,38 +23,120 @@
             Szczegóły i sposób naprawy: <a href="{{ url('/admin/integracja') }}">Integracja z programem kadrowym</a>.</p>
     {% endif %}
 
-    <section class="card">
-        <div class="table-scroll">
-            {#- ⚠ Stałe szerokości: przy 1440 px tabela wychodziła 10 px za kartę. Dziesięć
-                pikseli to nie kosmetyka — to przewijanie w poprzek, którego w tej aplikacji
-                nie ma prawa być, i które przy dłuższej nazwie firmy rośnie. -#}
-            <table class="table table--stale table--zawija">
-                <colgroup>
-                    <col class="col--firma-nazwa"><col class="col--firma-nip"><col class="col--firma-stan">
-                    <col class="col--firma-ludzie"><col class="col--firma-sync"><col class="col--firma-klucz">
-                </colgroup>
-                <thead><tr><th>Firma</th><th>NIP</th><th>Stan</th><th>Pracownicy</th><th>Ostatnia synchronizacja</th><th>Klucz connectora</th></tr></thead>
-                <tbody>
-                {% for f in firmy %}
-                    <tr>
-                        <td><a href="{{ url('/dane/firma/' ~ f.id) }}">{{ f.name }}</a></td>
-                        <td>{{ nip_grupami(f.nip) }}</td>
-                        <td>
-                            {% if f.signup == 'pending' %}<span class="chip chip--warn">zgłoszona, czeka</span>
-                            {% elseif f.signup == 'rejected' %}<span class="chip chip--danger">odrzucona</span>
-                            {% else %}<span class="chip">zatwierdzona</span>{% endif %}
-                        </td>
-                        <td>{{ f.employees }}</td>
-                        {# ⚠ Znacznik przez filtr — surowy `RRRR-MM-DD HH:MM:SS` w treści dla użytkownika
-                           to ten sam błąd co „UTC”, tylko bez etykiety (docs §10 punkt 3). #}
-                        <td title="{{ f.last_sync ? czas_ze_strefa(f.last_sync) : '' }}">{{ f.last_sync ? czas_wzgledny(f.last_sync) : 'jeszcze nie było' }}</td>
-                        <td>{{ f.key_name ?? '— brak aktywnego klucza' }}</td>
-                    </tr>
-                {% else %}
-                    <tr><td colspan="6" class="empty-state">Nie ma jeszcze żadnej firmy. Firmy pojawią się tu po tym, jak connector je zgłosi, a administrator zatwierdzi.</td></tr>
-                {% endfor %}
-                </tbody>
-            </table>
+    {#- ══════════ Pasek kafli (§2 zlecenia) ══════════
+        ⚠ Liczby pochodzą z tej samej tablicy, co wiersze niżej (kontroler) — kafel „Pracownicy"
+        jest sumą liczb, które widać pod nim, a nie drugim zapytaniem o to samo. -#}
+    <section class="kafle kafle--auto" aria-label="Stan danych z kadr">
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.firma() }}<span class="kafel__etykieta">Firmy</span></span>
+            <span class="kafel__dana">
+                <span class="kafel__wartosc">{{ podsumowanie.firm }}</span>
+                <span class="kafel__opis">z programu kadrowego</span>
+            </span>
         </div>
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.zespol() }}<span class="kafel__etykieta">Pracownicy</span></span>
+            <span class="kafel__dana">
+                <span class="kafel__wartosc">{{ podsumowanie.pracownikow }}</span>
+                <span class="kafel__opis">we wszystkich firmach</span>
+            </span>
+        </div>
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.odswiezenie() }}<span class="kafel__etykieta">Ostatnia synchronizacja</span></span>
+            <span class="kafel__dana">
+                {% if podsumowanie.ostatnia_sync is null %}
+                    <span class="kafel__wartosc kafel__wartosc--brak">jeszcze nie było</span>
+                {% else %}
+                    {#- Czas WZGLĘDNY w danej, bezwzględny w znaczniku wiersza niżej — tak samo
+                        jak w kolumnie „Ostatnia synchronizacja" przed Z44. -#}
+                    <span class="kafel__wartosc kafel__wartosc--napis">{{ czas_wzgledny(podsumowanie.ostatnia_sync) }}</span>
+                {% endif %}
+                <span class="kafel__opis">connector R2 Płatnik</span>
+            </span>
+        </div>
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.oko() }}<span class="kafel__etykieta">Tryb</span></span>
+            <span class="kafel__dana">
+                {#- ⚠ „Tylko odczyt" to NIE jest odchylenie i nie dostaje barwy ostrzeżenia:
+                    tak ten ekran ma działać (program kadrowy jest źródłem prawdy), a nie tak
+                    się zepsuł. Kolorujemy wyłącznie to, co wymaga reakcji (§3.1). -#}
+                <span class="kafel__wartosc kafel__wartosc--napis">tylko odczyt</span>
+                <span class="kafel__opis">poprawki robi się w kadrach</span>
+            </span>
+        </div>
+    </section>
+
+    {#- ══════════ Jedna karta z listą firm (§3 i §4) ══════════ -#}
+    <section class="card">
+        {#- ⚠ Karta **bez tytułu**: ekran nazywa się „Dane z kadr" i ta nazwa stoi w belce jako
+            jedyny `h1`. Tytuł karty byłby DRUGIM tytułem tego samego ekranu (reguła z 11.10,
+            kryterium bramki `nazwa_ekranu_w_belce`) — tak samo jak na `/admin/konta`. -#}
+        <div class="card__head card__head--znak card__head--lista">
+            <span class="card__znak">{{ ikony.dane() }}</span>
+            <div class="card__tytuly">
+                <p class="card__opis card__opis--lead">Podgląd tego, co przysłał connector.</p>
+                <p class="card__opis">Dane pochodzą z programu kadrowego i są tu tylko do odczytu — poprawki robi się w kadrach, a przy następnym cyklu trafiają tutaj.</p>
+            </div>
+            <div class="card__akcje">
+                <a class="btn btn--ghost btn--akcja" href="{{ url('/dane/synchronizacja') }}">{{ ikony.odswiezenie() }}Stan synchronizacji ›</a>
+            </div>
+        </div>
+        {% if firmy is empty %}
+            <div class="card__body"><p class="empty-state">Nie ma jeszcze żadnej firmy. Firmy pojawią się tu po tym, jak connector je zgłosi, a administrator zatwierdzi.</p></div>
+        {% else %}
+            <ul class="dane-firmy">
+                {% for f in firmy %}
+                    {#- ⚠ **Cały wiersz jest JEDNYM odnośnikiem, a „Pracownicy ›" jego częścią** —
+                        `<span class="btn">` wewnątrz `<a>`, nie zagnieżdżony przycisk: przycisk
+                        w odnośniku jest w HTML niedozwolony, a przeglądarka rozstrzyga to po
+                        swojemu. Ta sama konstrukcja, co w wierszu konfiguracji na `/ustawienia`
+                        (`.settings-list--akcje`). Oba cele prowadzą pod ten sam adres, więc drugi
+                        cel kliknięcia niczego by nie dodał. -#}
+                    <li>
+                        <a class="dane-firma" href="{{ url('/dane/firma/' ~ f.id) }}">
+                            <span class="dane-firma__znak">{{ ikony.firma() }}</span>
+                            <span class="dane-firma__glowna">
+                                <span class="dane-firma__nazwa">{{ f.name }}</span>
+                                <span class="dane-firma__plakietki">
+                                    <span class="chip">NIP {{ nip_grupami(f.nip) }}</span>
+                                    {#- ⚠ Modyfikator z BIAŁEJ LISTY w jawnym warunku, nie sklejany
+                                        z danych (`chip--{{ f.signup }}`, §4b): pierwszy nowy stan
+                                        zgłoszenia wytworzyłby klasę, której system nie ma, i nikt
+                                        by tego nie zauważył.
+                                        ⚠ Kropka bierze barwę z napisu (`currentColor`), więc trzy
+                                        stany nie dokładają ani jednego nowego tokenu. -#}
+                                    {% if f.signup == 'pending' %}
+                                        <span class="chip chip--warn"><span class="chip__kropka"></span>zgłoszona, czeka</span>
+                                    {% elseif f.signup == 'rejected' %}
+                                        <span class="chip chip--danger"><span class="chip__kropka"></span>odrzucona</span>
+                                    {% else %}
+                                        <span class="chip chip--accent"><span class="chip__kropka"></span>zatwierdzona</span>
+                                    {% endif %}
+                                    {% if f.key_name is not null %}
+                                        <span class="chip">{{ ikony.klucz() }}{{ f.key_name }}</span>
+                                    {% else %}
+                                        {#- Brak klucza to stan wymagający reakcji: connector nie ma
+                                            czym się przedstawić, więc ta firma przestanie się
+                                            synchronizować. -#}
+                                        <span class="chip chip--warn"><span class="chip__kropka"></span>brak aktywnego klucza</span>
+                                    {% endif %}
+                                </span>
+                            </span>
+                            <span class="dane-firma__liczba">
+                                <span class="dane-firma__etykieta">Pracownicy</span>
+                                <span class="dane-firma__wartosc">{{ f.employees }}</span>
+                            </span>
+                            {# ⚠ Znacznik przez filtr — surowy `RRRR-MM-DD HH:MM:SS` w treści dla użytkownika
+                               to ten sam błąd co „UTC”, tylko bez etykiety (docs §10 punkt 3). #}
+                            <span class="dane-firma__liczba dane-firma__liczba--czas" title="{{ f.last_sync ? czas_ze_strefa(f.last_sync) : '' }}">
+                                <span class="dane-firma__etykieta">Ostatnia synchronizacja</span>
+                                <span class="dane-firma__czas">{{ f.last_sync ? czas_wzgledny(f.last_sync) : 'jeszcze nie było' }}</span>
+                            </span>
+                            <span class="btn btn--ghost btn--akcja dane-firma__akcja">Pracownicy ›</span>
+                        </a>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% endif %}
     </section>
 {% endblock %}

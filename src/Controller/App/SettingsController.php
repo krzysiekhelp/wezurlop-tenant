@@ -493,9 +493,6 @@ final class SettingsController
             // Podpowiedź tylko przy jednej spółce — przy dwóch zgadywanie, w czyim imieniu
             // piszemy, jest gorsze niż brak podpowiedzi (ta sama zasada co `singleR2Name()`).
             'nazwa_nadawcy_sugestia' => $this->companies->singleR2Name() ?? '',
-            // Stan wymagający reakcji: brak nazwy albo nazwa odziedziczona po nas.
-            'nazwa_nadawcy_uwaga' => $this->poczta->nazwaNadawcy() === ''
-                || strcasecmp($this->poczta->nazwaNadawcy(), 'wezurlop') === 0,
             'rodzaj'      => $this->transporty->rodzaj(),
             'ostatnia_wysylka' => $this->poczta->ostatniaWysylka(),
             'alert_email' => $this->settings->get('alert_email'),

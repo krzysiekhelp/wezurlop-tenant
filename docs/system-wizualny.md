@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.24, 19.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.25, 19.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,46 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.24 → 1.18.25: `/dane` zamienia tabelę firm na listę wierszy, a stan instalacji
+> na pasek kafli** (zlecenie Z44, 19.10.2026).
+> - **`.page__head` znika.** Zdanie o ekranie zeszło do nagłówka karty, której dotyczy,
+>   a „Stan synchronizacji ›" stanął przy liście, do której się odnosi.
+> - **Cztery kafle `.kafle--auto`**: Firmy („z programu kadrowego"), Pracownicy („we wszystkich
+>   firmach"), Ostatnia synchronizacja (czas względny, „connector R2 Płatnik"), Tryb („tylko
+>   odczyt", „poprawki robi się w kadrach"). ⚠ Liczby **wyliczone z tej samej tablicy, co wiersze
+>   niżej**, nie drugim zapytaniem: kafel „Pracownicy" jest sumą liczb, które widać pod nim —
+>   dwa liczniki tej samej rzeczy rozjeżdżają się na pierwszym brakującym warunku, a wtedy ekran
+>   sam sobie przeczy. ⚠ „Tylko odczyt" **nie dostaje barwy ostrzeżenia**: tak ten ekran ma
+>   działać, a nie tak się zepsuł (§3.1 — kolorujemy to, co wymaga reakcji).
+> - **Karta bez tytułu** (`.card__head--znak` ze znakiem `dane`, zdanie 14 px `.card__opis--lead`
+>   i 12 px `.card__opis` pod nim): ekran nazywa się „Dane z kadr" i ta nazwa stoi w belce jako
+>   jedyny `h1` — tytuł karty byłby drugim tytułem tego samego ekranu (reguła z 11.10, kryterium
+>   bramki `nazwa_ekranu_w_belce`). Ta sama konstrukcja, co na `/admin/konta`.
+> - **Tabela sześciu kolumn ustępuje liście `.dane-firmy` / `.dane-firma`.** Wiersz niesie kwadrat
+>   38 px w barwie obojętnej, nazwę 14 px/600 w `--c-text` (nie w zieleni odnośnika), plakietki
+>   (NIP, stan zgłoszenia z kropką, nazwa klucza z ikoną), dwie dane w stałych kolumnach
+>   (96 px i 168 px — `auto` kazałoby liczbie skakać z wiersza na wiersz) i „Pracownicy ›".
+>   ⚠ Powód zmiany jest zmierzony, nie estetyczny: tabela przy 1440 px wychodziła 10 px za kartę,
+>   a kolumna „Klucz connectora" z napisem „— brak aktywnego klucza" była najszersza na ekranie
+>   i mówiła najmniej. Jako plakietka ten sam fakt zajmuje tyle, ile ma treści.
+> - ⚠ **Cały wiersz jest jednym odnośnikiem, a przycisk jego CZĘŚCIĄ** — `<span class="btn">`
+>   wewnątrz `<a>` z `pointer-events: none`, nie zagnieżdżony przycisk (niedozwolony w HTML,
+>   a przeglądarka rozstrzyga to po swojemu). Oba cele prowadzą pod ten sam adres, więc drugi cel
+>   kliknięcia niczego nie dodaje. Najechanie podświetla wiersz `--c-surface-hover` i nadaje
+>   przyciskowi `--c-accent-soft` z ramką `--c-accent` — ta sama reguła, co
+>   w `.settings-list--akcje` na `/ustawienia`.
+> - ⚠ **Kropka stanu bierze barwę z napisu** (`.chip__kropka`, `currentColor`), więc trzy stany
+>   zgłoszenia nie dokładają ani jednego nowego tokenu: zatwierdzona `.chip--accent`, oczekuje
+>   `.chip--warn`, odrzucona `.chip--danger`. Modyfikator wybiera **jawny warunek z białej listy**,
+>   nigdy sklejenie z danych (`chip--{{ status }}`, §4b).
+> - ⚠ **Ikona w plakietce ma własny `margin-right`**, nie `gap`: `.chip` jest `inline-flex`, więc
+>   odstęp między dwoma dziećmi znika — ta sama pułapka, co przy kropce stanu i przy plakietce
+>   wysyłki na `/ustawienia/poczta`.
+> - **Telefon (375 px)**: kafle po 2 w rzędzie, wiersz jako blok — kwadrat i nazwa, plakietki,
+>   pod nimi dwie dane obok siebie, przycisk na całą szerokość. Zmierzone przy 1920, 1366 i 375:
+>   0 przewijania w poziomie, 0 błędów JS, odnośniki prowadzą tam, gdzie przed zmianą
+>   (`/dane/firma/{id}`, `/dane/synchronizacja`).
 
 > **Zmiana 1.18.23 → 1.18.24: nowy układ `/ustawienia/poczta`, kasowanie zadań z kolejki,
 > wpis w dzienniku o KAŻDEJ wysłanej i niewysłanej wiadomości, krótsze podpisy kolumn klucza**
@@ -25,9 +65,11 @@ co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej ju
 >   POŁĄCZENIE (serwer, port, szyfrowanie), LOGOWANIE (użytkownik, hasło), NADAWCA (adres, nazwa).
 >   ⚠ Nie `.form-grid` (1,6fr/1fr): tamta siatka układa pola PARAMI, a te siedem pól to trzy
 >   niezależne decyzje. Zmierzone przy 1920: trzy kolumny po 487 px; przy 1366: po 319 px.
-> - **Ostrzeżenie „Nadawca nazywa się wezurlop…" przestaje być akapitem** nad formularzem
->   i staje się podpowiedzią przy polu, którego dotyczy — `.field__hint--uwaga` (`--c-warn-text`).
->   Ostrzeżenie oddzielone od pola, w którym się je naprawia, kazało szukać tego pola.
+> - **Ostrzeżenie „Nadawca nazywa się wezurlop…" znika z ekranu w całości.** ⚠ Pierwsza wersja
+>   przeniosła je pod pole jako podpowiedź w barwie ostrzeżenia (`.field__hint--uwaga`) — zlecenie
+>   kazało je USUNĄĆ, a nie przenieść, i tak zostało rozstrzygnięte przy odbiorze (19.10). Pod polem
+>   stoi sama podpowiedź o tym, czym to pole jest; nazwę jedynej spółki proponuje `placeholder`.
+>   Klasa `.field__hint--uwaga` skasowana razem z jedynym użyciem.
 > - **Wiadomość próbna bez osobnej stopki**: `.poczta-proba` — pole 360 px, przycisk `.btn--akcja`
 >   z ikoną i notka „Jedna wiadomość, limit czasu 10 s." w jednym rzędzie (zmierzone przy 1920:
 >   jedna linia, 61 px; przy 375 px trzy rzędy jeden pod drugim). Karta jest jednym działaniem,
@@ -1273,11 +1315,17 @@ wymyśli drugi raz** — dokładnie tak powstały dwa paski komunikatu (§4b) i 
 `.toast__tresc` `.toast__zamknij` `.toast--wchodzi` `.toast--wychodzi` `.komunikat--w-toascie`
 ⚠ `.flash` **skasowane** razem z paskiem `#flash`; znacznik komunikatu składa `partials/komunikat.twig`.
 
+*Lista firm na `/dane` (1.18.25, zlecenie Z44)*
+`.dane-firmy` `.dane-firma` `.dane-firma__znak` `.dane-firma__glowna` `.dane-firma__nazwa`
+`.dane-firma__plakietki` `.dane-firma__liczba` (`--czas`) `.dane-firma__etykieta`
+`.dane-firma__wartosc` `.dane-firma__czas` `.dane-firma__akcja`
+⚠ `.col--firma-*` (kolumny tabeli firm) **skasowane razem z tabelą**.
+
 *Ekran poczty (1.18.24, zlecenie Z43)*
 `.poczta-forma` `.poczta-sekcja` `.poczta-sekcja__etykieta` `.poczta-proba` `.poczta-proba__pole`
 `.poczta-proba__akcja` `.poczta-proba__notka` `.poczta-kolejka` `.poczta-kolejka__lista`
 `.poczta-kolejka__wiersz` `.poczta-kolejka__dane` `.poczta-kolejka__nazwa` `.poczta-kolejka__kod`
-`.field__hint--uwaga` (podpowiedź pola w barwie ostrzeżenia) `.ikona-akcja--sm` (kosz 32 px)
+`.ikona-akcja--sm` (kosz 32 px)
 
 *Karta i treść*
 `.card` `.card__head` `.card__title` `.card__meta` `.card__body` `.card__body--tight` `.card__foot`
