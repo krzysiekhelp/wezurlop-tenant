@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.29, 19.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.30, 19.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,46 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.29 → 1.18.30: `/diagnostyka` — wynik w kaflach, pozycje nie-OK zebrane w jednej
+> karcie, grupy jako `<details>`** (zlecenie Z50, 19.10.2026).
+> - **`.page__head` i linia plakietek „OK / Ostrzeżenia / Błędy" znikają.** Zdanie o instalatorze
+>   stoi w nagłówku karty „Wszystkie sprawdzenia", a liczby — w kaflach. Dawna linia była czwartym
+>   miejscem, w którym trzeba je było czytać.
+> - **Cztery kafle**: Wynik („N błędy" / „N ostrzeżenia" / „wszystko w porządku"; barwa idzie za
+>   NAJWYŻSZYM stanem, bo jeden błąd przesłania dziesięć ostrzeżeń), Sprawdzenia OK („N" i „z M
+>   sprawdzeń"), Błędy („blokuje / blokują działanie"), Źródło („na żywo"). ⚠ Odmiana liczebnika
+>   zostaje w PHP (`Support/Odmiana::bledy()`, `ostrzezenia()`, `sprawdzenDopelniacz()`) — „13 błędy"
+>   w kaflu, który ma powiedzieć „napraw to", czyta się jak usterka ekranu, a wtedy czytelnik
+>   podważa też samą liczbę.
+> - ⚠ **Jedno liczenie, nie dwa.** Kafle, plakietki grup i karta „Do sprawdzenia" pokazują te same
+>   liczby w trzech miejscach, więc sumy całej strony powstają PO pętli, z liczników grup. Licznik
+>   prowadzony obok pętli rozjeżdża się przy pierwszym warunku dopisanym tylko w jednym miejscu.
+> - **Karta „Do sprawdzenia" zbiera pozycje nie-OK z CAŁEJ strony** — błędy przed ostrzeżeniami,
+>   w każdym z tych bloków kolejność grup ze strony. Jest tylko wtedy, gdy jest co zebrać. Znak
+>   nagłówka bierze barwę najwyższego stanu (bursztyn, przy błędzie czerwień). Pozycja niesie
+>   nazwę grupy pod nazwą sprawdzenia, bo jest wyrwana z kontekstu.
+> - **Grupy to natywne `<details>`** (`.diag-grupa`), więc rozwijają się bez JavaScriptu.
+>   Podsumowanie: ikona grupy 18 px, nazwa, plakietka „N/M OK" (szara) albo „K do sprawdzenia ·
+>   N/M OK" (bursztynowa, przy błędzie czerwona), strzałka obracana o 180°. **Grupa z czymkolwiek
+>   do sprawdzenia jest otwarta, czysta — zwinięta.**
+> - ⚠ **Kółko stanu 22 px, a OK jest OBOJĘTNE** (`--c-neutral-soft` / `--c-text-3` z ptaszkiem),
+>   nie zielone: zieleń w tym systemie znaczy akcję, a pięćdziesiąt zielonych kółek to ściana,
+>   w której nie widać czterech bursztynowych. ⚠ Ptaszek jest IKONĄ, nie znakiem „✓": znak brałby
+>   krój z otoczenia i zależał od podzbioru czcionki (patrz strzałka „→" w 1.18.26).
+> - ⚠ **Stan niesie też słowo, nie tylko barwę** (`visually-hidden` w kółku: „W porządku",
+>   „Do sprawdzenia", „Błąd") — kolor nie jest treścią.
+> - **Reset instalacji (tylko dev)**: ramka-ostrzeżenie „Operacja jest nieodwracalna…" ZNIKA
+>   z wnętrza karty — to samo mówią znak w barwie błędu i podpis „Tylko w trybie deweloperskim.
+>   Operacja nieodwracalna.", a pasek powtarzał je trzecim głosem. Przycisk „Wyczyść instalację…"
+>   dostaje `.btn--ryzyko` (geometria `.btn--ghost`, barwy `--c-danger`) i **okno potwierdzenia**;
+>   pełna czerwień `.btn--danger` zostaje dla przycisku W OKNIE, czyli tam, gdzie decyzja zapada.
+> - ⚠ **Tabela `.diag-group` ZOSTAJE** w `partials/diagnostics-table.twig`: obsługuje krok 1 i 7
+>   INSTALATORA, których to zlecenie nie dotyczy. Nowa rodzina ma własny przedrostek `diag-wiersz`,
+>   zamiast przerabiać tamtą.
+> - **Telefon (≤ 640 px)**: wiersz schodzi do trzech kolumn (kółko, nazwa, wartość), objaśnienie
+>   wchodzi pod nazwę. Cztery kolumny przy 375 px dawałyby wartości ~60 px, czyli nagłówek HTTP
+>   po jednym znaku w linii.
 
 > **Zmiana 1.18.28 → 1.18.29: `/licencja` — stan w kaflach, szczegóły w wierszach**
 > (zlecenie Z48, 19.10.2026).
@@ -1535,6 +1575,13 @@ wymyśli drugi raz** — dokładnie tak powstały dwa paski komunikatu (§4b) i 
 `.toasty` `.toasty--nad-nawigacja` `.toast` (`--blad` `--sukces` `--uwaga`) `.toast__znak`
 `.toast__tresc` `.toast__zamknij` `.toast--wchodzi` `.toast--wychodzi` `.komunikat--w-toascie`
 ⚠ `.flash` **skasowane** razem z paskiem `#flash`; znacznik komunikatu składa `partials/komunikat.twig`.
+
+*Ekran diagnostyki (1.18.30, zlecenie Z50)*
+`.diag-wiersze` `.diag-wiersz` `.diag-wiersz__tresc` `.diag-wiersz__nazwa` `.diag-wiersz__grupa`
+`.diag-wiersz__wartosc` (`--uwaga` `--blad`) `.diag-wiersz__uwaga` `.diag-stan` (`--ok` `--uwaga`
+`--blad`) `.diag-grupa` `.diag-grupa__glowa` `.diag-grupa__znak` `.diag-grupa__nazwa`
+`.diag-grupa__strzalka` `.btn--ryzyko` (działanie niebezpieczne drugorzędne)
+⚠ `.diag-group` i `.col--diag-*` **zostają** — to tabela kroku 1 i 7 instalatora, nie tego ekranu.
 
 *Ekran licencji (1.18.29, zlecenie Z48)*
 `.licencja-dane` `.licencja-wiersz` `.licencja-wiersz__etykieta` `.licencja-wiersz__wartosc`

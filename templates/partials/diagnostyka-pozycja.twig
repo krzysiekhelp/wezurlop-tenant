@@ -1,0 +1,72 @@
+{#- Wiersz sprawdzenia i znak grupy na `/diagnostyka` (zlecenie Z50, 19.10.2026).
+
+    ⚠ **Dwa miejsca, jeden wiersz.** Ta sama pozycja stoi w karcie „Do sprawdzenia" (z nazwą
+    grupy pod nazwą sprawdzenia) i w swojej grupie w karcie „Wszystkie sprawdzenia" (bez niej).
+    Gdyby to były dwa kawałki szablonu, pierwsza zmiana brzmienia albo barwy stanu weszłaby
+    w jedno z nich — a ekran pokazywałby tę samą pozycję na dwa sposoby.
+
+    ⚠ **Klasa stanu z JAWNEGO warunku**, nigdy sklejana z danych (`diag-stan--{{ status }}`):
+    kontroler podaje `ok`, `warn`, `fail`, ale klasa zbudowana z danych daje nazwy, których
+    w arkuszu NIE MA, a brak reguły niczego nie zgłasza — po prostu nie ma koloru. To ta sama
+    zasada, co w `partials/plakietka.twig`.
+
+    ⚠ **Stan niesie też SŁOWO, nie tylko barwę i kształt** (`visually-hidden`): kółko z ikoną
+    jest czytelne wzrokiem, ale czytnik ekranu odczytałby wiersz bez informacji, czy pozycja jest
+    w porządku. Kolor nie jest treścią.
+
+    Użycie:
+      {% import 'partials/diagnostyka-pozycja.twig' as diag %}
+      {{ diag.pozycja(w, true) }}   {{ diag.znak_grupy('Poczta') }}
+-#}
+{% macro pozycja(w, z_grupa) %}
+{%- import 'partials/ikony.twig' as i -%}
+<div class="diag-wiersz">
+    {%- if w.status == 'fail' -%}
+        <span class="diag-stan diag-stan--blad">{{ i.krzyzyk() }}<span class="visually-hidden">Błąd</span></span>
+    {%- elseif w.status == 'warn' -%}
+        <span class="diag-stan diag-stan--uwaga">{{ i.uwaga() }}<span class="visually-hidden">Do sprawdzenia</span></span>
+    {%- else -%}
+        {#- Kółko OK jest OBOJĘTNE, nie zielone: zieleń w tym systemie znaczy akcję, a „wersja PHP
+            w porządku" nie jest przyciskiem. Tak samo jak plakietka stanu normalnego. -#}
+        <span class="diag-stan diag-stan--ok">{{ i.ptaszek() }}<span class="visually-hidden">W porządku</span></span>
+    {%- endif -%}
+    <span class="diag-wiersz__tresc">
+        <span class="diag-wiersz__nazwa">{{ w.nazwa }}</span>
+        {%- if z_grupa %}<span class="diag-wiersz__grupa">{{ w.grupa }}</span>{% endif -%}
+    </span>
+    {%- if w.status == 'fail' -%}
+        <span class="diag-wiersz__wartosc diag-wiersz__wartosc--blad">{{ w.wartosc }}</span>
+    {%- elseif w.status == 'warn' -%}
+        <span class="diag-wiersz__wartosc diag-wiersz__wartosc--uwaga">{{ w.wartosc }}</span>
+    {%- else -%}
+        <span class="diag-wiersz__wartosc">{{ w.wartosc }}</span>
+    {%- endif -%}
+    <span class="diag-wiersz__uwaga">{{ w.uwaga }}</span>
+</div>
+{% endmacro %}
+
+{#- Znak grupy — biała lista nazw grup z `Diagnostics\CheckResult::$group`.
+
+    ⚠ Jawne `{% if %}`, a nie wywołanie makra ze zmiennej: nazwy makr są literalne albo z białej
+    listy (CLAUDE.md §5), bo `{% include 'partials/ikony/' ~ nazwa %}` to SSTI/LFI. Nazwa grupy
+    spoza listy dostaje ikonę zastępczą, a nie błąd — dopisanie grupy w PHP nie może wywrócić
+    ekranu diagnostyki.
+    ⚠ Osiem z jedenastu ikon JUŻ coś w tym systemie znaczy i znaczą to samo tutaj: walec „Dane"
+    to baza, koperta to poczta, zegar to czas, kłódka to bezpieczeństwo. Nowe są trzy (`kod`,
+    `katalog`, `uwaga`). -#}
+{% macro znak_grupy(nazwa) %}
+{%- import 'partials/ikony.twig' as i -%}
+{%- if nazwa == 'PHP' %}{{ i.kod() }}
+{%- elseif nazwa == 'Rozszerzenia wymagane' or nazwa == 'Rozszerzenia zalecane' %}{{ i.wtyczka() }}
+{%- elseif nazwa == 'Baza danych' %}{{ i.dane() }}
+{%- elseif nazwa == 'Katalogi' %}{{ i.katalog() }}
+{%- elseif nazwa == 'Ustawienia PHP' %}{{ i.ustawienia() }}
+{%- elseif nazwa == 'Bezpieczeństwo' %}{{ i.klodka() }}
+{%- elseif nazwa == 'Wdrożenie' %}{{ i.serwer() }}
+{%- elseif nazwa == 'Poczta' %}{{ i.koperta() }}
+{%- elseif nazwa == 'Synchronizacja' %}{{ i.odswiezenie() }}
+{%- elseif nazwa == 'Czas' %}{{ i.zegar() }}
+{%- elseif nazwa == 'Dane kadrowe' %}{{ i.zespol() }}
+{%- else %}{{ i.lista() }}
+{%- endif %}
+{% endmacro %}

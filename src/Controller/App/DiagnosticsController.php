@@ -102,25 +102,89 @@ final class DiagnosticsController
             EnvFile::path($this->appRoot, $request->serverParams()),
         );
 
-        $groups = [];
-        $counts = [CheckResult::OK => 0, CheckResult::WARN => 0, CheckResult::FAIL => 0];
+        /* ⚠ **Jeden przebieg, jedno liczenie.** Kafle, plakietki grup i karta „Do sprawdzenia"
+           pokazują te same liczby w trzech miejscach ekranu, więc muszą brać je z jednej tablicy:
+           licznik prowadzony obok pętli rozjeżdża się przy pierwszym warunku dopisanym tylko w jednym
+           miejscu, a wtedy ekran mówi „N błędów" i pokazuje ich N-1. Dlatego sumy całej strony
+           powstają PO pętli, z liczników grup — nie równolegle do nich. */
+        $grupy = [];
         foreach ([...$check->run(), ...$this->deployment($target), ...$this->security(), ...$this->poczta(), ...$this->sync(), ...$this->czas(), ...$this->hierarchia(), ...$this->rozdzialRol()] as $result) {
-            $groups[$result->group][] = [
-                'name'   => $result->name,
-                'status' => $result->status,
-                'value'  => $result->value,
-                'note'   => $result->note,
+            $grupy[$result->group] ??= ['nazwa' => $result->group, 'ok' => 0, 'uwagi' => 0, 'bledy' => 0, 'wiersze' => []];
+            $grupy[$result->group]['wiersze'][] = [
+                'grupa'   => $result->group,
+                'nazwa'   => $result->name,
+                'status'  => $result->status,
+                'wartosc' => $result->value,
+                'uwaga'   => $result->note,
             ];
-            $counts[$result->status]++;
+            if ($result->status === CheckResult::FAIL) {
+                $grupy[$result->group]['bledy']++;
+            } elseif ($result->status === CheckResult::WARN) {
+                $grupy[$result->group]['uwagi']++;
+            } else {
+                $grupy[$result->group]['ok']++;
+            }
+        }
+
+        $ok = 0;
+        $uwagi = 0;
+        $bledy = 0;
+        $razem = 0;
+        $lista = [];
+        foreach ($grupy as $grupa) {
+            $w = count($grupa['wiersze']);
+            $nieOk = $grupa['bledy'] + $grupa['uwagi'];
+            $razem += $w;
+            $ok += $grupa['ok'];
+            $uwagi += $grupa['uwagi'];
+            $bledy += $grupa['bledy'];
+            $lista[] = [
+                'nazwa' => $grupa['nazwa'],
+                // Stan grupy bierze NAJWYŻSZY stan jej pozycji — jeden błąd przesłania dziesięć OK.
+                'stan'  => $grupa['bledy'] > 0 ? CheckResult::FAIL : ($grupa['uwagi'] > 0 ? CheckResult::WARN : CheckResult::OK),
+                /* Grupa z czymkolwiek do sprawdzenia jest OTWARTA: zwinięta schowałaby to, po co
+                   się na ten ekran wchodzi. Grupy czyste zostają zwinięte — to one są tłem. */
+                'otwarta'   => $nieOk > 0,
+                'plakietka' => $nieOk > 0
+                    ? $nieOk . ' do sprawdzenia · ' . $grupa['ok'] . '/' . $w . ' OK'
+                    : $grupa['ok'] . '/' . $w . ' OK',
+                'wiersze' => $grupa['wiersze'],
+            ];
+        }
+
+        /* Karta „Do sprawdzenia" zbiera pozycje nie-OK z CAŁEJ strony: błędy przed ostrzeżeniami,
+           a w każdym z tych dwóch bloków — kolejność grup ze strony. ⚠ Sortowania tu nie ma i nie
+           będzie: dwa przebiegi po tej samej tablicy dają stabilną kolejność bez zakładania, że
+           `usort` jest stabilny, i bez funkcji porównującej, którą trzeba by czytać przy każdej zmianie. */
+        $doSprawdzenia = [];
+        foreach ([CheckResult::FAIL, CheckResult::WARN] as $status) {
+            foreach ($lista as $grupa) {
+                foreach ($grupa['wiersze'] as $wiersz) {
+                    if ($wiersz['status'] === $status) {
+                        $doSprawdzenia[] = $wiersz;
+                    }
+                }
+            }
         }
 
         return $this->view->render('page/web/diagnostics.twig', [
-            'groups' => $groups,
-            'counts' => $counts,
+            'grupy' => $lista,
+            'do_sprawdzenia' => $doSprawdzenia,
+            /* Kafel „Wynik" mówi JEDNĄ rzecz — tę najwyższą. Odmiana liczebnika zostaje w PHP
+               (`Support/Odmiana`), bo szablon ma wyświetlać, a nie odmieniać (CLAUDE.md §5). */
+            'wynik' => match (true) {
+                $bledy > 0 => ['stan' => 'blad', 'wartosc' => $bledy . ' ' . Odmiana::bledy($bledy), 'podpis' => 'wymaga naprawy'],
+                $uwagi > 0 => ['stan' => 'uwaga', 'wartosc' => $uwagi . ' ' . Odmiana::ostrzezenia($uwagi), 'podpis' => 'warto przejrzeć'],
+                default    => ['stan' => 'ok', 'wartosc' => 'wszystko w porządku', 'podpis' => 'nic nie wymaga uwagi'],
+            },
+            'ok' => $ok,
+            'ok_podpis' => 'z ' . $razem . ' ' . Odmiana::sprawdzenDopelniacz($razem),
+            'bledy' => $bledy,
+            // Jeden błąd „blokuje", kilka „blokuje" w liczbie mnogiej — podpis jest zdaniem, nie etykietą.
+            'bledy_podpis' => $bledy === 1 ? 'blokuje działanie' : 'blokują działanie',
             // Sekcja deweloperska istnieje tylko na dev — u klienta nie ma jej ani w szablonie, ani w routingu.
             'dev' => $this->config->isDev(),
             'reset_tabele' => $this->config->isDev() ? count(TenantReset::tables()) : 0,
-            'reset_ok' => $request->query('reset') !== null,
         ])->withHeader('Cache-Control', 'no-store');
     }
 

@@ -5593,3 +5593,121 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 @media (max-width: 640px) {
   .licencja-wiersz { grid-template-columns: minmax(0, 1fr); gap: 2px; padding: var(--s-3) var(--s-4); }
 }
+
+/* ——— /diagnostyka: wiersz sprawdzenia i grupy jako `<details>` (zlecenie Z50, 19.10.2026) ————
+   ⚠ Rodzina stoi NA KOŃCU pliku, za `.table`, `.chip`, `.card` i `.btn` — reguła o tej samej
+   szczegółowości wygrywa kolejnością w pliku, a `.btn--ryzyko` nadpisuje `.btn` punktowo.
+   ⚠ Tabela ZOSTAJE tam, gdzie była: `partials/diagnostics-table.twig` (`.diag-group`,
+   `.col--diag-*`) obsługuje krok 1 i 7 INSTALATORA, a tamte ekrany nie są w tym zleceniu.
+   Dlatego nowa rodzina ma własny przedrostek `diag-wiersz`, a nie przerabia starej. */
+
+/* Wiersze bez zebry i bez ramek: ciągła lista z cienką linią między pozycjami — tak samo jak
+   `.licencja-wiersz` i `.dane-firmy`. Pudełkiem jest karta, nie wiersz. */
+.diag-wiersze { display: flex; flex-direction: column; }
+/* ⚠ Cztery kolumny w PROPORCJACH starej tabeli (7 / 25 / 24 / 44), bo o szerokości decyduje
+   objaśnienie: „Katalog domeny" i „Przerwy techniczne API (503)" mają zdania na dwie linie,
+   a wartość bywa całym nagłówkiem HTTP. `minmax(0, …)` jest konieczne — bez niego długa wartość
+   bez spacji rozpycha tor i karta przewija się w bok. */
+.diag-wiersz {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1.4fr) minmax(0, 1.3fr) minmax(0, 2.4fr);
+  gap: var(--s-3);
+  align-items: start;
+  padding: var(--s-3) var(--s-5);
+}
+.diag-wiersz + .diag-wiersz { border-top: 1px solid var(--c-line-soft); }
+/* Kółko stanu 22 px: w tym wierszu stoi SAMO w swojej kolumnie, więc nie potrzebuje obwódki
+   jak `.kafel__kropka` — wielkość daje mu tło, a ikona w środku mówi, co znaczy. */
+.diag-stan {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  /* Odstęp od góry, bo nazwa obok ma wysokość linii 14 px — bez tego kółko stało wyżej od pisma. */
+  margin-top: 1px;
+}
+.diag-stan .ico { width: 14px; height: 14px; }
+/* ⚠ Stan W PORZĄDKU jest OBOJĘTNY, nie zielony (§2): zieleń w tym systemie znaczy akcję.
+   Jedenaście grup po kilka pozycji dawałoby ścianę zieleni, w której nie widać dwóch bursztynów. */
+.diag-stan--ok    { background: var(--c-neutral-soft); color: var(--c-text-3); }
+.diag-stan--uwaga { background: var(--c-warn-soft);    color: var(--c-warn-text); }
+.diag-stan--blad  { background: var(--c-danger-soft);  color: var(--c-danger-text); }
+.diag-wiersz__tresc { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.diag-wiersz__nazwa { font-size: var(--t-body); font-weight: var(--w-medium); color: var(--c-text); }
+/* Nazwa grupy pod nazwą sprawdzenia — tylko w karcie „Do sprawdzenia", gdzie pozycje są wyrwane
+   z kontekstu. Rozmiar nagłówka kolumny, bo to etykieta, a nie druga dana. */
+.diag-wiersz__grupa { font-size: var(--t-label); color: var(--c-text-4); }
+/* Wartość jest ODPOWIEDZIĄ pozycji, więc ma wagę; barwa idzie za stanem. `anywhere`, bo bywa
+   nagłówkiem HTTP albo ścieżką bez spacji. */
+.diag-wiersz__wartosc {
+  font-size: var(--t-small);
+  font-weight: var(--w-semibold);
+  color: var(--c-text-2);
+  overflow-wrap: anywhere;
+}
+.diag-wiersz__wartosc--uwaga { color: var(--c-warn-text); }
+.diag-wiersz__wartosc--blad  { color: var(--c-danger-text); }
+.diag-wiersz__uwaga { font-size: var(--t-caption); color: var(--c-text-3); line-height: var(--lh-body); }
+
+/* ——— grupa jako `<details>` ——— */
+.diag-grupa + .diag-grupa { border-top: 1px solid var(--c-line); }
+.diag-grupa__glowa {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-5);
+  cursor: pointer;
+  list-style: none;
+}
+.diag-grupa__glowa::-webkit-details-marker { display: none; }
+@media (hover: hover) {
+  .diag-grupa__glowa:hover { background: var(--c-surface-hover); }
+}
+.diag-grupa__znak { display: inline-flex; color: var(--c-text-3); flex: none; }
+.diag-grupa__znak .ico { width: 18px; height: 18px; }
+/* Nazwa grupy bierze całą wolną szerokość, więc plakietka i strzałka stoją na prawej krawędzi
+   karty — w jedenastu grupach pod sobą muszą być w jednej osi. */
+.diag-grupa__nazwa { flex: 1 1 auto; min-width: 0; font-size: var(--t-body); font-weight: var(--w-semibold); color: var(--c-text); }
+.diag-grupa__glowa .chip { flex: none; }
+.diag-grupa__strzalka { display: inline-flex; color: var(--c-text-4); flex: none; }
+/* Obrót o 180°, czyli ta sama sygnatura „rozwinięte", co w pasku „Osoby bez grupy" i w menu
+   wyboru osób. Szewron w dół ↔ w górę, bez drugiej ikony. */
+.diag-grupa[open] .diag-grupa__strzalka { transform: rotate(180deg); }
+/* Wiersze grupy mają wcięcie z lewej na szerokość znaku i odstępu — widać wtedy, że należą
+   do nagłówka nad nimi, a nie są kolejnym poziomem listy. */
+.diag-grupa .diag-wiersze { padding-bottom: var(--s-2); }
+.diag-grupa .diag-wiersz { padding-left: calc(var(--s-5) + 18px + var(--s-3)); }
+
+/* ⚠ **Działanie niebezpieczne drugorzędne** — geometria i tło z `.btn--ghost`, barwy z `--c-danger`.
+   To modyfikator, nie nowy przycisk: `.btn--danger` (pełna czerwień) zostaje dla przycisku
+   W OKNIE potwierdzenia, czyli tam, gdzie decyzja już zapada. Na karcie stoi przycisk, który
+   OTWIERA okno, i on nie ma krzyczeć mocniej niż treść karty. */
+.btn--ryzyko {
+  padding: 0 var(--s-3);
+  border-color: var(--c-danger);
+  background: var(--c-surface);
+  color: var(--c-danger-text);
+  font-size: var(--t-small);
+  font-weight: var(--w-semibold);
+}
+.btn--ryzyko .ico { width: 16px; height: 16px; flex: 0 0 auto; }
+@media (hover: hover) {
+  .btn--ryzyko:hover { background: var(--c-danger-soft); border-color: var(--c-danger); color: var(--c-danger-text); }
+}
+
+/* ⚠ Telefon: nazwa i wartość w jednym wierszu, objaśnienie pod nimi — cztery kolumny przy 375 px
+   dawałyby wartości ~60 px, czyli nagłówek HTTP po jednym znaku w linii. Objaśnienie wchodzi
+   pod nazwę (od drugiej kolumny), żeby kółko stanu zostało kolumną, a nie wcięciem akapitu. */
+@media (max-width: 640px) {
+  .diag-wiersz {
+    grid-template-columns: 22px minmax(0, 1fr) auto;
+    gap: var(--s-2) var(--s-3);
+    padding: var(--s-3) var(--s-4);
+  }
+  .diag-wiersz__uwaga { grid-column: 2 / -1; }
+  .diag-grupa__glowa { padding: var(--s-3) var(--s-4); gap: var(--s-2); }
+  .diag-grupa .diag-wiersz { padding-left: calc(var(--s-4) + 18px + var(--s-2)); }
+}

@@ -2,39 +2,162 @@
 
 {% block nazwa_ekranu %}Diagnostyka{% endblock %}
 
-{% block content %}
-    <div class="page__head">
-        <div class="page__title">
-            <p class="page__sub">Te same sprawdzenia co w pierwszym kroku instalatora i w <code>bin/diagnose.php</code>.</p>
-        </div>
-    </div>
-    <p>
-        <span class="chip">OK: {{ counts.ok }}</span>
-        <span class="chip chip--warn">Ostrzeżenia: {{ counts.warn }}</span>
-        <span class="chip chip--danger">Błędy: {{ counts.fail }}</span>
-    </p>
-    {% include 'partials/diagnostics-table.twig' %}
+{#- ⚠ **Układ z 19.10.2026 (zlecenie Z50, prototyp zaakceptowany w Chrome).** Zniknęły dwie
+    rzeczy: `.page__head` ze zdaniem o instalatorze (to zdanie stoi teraz w nagłówku karty,
+    której dotyczy) i linia trzech plakietek „OK / Ostrzeżenia / Błędy" — te same liczby mówią
+    teraz kafle, a dawna linia była czwartym miejscem, w którym trzeba było je czytać.
 
-    {% if dev %}
-        {# Sekcja istnieje WYŁĄCZNIE przy APP_ENV=dev — u klienta nie ma jej ani tu, ani w routingu. #}
-        {#- ⚠ Sekcja BYŁA jednocześnie `card` i `notice`, czyli kartą i paskiem komunikatu naraz.
-            To się zemściło: `.notice` jest `display: flex`, więc `.card__body` stał się elementem
-            zgięcia, a `container-type: inline-size` (§11.4) włącza zawieranie rozmiaru w osi
-            poziomej — zmierzone `clientWidth 48 px` przy `scrollWidth 284 px`, czyli treść
-            wystająca z pudełka o zerowej szerokości. Wyłapała to nowa bramka od przewijania
-            w kontenerach, przy szerokim oknie.
-            Rozdzielone: karta zostaje kartą, a ostrzeżenie jest paskiem W ŚRODKU niej. -#}
-        <section class="card" aria-labelledby="reset-title">
-            <div class="card__body">
-                <h2 id="reset-title">Tryb deweloperski: reset instalacji</h2>
-                <p class="notice notice--warn">Operacja jest nieodwracalna i usuwa dane wszystkich firm w tej instalacji.</p>
-                <p>Przywraca instalację do stanu <strong>jak po instalacji</strong>: znikają firmy, osoby, zatrudnienia, limity, nieobecności, kalendarze, kursory, przebiegi, zadania, wnioski, zgłoszenia firm, <strong>wszystkie klucze API</strong>, sesje i dziennik zdarzeń — razem {{ reset_tabele }} tabel.</p>
-                <p>Zostaje schemat bazy, uprawnienia, role, ustawienia w wartościach domyślnych, konta administratorów i zawartość <code>.env</code> (w tym klucz identyfikatorów — po ponownym imporcie te same osoby dostaną te same identyfikatory). W dzienniku zdarzeń zostaje jeden wpis: kto, kiedy i ile rekordów usunął.</p>
-                <form method="post" action="{{ url('/diagnostyka/reset') }}" class="inline-form">
-                    {% include 'partials/csrf.twig' %}
-                    <button type="submit" class="btn btn--danger">Wyczyść instalację i zacznij od zera</button>
-                </form>
+    ⚠ **Pozycje nie-OK są DWA RAZY na ekranie i to jest decyzja, nie powtórzenie**: raz zebrane
+    z całej strony w karcie „Do sprawdzenia" (bo po nie się tu wchodzi i nie wolno ich szukać
+    po jedenastu grupach), raz w swojej grupie (bo tam widać, czego dotyczą i co obok nich jest
+    w porządku). Grupa z czymkolwiek do sprawdzenia jest otwarta, czysta — zwinięta.
+
+    ⚠ **Ekran pokazuje STAN, nie sposób naprawy**: żadna pozycja nie niesie polecenia do wklejenia
+    ani ścieżki do pliku poza tymi, które już są w objaśnieniach z `Diagnostics`. -#}
+{% block content %}
+{% import 'partials/ikony.twig' as ikony %}
+{% import 'partials/plakietka.twig' as plakietka %}
+{% import 'partials/diagnostyka-pozycja.twig' as diag %}
+
+    {#- ══════════ Pasek kafli (§2 zlecenia) ══════════ -#}
+    <section class="kafle kafle--auto" aria-label="Wynik diagnostyki">
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.diagnostyka() }}<span class="kafel__etykieta">Wynik</span></span>
+            <span class="kafel__dana">
+                {#- ⚠ Barwa idzie za NAJWYŻSZYM stanem, a nie za sumą: jeden błąd przesłania
+                    dziesięć ostrzeżeń, bo błąd blokuje działanie, a ostrzeżenie nie. Klasa
+                    z jawnego warunku, nigdy sklejana z danych. -#}
+                {% if wynik.stan == 'blad' %}
+                    <span class="kafel__wartosc kafel__wartosc--napis kafel__wartosc--blad">{{ wynik.wartosc }}</span>
+                {% elseif wynik.stan == 'uwaga' %}
+                    <span class="kafel__wartosc kafel__wartosc--napis kafel__wartosc--uwaga">{{ wynik.wartosc }}</span>
+                {% else %}
+                    {#- Stan dobry NIE DOSTAJE ZIELENI (§2 systemu wizualnego): „wszystko
+                        w porządku" to brak zdarzenia, a nie sukces do podświetlenia. -#}
+                    <span class="kafel__wartosc kafel__wartosc--napis">{{ wynik.wartosc }}</span>
+                {% endif %}
+                <span class="kafel__opis">{{ wynik.podpis }}</span>
+            </span>
+        </div>
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.ptaszek() }}<span class="kafel__etykieta">Sprawdzenia OK</span></span>
+            <span class="kafel__dana">
+                <span class="kafel__wartosc">{{ ok }}</span>
+                <span class="kafel__opis">{{ ok_podpis }}</span>
+            </span>
+        </div>
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.uwaga() }}<span class="kafel__etykieta">Błędy</span></span>
+            <span class="kafel__dana">
+                <span class="kafel__wartosc{{ bledy > 0 ? ' kafel__wartosc--blad' : '' }}">{{ bledy }}</span>
+                <span class="kafel__opis">{{ bledy_podpis }}</span>
+            </span>
+        </div>
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.odswiezenie() }}<span class="kafel__etykieta">Źródło</span></span>
+            <span class="kafel__dana">
+                {#- „na żywo" znaczy: policzone w TYM żądaniu, nic nie jest pamiętane między
+                    odsłonami (odpowiedź ma `Cache-Control: no-store`). -#}
+                <span class="kafel__wartosc kafel__wartosc--napis">na żywo</span>
+                <span class="kafel__opis">te same testy co instalator</span>
+            </span>
+        </div>
+    </section>
+
+    {#- ══════════ Do sprawdzenia (§3 zlecenia) ══════════ -#}
+    {% if do_sprawdzenia is not empty %}
+        <section class="card">
+            <div class="card__head card__head--znak">
+                {#- Znak bierze barwę NAJWYŻSZEGO stanu na stronie: bursztyn przy ostrzeżeniach,
+                    czerwień, gdy jest choć jeden błąd. -#}
+                <span class="card__znak {{ bledy > 0 ? 'card__znak--niebezpieczny' : 'card__znak--uwaga' }}">{{ ikony.uwaga() }}</span>
+                <div class="card__tytuly">
+                    <h2 class="card__title">Do sprawdzenia</h2>
+                    <p class="card__opis">Wszystko, co nie jest w porządku — zebrane z grup niżej, błędy na początku.</p>
+                </div>
+            </div>
+            <div class="card__body card__body--tight">
+                <div class="diag-wiersze">
+                    {% for w in do_sprawdzenia %}{{ diag.pozycja(w, true) }}{% endfor %}
+                </div>
             </div>
         </section>
+    {% endif %}
+
+    {#- ══════════ Wszystkie sprawdzenia (§4 zlecenia) ══════════ -#}
+    <section class="card">
+        <div class="card__head card__head--znak">
+            <span class="card__znak">{{ ikony.diagnostyka() }}</span>
+            <div class="card__tytuly">
+                <h2 class="card__title">Wszystkie sprawdzenia</h2>
+                <p class="card__opis">Te same testy co w pierwszym kroku instalatora i w <code>bin/diagnose.php</code>.</p>
+            </div>
+        </div>
+        <div class="card__body card__body--tight">
+            {#- ⚠ Natywny `<details>`, więc grupy rozwijają się BEZ JavaScriptu — diagnostyka musi
+                działać także wtedy, gdy u klienta nie wstał arkusz albo skrypt. -#}
+            {% for g in grupy %}
+                <details class="diag-grupa"{% if g.otwarta %} open{% endif %}>
+                    <summary class="diag-grupa__glowa">
+                        <span class="diag-grupa__znak">{{ diag.znak_grupy(g.nazwa) }}</span>
+                        <span class="diag-grupa__nazwa">{{ g.nazwa }}</span>
+                        {{ plakietka.stan(g.stan, g.plakietka) }}
+                        <span class="diag-grupa__strzalka">{{ ikony.strzalka() }}</span>
+                    </summary>
+                    <div class="diag-wiersze">
+                        {% for w in g.wiersze %}{{ diag.pozycja(w, false) }}{% endfor %}
+                    </div>
+                </details>
+            {% endfor %}
+        </div>
+    </section>
+
+    {#- ══════════ Reset instalacji (§5 zlecenia) ══════════ -#}
+    {% if dev %}
+        {#- Sekcja istnieje WYŁĄCZNIE przy APP_ENV=dev — u klienta nie ma jej ani tu, ani w routingu.
+            ⚠ Ramka-ostrzeżenie „Operacja jest nieodwracalna…" ZNIKŁA z wnętrza karty: to samo
+            zdanie mówią teraz znak w barwie błędu i podpis nagłówka, a pasek powtarzał je
+            trzecim głosem. Treść została, ubyło jedno pudełko.
+            ⚠ Nieodwracalność ma stać PRZY PRZYCISKU, nie tylko w nagłówku — stąd okno
+            potwierdzenia (ten sam mechanizm, co przy usuwaniu grupy i zadania z kolejki). -#}
+        <section class="card" aria-labelledby="reset-title">
+            <div class="card__head card__head--znak">
+                <span class="card__znak card__znak--niebezpieczny">{{ ikony.kosz() }}</span>
+                <div class="card__tytuly">
+                    <h2 class="card__title" id="reset-title">Reset instalacji</h2>
+                    <p class="card__opis">Tylko w trybie deweloperskim. Operacja nieodwracalna.</p>
+                </div>
+            </div>
+            <div class="card__body">
+                <p>Przywraca instalację do stanu <strong>jak po instalacji</strong>: znikają firmy, osoby, zatrudnienia, limity, nieobecności, kalendarze, kursory, przebiegi, zadania, wnioski, zgłoszenia firm, <strong>wszystkie klucze API</strong>, sesje i dziennik zdarzeń — razem {{ reset_tabele }} tabel.</p>
+                <p>Zostaje schemat bazy, uprawnienia, role, ustawienia w wartościach domyślnych, konta administratorów i zawartość <code>.env</code> (w tym klucz identyfikatorów — po ponownym imporcie te same osoby dostaną te same identyfikatory). W dzienniku zdarzeń zostaje jeden wpis: kto, kiedy i ile rekordów usunął.</p>
+                <div class="btn-row">
+                    <button type="button" class="btn btn--ryzyko" data-modal-open="reset-modal">{{ ikony.kosz() }}Wyczyść instalację…</button>
+                </div>
+            </div>
+        </section>
+
+        <dialog id="reset-modal" class="modal modal--grupa" aria-labelledby="reset-modal-tytul" data-modal-trwale>
+            <div class="modal__head modal__head--znak">
+                <span class="card__znak card__znak--niebezpieczny">{{ ikony.kosz() }}</span>
+                <div class="card__tytuly">
+                    <h3 id="reset-modal-tytul">Wyczyść instalację</h3>
+                    <p class="card__opis">Tryb deweloperski · {{ reset_tabele }} tabel</p>
+                </div>
+                <button type="button" class="modal__close" data-modal-close="reset-modal" aria-label="Zamknij okno">{{ ikony.krzyzyk() }}</button>
+            </div>
+            <form class="modal__wrap" method="post" action="{{ url('/diagnostyka/reset') }}">
+                {% include 'partials/csrf.twig' %}
+                <div class="modal__body">
+                    <p class="nazwy-podpowiedz">Dane wszystkich firm w tej instalacji zostaną usunięte <strong>bez możliwości cofnięcia</strong>. Zostaje schemat bazy, konta administratorów i <code>.env</code>; po zapisie ekran prowadzi do kreatora podłączenia.</p>
+                </div>
+                <div class="modal__foot">
+                    <div class="btn-row btn-row--jedna-linia">
+                        <button type="button" class="btn btn--ghost" data-modal-close="reset-modal">Anuluj</button>
+                        <button type="submit" class="btn btn--danger">Wyczyść instalację</button>
+                    </div>
+                </div>
+            </form>
+        </dialog>
     {% endif %}
 {% endblock %}

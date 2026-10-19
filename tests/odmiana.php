@@ -56,6 +56,21 @@ use Wezurlop\Support\Odmiana;
     $check('dniRobocze(-2)', Odmiana::dniRobocze(-2), 'dni robocze');
     $check('wpisy(-1)', Odmiana::wpisy(-1), 'wpis');
 
+    // Kafel „Wynik" na `/diagnostyka` (Z50): liczba przychodzi z przebiegu sprawdzeń, więc bywa
+    // zarówno 1, jak i 13 — a kafel ma brzmieć jak zdanie, nie jak licznik.
+    foreach ([0 => 'błędów', 1 => 'błąd', 2 => 'błędy', 4 => 'błędy', 5 => 'błędów',
+              13 => 'błędów', 22 => 'błędy'] as $ile => $oczekiwane) {
+        $check("bledy({$ile})", Odmiana::bledy($ile), $oczekiwane);
+    }
+    foreach ([0 => 'ostrzeżeń', 1 => 'ostrzeżenie', 3 => 'ostrzeżenia', 5 => 'ostrzeżeń',
+              12 => 'ostrzeżeń', 23 => 'ostrzeżenia'] as $ile => $oczekiwane) {
+        $check("ostrzezenia({$ile})", Odmiana::ostrzezenia($ile), $oczekiwane);
+    }
+    // Po przyimku `z` dopełniacz mnogi jest jeden — sprawdzamy brzeg liczby pojedynczej.
+    foreach ([0 => 'sprawdzeń', 1 => 'sprawdzenia', 2 => 'sprawdzeń', 66 => 'sprawdzeń'] as $ile => $oczekiwane) {
+        $check("sprawdzenDopelniacz({$ile})", Odmiana::sprawdzenDopelniacz($ile), $oczekiwane);
+    }
+
     echo $failures === 0 ? "Wszystkie sprawdzenia przeszły.\n" : "Nieudane: {$failures}\n";
     exit($failures === 0 ? 0 : 1);
 })();

@@ -87,6 +87,37 @@ final class Odmiana
     }
 
     /**
+     * „1 błąd", „3 błędy", „5 błędów" — kafel „Wynik" na `/diagnostyka` (Z50).
+     *
+     * ⚠ Liczba bierze się z przebiegu sprawdzeń, więc bywa dowolna: 1 przy jednym niespełnionym
+     * wymaganiu i 13 na świeżej instalacji bez rozszerzeń. „13 błędy" w kaflu, który ma powiedzieć
+     * „napraw to", czyta się jak usterka ekranu — a wtedy czytelnik podważa też samą liczbę.
+     */
+    public static function bledy(int $ile): string
+    {
+        return abs($ile) === 1 ? 'błąd' : (self::mnoga($ile) ? 'błędy' : 'błędów');
+    }
+
+    /** „1 ostrzeżenie", „3 ostrzeżenia", „5 ostrzeżeń" — ten sam kafel, stan niższy. */
+    public static function ostrzezenia(int $ile): string
+    {
+        return abs($ile) === 1 ? 'ostrzeżenie' : (self::mnoga($ile) ? 'ostrzeżenia' : 'ostrzeżeń');
+    }
+
+    /**
+     * „z 1 sprawdzenia", „z 2 sprawdzeń", „z 66 sprawdzeń" — forma po **przyimku** `z`, tak jak
+     * `osobyDopelniacz()`.
+     *
+     * ⚠ Dlatego nie ma tu trzech form: dopełniacz liczby mnogiej jest jeden („sprawdzeń"),
+     * a różni się tylko liczba pojedyncza. Funkcja istnieje, żeby podpis kafla nie mówił
+     * „z 1 sprawdzeń" na instalacji, na której zostało jedno sprawdzenie w grupie.
+     */
+    public static function sprawdzenDopelniacz(int $ile): string
+    {
+        return abs($ile) === 1 ? 'sprawdzenia' : 'sprawdzeń';
+    }
+
+    /**
      * Czy liczba bierze formę mnogą „lekką” (2, 3, 4), a nie dopełniacz (5 i więcej).
      *
      * ⚠ Wyjątek nastu (12, 13, 14) jest konieczny: bez niego wychodzi „13 dni robocze”
