@@ -112,7 +112,11 @@ final class ControllerFactory
                 $d->permissions, $d->kontekstSpolki, $d->errors, $d->urls),
             HierarchyController::class     => new HierarchyController($d->view, $d->hierarchia, $d->hierarchyRepo,
                 $d->permissions, $d->kontekstSpolki, $d->errors, $d->urls),
-            LicenseController::class       => new LicenseController($d->view, $d->license, $d->settings),
+            // ⚠ `$d->settings` jechało tu już wcześniej, ale konstruktor go NIE PRZYJMOWAŁ —
+            // PHP przepuszcza nadmiarowe argumenty do funkcji użytkownika bez słowa, więc
+            // kontroler czytał z nieistniejącej właściwości dopiero przy licencji z terminem.
+            // Naprawione przy Z48; `$d->access` dokładamy dla jednego źródła liczby dostępów.
+            LicenseController::class       => new LicenseController($d->view, $d->license, $d->settings, $d->access),
             SystemPageController::class    => new SystemPageController($d->errors),
             StyleguideController::class    => new StyleguideController($d->view),
             LoginController::class         => new LoginController($d->view, $d->auth, $d->authSession, $d->fingerprint, $d->events, $d->urls),

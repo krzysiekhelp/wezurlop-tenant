@@ -5546,3 +5546,50 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   .table--nieobecnosci .table__group, .table--nieobecnosci .table__empty { grid-column: 1 / -1; }
   .limit-wiersz__saldo { margin-left: 0; flex: 1 0 100%; }
 }
+
+/* ——— /licencja: pasek kafli i szczegóły (zlecenie Z48, 19.10.2026) ————————————————
+   ⚠ Rodzina dokłada dwie rzeczy: większą kropkę stanu w kaflu i wiersze „etykieta — wartość"
+   o stałej kolumnie etykiet. Reszta ekranu to te same komponenty, co wszędzie. */
+
+/* ⚠ Kropka 10 px zamiast 8: w kaflu stoi SAMA przy krótkim słowie („ważna"), a nie w wierszu
+   tabeli obok innych danych — przy 8 px ginęła w świetle między ikoną głowy a napisem.
+   Obwódka zostaje 4 px, bo to ta sama sygnatura, co na ekranie integracji. */
+.kafel__kropka--duza { width: 10px; height: 10px; }
+/* Stan przejściowy — błękit „dziś" z kalendarza. Tryb deweloperski nie jest ani sukcesem,
+   ani awarią, więc nie bierze ani zieleni, ani czerwieni. */
+.kafel__kropka--dzis { background: var(--c-dzis-text); box-shadow: 0 0 0 4px var(--c-dzis-bg); }
+
+/* ⚠ Wiersze szczegółów to NIE `.defs`: tamte układają pary w siatce, która przy dwóch wierszach
+   zostawia pustą drugą kolumnę. Tu etykiety mają stałe 220 px i wartości stoją w jednej osi,
+   tak jak w wykazie, który się czyta z góry na dół. */
+.licencja-dane { display: flex; flex-direction: column; }
+.licencja-wiersz {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: var(--s-3);
+  align-items: baseline;
+  padding: var(--s-3) var(--s-5);
+}
+.licencja-wiersz + .licencja-wiersz { border-top: 1px solid var(--c-line-soft); }
+.licencja-wiersz__etykieta { font-size: var(--t-caption); color: var(--c-text-3); }
+.licencja-wiersz__wartosc { font-size: var(--t-body); color: var(--c-text); overflow-wrap: anywhere; }
+/* Brak wartości jest CICHSZY od wartości — „nie nadano" nie udaje identyfikatora. */
+.licencja-wiersz__wartosc--brak { color: var(--c-text-4); }
+.licencja-wiersz__wartosc .chip + .chip { margin-left: var(--s-2); }
+/* Kod stanu w ramce: to wartość do przepisania do zgłoszenia, a nie zdanie.
+   ⚠ **Bez drugiego kroju**: `.mono` i `<code>` w tym systemie znaczą „cyfry o stałej szerokości",
+   a nie inny font (`10-base.css`, §4) — reguła z własnym `font-family` wprowadziłaby drugi krój
+   tylnymi drzwiami. Ramka i tło robią z kodu wartość do skopiowania; krój zostaje jeden. */
+.kod {
+  display: inline-block;
+  padding: 2px var(--s-2);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius);
+  background: var(--c-bg);
+  font-size: var(--t-caption);
+  color: var(--c-text-2);
+}
+/* Telefon: etykieta nad wartością — kolumna 220 px zostawiałaby wartości 100 px na adres licencji. */
+@media (max-width: 640px) {
+  .licencja-wiersz { grid-template-columns: minmax(0, 1fr); gap: 2px; padding: var(--s-3) var(--s-4); }
+}

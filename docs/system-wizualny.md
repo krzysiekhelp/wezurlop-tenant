@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.28, 19.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.29, 19.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,51 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.28 → 1.18.29: `/licencja` — stan w kaflach, szczegóły w wierszach**
+> (zlecenie Z48, 19.10.2026).
+> - **`.page__head` znika** („Stan licencji tej instalacji."): to samo zdanie stoi w nagłówku karty,
+>   której dotyczy, a cztery dane, po które się tu wchodzi, są w pasku kafli.
+> - **Cztery kafle**: Stan licencji (krótka nazwa z kropką 10 px), Ważna do, Aktualizacje do,
+>   Konta. ⚠ Kropka ma `--duza` (10 px zamiast 8), bo stoi SAMA przy krótkim słowie, a nie
+>   w wierszu obok innych danych — przy 8 px ginęła między ikoną głowy a napisem.
+>   ⚠ **Barwa kropki idzie za STANEM, nie za „dobrze / źle"**: tryb deweloperski nie jest ani
+>   sukcesem, ani awarią, więc dostaje błękit „dziś" z kalendarza (`--c-dzis-text` na
+>   `--c-dzis-bg`) — ten sam, którym oznaczamy stan przejściowy. Zieleń zostaje dla licencji,
+>   która naprawdę obowiązuje.
+> - **„Aktualizacje do" bez daty mówi „brak daty", nie „—"**: upływ tej daty nie ogranicza
+>   działania aplikacji, blokuje tylko instalację nowszych wersji, a myślnik czytałby się
+>   jak brak uprawnienia. Po terminie wartość idzie na `--c-warn-text`.
+> - **Kafel „Konta" bierze liczby z tego samego wywołania, co kafel „Licencje" na `/admin/konta`**
+>   (`AccessService::licenceUsage()`) — bez drugiego liczenia. Dwa ekrany o jednej licencji muszą
+>   mówić to samo. W trybie ograniczonym limit wynosi 0, więc kafel pokazuje przekroczenie
+>   i to jest prawda: nowych dostępów nie wolno wtedy nadać.
+> - **Szczegóły w wierszach `.licencja-wiersz`** (kolumna etykiet 220 px, separator `--c-line-soft`),
+>   a nie w `.defs`: tamte układają pary w siatce, która przy dwóch wierszach zostawia pustą drugą
+>   kolumnę. Kod stanu w ramce `.kod` — wartość do przepisania do zgłoszenia, nie zdanie.
+>   ⚠ `.kod` **nie wprowadza drugiego kroju**: `.mono` i `<code>` w tym systemie znaczą „cyfry
+>   o stałej szerokości", a nie inny font (§4) — ramka i tło robią z kodu wartość do skopiowania.
+> - ⚠ **Wiersza „Rodzaj instalacji" NIE MA, bo licencja go nie niesie**: podpisany ładunek ma
+>   `license_id`, `installation` (nazwę hosta — jej ekran nie pokazuje, §15), `issued_at`,
+>   `expires_at`, `updates_until`, `limits` i `features`. Wiersz z wymyśloną wartością byłby
+>   gorszy niż jego brak. „Ograniczenia" pokazują limity i funkcje, gdy licencja jakieś niesie.
+> - ⚠ **Zdanie karty mówi, kiedy stan powstaje, i mówi prawdę**: „Odczytane przy tym żądaniu —
+>   odśwież stronę, żeby sprawdzić ponownie". Prototyp proponował „odczytany przy starcie
+>   aplikacji", ale `LicenseGate` czyta plik przy pierwszym pytaniu w ŻĄDANIU i pamięta wynik
+>   do jego końca; startu, który by to przeżył, ta aplikacja nie ma.
+> - **Notka o wgraniu licencji tylko tam, gdzie licencji nie ma** (tryb deweloperski albo
+>   instalacja bez pliku, `L100`): przy licencji wygasłej albo odrzuconej zdanie „po wgraniu
+>   pojawią się dane" byłoby nieprawdą — dane już są, tylko licencja nie obowiązuje.
+>   ⚠ Notka nie mówi, KTO wgrywa plik: zlecenie zakładało instalatora, a `docs/specyfikacja.md`
+>   mówi „tenant dzwoni do panelu cyklicznie po odświeżenie licencji" — żadna z tych dróg nie jest
+>   jeszcze napisana w kodzie.
+> - **Zmierzone wszystkie siedem stanów, które zna kod licencji** (zaślepka
+>   `dev/probka-licencji.php` podpisuje licencję własnym kluczem i oddaje stan zastany co do bajtu):
+>   `L001` deweloperska (błękit), `L000` ważna (zieleń), `L200` wygasła-karencja (bursztyn),
+>   `L108` po karencji, `L105` licencja innej instalacji, `L103` zły podpis, `L101` nieczytelny
+>   klucz publiczny — wszystkie cztery ostatnie jako „nieważna" (czerwień).
+> - **Telefon (375 px)**: kafle po dwa, etykieta nad wartością (kolumna 220 px zostawiałaby
+>   wartości 100 px na identyfikator licencji). 0 przewijania w poziomie.
 
 > **Zmiana 1.18.27 → 1.18.28: karta pracownika — limity z paskiem zamiast tabeli, stan bez
 > plakietki, rodzaje nieobecności w barwach kalendarza** (zlecenie Z46, 19.10.2026).
@@ -1490,6 +1535,10 @@ wymyśli drugi raz** — dokładnie tak powstały dwa paski komunikatu (§4b) i 
 `.toasty` `.toasty--nad-nawigacja` `.toast` (`--blad` `--sukces` `--uwaga`) `.toast__znak`
 `.toast__tresc` `.toast__zamknij` `.toast--wchodzi` `.toast--wychodzi` `.komunikat--w-toascie`
 ⚠ `.flash` **skasowane** razem z paskiem `#flash`; znacznik komunikatu składa `partials/komunikat.twig`.
+
+*Ekran licencji (1.18.29, zlecenie Z48)*
+`.licencja-dane` `.licencja-wiersz` `.licencja-wiersz__etykieta` `.licencja-wiersz__wartosc`
+(`--brak`) `.kod` `.kafel__kropka--duza` `.kafel__kropka--dzis`
 
 *Karta pracownika (1.18.28, zlecenie Z46)*
 `.limit-wiersz` (`--przekroczony`) `.limit-wiersz__glowa` `.limit-wiersz__nazwa` `.limit-wiersz__rok`

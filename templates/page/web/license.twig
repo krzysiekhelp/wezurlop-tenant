@@ -2,33 +2,140 @@
 
 {% block nazwa_ekranu %}Licencja{% endblock %}
 
+{#- ⚠ **Układ z 19.10.2026 (zlecenie Z48, prototyp zaakceptowany w Chrome).** `.page__head`
+    ze zdaniem „Stan licencji tej instalacji." znika — to samo zdanie stoi teraz w nagłówku karty,
+    której dotyczy, a cztery dane, po które się tu wchodzi (stan, termin, aktualizacje, konta),
+    stoją w pasku kafli, czytane obok siebie.
+
+    ⚠ **Ekran pokazuje WYNIK, nie sposób sprawdzania** (CLAUDE.md §15): nie ma tu ścieżki pliku
+    licencji, nazwy hosta ani tego, co dokładnie jest weryfikowane. Kod stanu wystarcza wsparciu,
+    a nie podpowiada, gdzie szukać obejścia. -#}
 {% block content %}
-    <div class="page__head">
-        <div class="page__title">
-            <p class="page__sub">Stan licencji tej instalacji.</p>
+{% import 'partials/ikony.twig' as ikony %}
+
+    {% if mode == 'limited' %}
+        <p class="notice notice--warn">Instalacja działa w trybie ograniczonym. Odnów licencję w panelu wezurlop lub skontaktuj się z opiekunem wdrożenia.</p>
+    {% elseif mode == 'grace' %}
+        <p class="notice notice--warn">Licencja wygasła — trwa okres karencji. Odnów ją, zanim aplikacja przejdzie w tryb ograniczony.</p>
+    {% endif %}
+    {% if updates_expired and mode != 'limited' %}
+        <p class="notice">Okres aktualizacji minął. Aplikacja działa dalej bez ograniczeń — nowe wersje wymagają odnowienia pakietu aktualizacji.</p>
+    {% endif %}
+
+    {#- ══════════ Pasek kafli (§2 zlecenia) ══════════ -#}
+    <section class="kafle kafle--auto" aria-label="Stan licencji">
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.licencja() }}<span class="kafel__etykieta">Stan licencji</span></span>
+            <span class="kafel__dana">
+                {#- ⚠ Barwa kropki idzie za STANEM, nie za „dobrze / źle": tryb deweloperski nie jest
+                    ani sukcesem, ani awarią — dostaje błękit „dziś", którym w kalendarzu oznaczamy
+                    stan przejściowy. Zieleń zostaje dla licencji, która naprawdę obowiązuje.
+                    ⚠ Klasa z JAWNEGO warunku, nigdy sklejana z danych (§4b). -#}
+                <span class="kafel__wartosc kafel__wartosc--stan">
+                    {%- if stan.kropka == 'ok' %}<span class="kafel__kropka kafel__kropka--ok kafel__kropka--duza"></span>
+                    {%- elseif stan.kropka == 'uwaga' %}<span class="kafel__kropka kafel__kropka--uwaga kafel__kropka--duza"></span>
+                    {%- elseif stan.kropka == 'blad' %}<span class="kafel__kropka kafel__kropka--blad kafel__kropka--duza"></span>
+                    {%- else %}<span class="kafel__kropka kafel__kropka--dzis kafel__kropka--duza"></span>{% endif -%}
+                    {{ stan.nazwa }}
+                </span>
+                <span class="kafel__opis">{{ stan.podpis }}</span>
+            </span>
         </div>
-    </div>
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.zegar() }}<span class="kafel__etykieta">Ważna do</span></span>
+            <span class="kafel__dana">
+                {#- Licencja wieczysta ma `expires_at = null` i nigdy nie przechodzi w tryb
+                    ograniczony z powodu terminu — „bezterminowo" jest tu daną, nie brakiem danej. -#}
+                <span class="kafel__wartosc{{ expires_at is null ? ' kafel__wartosc--napis' : '' }}">{{ expires_at ?? 'bezterminowo' }}</span>
+                <span class="kafel__opis">termin korzystania z aplikacji</span>
+            </span>
+        </div>
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.odswiezenie() }}<span class="kafel__etykieta">Aktualizacje do</span></span>
+            <span class="kafel__dana">
+                {#- ⚠ „brak daty", nie „—": upływ tej daty NIE ogranicza działania aplikacji,
+                    blokuje wyłącznie instalację nowszych wersji. Myślnik czytałby się jak brak
+                    uprawnienia. -#}
+                {% if updates_until is null %}
+                    <span class="kafel__wartosc kafel__wartosc--brak">brak daty</span>
+                {% else %}
+                    <span class="kafel__wartosc{{ updates_expired ? ' kafel__wartosc--odchylenie' : '' }}">{{ updates_until }}</span>
+                {% endif %}
+                <span class="kafel__opis">nowe wersje i poprawki</span>
+            </span>
+        </div>
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.konta() }}<span class="kafel__etykieta">Konta</span></span>
+            <span class="kafel__dana">
+                {#- ⚠ Te same liczby, co w kaflu „Licencje" na `/admin/konta` — jedno wywołanie
+                    `AccessService::licenceUsage()`, bez drugiego liczenia. Przekroczenie limitu
+                    musi być widoczne: dostępy wracają same, gdy pracownik wraca po zwolnieniu. -#}
+                {% set ponad_limit = licencja.limit is not null and licencja.uzyte > licencja.limit %}
+                <span class="kafel__wartosc{{ ponad_limit ? ' kafel__wartosc--odchylenie' : '' }}">{{ licencja.uzyte }}</span>
+                <span class="kafel__opis">zajęte dostępy · {{ licencja.limit is null ? 'bez limitu' : 'limit ' ~ licencja.limit }}</span>
+            </span>
+        </div>
+    </section>
+
+    {#- ══════════ Szczegóły (§3 zlecenia) ══════════ -#}
     <section class="card">
-        <div class="card__body">
-            {% if mode == 'limited' %}
-                <p class="notice notice--warn">Instalacja działa w trybie ograniczonym. Odnów licencję w panelu wezurlop lub skontaktuj się z opiekunem wdrożenia.</p>
-            {% elseif mode == 'grace' %}
-                <p class="notice notice--warn">Licencja wygasła — trwa okres karencji. Odnów ją, zanim aplikacja przejdzie w tryb ograniczony.</p>
-            {% endif %}
-            {% if updates_expired and mode != 'limited' %}
-                <p class="notice">Okres aktualizacji minął. Aplikacja działa dalej bez ograniczeń — nowe wersje wymagają odnowienia pakietu aktualizacji.</p>
-            {% endif %}
-            {#- Pary etykieta/wartość na `.defs` — patrz komentarz w `partials/page/settings.twig`. -#}
-            <div class="defs">
-                <div><div class="defs__term">Stan</div><div class="defs__value">{{ mode_label }}</div></div>
-                <div><div class="defs__term">Kod stanu</div><div class="defs__value"><code>{{ reason }}</code></div></div>
-                <div><div class="defs__term">Identyfikator licencji</div><div class="defs__value">{{ license_id ?? '—' }}</div></div>
-                <div><div class="defs__term">Ważna do</div><div class="defs__value">{{ expires_at ?? 'bezterminowo' }}</div></div>
-                <div><div class="defs__term">Aktualizacje do</div><div class="defs__value">{{ updates_until ?? '—' }}</div></div>
-                {% for key, value in limits %}
-                    <div><div class="defs__term">Limit: {{ key == 'accounts' ? 'dostępów do spółek' : key }}</div><div class="defs__value">{{ value }}</div></div>
-                {% endfor %}
+        {#- ⚠ Tu tytuł karty JEST dozwolony i nie łamie reguły „jeden tytuł na ekran": ekran
+            nazywa się „Licencja", a karta „Szczegóły licencji" — to dwie różne nazwy. -#}
+        <div class="card__head card__head--znak">
+            <span class="card__znak">{{ ikony.klucz() }}</span>
+            <div class="card__tytuly">
+                <h2 class="card__title">Szczegóły licencji</h2>
+                {#- ⚠ Zdanie mówi, KIEDY stan powstaje, i mówi prawdę: `LicenseGate` czyta plik
+                    licencji przy pierwszym pytaniu W TYM ŻĄDANIU i pamięta wynik do jego końca —
+                    nie „przy starcie aplikacji", bo aplikacja nie ma startu, który by to przeżył.
+                    Odpowiedź ma nagłówek `Cache-Control: no-store`, więc odświeżenie czyta na nowo. -#}
+                <p class="card__opis">Odczytane przy tym żądaniu — odśwież stronę, żeby sprawdzić ponownie.</p>
+            </div>
+        </div>
+        <div class="card__body card__body--tight">
+            <div class="licencja-dane">
+                <div class="licencja-wiersz">
+                    <span class="licencja-wiersz__etykieta">Identyfikator licencji</span>
+                    <span class="licencja-wiersz__wartosc{{ license_id is null ? ' licencja-wiersz__wartosc--brak' : ' mono' }}">{{ license_id ?? 'nie nadano' }}</span>
+                </div>
+                <div class="licencja-wiersz">
+                    <span class="licencja-wiersz__etykieta">Kod stanu</span>
+                    {#- Kod w ramce, bo to wartość do przepisania do zgłoszenia, a nie zdanie. -#}
+                    <span class="licencja-wiersz__wartosc"><code class="kod">{{ reason }}</code></span>
+                </div>
+                {#- ⚠ „Rodzaju instalacji" NIE MA w licencji i dlatego nie ma tu takiego wiersza:
+                    podpisany ładunek niesie `license_id`, `installation` (nazwę hosta, której
+                    ten ekran nie pokazuje), `issued_at`, `expires_at`, `updates_until`, `limits`
+                    i `features`. Wiersz z wymyśloną wartością byłby gorszy niż jego brak. -#}
+                {% if limity is not empty or funkcje is not empty %}
+                    <div class="licencja-wiersz">
+                        <span class="licencja-wiersz__etykieta">Ograniczenia</span>
+                        <span class="licencja-wiersz__wartosc">
+                            {%- for klucz, wartosc in limity %}
+                                <span class="chip">{{ klucz == 'accounts' ? 'dostępy do firm' : klucz }}: {{ wartosc }}</span>
+                            {%- endfor %}
+                            {%- for klucz in funkcje %}
+                                <span class="chip chip--accent">{{ klucz }}</span>
+                            {%- endfor %}
+                        </span>
+                    </div>
+                {% endif %}
             </div>
         </div>
     </section>
+
+    {#- ⚠ Notka TYLKO tam, gdzie licencji nie ma (tryb deweloperski albo instalacja bez pliku):
+        przy licencji wygasłej albo odrzuconej zdanie „po wgraniu pojawią się dane" byłoby
+        nieprawdą — dane już są, tylko licencja nie obowiązuje. -#}
+    {% if bez_licencji %}
+        <p class="notka-info">
+            <span class="notka-info__znak">{{ ikony.info() }}</span>
+            {#- ⚠ Zdanie NIE mówi, KTO wgrywa plik licencji, i to jest świadome: zlecenie zakładało
+                instalatora, a `docs/specyfikacja.md` mówi „tenant dzwoni do panelu cyklicznie
+                po odświeżenie licencji" — żadna z tych dróg nie jest jeszcze napisana w kodzie
+                (dziś licencja to po prostu plik, który aplikacja czyta). Napis, który obiecuje
+                drogę, zanim ona istnieje, uczy czekać na coś, co się nie wydarzy. -#}
+            <span>Licencję produkcyjną wydaje panel wezurlop. Ta instalacja czyta ją z pliku — po jego wgraniu staną w tym miejscu identyfikator, termin ważności i limit dostępów.</span>
+        </p>
+    {% endif %}
 {% endblock %}
