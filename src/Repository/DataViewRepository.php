@@ -366,51 +366,6 @@ final class DataViewRepository
     }
 
     /**
-     * Nieobecności zachodzące na miesiąc — widok kalendarza.
-     *
-     * @param list<int> $employmentIds
-     * @return list<array<string, mixed>>
-     */
-    public function absencesInRange(array $employmentIds, string $from, string $to): array
-    {
-        if ($employmentIds === []) {
-            return [];
-        }
-        $stmt = $this->db->pdo()->prepare(
-            'SELECT a.date_from, a.date_to, a.days, a.minutes, a.employment_id, a.entry_source,
-                    t.name AS type_name, t.source AS type_source
-             FROM external_absence a JOIN leave_type t ON t.id = a.leave_type_id
-             WHERE a.employment_id IN (' . self::inSql($employmentIds, 'e') . ')
-               AND a.removed_at IS NULL AND a.date_from <= :to AND a.date_to >= :from
-             ORDER BY a.date_from'
-        );
-        $stmt->execute(self::inParams($employmentIds, 'e') + ['from' => $from, 'to' => $to]);
-
-        return array_map(static fn (array $row): array => [
-            'from' => (string) $row['date_from'], 'to' => (string) $row['date_to'],
-            'days' => self::intOrNull($row['days']), 'minutes' => self::intOrNull($row['minutes']),
-            'employment_id' => (int) $row['employment_id'], 'source' => (string) $row['entry_source'],
-            'type' => (string) $row['type_name'], 'type_source' => (string) $row['type_source'],
-        ], $stmt->fetchAll());
-    }
-
-    /** @return list<string> dni nierobocze z kalendarza R2 */
-    public function nonWorkingDays(int $companyId, ?string $calendarRef, int $year): array
-    {
-        if ($calendarRef === null || $calendarRef === '') {
-            return [];
-        }
-        $stmt = $this->db->pdo()->prepare(
-            'SELECT non_working_days FROM company_calendar WHERE company_id = :company AND calendar_ref = :ref AND year = :year'
-        );
-        $stmt->execute(['company' => $companyId, 'ref' => $calendarRef, 'year' => $year]);
-        $value = $stmt->fetchColumn();
-        $days = is_string($value) ? json_decode($value, true) : null;
-
-        return is_array($days) ? array_values(array_filter($days, 'is_string')) : [];
-    }
-
-    /**
      * Przebiegi synchronizacji — lista dla ekranu stanu.
      *
      * @param list<int>|null $companies

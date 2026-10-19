@@ -277,6 +277,7 @@
             i ten sam okres — zmienia się jedna rzecz, skala. -#}
         {% include 'partials/miesiac-ja.twig' with {
             'mies': ja,
+            'naglowek': 'Twoje nieobecności',
             'pusto': 'W tym miesiącu kadry nie zapisały żadnej Twojej nieobecności.',
             'adres_lista': url('/kalendarz') ~ '?widok=ja&miesiac=' ~ okres.miesiac ~ '&skala=lista'
         } only %}

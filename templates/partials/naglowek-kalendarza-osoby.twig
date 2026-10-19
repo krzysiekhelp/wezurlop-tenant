@@ -1,0 +1,59 @@
+{#- **Blok nagłówka kalendarza OSOBY** — ten sam komponent, co nagłówek `/kalendarz`
+    (zlecenie Z51 z 19.10.2026): `kal-nav` o dwóch wierszach rozdzielonych kreską, nazwa okresu
+    i legenda w pierwszym, strzałki okresu w drugim.
+
+    ⚠ **Dlaczego to osobny plik, a nie parametr `naglowek-kalendarza.twig`.** Tamten partial
+    buduje adresy z `widok`, `skala` i `?osoby=`, czyta pozycje przełącznika widoku i dołącza
+    kontrolkę wyboru osób — czyli pięć rzeczy, których ten ekran nie ma. Przepuszczenie go przez
+    parametry znaczyłoby dorzucenie do pliku obsługującego PIĘĆ gałęzi `/kalendarz` dwóch
+    warunków dla szóstej, i to w miejscu, w którym pomyłka psuje cudzy ekran. Współdzielone jest
+    to, co naprawdę wspólne: **klasy** (`kal-nav`, `kal-grupa`, `kal-btn` — zero nowego CSS)
+    i **legenda** (jeden plik na wszystkie widoki, od Z7).
+
+    ⚠ **Podtytułu NIE MA** (§1 zlecenia). Zdanie „Nieobecności z kadr i dni wolne z kalendarza R2.
+    Widok tylko do odczytu." stało do 19.10.2026 w `.page__head` nad kartą; zeszło do bloku
+    objaśnień pod kalendarzem, razem z pozostałymi zdaniami o pochodzeniu danych. Nazwa ekranu
+    (nazwisko) stoi raz, w belce.
+
+    ⚠ **„Karta" zamiast przełącznika widoku.** Na `/kalendarz` prawa strona drugiego wiersza mówi
+    o KSZTAŁCIE widoku (skala, czyj kalendarz); tutaj kształt jest jeden, więc to miejsce zajmuje
+    jedyne wyjście z ekranu — powrót na kartę pracownika. Ten sam kwadrat 64 × 64, bo wygląd
+    kontrolki ma mówić „to ten sam rodzaj przycisku", a nie „to inny ekran".
+
+    Zmienne: `osoba` (z `id`), `okres` (z `KalendarzPracownika::okres()`). -#}
+{% import 'partials/ikony.twig' as ikony %}
+{% set baza = url('/dane/pracownik/' ~ osoba.id ~ '/kalendarz') %}
+<div class="kal-nav">
+    <div class="kal-nav__gora">
+        <h2 class="card__title">{{ okres.nazwa|capitalize }}</h2>
+        {% include 'partials/legenda-kalendarza.twig' %}
+    </div>
+    <div class="kal-nav__dol">
+        <div class="kal-nav__lewa">
+            {#- ⚠ Strzałki **obok siebie, po lewej**: przeskok o miesiąc w tył i w przód to jedna
+                czynność, a nazwa okresu ma zmienną szerokość — para postawiona przy nazwie
+                przesuwałaby się przy każdym kliknięciu. Ta sama decyzja co na `/kalendarz`.
+                ⚠ Zwykłe odnośniki, bez htmx: na tym ekranie nie ma pojemnika do wymiany,
+                a atrybut `hx-get` bez istniejącego celu nie robi NIC — kliknięcie ginęłoby
+                po cichu (zmierzone 17.10.2026 na `/m/kalendarz`). -#}
+            <div class="kal-grupa">
+                <a class="kal-btn kal-btn--ikona" href="{{ baza }}?miesiac={{ okres.poprzedni }}"
+                   aria-label="Poprzedni miesiąc" title="Poprzedni miesiąc">{{ ikony.szewron_lewo() }}</a>
+                <a class="kal-btn kal-btn--ikona" href="{{ baza }}?miesiac={{ okres.nastepny }}"
+                   aria-label="Następny miesiąc" title="Następny miesiąc">{{ ikony.szewron() }}</a>
+            </div>
+        </div>
+        <div class="kal-nav__prawa">
+            {#- ⚠ Grupa z jednym przyciskiem jest tu świadoma: `kal-grupa` ustawia odstęp WEWNĄTRZ
+                osi, a `kal-nav__prawa` odstęp MIĘDZY osiami. Bez niej dołożenie drugiego
+                przycisku dałoby 24 px tam, gdzie ma być 8 px.
+                ⚠ Podpis „Karta", nie „Karta pracownika": w kwadracie 64 px drugie słowo nie
+                wchodzi, a pełną nazwę niesie `aria-label` i `title` — czyli czytnik ekranu
+                i podpowiedź, nie sam rysunek. -#}
+            <div class="kal-grupa">
+                <a class="kal-btn" href="{{ url('/dane/pracownik/' ~ osoba.id) }}"
+                   aria-label="Karta pracownika" title="Karta pracownika">{{ ikony.konta() }}<span class="kal-btn__etykieta">Karta</span></a>
+            </div>
+        </div>
+    </div>
+</div>

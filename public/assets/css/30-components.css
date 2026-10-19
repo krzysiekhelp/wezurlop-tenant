@@ -724,11 +724,12 @@
    nie skakał przy przejściu z 9 na 10. */
 .pager__info { font-size: var(--t-small); color: var(--c-text-3); font-variant-numeric: tabular-nums; }
 
-/* ——— siatka miesiąca z danymi (/dane/kalendarze) ——————————————————————————
-   ⚠ To wariant `.table`, nie osobny komponent — w szablonie stoi `class="table month-grid"`.
-   ⚠ **To NIE jest druga wizualizacja nieobecności**, mimo że też jest siatką miesiąca: pokazuje
-   rozkład czasu pracy przysłany przez connector (dni pracujące i wolne spółki), a nie urlopy.
-   Nieobecności w kalendarzu rysuje wyłącznie `partials/os-czasu.twig` (07.10.2026). */
+/* ——— siatka miesiąca `.month-grid` — SKASOWANA 19.10.2026 (zlecenie Z51) —————————————
+   Jej jedyny użytkownik, `/dane/pracownik/{id}/kalendarz`, rysuje od tego dnia **tę samą siatkę**,
+   co „Tylko ja · Miesiąc" (`.msiatka` zawężona do `.mies__kalendarz`). Komentarz zostaje jako
+   ślad, bo to **druga** siatka miesiąca skasowana w tym arkuszu — pierwszą (`.calendar-grid`)
+   zdjęto w 1.17 — i obie powstały z tego samego odruchu: „ten ekran potrzebuje kalendarza,
+   napiszę kalendarz". Trzeciej nie dokładamy. */
 
 /* ——— tabela rozbicia limitu (pulpit) ——————————————————————————————————————
    Dwie kolumny: nazwa pozycji i wartość. To wariant `.table`, nie nowy komponent. */
@@ -746,28 +747,6 @@
 /* Sekcja karty bez wyściółki: siatka z własnymi krawędziami dotyka obrysu karty,
    dokładnie jak tabela w `.table-scroll`. */
 .card__body--flush { padding: 0; }
-
-.month-grid { table-layout: fixed; }
-.month-grid__cell { vertical-align: top; height: 84px; padding: var(--s-2); }
-
-/* ⚠ Dzień spoza miesiąca i dzień wolny różnią się siłą wyciszenia, a nie barwą. */
-.month-grid__cell--empty { background: var(--c-surface-mute); }
-.month-grid__cell--free { background: var(--c-neutral-soft); }
-
-/* ⚠ Dzień z nieobecnością: krawędź po lewej, nie zielone tło. To ten sam sposób oznaczania,
-   którego używa `.notice` — „ta pozycja jest warta uwagi" bez sięgania po barwę. Skanowanie
-   miesiąca jest przez to słabsze niż przy pełnym tle i mówię o tym wprost: jeśli kadry
-   potrzebują mocniejszego wyróżnienia, to decyzja o wyróżnianiu DANYCH, a nie o kolorze. */
-.month-grid__cell--absence { border-left: 3px solid var(--c-line-strong); }
-
-/* ⚠ Komórka z nieobecnością NIE MA tła. Stara reguła dawała `--green-soft`, czyli kolor akcji
-   na danych — ta sama pomyłka co `badge--approved`. Informację niesie wpis w komórce,
-   a nie podkład pod nim (§2). Zgłoszone w raporcie jako świadoma strata: skanowanie miesiąca
-   wzrokiem jest przez to trudniejsze i jeśli kadry tego potrzebują, to jest decyzja
-   o wyróżnieniu danych, a nie o kolorze tła. */
-
-.month-grid__day { display: block; font-weight: var(--w-medium); color: var(--c-text); }
-.month-grid__mark { display: block; margin-top: var(--s-1); font-size: var(--t-caption); color: var(--c-text-2); }
 
 /* ——— wskaźnik ładowania ————————————————————————————————————————————————— */
 

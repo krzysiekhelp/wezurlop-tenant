@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.30, 19.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.31, 19.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,32 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.30 → 1.18.31: `/dane/pracownik/{id}/kalendarz` — ten sam ekran, co „Tylko ja ·
+> Miesiąc", z danymi wskazanej osoby** (zlecenie Z51, 19.10.2026).
+> - ⚠ **Zero nowych klas i zero nowego CSS.** Ten wpis jest tu dlatego, że **zniknął** jeden układ,
+>   a nie dlatego, że przybył drugi: kalendarz pracownika miał własną siatkę (`table.month-grid`
+>   z nazwami nieobecności wpisanymi w komórkę) i własną tabelę wpisów pod nią. Pracownik oglądał
+>   swój miesiąc w jednym kształcie, a kadry **ten sam miesiąc tej samej osoby** w zupełnie innym —
+>   więc każda poprawka wyglądu nieobecności wchodziła w jedno miejsce z dwóch.
+> - **Różnicą jest OSOBA TRZECIA, nie układ.** Siatka, wykaz wpisów obok niej, limit pięciu pozycji
+>   i odnośnik „wszystkie (N)" idą z `partials/miesiac-ja.twig`; nagłówek kolumny wpisów, zdanie
+>   dla zera wpisów i adres pełnego wykazu stały się jego **parametrami**, bo to jedyne, co się
+>   między ekranami różni („NIEOBECNOŚCI W MIESIĄCU" zamiast „TWOJE NIEOBECNOŚCI").
+> - **Blok nagłówka: nazwa miesiąca i legenda w pierwszym wierszu, strzałki okresu w drugim**, a po
+>   prawej — tam, gdzie na `/kalendarz` stoi przełącznik widoku — jeden kwadrat `.kal-btn` „Karta"
+>   (`aria-label` „Karta pracownika"). ⚠ **Podtytułu nie ma**: zdanie o pochodzeniu danych zeszło
+>   do bloku objaśnień, razem z pozostałymi zdaniami o tym samym. `.page__head` z tego ekranu znikło.
+> - ⚠ **Osobny plik nagłówka (`partials/naglowek-kalendarza-osoby.twig`), a nie parametr
+>   `naglowek-kalendarza.twig`.** Tamten buduje adresy z `widok`, `skala` i `?osoby=`, liczy pozycje
+>   przełącznika widoku i dołącza kontrolkę wyboru osób — pięć rzeczy, których ten ekran nie ma.
+>   Współdzielone jest to, co naprawdę wspólne: **klasy i legenda**, czyli ani jednej nowej reguły.
+> - ⚠ **Objaśnienia w TRZECIEJ OSOBIE**: ekran oglądają kadry, więc „Twojego rozkładu czasu pracy"
+>   byłoby nieprawdą. Rozkładów bywa **kilka** — 6 z 88 osób w danych roboczych ma etat w dwóch
+>   firmach — i wtedy zdanie wymienia wszystkie, bo wygaszone kratki są ich sumą.
+> - ⚠ **Jedna siatka dla jednej osoby, także przy kilku etatach** (`KalendarzPracownika::widokMiesiaca()`).
+>   `widokJa()` jest od tej pory jednolinijkowym wywołaniem tej metody dla jednego zatrudnienia —
+>   drugi kształt miesiąca w tym systemie już był i właśnie go kasujemy.
 
 > **Zmiana 1.18.29 → 1.18.30: `/diagnostyka` — wynik w kaflach, pozycje nie-OK zebrane w jednej
 > karcie, grupy jako `<details>`** (zlecenie Z50, 19.10.2026).
@@ -1637,7 +1663,7 @@ robią reguły zawężone do `.mies__kalendarz`, a nie drugi komponent (§4c).
 `.team-grid__bar` `.team-grid__bar--urlop|--zasilek|--kadrowe|--jeden` `.team-grid__dow`
 `.team-grid__numer`
 
-*Kalendarz — Miesiąc „Tylko ja" i wykaz wpisów*
+*Kalendarz — Miesiąc „Tylko ja" i wykaz wpisów (od 1.18.31 także kalendarz osoby na `/dane`)*
 `.mies` `.mies__kalendarz` `.mies__wpisy` `.mies__naglowek`
 `.wpisy` `.wpisy__poz` `.wpisy__kropka` `.wpisy__kropka--urlop|--zasilek|--kadrowe`
 `.wpisy__tresc` `.wpisy__rodzaj` `.wpisy__meta`
@@ -1652,6 +1678,9 @@ pudełka (lista ucięta stylem dalej niesie cały HTML dla czytnika ekranu).
 `.legend` `.legend__item` `.legend__mark` `.legend__mark--urlop|--zasilek|--kadrowe|--free`
 ⚠ Kwadraty `.kal-btn` to **osobny komponent, nie `.segmented`** — `.segmented` stoi na czterech
 innych ekranach (przełącznik roku, zakres uprawnień) i tam zostaje taki, jaki jest.
+⚠ Od 1.18.31 ta rodzina obsługuje **dwa ekrany**: `/kalendarz` i `/dane/pracownik/{id}/kalendarz`.
+Znacznik nagłówka składają dwa partiale (`naglowek-kalendarza.twig` i `naglowek-kalendarza-osoby.twig`),
+ale **reguły są jedne** — drugiego zestawu klas dla drugiego ekranu nie ma i mieć nie będzie.
 
 *Pasek kafli pulpitu (1.18, zlecenie Z15; `--piec` 1.18.7, Z27)*
 `.kafle` `.kafel` `.kafel__glowa` `.kafel__etykieta` `.kafel__dana` `.kafel__wartosc`
@@ -1872,6 +1901,13 @@ wyglądzie i różnych modyfikatorach. Obowiązuje **jedna**: `.notice`, z waria
 Do 1.17 w arkuszu były **dwie** siatki miesiąca (`.calendar-grid` na `/kalendarz` i `.month-grid`
 na `/dane/kalendarze`), które robiły to samo, i dokument zostawiał pytanie, która zostaje.
 **Zostaje jedna i nie jest żadną z tamtych.**
+
+⚠ **Domknięte dopiero w 1.18.31 (19.10.2026).** Ta tabela od 17.10 pisała `.month-grid`
+w kolumnie „stan 1.17", jakby tej klasy już nie było — a była: `/dane/pracownik/{id}/kalendarz`
+rysował nią miesiąc jeszcze przez dwa dni. Przebudowa tego ekranu (zlecenie Z51) skasowała
+reguły `.month-grid*` z arkusza, więc dopiero teraz kolumna „stan 1.18" jest prawdziwa.
+Zapisuję to, bo różnica między „rozstrzygnęliśmy" a „wykonaliśmy" jest dokładnie tym miejscem,
+w którym dokument przestaje opisywać kod.
 
 | | stan 1.17 | stan 1.18 |
 |---|---|---|
@@ -2392,9 +2428,14 @@ ani 3:1 z WCAG 1.4.11 dla elementu nieliterowego, ani progu dostrzegalności. Na
 i to jest **osobna decyzja produktowa** — wzór pasków został zatwierdzony wizualnie i nie
 dokładamy do niego nic po cichu. Pozycja otwarta w `docs/architektura.md`.
 
-⚠ Ten wyjątek dotyczy **wyłącznie** osi czasu (`.team-grid__bar`). Siatka miesiąca
-(`.month-grid`, `/dane/pracownik/{id}/kalendarz`) zostaje na krawędzi — tam reguła działa,
-jest sprawdzona, a rodzaj niesie **tekst wpisu**, nie kolor.
+⚠ Ten wyjątek dotyczy **wyłącznie** osi czasu (`.team-grid__bar`).
+⚠ **Poprawka 1.18.31:** zdanie mówiło tu wcześniej, że siatka miesiąca `.month-grid`
+na `/dane/pracownik/{id}/kalendarz` „zostaje na krawędzi, bo rodzaj niesie tam tekst wpisu,
+nie kolor". Ten ekran rysuje od 19.10.2026 tę samą siatkę, co „Tylko ja · Miesiąc"
+(`.msiatka`), a `.month-grid` jest skasowana — czyli **tego przypadku już nie ma**, i razem
+z nim znikło jedyne miejsce, gdzie rodzaj nieobecności stał w kratce słowem. Kratka `.msiatka`
+niesie rodzaj kolorem i `title`, więc podlega wyjątkowi opisanemu wyżej na tych samych
+warunkach, co pasek osi czasu.
 
 #### ⚠ Nazwany wyjątek: ekran hierarchii zostaje na `@media` (22.09.2026)
 

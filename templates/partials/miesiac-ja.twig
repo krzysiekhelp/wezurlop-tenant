@@ -30,8 +30,14 @@
     stylem dalej niesie cały HTML, więc czytnik ekranu i wyszukiwanie w stronie widzą wpisy,
     których człowiek nie widzi. Reszta jest o jedno kliknięcie dalej, na skali Lista.
 
-    Zmienne: `mies` (model z `KalendarzPracownika::widokJa()`), `pusto` (zdanie dla zera wpisów),
-    `adres_lista` (ten sam okres na skali Lista).
+    ⚠ **Od 19.10.2026 (Z51) ten sam partial rysuje kalendarz CUDZY** —
+    `/dane/pracownik/{id}/kalendarz` dla kadr. Dlatego nagłówek kolumny wpisów, zdanie o zerze
+    wpisów i adres „wszystkich” są parametrami, a nie wpisane w plik: różnica między ekranami
+    to **osoba trzecia zamiast drugiej**, a nie inny układ. Drugi plik z tą siatką znaczyłby, że
+    poprawka kratki wchodzi na jednym ekranie, a na drugim nie.
+
+    Zmienne: `mies` (model z `KalendarzPracownika::widokMiesiaca()`), `naglowek` (nagłówek kolumny
+    wpisów), `pusto` (zdanie dla zera wpisów), `adres_lista` (pełny wykaz wpisów tego okresu).
 
     ⚠ Zero logiki — klasy odpowiadają stanom kratek przysłanym z serwisu. -#}
 <div class="card__body">
@@ -58,7 +64,7 @@
             </section>
         </div>
         <div class="mies__wpisy">
-            <h3 class="mies__naglowek">Twoje nieobecności</h3>
+            <h3 class="mies__naglowek">{{ naglowek }}</h3>
             {% if mies.lista is empty %}
                 <p class="empty-state">{{ pusto }}</p>
             {% else %}

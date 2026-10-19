@@ -101,7 +101,7 @@ final class ControllerFactory
                 $d->permissions, $d->widocznoscKalendarza, $d->fingerprint, $d->kontekstSpolki, $d->errors, $d->urls),
             AdminIntegrationController::class => new AdminIntegrationController($d->view, $d->session, $d->apiKeyService, $d->apiKeys,
                 $d->sync, $d->syncDomain, $d->events, $d->settings, $d->errors, $d->urls),
-            DataController::class          => new DataController($d->view, $d->dataView, $d->permissions,
+            DataController::class          => new DataController($d->view, $d->dataView, $d->kalendarz, $d->permissions,
                 $d->apiKeys, $d->syncDomain, $d->errors),
             DiagnosticsController::class   => new DiagnosticsController($d->view, $d->config, $d->appRoot, $d->canary, $d->events,
                 $d->calendars, $d->tenantReset, $d->settings, $d->apiKeys, $d->syncDomain, $d->session, $d->access,

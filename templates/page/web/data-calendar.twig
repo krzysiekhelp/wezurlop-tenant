@@ -2,75 +2,68 @@
 
 {% block nazwa_ekranu %}{{ osoba.name }} — kalendarz{% endblock %}
 
-{% block content %}
-    <div class="page__head">
-        <div class="page__title">
-            <p class="page__sub">Nieobecności z kadr i dni wolne z kalendarza R2. Widok tylko do odczytu.</p>
-        </div>
-        <div class="page__actions">
-            <a class="btn btn--ghost btn--sm" href="{{ url('/dane/pracownik/' ~ osoba.id ~ '/kalendarz') }}?miesiac={{ poprzedni }}">‹ Poprzedni</a>
-            <a class="btn btn--ghost btn--sm" href="{{ url('/dane/pracownik/' ~ osoba.id ~ '/kalendarz') }}?miesiac={{ nastepny }}">Następny ›</a>
-            <a class="btn btn--ghost" href="{{ url('/dane/pracownik/' ~ osoba.id) }}">Karta pracownika</a>
-        </div>
-    </div>
+{#- ⚠ **Układ z 19.10.2026 (zlecenie Z51): TEN SAM ekran, co „Tylko ja · Miesiąc" na `/kalendarz`.**
+    Do tego dnia ten kalendarz miał własną siatkę (`table.month-grid` z nieobecnościami wypisanymi
+    słowem w komórce) i własną tabelę wpisów pod nią. Nie była to kwestia gustu: pracownik widzi
+    swój kalendarz w jednym kształcie, a kadry oglądają ten sam miesiąc tej samej osoby
+    w zupełnie innym — czyli każda poprawka wyglądu nieobecności wchodziła w jedno miejsce z dwóch
+    i rozjeżdżała je dalej.
 
-    <section class="card">
-        {#- ⚠ **Nagłówek karty z miesiącem — dołożony 11.10.2026 razem ze zdjęciem `h1`**
-            (zlecenie §2). Dawny `h1` brzmiał „{{ '{{ osoba.name }}' }} — {{ '{{ nazwa_miesiaca }}' }}", więc razem
-            z nim zniknąłby z ekranu **miesiąc**, czyli jedyna informacja o tym, co właściwie
-            pokazuje siatka. Nazwa ekranu (nazwisko) stoi w belce, a miesiąc jest treścią karty —
-            to ta sama zasada, co nagłówek „Październik 2026" na `/kalendarz`: nagłówek karty
-            powtarzający nazwę ekranu jest nadmiarowy, mówiący coś innego jest treścią. -#}
-        <div class="card__head"><h2 class="card__title">{{ nazwa_miesiaca }}</h2></div>
-        <div class="card__body">
-            <div class="table-scroll">
-                <table class="table month-grid">
-                    <thead><tr><th>pon</th><th>wt</th><th>śr</th><th>czw</th><th>pt</th><th>sob</th><th>niedz</th></tr></thead>
-                    <tbody>
-                        <tr>
-                        {% for d in dni %}
-                            {% if loop.index0 > 0 and loop.index0 % 7 == 0 %}</tr><tr>{% endif %}
-                            {% if d.data is null %}
-                                <td class="month-grid__cell month-grid__cell--empty"></td>
-                            {% else %}
-                                <td class="month-grid__cell{% if d.wolny %} month-grid__cell--free{% endif %}{% if d.nieobecnosci|length > 0 %} month-grid__cell--absence{% endif %}">
-                                    <span class="month-grid__day">{{ d.dzien }}</span>
-                                    {% for n in d.nieobecnosci %}
-                                        <span class="month-grid__mark" title="{{ n.type }} · {{ czas_pracy(n.minutes) }} ({{ czas_minuty(n.minutes) }})">{{ n.type }}{% if n.type_source == 'kadrowe' %} (0 dni){% endif %}</span>
-                                    {% endfor %}
-                                </td>
-                            {% endif %}
-                        {% endfor %}
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+    ⚠ **Różnicą jest OSOBA TRZECIA, nie układ.** Siatka, lista wpisów obok niej, limit pięciu
+    pozycji i odnośnik do pełnego wykazu przychodzą z `partials/miesiac-ja.twig`, a nazwa okresu,
+    legenda i strzałki z `partials/naglowek-kalendarza-osoby.twig`. Zmieniają się teksty
+    („tej osoby" zamiast „Twoje") i to, dokąd prowadzą przyciski.
+
+    ⚠ **`.page__head` ZNIKŁO.** Stały w nim podtytuł o pochodzeniu danych i pasek akcji
+    (‹ Poprzedni · Następny › · Karta pracownika). Podtytuł zszedł do bloku objaśnień, bo mówi
+    o pochodzeniu danych tak samo jak pozostałe zdania tam stojące; nawigacja weszła do bloku
+    nagłówka, bo dotyczy tego, co jest w karcie. Ta sama decyzja, co na `/kalendarz` 11.10.2026. -#}
+{% block content %}
+    {#- ⚠ **TRZY BLOKI, nie jedna karta**: nagłówek · kalendarz · objaśnienia. Blok to zwyczajna
+        `.card`; pojemnik `.bloki` nie rysuje ani tła, ani ramki — i to nie nowy komponent,
+        tylko ten sam, co na wszystkich gałęziach `/kalendarz`. -#}
+    <div class="bloki">
+        {#- ⚠ `card--kal-naglowek` także tutaj: blok nagłówka zostaje na ekranie przy przewijaniu
+            strony (Z24). Dwa kalendarze, z których jeden się przykleja, a drugi nie, to ta sama
+            niespójność, którą ten ekran miał usunąć. Pliki JS kalendarza NIE jadą — jeden obsługuje
+            kontrolkę wyboru osób, drugi przyklejony wiersz dni osi czasu, a tutaj nie ma ani
+            jednego z nich; przyklejenie nagłówka robi sam arkusz. -#}
+        <section class="card card--kal-naglowek">
+            {% include 'partials/naglowek-kalendarza-osoby.twig' %}
+        </section>
+        {#- ⚠ Zwyczajna `.card`, BEZ `card--os`: siatka miesiąca nie przykleja niczego i nie
+            przewija się, a jej narożniki mają być przycięte promieniem karty. -#}
+        <section class="card">
+            {#- ⚠ Adres pełnego wykazu prowadzi na **kartę pracownika**, do karty „Nieobecności"
+                z przełącznikiem lat — tam stoi cały rok tej osoby. Na `/kalendarz` ten sam
+                odnośnik prowadzi na skalę „Lista", czyli również na rok, nie na miesiąc:
+                znaczenie jest to samo, zmienia się tylko ekran, który je pokazuje. -#}
+            {% include 'partials/miesiac-ja.twig' with {
+                'mies': mies,
+                'naglowek': 'Nieobecności w miesiącu',
+                'pusto': 'W tym miesiącu kadry nie zapisały żadnej nieobecności tej osoby.',
+                'adres_lista': url('/dane/pracownik/' ~ osoba.id) ~ '?rok=' ~ okres.rok ~ '#nieobecnosci'
+            } only %}
+        </section>
+        {#- ⚠ **Objaśnienia BEZ RAMKI I BEZ TŁA** — to komentarz, nie dana. Zwykły tekst na tle
+            strony, z wierszem ograniczonym do czytelnej miary (`card__meta`). Ta sama rodzina,
+            co na `/kalendarz`.
+            ⚠ **Wszystkie zdania w TRZECIEJ OSOBIE** (§1 zlecenia): ten ekran oglądają kadry, więc
+            „Twojego rozkładu czasu pracy" byłoby po prostu nieprawdą — rozkład jest cudzy. -#}
+        <div class="objasnienia">
+            <p class="card__meta">Pokazujemy to, co zapisały kadry — widok jest tylko do odczytu. Wpisy wycofane i rozliczenia płacowe (ekwiwalenty) nie są nieobecnością i nie zajmują dni w kalendarzu.</p>
+            {#- ⚠ **Trzy stany rozkładu czasu pracy = trzy zdania.** Wygaszone kratki są SUMĄ
+                rozkładów wszystkich zatrudnień tej osoby, a 6 z 88 osób w danych roboczych ma
+                etat w dwóch firmach naraz — zdanie z jedną nazwą byłoby wtedy połową prawdy.
+                Rozstrzyga lista nazw policzona w `KalendarzPracownika`, nie szablon. -#}
+            {% if mies.rozklady is empty %}
+                <p class="card__meta">Wygaszone są <strong>tylko weekendy</strong> — zatrudnienie tej osoby nie ma przysłanego rozkładu czasu pracy, więc nie ma skąd wziąć świąt.</p>
+            {% elseif mies.rozklady|length == 1 %}
+                <p class="card__meta">Dni wolne od pracy pochodzą z rozkładu czasu pracy tej osoby („{{ mies.rozklady|first }}”).</p>
+            {% else %}
+                <p class="card__meta">Dni wolne od pracy są <strong>sumą rozkładów</strong> czasu pracy tej osoby ({% for r in mies.rozklady %}{% if not loop.first %}, {% endif %}„{{ r }}”{% endfor %}) — ma etat w więcej niż jednej firmie, a kalendarz pokazuje wszystkie naraz.</p>
+            {% endif %}
             <p class="card__meta">Nieobecność ze źródła <strong>kadrowe</strong> (urlop bezpłatny, wychowawczy, nieusprawiedliwiona) zajmuje dni w kalendarzu, ale program kadrowy liczy dla niej <strong>zero dni</strong> — to reguła programu kadrowego, nie brak danych.</p>
         </div>
-    </section>
-
-    <section class="card">
-        <div class="card__head"><h2>Nieobecności w tym miesiącu</h2></div>
-        <div class="card__body">
-            <div class="table-scroll">
-                <table class="table">
-                    <thead><tr><th>Rodzaj</th><th>Od</th><th>Do</th><th>Dni z kadr</th><th>Wymiar</th><th>Wpis</th></tr></thead>
-                    <tbody>
-                    {% for n in legenda %}
-                        <tr>
-                            <td>{{ n.type }}</td>
-                            <td>{{ n.from }}</td>
-                            <td>{{ n.to }}</td>
-                            <td>{{ n.days is null ? '—' : n.days }}{% if n.type_source == 'kadrowe' %} <span class="chip">liczy 0</span>{% endif %}</td>
-                            <td title="{{ czas_minuty(n.minutes) }}">{{ czas_pracy(n.minutes) }}</td>
-                            <td>{{ n.source }}</td>
-                        </tr>
-                    {% else %}
-                        <tr><td colspan="6" class="empty-state">W tym miesiącu nie ma żadnej nieobecności.</td></tr>
-                    {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </section>
+    </div>
 {% endblock %}

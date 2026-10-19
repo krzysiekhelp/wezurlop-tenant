@@ -10,6 +10,7 @@ use Wezurlop\Http\Middleware\Authenticate;
 use Wezurlop\Http\Request;
 use Wezurlop\Http\Response;
 use Wezurlop\Repository\DataViewRepository;
+use Wezurlop\Service\KalendarzPracownika;
 use Wezurlop\Service\PulpitPracownika;
 use Wezurlop\Service\Sync\SyncService;
 use Wezurlop\Repository\SyncDomainRepository;
@@ -46,6 +47,7 @@ final class DataController
     public function __construct(
         private readonly View $view,
         private readonly DataViewRepository $data,
+        private readonly KalendarzPracownika $kalendarz,
         private readonly PermissionRepository $permissions,
         private readonly ApiKeyRepository $apiKeys,
         private readonly SyncDomainRepository $domain,
@@ -380,30 +382,26 @@ final class DataController
         if ($person === null) {
             return $this->errors->errorPage(404, null, $request->isHtmx());
         }
+        // ⚠ **Zatrudnienia z TEGO SAMEGO zakresu, co osoba** — konto przypisane do jednej firmy
+        // nie dostanie tu etatu z drugiej, bo granica jest w zapytaniu, nie w warunku po pobraniu
+        // (CLAUDE.md §10). Osoba potrafi mieć ich kilka i wszystkie jadą do jednej siatki.
         $employments = $this->data->employments($person['id'], $scope);
-        $month = self::month($request->queryString('miesiac', 7));
-        $first = $month->modify('first day of this month');
-        $last = $month->modify('last day of this month');
-        $absences = $this->data->absencesInRange(
-            array_map(static fn (array $e): int => $e['id'], $employments),
-            $first->format('Y-m-d'),
-            $last->format('Y-m-d'),
-        );
-        $free = [];
-        foreach ($employments as $employment) {
-            foreach ($this->data->nonWorkingDays($employment['company_id'], $employment['calendar'], (int) $month->format('Y')) as $day) {
-                $free[$day] = true;
-            }
-        }
+        $pierwszy = KalendarzPracownika::miesiac($request->queryString('miesiac', 7));
 
         return $this->view->render('data-calendar.twig', [
             'osoba' => $person,
-            'miesiac' => $month->format('Y-m'),
-            'nazwa_miesiaca' => self::MONTHS[(int) $month->format('n')] . ' ' . $month->format('Y'),
-            'poprzedni' => $month->modify('-1 month')->format('Y-m'),
-            'nastepny' => $month->modify('+1 month')->format('Y-m'),
-            'dni' => self::calendarDays($first, $last, $absences, $free),
-            'legenda' => $absences,
+            // ⚠ Nazwa okresu i adresy sąsiadów z `KalendarzPracownika::okres()`, czyli z tego
+            // samego miejsca co `/kalendarz`. Własna tablica nazw miesięcy stała tu do 19.10.2026
+            // i była drugą prawdą o tym samym — dodać miesiąc trzeba by w dwóch plikach.
+            'okres' => KalendarzPracownika::okres($pierwszy),
+            // ⚠ **Ta sama metoda, która rysuje „Tylko ja · Miesiąc”** (zlecenie Z51): jedna siatka,
+            // jedna lista wpisów, jedno przycinanie do pięciu pozycji. Ekran różni się wyłącznie
+            // tym, czyje dane podaje i dokąd prowadzą przyciski.
+            'mies' => $this->kalendarz->widokMiesiaca(
+                $employments,
+                $pierwszy,
+                (new DateTimeImmutable('today'))->format('Y-m-d'),
+            ),
         ]);
     }
 
@@ -482,10 +480,6 @@ final class DataController
         return array_values($rows);
     }
 
-    /** Polskie nazwy miesięcy — kalendarz opisuje okres słowami, nie numerem. */
-    private const MONTHS = [1 => 'styczeń', 'luty', 'marzec', 'kwiecień', 'maj', 'czerwiec', 'lipiec',
-        'sierpień', 'wrzesień', 'październik', 'listopad', 'grudzień'];
-
     /**
      * Zakres firm konta: `null` = przypisanie na całego tenanta (widzi wszystko), lista — tylko te firmy,
      * `[]` — konto bez aktywnego zatrudnienia i bez roli tenanta (nie widzi niczego).
@@ -521,45 +515,5 @@ final class DataController
     private static function id(array $params): int
     {
         return (int) ($params['id'] ?? 0);
-    }
-
-    /** Miesiąc z adresu (`RRRR-MM`) albo bieżący — wartość spoza formatu nie jest błędem, tylko „dziś”. */
-    private static function month(string $value): DateTimeImmutable
-    {
-        if (preg_match('/^\d{4}-\d{2}$/', $value) === 1) {
-            $parsed = DateTimeImmutable::createFromFormat('Y-m-d', $value . '-01');
-            if ($parsed !== false) {
-                return $parsed->modify('first day of this month');
-            }
-        }
-
-        return (new DateTimeImmutable('today'))->modify('first day of this month');
-    }
-
-    /**
-     * Siatka miesiąca od poniedziałku: dzień, czy wolny z kalendarza R2, lista nieobecności.
-     *
-     * @param list<array<string, mixed>> $absences
-     * @param array<string, bool> $free
-     * @return list<array{data: ?string, dzien: int, wolny: bool, nieobecnosci: list<array<string, mixed>>}>
-     */
-    private static function calendarDays(DateTimeImmutable $first, DateTimeImmutable $last, array $absences, array $free): array
-    {
-        $cells = [];
-        for ($i = 1; $i < (int) $first->format('N'); $i++) {
-            $cells[] = ['data' => null, 'dzien' => 0, 'wolny' => false, 'nieobecnosci' => []];
-        }
-        for ($day = $first; $day <= $last; $day = $day->modify('+1 day')) {
-            $date = $day->format('Y-m-d');
-            $onDay = array_values(array_filter($absences, static fn (array $a): bool => $a['from'] <= $date && $a['to'] >= $date));
-            $cells[] = [
-                'data' => $date,
-                'dzien' => (int) $day->format('j'),
-                'wolny' => isset($free[$date]) || (int) $day->format('N') >= 6,
-                'nieobecnosci' => $onDay,
-            ];
-        }
-
-        return $cells;
     }
 }

@@ -192,9 +192,29 @@ final class KalendarzPracownika
      */
     public function widokJa(array $zatrudnienie, DateTimeImmutable $pierwszy, string $dzis): array
     {
+        return $this->widokMiesiaca([$zatrudnienie], $pierwszy, $dzis);
+    }
+
+    /**
+     * **Ten sam miesiąc dla DOWOLNEJ liczby zatrudnień jednej osoby** (zlecenie Z51 z 19.10.2026).
+     *
+     * ⚠ Metoda powstała, bo `/dane/pracownik/{id}/kalendarz` ma pokazywać **tę samą siatkę**, co
+     * „Tylko ja · Miesiąc” — a ten ekran ogląda OSOBĘ, nie jedno zatrudnienie: 6 z 88 osób
+     * w danych roboczych ma etat w dwóch firmach naraz. Drugi komponent siatki znaczyłby, że
+     * poprawka wyglądu kratki wchodzi na jednym ekranie, a na drugim nie.
+     *
+     * ⚠ **Dni wolne to SUMA rozkładów, nieobecności to suma wpisów** — a kolejność wpisów
+     * ustala się po scaleniu (`od`, potem `id`), bo „pierwszy wpis wygrywa dzień” straciłoby sens,
+     * gdyby wpisy z drugiej firmy stały po wszystkich z pierwszej.
+     *
+     * @param list<array<string, mixed>> $zatrudnienia niepusta lista zatrudnień JEDNEJ osoby
+     * @return array<string, mixed>
+     */
+    public function widokMiesiaca(array $zatrudnienia, DateTimeImmutable $pierwszy, string $dzis): array
+    {
         // ⚠ `mapaDni()` sama wpisuje `$dozwolone = [ja]` i pełny poziom szczegółowości — to
         // własne dane, a identyfikator nie przychodzi z żądania (tak samo jak w skali Roku).
-        $mapa = $this->mapaDni($zatrudnienie, $pierwszy, $pierwszy->modify('last day of this month'));
+        $mapa = $this->mapaDni($zatrudnienia, $pierwszy, $pierwszy->modify('last day of this month'));
         $siatka = $this->tygodnieMiesiaca($pierwszy, $mapa, $dzis);
         // ⚠ Sklejanie ciągów kadrowych robi `PulpitPracownika::sklej()` — ta sama funkcja,
         // z której korzysta tabela na pulpicie i skala Listy. Druga implementacja tej reguły
@@ -205,6 +225,13 @@ final class KalendarzPracownika
             static fn (array $w): array => $w + ['kiedy' => DataDnia::zakres($w['od'], $w['do'])],
             PulpitPracownika::sklej(array_reverse($mapa['wpisy'])),
         );
+        $rozklady = [];
+        foreach ($zatrudnienia as $zatrudnienie) {
+            if ($zatrudnienie['calendar'] !== null) {
+                $rozklady[(string) $zatrudnienie['calendar_name']] = true;
+            }
+        }
+        $rozklady = array_keys($rozklady);
 
         return [
             'dni_tygodnia' => self::DNI_TYGODNIA,
@@ -222,8 +249,12 @@ final class KalendarzPracownika
             // Konto bez zatrudnienia tu nie dochodzi (kontroler woła tę metodę tylko dla
             // zatrudnienia), więc stan „brak_zatrudnienia” nie jest tu możliwy — tak samo
             // jak w skali Roku.
-            'zrodlo_wolnych' => $zatrudnienie['calendar'] === null ? 'brak_rozkladu' : 'rozklad',
-            'rozklad' => $zatrudnienie['calendar_name'],
+            'zrodlo_wolnych' => $rozklady === [] ? 'brak_rozkladu' : 'rozklad',
+            'rozklad' => $rozklady === [] ? null : $rozklady[0],
+            // ⚠ **Nazwy wszystkich rozkładów, nie tylko pierwszej**: przy dwóch etatach zdanie
+            // „dni wolne z rozkładu «X»” byłoby połową prawdy, a wygaszone kratki są sumą obu.
+            // Przy jednym zatrudnieniu lista ma jedną pozycję i zdanie brzmi jak dotąd.
+            'rozklady' => $rozklady,
         ];
     }
 
@@ -239,19 +270,36 @@ final class KalendarzPracownika
      * ⚠ `$dozwolone = [ja]` wpisane TUTAJ, nie przyniesione z żądania: pełna szczegółowość
      * rodzaju (nazwa ze słownika kadr) dotyczy wyłącznie własnych danych.
      *
-     * @param array<string, mixed> $zatrudnienie
+     * ⚠ **Lista zatrudnień, nie jedno** (od 19.10.2026, zlecenie Z51): karta pracownika pokazuje
+     * kalendarz OSOBY, a osoba potrafi mieć etat w dwóch firmach. Zapytanie o nieobecności idzie
+     * osobno dla każdej firmy, bo granicę spółki pilnuje `company_id` **w zapytaniu** i nie wolno
+     * jej rozluźnić dla wygody jednego ekranu. Przy jednym zatrudnieniu wynik jest identyczny
+     * jak przed zmianą.
+     *
+     * @param list<array<string, mixed>> $zatrudnienia
      * @return array{wolne: array<string, true>, wDniu: array<string, array<string, mixed>>,
      *               wpisy: list<array<string, mixed>>}
      */
-    private function mapaDni(array $zatrudnienie, DateTimeImmutable $od, DateTimeImmutable $do): array
+    private function mapaDni(array $zatrudnienia, DateTimeImmutable $od, DateTimeImmutable $do): array
     {
-        $wolne = $this->wolne($zatrudnienie, $od, $do);
-        $wpisy = $this->dane->nieobecnosciZakres(
-            (int) $zatrudnienie['company_id'],
-            [(int) $zatrudnienie['id']],
-            $od->format('Y-m-d'),
-            $do->format('Y-m-d'),
-        );
+        $wolne = [];
+        $wpisy = [];
+        foreach ($zatrudnienia as $zatrudnienie) {
+            $wolne += $this->wolne($zatrudnienie, $od, $do);
+            foreach ($this->dane->nieobecnosciZakres(
+                (int) $zatrudnienie['company_id'],
+                [(int) $zatrudnienie['id']],
+                $od->format('Y-m-d'),
+                $do->format('Y-m-d'),
+            ) as $wpis) {
+                $wpisy[] = $wpis;
+            }
+        }
+        // ⚠ Kolejność ustalana PO scaleniu: zapytanie sortuje w obrębie jednej firmy, a „pierwszy
+        // wpis wygrywa dzień” i sklejanie ciągów zakładają kolejność rosnącą w całym zbiorze.
+        // Przy jednym zatrudnieniu to przestawienie niczego nie zmienia (sort jest stabilny).
+        usort($wpisy, static fn (array $a, array $b): int
+            => [$a['od'], $a['id']] <=> [$b['od'], $b['id']]);
         $wDniu = [];
         foreach ($wpisy as $wpis) {
             $dzien = new DateTimeImmutable((string) $wpis['od']);
@@ -340,7 +388,7 @@ final class KalendarzPracownika
     {
         $od = new DateTimeImmutable($rok . '-01-01');
         $do = new DateTimeImmutable($rok . '-12-31');
-        $mapa = $this->mapaDni($zatrudnienie, $od, $do);
+        $mapa = $this->mapaDni([$zatrudnienie], $od, $do);
 
         // ⚠ Dni z kadr w rozbiciu na miesiąc POCZĄTKU wpisu — jedno źródło liczby dni dla
         // siatki miesiąca i dla Listy. `days` bywa `null` („kadry nie podały"), a dla źródła
@@ -444,7 +492,7 @@ final class KalendarzPracownika
     {
         $od = new DateTimeImmutable($rok . '-01-01');
         $do = new DateTimeImmutable($rok . '-12-31');
-        $mapa = $this->mapaDni($zatrudnienie, $od, $do);
+        $mapa = $this->mapaDni([$zatrudnienie], $od, $do);
         // Sklejanie ciągów kadrowych tą samą funkcją co pulpit i widok miesiąca — trzecia
         // implementacja znaczyłaby, że ten sam urlop ma na trzech ekranach inną liczbę dni.
         $wiersze = array_map(
