@@ -51,9 +51,15 @@ co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej ju
 >   samego adresu pokazywał „wyczyszczona" przy pustym polu i pustym adresie, czyli opisywał
 >   zmianę, której nie było.
 > - **Podpisy kafli prowadzą do okna**: na `/ustawienia` „ustaw w Powiadomieniach", na
->   `/ustawienia/poczta` „ustaw/zmień w Ustawieniach → Powiadomienia". ⚠ Na `/ustawienia/poczta`
+>   `/ustawienia/poczta` „ustaw/zmień w Ustawieniach › Powiadomienia". ⚠ Na `/ustawienia/poczta`
 >   stało dotąd „adres z instalatora" — i to był jedyny prawdziwy podpis, jaki dało się wtedy
 >   napisać, bo innej drogi nie było.
+>   ⚠ **Szewron „›" (U+203A), nigdy strzałka „→" (U+2192)**: podzbiór IBM Plex Sans, który
+>   hostujemy, tej strzałki nie ma (`10-base.css` wymienia U+2191 i U+2193), więc w jej miejscu
+>   stoi **pusty prostokąt**. Pierwsza wersja tych dwóch podpisów miała strzałkę i tak właśnie
+>   się rysowała — zmierzone na zrzucie, nie wyczytane. ⚠ `document.fonts.check()` odpowiedziało
+>   na to pytanie `true` i **było to nieprawdą**: sprawdza, czy którykolwiek dostępny krój
+>   deklaruje znak, a nie czy rysuje się glif. Dowodem jest zrzut ekranu.
 > - **Dziennik**: `tenant.alert_email_changed` z wartością PRZED i PO (adres alertowy to
 >   konfiguracja tenanta, nie dana osobowa — bez poprzedniej wartości nie da się odtworzyć,
 >   na co alerty szły wcześniej). Przy wyczyszczeniu zdanie mówi wprost „bez adresu, alerty

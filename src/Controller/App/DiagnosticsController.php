@@ -333,9 +333,14 @@ final class DiagnosticsController
      * ⚠ Lista alertów w podpowiedzi jest konkretna, bo z tej jednej skrzynki idzie kilka różnych
      * spraw: cisza connectora, cisza pojedynczej firmy, klucz wydany i nieużyty, rozjazd tożsamości
      * i podejrzane logowania. „Alerty bezpieczeństwa” mówiło o jednej z nich.
-     * ⚠ Odnośnik jest SŁOWNY („Ustawienia, sekcja Poczta”): podpowiedź jedzie do szablonu jako
-     * tekst i Twig ją escapuje, więc znacznik `<a>` z PHP-a byłby złamaniem §5 i §6 CLAUDE.md,
+     * ⚠ Odnośnik jest SŁOWNY („Ustawienia, karta Powiadomienia”): podpowiedź jedzie do szablonu
+     * jako tekst i Twig ją escapuje, więc znacznik `<a>` z PHP-a byłby złamaniem §5 i §6 CLAUDE.md,
      * a nie ułatwieniem.
+     * ⚠ **Wskazuje POWIADOMIENIA, nie Pocztę** (19.10.2026, po Z49). Do tego dnia zdanie kierowało
+     * na ekran, na którym adresu alertowego **w ogóle nie dało się ustawić** — zapisywał go tylko
+     * instalator. Odkąd jest okno w karcie „Powiadomienia", podpowiedź prowadzi tam, gdzie
+     * naprawdę się to robi; serwer SMTP ustawia się dalej w karcie „Poczta" i tamto zdanie
+     * (pozycja „Wysyłka") zostaje bez zmian.
      * ⚠ **Bez strzałki „→”**, której używają sąsiednie podpowiedzi: krojem hostujemy u siebie
      * podzbiór IBM Plex Sans, a jego `unicode-range` obejmuje U+2191 i U+2193, ale **nie U+2192**.
      * Zmierzone na zrzucie z `/diagnostyka`: w miejscu strzałki wychodzi pusty prostokąt. Pozostałe
@@ -353,9 +358,9 @@ final class DiagnosticsController
             match (true) {
                 $poprawny => '',
                 $adres === '' => 'skrzynka alertowa nie jest ustawiona — alerty (' . $alerty
-                    . ') trafią TYLKO do dziennika zdarzeń; ustaw adres na ekranie Ustawienia, sekcja Poczta',
+                    . ') trafią TYLKO do dziennika zdarzeń; ustaw adres na ekranie Ustawienia, karta Powiadomienia',
                 default => 'adres jest niepoprawny, więc wysyłka jest pomijana — alerty (' . $alerty
-                    . ') trafią TYLKO do dziennika zdarzeń; popraw adres na ekranie Ustawienia, sekcja Poczta',
+                    . ') trafią TYLKO do dziennika zdarzeń; popraw adres na ekranie Ustawienia, karta Powiadomienia',
             });
     }
 

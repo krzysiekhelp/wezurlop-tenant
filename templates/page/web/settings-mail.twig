@@ -81,13 +81,19 @@
                     i te same słowa, co w kaflu na `/ustawienia`: jedna rzecz, jedno brzmienie.
                     ⚠ Podpis prowadzi do okna, w którym ten adres się ustawia (Z49). Do 19.10.2026
                     stało tu „adres z instalatora", bo innej drogi nie było — i to był jedyny
-                    prawdziwy podpis, jaki dało się wtedy napisać. -#}
+                    prawdziwy podpis, jaki dało się wtedy napisać.
+                    ⚠ **Szewron „›", nie strzałka „→"**: podzbiór IBM Plex Sans, który hostujemy,
+                    nie ma U+2192 (`10-base.css`: `unicode-range` wymienia U+2191 i U+2193, tej
+                    jednej nie). Zmierzone na zrzucie 19.10.2026 — w miejscu strzałki stoi pusty
+                    prostokąt. ⚠ `document.fonts.check()` odpowiedziało wtedy `true` i **było to
+                    nieprawdą**: sprawdza, czy KTÓRYKOLWIEK dostępny krój deklaruje ten znak,
+                    a nie czy rysuje się glif. Dowodem jest zrzut, nie zapytanie do przeglądarki. -#}
                 {% if alert_email is empty %}
                     <span class="kafel__wartosc kafel__wartosc--odchylenie">brak</span>
-                    <span class="kafel__opis"><a href="{{ url('/ustawienia') }}?okno=alerty">ustaw w Ustawieniach → Powiadomienia</a></span>
+                    <span class="kafel__opis"><a href="{{ url('/ustawienia') }}?okno=alerty">ustaw w Ustawieniach › Powiadomienia</a></span>
                 {% else %}
                     <span class="kafel__wartosc">{{ alert_email }}</span>
-                    <span class="kafel__opis"><a href="{{ url('/ustawienia') }}?okno=alerty">zmień w Ustawieniach → Powiadomienia</a></span>
+                    <span class="kafel__opis"><a href="{{ url('/ustawienia') }}?okno=alerty">zmień w Ustawieniach › Powiadomienia</a></span>
                 {% endif %}
             </span>
         </div>
