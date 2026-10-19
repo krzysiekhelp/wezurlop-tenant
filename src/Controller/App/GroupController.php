@@ -275,7 +275,7 @@ final class GroupController
         $szukaj = trim($request->postString('szukaj', 100));
         $wGrupie = trim($request->postString('szukajg', 100));
         if ($osoby === []) {
-            return $this->odpowiedz($request, $kontekst, $grupa, $szukaj, null, null, $wGrupie);
+            return $this->odpowiedz($request, $kontekst, $grupa, $szukaj, null, $wGrupie);
         }
         $companyId = $kontekst['spolka']['id'];
         if ($dodaje) {
@@ -295,7 +295,7 @@ final class GroupController
         // chorobą co licznik, którego nikt nie aktualizuje.
         $pominieci = $dodaje && isset($wynik['pominieci']) && $wynik['pominieci'] !== [];
         if ($nic_nie_zmieniono && $pominieci) {
-            return $this->odpowiedz($request, $kontekst, $grupa, $szukaj, null, 'pominieci', $wGrupie);
+            return $this->odpowiedz($request, $kontekst, $grupa, $szukaj, 'pominieci', $wGrupie);
         }
         // ⚠ **Nie ma paska „Cofnij" i nic go nie zastępuje w interfejsie** (aneks §3a):
         // potwierdzeniem jest sam ekran — osoba przeskakuje do drugiej kolumny i stoi tam
