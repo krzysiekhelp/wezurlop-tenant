@@ -77,9 +77,12 @@
         <span class="kafel__dana">
             {#- ⚠ Brak adresu jest OSTRZEŻENIEM, nie brakiem danej: alerty o próbach logowania
                 i o milczącym kluczu integracji nie mają wtedy dokąd pójść. -#}
+            {#- ⚠ Podpis prowadzi DO OKNA, w którym ten adres się ustawia (Z49): do 19.10.2026
+                kafel mówił „nie ustawiono adresu" i nie było żadnej drogi, którą dałoby się go
+                ustawić — zapisywał go wyłącznie instalator. -#}
             {% if alert_email is null %}
                 <span class="kafel__wartosc kafel__wartosc--odchylenie">brak</span>
-                <span class="kafel__opis">nie ustawiono adresu</span>
+                <span class="kafel__opis"><a href="{{ url('/ustawienia') }}?okno=alerty" data-modal-open="okno-alerty">ustaw w Powiadomieniach</a></span>
             {% else %}
                 <span class="kafel__wartosc">{{ alert_email }}</span>
                 <span class="kafel__opis">adres alertowy</span>
@@ -339,6 +342,7 @@
 {#- ⚠ Okno nazw stoi POZA kartami i na końcu: `<dialog>` wchodzi do warstwy wierzchniej, więc
     jego miejsce w dokumencie nie wpływa na wygląd, a tutaj nie zaśmieca czytania kart. -#}
 {% include 'partials/okno-nazwy-firm.twig' %}
+{% include 'partials/okno-alertow.twig' %}
 
 {#- ══════════ Trzy karty stanu (§7 zlecenia) ══════════
     ⚠ Obok siebie, bo to trzy krótkie odpowiedzi, a nie trzy tematy: jedna pod drugą zajmowały
@@ -369,6 +373,28 @@
                         {% else %}<span class="ustaw-para__wartosc">{{ w.wartosc }}</span>{% endif %}
                     </div>
                 {% endfor %}
+                {#- ⚠ Wiersz z DZIAŁANIEM (Z49) — ta sama konstrukcja, co wiersze „Nazwy wyświetlane
+                    firm" i „Poczta wychodząca" wyżej: cały wiersz jest odnośnikiem, a przycisk jego
+                    częścią. Bez JavaScriptu odnośnik prowadzi na `/ustawienia?okno=alerty`, czyli
+                    tutaj z oknem otwartym po stronie serwera; ze skryptem `ui.js` przechwytuje
+                    kliknięcie i otwiera to samo okno na miejscu. -#}
+                {% if grupa.akcja is not null %}
+                    <ul class="settings-list settings-list--akcje">
+                        <li><a class="settings-list__row" href="{{ grupa.akcja.adres }}" data-modal-open="{{ grupa.akcja.okno }}">
+                            <span class="settings-list__copy">
+                                {#- Stan stoi w PIERWSZEJ linii wiersza, bo to on jest tu daną:
+                                    adres albo plakietka „nie ustawiono". -#}
+                                {% if grupa.akcja.znak == 'uwaga' %}
+                                    <strong><span class="chip chip--warn">{{ grupa.akcja.wartosc }}</span></strong>
+                                {% else %}
+                                    <strong>{{ grupa.akcja.wartosc }}</strong>
+                                {% endif %}
+                                <small>{{ grupa.akcja.opis }}</small>
+                            </span>
+                            <span class="btn btn--ghost btn--akcja settings-list__akcja">{{ ikony.koperta() }}{{ grupa.akcja.napis }}<span class="settings-list__dalej" aria-hidden="true">›</span></span>
+                        </a></li>
+                    </ul>
+                {% endif %}
             </div>
         </section>
     {% endfor %}

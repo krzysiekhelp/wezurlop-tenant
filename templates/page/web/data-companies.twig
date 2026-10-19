@@ -35,7 +35,11 @@
             </span>
         </div>
         <div class="kafel">
-            <span class="kafel__glowa">{{ ikony.zespol() }}<span class="kafel__etykieta">Pracownicy</span></span>
+            {#- ⚠ „Zatrudnienia", nie „Pracownicy" (decyzja po odbiorze Z44): ta liczba sumuje
+                CZYNNE ZATRUDNIENIA, więc osoba zatrudniona w dwóch firmach jest w niej dwa razy.
+                Etykieta „Pracownicy" obiecywała liczbę ludzi, a podpis „we wszystkich firmach"
+                tej obietnicy nie odwoływał. -#}
+            <span class="kafel__glowa">{{ ikony.zespol() }}<span class="kafel__etykieta">Zatrudnienia</span></span>
             <span class="kafel__dana">
                 <span class="kafel__wartosc">{{ podsumowanie.pracownikow }}</span>
                 <span class="kafel__opis">we wszystkich firmach</span>

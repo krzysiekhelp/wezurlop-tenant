@@ -79,14 +79,15 @@
                 {#- ⚠ Brak adresu jest OSTRZEŻENIEM, nie brakiem danej — alerty o próbach logowania
                     i o milczącym connectorze nie mają wtedy dokąd pójść. Ta sama para stanów
                     i te same słowa, co w kaflu na `/ustawienia`: jedna rzecz, jedno brzmienie.
-                    ⚠ Podpis mówi, kto ten adres zapisał, a NIE „ustaw go w Ustawieniach":
-                    ekranu do zmiany tego adresu w aplikacji nie ma — zapisuje go instalator. -#}
+                    ⚠ Podpis prowadzi do okna, w którym ten adres się ustawia (Z49). Do 19.10.2026
+                    stało tu „adres z instalatora", bo innej drogi nie było — i to był jedyny
+                    prawdziwy podpis, jaki dało się wtedy napisać. -#}
                 {% if alert_email is empty %}
                     <span class="kafel__wartosc kafel__wartosc--odchylenie">brak</span>
-                    <span class="kafel__opis">alerty nie mają dokąd pójść</span>
+                    <span class="kafel__opis"><a href="{{ url('/ustawienia') }}?okno=alerty">ustaw w Ustawieniach → Powiadomienia</a></span>
                 {% else %}
                     <span class="kafel__wartosc">{{ alert_email }}</span>
-                    <span class="kafel__opis">adres z instalatora</span>
+                    <span class="kafel__opis"><a href="{{ url('/ustawienia') }}?okno=alerty">zmień w Ustawieniach → Powiadomienia</a></span>
                 {% endif %}
             </span>
         </div>

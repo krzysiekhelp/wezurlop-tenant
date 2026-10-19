@@ -154,6 +154,21 @@ use Wezurlop\Support\ZdanieZdarzenia;
     $check('brak powodu usuwa część opcjonalną, nie zostawia myślnika',
         !str_contains($tekst($bezPowodu), '—'), $tekst($bezPowodu));
 
+    // ——— skrzynka na alerty (Z49) ———
+    // ⚠ Jeden kod, dwa skutki: ustawienie adresu i WYŁĄCZENIE alertów. Zdanie musi powiedzieć,
+    // co się stało — „zmienił skrzynkę na alerty" bez dopowiedzenia przy pustym adresie
+    // zostawiałoby czytelnika z wrażeniem, że alerty dalej gdzieś idą.
+    $alertUstawiony = $zbuduj('tenant.alert_email_changed', ['z' => '', 'na' => 'alerty@przyklad.pl']);
+    $check('ustawienie skrzynki alertowej czyta się po polsku',
+        $tekst($alertUstawiony) === 'zmienił(a) skrzynkę na alerty na „alerty@przyklad.pl”', $tekst($alertUstawiony));
+    $alertPusty = $zbuduj('tenant.alert_email_changed',
+        ['z' => 'alerty@przyklad.pl', 'na' => '', 'pusty' => 'bez adresu, alerty nie będą wysyłane']);
+    $check('wyłączenie alertów mówi, co to znaczy',
+        $tekst($alertPusty) === 'zmienił(a) skrzynkę na alerty — bez adresu, alerty nie będą wysyłane',
+        $tekst($alertPusty));
+    $check('dopowiedzenie o pustym adresie NIE jest pogrubione',
+        $mocne($alertPusty) === [], implode('|', $mocne($alertPusty)));
+
     // ——— usunięcie zadania z kolejki (Z43 §B) ———
     $jedno = $zbuduj('maintenance.job_deleted', ['zadanie' => 'Zaproszenie do systemu', 'typ' => 'mail.invitation']);
     $check('usunięcie jednego zadania bez „sztuk: 1”',

@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.25, 19.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.26, 19.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,67 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.25 → 1.18.26: adres skrzynki na alerty da się ustawić w aplikacji**
+> (zlecenie Z49, 19.10.2026).
+> ⚠ **Do 19.10.2026 tego adresu nie dało się zmienić z żadnego ekranu** — zapisywał go wyłącznie
+> instalator, a na instalacji odniesienia był PUSTY. Zależą od niego trzy alerty, których nikt
+> inny nie zauważy: cisza connectora, klucz wydany i nieużyty, podejrzenie ataku na wiele kont.
+> Ekran pokazywał „nie ustawiono" i nie prowadził nigdzie — czyli nazywał stan, którego nie dawał
+> naprawić. Ta zmiana wyszła z PROBLEMU zgłoszonego przy odbiorze Z43, nie z prototypu.
+> - **Wiersz w karcie „Powiadomienia"**: `.settings-list--akcje` — ta sama konstrukcja, co wiersze
+>   „Nazwy wyświetlane firm" i „Poczta wychodząca" (1.18.7), czyli cały wiersz jest odnośnikiem,
+>   a przycisk jego częścią. Stan w pierwszej linii (adres albo plakietka „nie ustawiono"
+>   bursztynowa), zdanie pod nim, przycisk **„Ustaw" przy pustym i „Zmień" przy ustawionym** —
+>   napis mówi, co się stanie. To jedyna z trzech małych kart z działaniem; dwie pozostałe niosą
+>   stany, których na tym ekranie się nie zmienia, i zostają parami `.ustaw-para`.
+> - **Okno `.modal--alerty`** (520 px, na telefonie margines `--s-4`): pole adresu na całą
+>   szerokość z `autofocus`, szara notka „Tu trafiają alerty systemowe: cisza connectora, nieużyty
+>   klucz integracji, podejrzenie ataku na konta." i stopka o **dwóch stronach** — po lewej
+>   „Wyślij próbę" (sprawdzenie), po prawej „Anuluj" i „Zapisz" (decyzje). Próba wśród decyzji
+>   czytałaby się jak trzecia decyzja, a nie zmienia ani jednej wartości w bazie.
+> - ⚠ **Okno osadzone w stronie, nie dociągane htmx-em** — ta sama decyzja i ten sam powód, co
+>   w oknie nazw firm (Z29): działa **bez JavaScriptu**, bo przycisk jest zwykłym odnośnikiem
+>   na `/ustawienia?okno=alerty`, a serwer renderuje wtedy `<dialog open>`. Wartość `okno`
+>   pochodzi z białej listy dwóch nazw, nie z tekstu żądania.
+> - ⚠ **Jeden formularz, dwa przyciski, jedna trasa.** Próba dotyczy adresu WPISANEGO w pole,
+>   a nie zapisanego, więc musi przyjść tym samym żądaniem co jego treść; rozstrzyga nazwa
+>   wciśniętego przycisku. Druga trasa znaczyłaby drugi odczyt tego samego pola i drugie miejsce
+>   na walidację.
+> - ⚠ **Wynik próby rozchodzi się dwiema drogami, bo czyta go człowiek w dwóch różnych stanach**:
+>   sukces idzie do toastu (nic nie trzeba z nim zrobić), a **błąd zostaje przy polu** z czerwoną
+>   ramką i `aria-invalid` (1.18.23), bo komunikat serwera SMTP trzeba przepisać do zgłoszenia,
+>   a toast znika po pięciu sekundach. Przy sukcesie okno **zostaje otwarte z wpisanym adresem**:
+>   przekierowanie zgubiłoby to, co człowiek właśnie sprawdził, a adresu nie wolno odesłać
+>   w adresie strony, bo trafiłby do logów serwera (§14).
+> - ⚠ **Pusty zapis wymaga potwierdzenia**, bo wyłącza alerty dla całej instalacji: pierwsze
+>   żądanie wraca z oknem, zdaniem „Bez adresu alerty nie będą wysyłane." i polem wyboru. Rysuje
+>   je SERWER i tylko wtedy, gdy adres naprawdę był ustawiony — pole pojawiające się po wpisaniu
+>   wymagałoby skryptu, a to okno ma działać bez niego.
+> - **Cztery komunikaty na jedno działanie**, bo cztery różne rzeczy mogą się stać: zapisano,
+>   wyczyszczono, bez zmian, wysłano próbę. ⚠ Czwarty („bez zmian") dochodzi z pomiaru: zapis tego
+>   samego adresu pokazywał „wyczyszczona" przy pustym polu i pustym adresie, czyli opisywał
+>   zmianę, której nie było.
+> - **Podpisy kafli prowadzą do okna**: na `/ustawienia` „ustaw w Powiadomieniach", na
+>   `/ustawienia/poczta` „ustaw/zmień w Ustawieniach → Powiadomienia". ⚠ Na `/ustawienia/poczta`
+>   stało dotąd „adres z instalatora" — i to był jedyny prawdziwy podpis, jaki dało się wtedy
+>   napisać, bo innej drogi nie było.
+> - **Dziennik**: `tenant.alert_email_changed` z wartością PRZED i PO (adres alertowy to
+>   konfiguracja tenanta, nie dana osobowa — bez poprzedniej wartości nie da się odtworzyć,
+>   na co alerty szły wcześniej). Przy wyczyszczeniu zdanie mówi wprost „bez adresu, alerty
+>   nie będą wysyłane". Wysłana próba zostawia `mail.sent` / `mail.failed` z Z43, tym samym
+>   dekoratorem transportu.
+> - **Zmierzone na żywo**: okno 520 px i pole 470 × 38 px przy 1920, okno 341 px i pole 291 px
+>   przy 375 (0 przewijania w poziomie); serwer odmawia sam przy pominiętym sprawdzeniu
+>   przeglądarki (`noValidate`) — błędny format, spacja w środku, 300 znaków; normalizacja
+>   `  ALERTY@Skrzynka.TEST  ` → `alerty@skrzynka.test`; wyłączenie dopiero po potwierdzeniu.
+> - **Alerty naprawdę wychodzą** (baza testowa, wymuszone progi, transport = zrzut do pliku):
+>   cisza connectora, klucz nieużyty i cisza firmy dały trzy zadania w kolejce i trzy wpisy
+>   `mail.sent` z rodzajem, odbiorcą i numerem zadania. Stan bazy testowej przywrócony.
+>
+> ⚠ Przy okazji, po odbiorze Z44: kafel na `/dane` nazywa się **„Zatrudnienia"**, nie
+> „Pracownicy" — ta liczba sumuje czynne zatrudnienia, więc osoba zatrudniona w dwóch firmach
+> jest w niej dwa razy. Etykieta „Pracownicy" obiecywała liczbę ludzi.
 
 > **Zmiana 1.18.24 → 1.18.25: `/dane` zamienia tabelę firm na listę wierszy, a stan instalacji
 > na pasek kafli** (zlecenie Z44, 19.10.2026).
@@ -1314,6 +1375,9 @@ wymyśli drugi raz** — dokładnie tak powstały dwa paski komunikatu (§4b) i 
 `.toasty` `.toasty--nad-nawigacja` `.toast` (`--blad` `--sukces` `--uwaga`) `.toast__znak`
 `.toast__tresc` `.toast__zamknij` `.toast--wchodzi` `.toast--wychodzi` `.komunikat--w-toascie`
 ⚠ `.flash` **skasowane** razem z paskiem `#flash`; znacznik komunikatu składa `partials/komunikat.twig`.
+
+*Okno skrzynki alertowej (1.18.26, zlecenie Z49)*
+`.modal--alerty` (520 px, stopka o dwóch stronach: sprawdzenie po lewej, decyzje po prawej)
 
 *Lista firm na `/dane` (1.18.25, zlecenie Z44)*
 `.dane-firmy` `.dane-firma` `.dane-firma__znak` `.dane-firma__glowna` `.dane-firma__nazwa`

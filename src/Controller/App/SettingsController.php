@@ -15,6 +15,7 @@ use Wezurlop\Repository\EventLogRepository;
 use Wezurlop\Repository\JobRepository;
 use Throwable;
 use Wezurlop\Repository\TenantSettingRepository;
+use Wezurlop\Service\AuthService;
 use Wezurlop\Service\CronStan;
 use Wezurlop\Service\JobRunner;
 use Wezurlop\Service\Mail\MailMessage;
@@ -44,6 +45,9 @@ final class SettingsController
         'Australia/Sydney', 'Pacific/Auckland', 'UTC',
     ];
 
+    /** Limit długości adresu alertowego — ta sama liczba, co w kolumnie `account.email`. */
+    private const ALERT_MAX = 254;
+
     private const NOTICES = [
         // ⚠ Zdanie wiodące, kropka, krótkie dopowiedzenie (Z47) — komunikat stoi w toaście,
         // który pogrubia pierwsze zdanie i znika po pięciu sekundach. Gdzie widać nazwy
@@ -59,6 +63,14 @@ final class SettingsController
         // ⚠ Jeden komunikat na cały zestaw (Z29): okno zapisuje wszystkie firmy jednym
         // przyciskiem, więc „nazwa zapisana" w liczbie pojedynczej kłamałoby przy dwóch zmianach.
         'nazwy'  => 'Nazwy wyświetlane zapisane.',
+        // Z49: adres alertowy. Trzy wyniki, bo trzy różne rzeczy się stały.
+        'alerty' => 'Skrzynka na alerty zapisana. Alerty systemowe pójdą na ten adres.',
+        'alerty_wylaczone' => 'Skrzynka na alerty wyczyszczona. Alerty systemowe nie będą wysyłane.',
+        // ⚠ Czwarty komunikat, bo trzy kłamałyby w jednym przypadku: zapis TEGO SAMEGO adresu
+        // (albo pustego na pustym) nic nie zmienia, a „zapisana" i „wyczyszczona" opisują zmianę,
+        // której nie było — zmierzone na zapisie samej spacji przy pustym adresie.
+        'alerty_bez_zmian' => 'Skrzynka na alerty bez zmian. Adres jest ten sam.',
+        'alerty_proba' => 'Wiadomość próbna wysłana. Jeśli nie dotarła, sprawdź folder spamu.',
     ];
 
     public function __construct(
@@ -77,10 +89,17 @@ final class SettingsController
     /** @param array<string, string> $params */
     public function index(Request $request, array $params): Response
     {
+        // ⚠ Biała lista wartości `okno` (CLAUDE.md §11): parametr wybiera JEDNO z dwóch okien
+        // osadzonych w tym ekranie, a nie nazwę czegokolwiek. Wartość spoza listy nie otwiera nic.
+        $okno = $request->queryString('okno', 16);
+
         return $this->render(
             (string) $request->query('ok'),
             null,
-            $request->queryString('okno', 16) === 'nazwy',
+            $okno === 'nazwy',
+            [],
+            [],
+            $okno === 'alerty',
         );
     }
 
@@ -220,6 +239,125 @@ final class SettingsController
     }
 
     /**
+     * Skrzynka na alerty systemowe (zlecenie Z49, 19.10.2026).
+     *
+     * ⚠ **Do dziś tego adresu nie dało się ustawić w aplikacji** — zapisywał go wyłącznie
+     * instalator, a na instalacji odniesienia był pusty. Od niego zależą trzy alerty, których
+     * nikt inny nie zauważy: cisza connectora, klucz wydany i nieużyty oraz podejrzenie ataku
+     * na wiele kont. Pusty adres znaczył „alerty nie mają dokąd pójść" i nic o tym nie mówiło.
+     *
+     * ⚠ **Jeden formularz, dwa przyciski** — zapis i wysyłka próbna. Rozstrzyga nazwa wciśniętego
+     * przycisku, nie osobna trasa: próba dotyczy adresu **wpisanego w to pole**, a nie
+     * zapisanego, więc musi przyjść tym samym żądaniem co jego treść. Druga trasa znaczyłaby
+     * drugi odczyt tego samego pola i drugie miejsce na walidację.
+     *
+     * ⚠ **Pusty zapis wymaga potwierdzenia.** Wyczyszczenie adresu jest wyłączeniem alertów
+     * dla całej instalacji, a nie literówką do zignorowania — pierwsze żądanie wraca z oknem,
+     * zdaniem „Bez adresu alerty nie będą wysyłane." i polem potwierdzenia. Bez JavaScriptu
+     * działa tak samo, bo pole potwierdzenia rysuje serwer.
+     *
+     * @param array<string, string> $params
+     */
+    public function saveAlertEmail(Request $request, array $params): Response
+    {
+        // ⚠ Długość sprawdzamy na SUROWEJ wartości: `postString()` zwraca pusty tekst dla pola
+        // dłuższego niż limit, a pusty tekst znaczy tu „wyłącz alerty" — wklejenie 300 znaków
+        // wyłączyłoby alerty zamiast pokazać błąd (ta sama pułapka, co przy nazwach firm w Z29).
+        $surowy = $request->post('adres');
+        if ($surowy !== null && !is_string($surowy)) {
+            return $this->oknoAlertow('', 'Nieprawidłowa wartość pola.');
+        }
+        $wpisany = (string) ($surowy ?? '');
+        if (mb_strlen($wpisany) > self::ALERT_MAX) {
+            return $this->oknoAlertow($wpisany, 'Adres może mieć najwyżej ' . self::ALERT_MAX . ' znaków.');
+        }
+        if (!mb_check_encoding($wpisany, 'UTF-8')) {
+            return $this->oknoAlertow('', 'Nieprawidłowe znaki w adresie.');
+        }
+        // ⚠ Normalizacja JEDNĄ funkcją, tą samą, którą normalizuje logowanie, reset hasła
+        // i zaproszenie (`AuthService::normalizeEmail`). Druga kopia `mb_strtolower(trim(...))`
+        // rozjechałaby się przy pierwszej zmianie reguły, i to po cichu.
+        $adres = AuthService::normalizeEmail($wpisany);
+        $proba = $request->post('proba') !== null;
+
+        if ($adres !== '' && filter_var($adres, FILTER_VALIDATE_EMAIL) === false) {
+            return $this->oknoAlertow($wpisany, 'To nie jest prawidłowy adres e-mail.');
+        }
+
+        if ($proba) {
+            if ($adres === '') {
+                return $this->oknoAlertow($wpisany, 'Wpisz adres, na który ma pójść wiadomość próbna.');
+            }
+
+            return $this->probaAlertu($request, $adres, $wpisany);
+        }
+
+        $poprzedni = trim((string) $this->settings->get('alert_email', ''));
+        // ⚠ Wyłączenie alertów tylko za potwierdzeniem — i tylko wtedy, gdy adres FAKTYCZNIE był.
+        // Pusty zapis na pustym adresie nic nie zmienia, więc nie ma czego potwierdzać.
+        if ($adres === '' && $poprzedni !== '' && $request->post('potwierdzam') === null) {
+            return $this->oknoAlertow($wpisany, null, true);
+        }
+        // ⚠ Zapis tej samej wartości ma własny komunikat, a nie „zapisano": nic się nie zmieniło,
+        // więc wpisu w dzienniku też nie ma czego dokładać.
+        if ($adres === $poprzedni) {
+            return Response::redirectFor($request, $this->urls->to('/ustawienia') . '?ok=alerty_bez_zmian');
+        }
+        $this->settings->set('alert_email', $adres, $this->accountId($request));
+        // ⚠ Wartość PRZED i PO, nie „zmieniono": adres alertowy to konfiguracja tenanta,
+        // nie dana osobowa — a bez poprzedniej wartości nie da się odtworzyć, na co alerty
+        // szły wcześniej (ta sama decyzja, co przy nazwach wyświetlanych firm).
+        $this->events->record('tenant.alert_email_changed', $this->accountId($request), null,
+            $this->actorLabel($request), 'tenant', null, null,
+            ['z' => $poprzedni, 'na' => $adres]
+            // ⚠ Zdanie dziennika musi powiedzieć, co się STAŁO, a nie czego brakuje: pusty
+            // adres to wyłączenie alertów dla całej instalacji, więc wpis mówi to wprost.
+            + ($adres === '' ? ['pusty' => 'bez adresu, alerty nie będą wysyłane'] : []));
+
+        return Response::redirectFor($request, $this->urls->to('/ustawienia')
+            . '?ok=' . ($adres === '' ? 'alerty_wylaczone' : 'alerty'));
+    }
+
+    /**
+     * Wysyłka próbna na WPISANY adres — od razu, nie kolejką (świadomy wyjątek jak przy poczcie).
+     *
+     * ⚠ Wynik rozchodzi się dwiema drogami, bo czyta go dwóch różnych ludzi w dwóch różnych
+     * stanach: sukces idzie do toastu (nic nie trzeba z nim zrobić), a **błąd zostaje przy polu**,
+     * bo komunikat serwera SMTP trzeba przepisać do zgłoszenia — toast znika po pięciu sekundach.
+     */
+    private function probaAlertu(Request $request, string $adres, string $wpisany): Response
+    {
+        if (!$this->poczta->skonfigurowana() && $this->transporty->rodzaj() !== 'plik') {
+            return $this->oknoAlertow($wpisany, TransportFactory::POWOD_BRAK_KONFIGURACJI);
+        }
+        try {
+            // Ten sam dekorator dziennika, co w kolejce i przy wiadomości próbnej poczty (Z43):
+            // próba zostawia wpis `mail.sent` albo `mail.failed` z odbiorcą.
+            $this->dziennikPoczty($request, 'wiadomość próbną', 'wiadomości próbnej')->send(new MailMessage(
+                $adres,
+                'wezurlop: wiadomość próbna na skrzynkę alertową',
+                "To wiadomość próbna z ekranu ustawień.\n"
+                . "Jeśli ją widzisz, alerty systemowe z tej instalacji dotrą na ten adres.\n",
+            ));
+        } catch (Throwable $e) {
+            return $this->oknoAlertow($wpisany, $e->getMessage());
+        }
+
+        // ⚠ **Bez przekierowania, choć to POST** — i to jest ten sam wyjątek, co przy wiadomości
+        // próbnej poczty: próba NIE ZMIENIA stanu, więc reguła „po udanym POST przekieruj"
+        // (CLAUDE.md §3) nie ma tu czego chronić. Przekierowanie zamknęłoby okno i zgubiło
+        // WPISANY adres — człowiek sprawdza go właśnie po to, żeby zaraz kliknąć „Zapisz",
+        // a adresu nie da się odesłać w adresie strony, bo trafiłby do logów serwera (§14).
+        return $this->render('alerty_proba', null, false, [], [], true, $wpisany);
+    }
+
+    /** Ekran ustawień z otwartym oknem alertów: wpisana wartość, błąd przy polu, pole potwierdzenia. */
+    private function oknoAlertow(string $wpisany, ?string $blad, bool $potwierdzenie = false): Response
+    {
+        return $this->render('', null, false, [], [], true, $wpisany, $blad, $potwierdzenie);
+    }
+
+    /**
      * @param array<int, string> $wpisaneNazwy id firmy → wartość z formularza (po odmowie zapisu)
      * @param array<int, string> $bledyNazw    id firmy → komunikat przy polu
      */
@@ -229,6 +367,10 @@ final class SettingsController
         bool $oknoNazwy = false,
         array $wpisaneNazwy = [],
         array $bledyNazw = [],
+        bool $oknoAlertow = false,
+        string $wpisanyAlert = '',
+        ?string $bladAlertu = null,
+        bool $potwierdzenieAlertow = false,
     ): Response {
         $strefa = $this->settings->get('timezone', Strefa::DOMYSLNA);
         $alertEmail = trim((string) $this->settings->get('alert_email', ''));
@@ -255,6 +397,14 @@ final class SettingsController
             'okno_nazwy' => $oknoNazwy,
             'wpisane_nazwy' => $wpisaneNazwy,
             'bledy_nazw' => $bledyNazw,
+            // Okno skrzynki alertowej (Z49) — osadzone w stronie tą samą drogą, co okno nazw:
+            // serwer renderuje `<dialog open>`, więc działa bez JavaScriptu.
+            'okno_alertow' => $oknoAlertow,
+            // ⚠ Po odmowie wraca WPISANA wartość, nie ta z bazy: człowiek ma poprawić literówkę,
+            // a nie wpisywać adres od nowa.
+            'wpisany_alert' => $wpisanyAlert,
+            'blad_alertu' => $bladAlertu,
+            'potwierdzenie_alertow' => $potwierdzenieAlertow,
             // ⚠ Adres alertów osobno, a nie tylko w grupie niżej: kafel na górze ekranu musi
             // ODRÓŻNIĆ „ustawiony" od „nieustawionego", a napis zastępczy („— nie ustawiono")
             // tego nie niesie — kafel pokazałby go jako zwykłą wartość (zlecenie Z27 §2).
@@ -264,16 +414,27 @@ final class SettingsController
             // a o tym, co wiersz znaczy, wie kontroler — nie szablon (CLAUDE.md §5).
             // Znaki: `ok` zielona, `szary` szara, `uwaga` bursztynowa, `dana` sama wartość.
             'grupy' => [
-                ['tytul' => 'Weryfikacja dwuetapowa', 'ikona' => 'tarcza', 'wiersze' => [
+                ['tytul' => 'Weryfikacja dwuetapowa', 'ikona' => 'tarcza', 'akcja' => null, 'wiersze' => [
                     ['etykieta' => 'Administrator tenanta', 'wartosc' => 'wymagana', 'znak' => 'ok'],
                     ['etykieta' => 'Przełożeni i kadry', 'wartosc' => 'do ustalenia (Etap 3)', 'znak' => 'szary'],
                 ]],
-                ['tytul' => 'Powiadomienia', 'ikona' => 'dzwonek', 'wiersze' => [
-                    ['etykieta' => 'Skrzynka na alerty',
-                     'wartosc' => $alertEmail === '' ? 'nie ustawiono' : $alertEmail,
-                     'znak' => $alertEmail === '' ? 'uwaga' : 'dana'],
+                // ⚠ Jedyna karta trio z DZIAŁANIEM (Z49): adres alertowy da się ustawić z ekranu,
+                // więc wiersz jest wierszem konfiguracji — stan po lewej, przycisk po prawej —
+                // a nie parą „etykieta: wartość". Pozostałe dwie karty niosą stany, których
+                // nie zmienia się na tym ekranie, i zostają parami.
+                ['tytul' => 'Powiadomienia', 'ikona' => 'dzwonek', 'wiersze' => [], 'akcja' => [
+                    'etykieta' => 'Skrzynka na alerty',
+                    'opis' => $alertEmail === ''
+                        ? 'Alerty systemowe nie mają dokąd pójść'
+                        : 'Tu trafiają alerty systemowe',
+                    'wartosc' => $alertEmail === '' ? 'nie ustawiono' : $alertEmail,
+                    'znak' => $alertEmail === '' ? 'uwaga' : 'dana',
+                    // „Ustaw" przy pustym, „Zmień" przy ustawionym: napis mówi, co się stanie.
+                    'napis' => $alertEmail === '' ? 'Ustaw' : 'Zmień',
+                    'okno' => 'okno-alerty',
+                    'adres' => $this->urls->to('/ustawienia') . '?okno=alerty',
                 ]],
-                ['tytul' => 'Integracja', 'ikona' => 'integracja', 'wiersze' => [
+                ['tytul' => 'Integracja', 'ikona' => 'integracja', 'akcja' => null, 'wiersze' => [
                     ['etykieta' => 'Próg ciszy connectora (klucz w użyciu milczy)',
                      'wartosc' => $this->settings->get('key_idle_alert_hours', '24') . ' h', 'znak' => 'dana'],
                     ['etykieta' => 'Próg klucza wydanego i nieużytego',

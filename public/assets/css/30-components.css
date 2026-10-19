@@ -5368,3 +5368,28 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   .dane-firma__liczba--czas { grid-column: 2 / 3; width: auto; }
   .dane-firma__akcja { grid-column: 1 / -1; width: 100%; justify-content: center; }
 }
+
+/* ——— okno „Skrzynka na alerty" (zlecenie Z49, 19.10.2026) ——————————————————————
+   ⚠ Węższe od okna nazw firm, bo niesie JEDNO pole, a nie listę firm — ta sama zasada,
+   co przy oknie grupy. Reguła telefonu jak w oknie nazw: margines `--s-4`, bo bazowe `--s-6`
+   zostawia przy 375 px 311 px na okno z polem adresu. */
+.modal--alerty { width: min(520px, calc(100vw - 2 * var(--s-4))); }
+/* ⚠ Stopka ma DWIE strony, bo niesie dwie różne rzeczy: po lewej sprawdzenie („Wyślij próbę"),
+   po prawej decyzje („Anuluj", „Zapisz"). Próba wśród decyzji czytałaby się jak trzecia
+   decyzja, a jest czynnością odwracalną — nie zmienia ani jednej wartości w bazie.
+   Modyfikator jest ZAKRESOWANY do tego okna, nie wprowadzany globalnie: `.modal__foot` obsługuje
+   dziewięć innych okien i przestawienie go wszystkim naraz jest decyzją zakresową. */
+.modal--alerty .modal__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+}
+/* Na wąskim oknie próba schodzi pod decyzje i bierze całą szerokość — przycisk wciśnięty
+   w rogu obok „Anuluj" i „Zapisz" wyglądałby jak ich część. */
+@media (max-width: 560px) {
+  .modal--alerty .modal__foot > * { width: 100%; }
+  .modal--alerty .modal__foot .btn-row { justify-content: stretch; }
+  .modal--alerty .modal__foot .btn-row .btn { flex: 1 1 0; justify-content: center; }
+}

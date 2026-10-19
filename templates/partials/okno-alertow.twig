@@ -1,0 +1,68 @@
+{#- Okno „Skrzynka na alerty" (zlecenie Z49, 19.10.2026). Zmienne: alert_email, okno_alertow,
+    wpisany_alert, blad_alertu, potwierdzenie_alertow.
+
+    ⚠ **Okno jest OSADZONE w stronie, nie dociągane htmx-em** — ta sama decyzja i ten sam powód,
+    co w oknie nazw firm (Z29): osadzone działa **bez JavaScriptu**, bo przycisk „Ustaw" jest
+    zwykłym odnośnikiem na `/ustawienia?okno=alerty`, a serwer renderuje wtedy `<dialog open>`.
+
+    ⚠ **Jeden formularz, dwa przyciski.** „Wyślij próbę" dotyczy adresu WPISANEGO w to pole,
+    a nie zapisanego w bazie — musi więc przyjść tym samym żądaniem co jego treść. Serwer
+    rozstrzyga po nazwie wciśniętego przycisku (`proba`), a nie po osobnej trasie.
+
+    ⚠ `data-modal-trwale`: treść okna przychodzi z serwera przy renderowaniu strony, więc
+    wspólna obsługa okien nie może jej czyścić przy zamknięciu (wyczyszczona nie wróciłaby). -#}
+{% import 'partials/ikony.twig' as ikony %}
+<dialog id="okno-alerty" class="modal modal--alerty" aria-labelledby="okno-alerty-tytul"
+        data-modal-trwale{{ okno_alertow ? ' open' : '' }}>
+    <div class="modal__head modal__head--znak">
+        <span class="card__znak">{{ ikony.dzwonek() }}</span>
+        <div class="card__tytuly">
+            <h3 id="okno-alerty-tytul">Skrzynka na alerty</h3>
+            <p class="card__opis">Jeden adres dla całej instalacji. Alerty nie idą do użytkowników — tylko tutaj.</p>
+        </div>
+        <a class="modal__close" href="{{ url('/ustawienia') }}" data-modal-close="okno-alerty" aria-label="Zamknij okno">{{ ikony.krzyzyk() }}</a>
+    </div>
+
+    <form method="post" action="{{ url('/ustawienia/alerty') }}" class="modal__wrap">
+        {% include 'partials/csrf.twig' %}
+        <div class="modal__body">
+            <div class="field{{ blad_alertu is not null ? ' field--error' : '' }}">
+                <label class="field__label" for="alert-adres">Adres skrzynki na alerty</label>
+                {#- ⚠ `autofocus` zamiast ustawiania fokusu skryptem: `showModal()` go szanuje,
+                    a bez niego fokus trafia na pierwszy element okna, czyli „zamknij" — okno
+                    otwierałoby się z zaznaczonym „wyjdź stąd" (ta sama poprawka, co w Z29).
+                    ⚠ Po odmowie wraca WPISANA wartość, nie ta z bazy. -#}
+                <input class="input" type="email" id="alert-adres" name="adres" maxlength="254"
+                       value="{{ wpisany_alert != '' or blad_alertu is not null or potwierdzenie_alertow ? wpisany_alert : alert_email }}"
+                       placeholder="np. alerty@firma.pl" autocomplete="off" spellcheck="false" autofocus
+                       {%- if blad_alertu is not null %} aria-describedby="alert-blad" aria-invalid="true"{% endif %}>
+                {% if blad_alertu is not null %}
+                    {#- ⚠ Błąd zostaje PRZY POLU, a nie w toaście: komunikat serwera SMTP trzeba
+                        przepisać do zgłoszenia, a toast znika po pięciu sekundach (Z47, Z43). -#}
+                    <span class="field__hint" id="alert-blad" role="alert">{{ blad_alertu }}</span>
+                {% endif %}
+            </div>
+            <p class="nazwy-podpowiedz">Tu trafiają alerty systemowe: cisza connectora, nieużyty klucz integracji, podejrzenie ataku na konta.</p>
+            {#- ⚠ Potwierdzenie rysuje SERWER i tylko wtedy, gdy pusty zapis naprawdę coś wyłącza
+                (adres był ustawiony). Pole wyboru pojawiające się po wpisaniu wymagałoby skryptu,
+                a to okno ma działać bez niego. -#}
+            {% if potwierdzenie_alertow %}
+                <label class="field field--check" for="alert-potwierdzam">
+                    <input type="checkbox" id="alert-potwierdzam" name="potwierdzam" value="1">
+                    <span class="field__label">Bez adresu alerty nie będą wysyłane. Wyłącz je.</span>
+                </label>
+            {% endif %}
+        </div>
+
+        <div class="modal__foot">
+            {#- Próba po lewej, bo jest sprawdzeniem, nie decyzją; decyzje stoją po prawej. -#}
+            <button type="submit" class="btn btn--ghost btn--akcja" name="proba" value="1">{{ ikony.samolocik() }}Wyślij próbę</button>
+            <div class="btn-row btn-row--jedna-linia">
+                {#- ⚠ „Anuluj" jest ODNOŚNIKIEM: bez JavaScriptu zamknięciem okna jest powrót
+                    na ekran bez parametru `okno`, a ze skryptem `ui.js` zamyka okno na miejscu. -#}
+                <a class="btn btn--ghost" href="{{ url('/ustawienia') }}" data-modal-close="okno-alerty">Anuluj</a>
+                <button type="submit" class="btn btn--primary">Zapisz</button>
+            </div>
+        </div>
+    </form>
+</dialog>

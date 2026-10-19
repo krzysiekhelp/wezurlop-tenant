@@ -70,6 +70,10 @@ final class KodyZdarzen
         'context.switched'              => 'Przełączenie firmy',
         'tenant.timezone_changed'       => 'Zmiana strefy czasowej',
         'tenant.company_display_name'   => 'Zmiana nazwy wyświetlanej firmy',
+        // ⚠ Zmiana skrzynki alertowej jest zmianą tego, KTO DOSTAJE OSTRZEŻENIA o instalacji
+        // (cisza connectora, nieużyty klucz, atak na konta) — stąd własna etykieta, a nie
+        // rodzina „Tenant". Wyczyszczenie adresu wyłącza alerty dla całej instalacji.
+        'tenant.alert_email_changed'    => 'Zmiana skrzynki na alerty',
         'tenant.reset'                  => 'Wyczyszczenie danych tenanta',
         'install.completed'             => 'Zakończenie instalacji',
         'maintenance.cron_probe'        => 'Sonda crona wykonana',
@@ -155,7 +159,7 @@ final class KodyZdarzen
         // ⚠ Nieudana wysyłka jest wyróżniona słabo, nie mocno: zadanie jest PONAWIANE, więc
         // pojedynczy wpis nie jest jeszcze awarią — ale ciąg takich wpisów jest jedynym miejscem,
         // w którym widać, że poczta klienta przestała wychodzić.
-        'mail.failed', 'maintenance.job_deleted',
+        'mail.failed', 'maintenance.job_deleted', 'tenant.alert_email_changed',
         'employment.deactivated_by_sync', 'integration.key_idle', 'integration.key_unused',
         'integration.company_idle',
         'sync.review_requested', 'sync.identity_changed', 'sync.foreign_connector_entry',

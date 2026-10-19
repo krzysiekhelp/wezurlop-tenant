@@ -107,6 +107,11 @@ final class ZdanieZdarzenia
         'tenant.company_display_name'   => ['zmienił(a) nazwę firmy z {z} na {na}', 'olowek', self::BARWA_ZWYKLA],
         'tenant.timezone_changed'       => ['zmienił(a) strefę czasową[ na {na}]', 'zegar', self::BARWA_ZWYKLA],
         'tenant.mail_settings_changed'  => ['zmienił(a) ustawienia poczty', 'koperta', self::BARWA_ZWYKLA],
+        // ⚠ Dwa zdania na jeden kod, bo skutek jest różny: ustawienie adresu i WYŁĄCZENIE alertów.
+        // Rozstrzyga `pusty` ze szczegółów — składa je kontroler, bo to on wie, co się stało.
+        // Wartość „z" i „na" zostaje w szczegółach wiersza: bez poprzedniego adresu nie da się
+        // odtworzyć, na co alerty szły wcześniej.
+        'tenant.alert_email_changed'    => ['zmienił(a) skrzynkę na alerty[ na {na}][ — {pusty}]', 'dzwonek', self::BARWA_ZWYKLA],
         // ⚠ Tych dwóch kodów **już nie zapisujemy** (Z43 §C): wysyłka próbna idzie tą samą parą
         // `mail.sent` / `mail.failed`, co każda inna wiadomość, i niesie odbiorcę. Zdania zostają
         // dla wpisów SPRZED 19.10.2026 — ekran audytowy nie ma prawa stracić historii dlatego,
@@ -269,7 +274,7 @@ final class ZdanieZdarzenia
      *
      * @var list<string>
      */
-    private const ZWYKLE = ['gdzie', 'powod', 'droga'];
+    private const ZWYKLE = ['gdzie', 'powod', 'droga', 'pusty'];
 
     /**
      * Rozwinięcie wzoru na części: tekst zwykły i wartości z danych (pogrubione).

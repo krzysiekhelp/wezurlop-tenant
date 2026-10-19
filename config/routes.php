@@ -78,6 +78,9 @@ $shared = [
     ['POST', '/ustawienia/strefa',                       [SettingsController::class, 'saveTimezone'],  'permission' => 'admin.settings', 'zakres' => 'tenant'],
     // ⚠ Sonda crona, nie „uruchom teraz": stawia zadanie i wraca. Wykonać ma je przebieg crona.
     ['POST', '/ustawienia/cron/sprawdz',                 [SettingsController::class, 'checkCron'],     'permission' => 'admin.settings', 'zakres' => 'tenant'],
+    // ⚠ Skrzynka na alerty (Z49): zapis i wysyłka próbna jednym POST-em, bo próba dotyczy adresu
+    // WPISANEGO w pole, a nie zapisanego — rozstrzyga nazwa wciśniętego przycisku.
+    ['POST', '/ustawienia/alerty',                       [SettingsController::class, 'saveAlertEmail'], 'permission' => 'admin.settings', 'zakres' => 'tenant'],
     ['GET',  '/ustawienia/poczta',                       [SettingsController::class, 'mail'],          'permission' => 'admin.settings', 'zakres' => 'tenant'],
     ['POST', '/ustawienia/poczta',                       [SettingsController::class, 'saveMail'],      'permission' => 'admin.settings', 'zakres' => 'tenant'],
     // ⚠ Wysyłka próbna w żądaniu to świadomy wyjątek od „poczta tylko przez kolejkę": sens tego

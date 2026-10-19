@@ -694,7 +694,23 @@ def sprawdz_nakladki(b, sciezki: list[str]) -> list[dict]:
                             " const s = d ? d.closest('details') : null;"
                             " return !!d && (d.tagName === 'DIALOG' ? d.open"
                             "   : (s ? s.open : !d.hidden)); }")
+                        # ⚠ **Drugie okno na tym samym ekranie: najpierw zamknij to otwarte.**
+                        # Modalny `<dialog>` czyni resztę dokumentu `inert`, więc wyzwalacz
+                        # DRUGIEGO okna stoi za nim i klik czeka do timeoutu — nie dlatego, że
+                        # ekran jest zepsuty, tylko dlatego, że bramka weszła na niego z oknem
+                        # już otwartym. Zmierzone 19.10.2026 po Z49: `/ustawienia/spolki`
+                        # przekierowuje na `/ustawienia?okno=nazwy` (okno nazw otwarte przez
+                        # serwer), a na tym ekranie stoi teraz także okno skrzynki alertowej —
+                        # trzy z 66 sprawdzeń padły na „NIE OTWARŁA SIĘ" przy oknie, które
+                        # otwiera się poprawnie.
+                        # ⚠ Zamykamy WYŁĄCZNIE okna inne niż mierzone: mierzone otwarte przez
+                        # serwer obsługuje `juz_otwarta` wyżej, a zamknięcie go odebrałoby
+                        # pomiarowi przedmiot.
                         if not juz_otwarta:
+                            pg.evaluate(
+                                "(id) => document.querySelectorAll('dialog[open]')"
+                                ".forEach(d => { if (d.id !== id) { d.close(); } })",
+                                okno_id)
                             pg.click(cel)
                         # ⚠ „Otwarta" znaczy co innego dla dialogu (`open`) i dla warstwy
                         # (`hidden` zdjęte) — bramka sprawdza jedno i drugie, bo kryterium
