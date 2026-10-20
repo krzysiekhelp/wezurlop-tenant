@@ -56,7 +56,10 @@
                 <details class="user-menu">
                     <summary class="user-menu__button">
                         <span class="user-menu__avatar" aria-hidden="true">{{ me.name|split(' ')|map(p => p|first)|join|upper|slice(0, 2) }}</span>
-                        <span>{{ me.name }}</span>
+                        {#- ⚠ Napis ma własną klasę, bo przy wąskim oknie ustępuje miejsca nazwie
+                            ekranu (pomiar Z63 B: `h1` miał 44 px przy 116 px potrzebnych).
+                            Nazwa zalogowanego zostaje w rozwiniętym menu, więc nic nie ginie. -#}
+                        <span class="user-menu__nazwa">{{ me.name }}</span>
                     </summary>
                     <div class="user-menu__panel">
                         <div class="user-menu__name">

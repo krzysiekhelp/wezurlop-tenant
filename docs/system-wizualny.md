@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.44, 20.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.45, 20.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,26 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.44 → 1.18.45: przy wąskim oknie nazwa ekranu wygrywa z szerokością znacznika**
+> (pomiar odbiorowy Z63 część B, 20.10.2026).
+> - ⚠ **Usterka**: przy oknie 375 px nazwa ekranu w belce miała **43 px przy 140 px potrzebnych**
+>   — „Widoczność kalendarza" czytało się jako „Widoczn…", na **12 z 14 zmierzonych ekranów**.
+>   Przyczyną nie był brak miejsca w belce, tylko **stała szerokość znacznika spółki**
+>   (`width: 14rem` = 224 px, reguła z 1.18.30 „żeby belka nie drgała przy przełączeniu spółki")
+>   — znacznik brał 224 z 375 px i nie oddawał ich nikomu.
+> - **Poniżej 560 px** znacznik spółki kurczy się do treści (`width: auto`), prawa strona belki
+>   też (`flex: 0 1 auto`), a napis z imieniem i nazwiskiem w menu konta ustępuje miejsca
+>   (zostaje sam inicjał w kółku; pełne dane są w rozwiniętym menu). Zmierzone po zmianie:
+>   nazwa ekranu **140 px na 140 potrzebnych, zero ucięć na 14 ekranach**; znacznik spółki
+>   109 px, dalej z wielokropkiem i `title`.
+> - ⚠ **Reguła „belka nie drga" zostaje na szerokim oknie i tam jest nadal słuszna.** Przy 1366
+>   i 1920 px nic się nie zmienia (zmierzone: zero ucięć, nazwisko w belce widoczne). Na wąskim
+>   oknie drganie znacznika jest mniej warte niż wiedza, na którym ekranie się stoi.
+> - ⚠ Samo schowanie nazwiska **nic nie dało** i to jest nauka z tego pomiaru: belka dzieli wolne
+>   miejsce równo między lewą i prawą stronę (`flex: 1 1 0` po obu), więc prawa trzymała połowę
+>   nawet pusta. Zmierzone po pierwszej próbie: `h1` dalej 44 px. Dopiero zwężenie znacznika
+>   oddało miejsce nazwie.
 
 > **Zmiana 1.18.43 → 1.18.44: sprawdzanie crona jako żywy wiersz z odliczaniem**
 > (zlecenie Z65, projekt zatwierdzony przez Krzysztofa 20.10.2026).

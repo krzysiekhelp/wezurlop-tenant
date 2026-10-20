@@ -429,6 +429,34 @@
   .auth-shell { padding: var(--s-4); }
 }
 
+/* ⚠ **Wąskie okno powłoki webowej: w belce zostaje sam inicjał, a nazwa ekranu dostaje
+   miejsce** (pomiar odbiorowy Z63 część B, 20.10.2026). Zmierzone przy 375 px: `h1` miał 44 px
+   przy 116 px potrzebnych, więc „Stan synchronizacji" czytało się jako „Stan …" — na szesnastu
+   ekranach, do 96 px ucięcia. Nazwa ekranu jest jego tożsamością; imię i nazwisko zalogowanego
+   stoi dwa centymetry dalej w rozwiniętym menu (`.user-menu__name`), więc to ono ustępuje.
+   ⚠ Chowamy napis KLASĄ na elemencie, nie `display: none` na wszystkim poza awatarem: reguła
+   ma trafiać w jedną rzecz, a nie w każde przyszłe dziecko tego przycisku. */
+@media (max-width: 560px) {
+  .user-menu__nazwa { display: none; }
+  /* ⚠ **Samo schowanie nazwiska nic nie dało** i to jest sedno tej usterki: belka dzieli wolne
+     miejsce RÓWNO między lewą i prawą stronę (`flex: 1 1 0` po obu), więc prawa strona trzymała
+     połowę nawet wtedy, gdy nie miała czego w niej pokazać. Zmierzone: po schowaniu nazwiska
+     `h1` dalej miał 44 px. Przy wąskim oknie prawa strona kurczy się więc do swojej treści,
+     a wolne miejsce bierze nazwa ekranu. Symetria belki jest wtedy mniej warta niż to, żeby
+     było wiadomo, na którym ekranie się stoi. */
+  .topbar__prawa { flex: 0 1 auto; }
+  /* ⚠ **Prawdziwą przyczyną był znacznik spółki: 224 px szerokości STAŁEJ** (`width: 14rem`,
+     reguła z Z30 — żeby belka nie drgała przy przełączeniu spółki). Przy oknie 375 px zostawiał
+     nazwie ekranu 43 px, czyli „Widoczność kalendarza" czytało się jako „Widoczn…". Przy wąskim
+     oknie znacznik kurczy się więc do treści — dokładnie tak, jak robi to już powłoka mobilna
+     (`20-layout-mobile.css`: `.m-topbar .spolka { width: auto; max-width: 100% }`). Argument
+     „belka nie drga" dotyczy szerokiego okna z wyśrodkowanym znacznikiem; tutaj drganie jest
+     mniej warte niż wiedza, na którym ekranie się stoi. Nazwa spółki ma własny wielokropek
+     i `title`, więc nic nie ginie. */
+  .topbar__srodek { flex: 0 1 auto; min-width: 0; }
+  .spolka { width: auto; max-width: 100%; flex: 0 1 auto; min-width: 0; }
+}
+
 /* `.stack` przeniesione do 30-components.css — rytm pionowy jest komponentem, nie powłoką,
    i wariant mobilny potrzebuje tego samego. ⚠ Zostawienie tej reguły tutaj było pułapką:
    30-components.css wczytuje się później, więc jego `gap: --s-4` i tak by wygrał, a ta linia

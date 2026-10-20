@@ -37,7 +37,9 @@ require dirname(__DIR__) . '/vendor/autoload.php';
 use Wezurlop\Db\Connection;
 use Wezurlop\Repository\EventLogRepository;
 use Wezurlop\Repository\GroupRepository;
+use Wezurlop\Repository\CalendarAccessRepository;
 use Wezurlop\Service\GrupyService;
+use Wezurlop\Service\WidocznoscService;
 
 Dotenv\Dotenv::createImmutable(dirname(__DIR__))->load();
 $env = $_ENV;
@@ -49,15 +51,28 @@ $db = new Connection([
     'password' => (string) $env['DB_PASS'],
 ]);
 $pdo = $db->pdo();
-$repo = new GroupRepository($db);
-$service = new GrupyService($repo, new EventLogRepository($db));
 
+// ⚠ **Sprawdzenie argumentów PRZED budową serwisów** (naprawa 20.10.2026, Z63 część D,
+// pozycja 59). Wcześniej stało niżej, a wyżej budował się `GrupyService` — który od Z53 ma
+// trzeci parametr (`WidocznoscService`). Skutek: `php dev/stan-grup.php` bez argumentów kończyło
+// się `ArgumentCountError` i kodem 255 zamiast zdaniem o użyciu. Pomyłka w wywołaniu ma
+// wyglądać jak pomyłka w wywołaniu, a nie jak awaria narzędzia.
 $polecenie = $argv[1] ?? '';
 $plik = $argv[2] ?? '';
 if (!in_array($polecenie, ['zapisz', 'odtworz'], true) || $plik === '') {
-    echo json_encode(['blad' => 'użycie: stan-grup.php zapisz|odtworz <plik>']), "\n";
+    echo json_encode(['blad' => 'użycie: stan-grup.php zapisz|odtworz <plik>'], JSON_UNESCAPED_UNICODE), "\n";
     exit(1);
 }
+
+$repo = new GroupRepository($db);
+$events = new EventLogRepository($db);
+// ⚠ Trzeci argument dołożony razem z Z53: `GrupyService` pyta `WidocznoscService` o sprzątanie
+// reguł po usuniętej grupie. Bez niego to narzędzie w ogóle się nie uruchamiało.
+$service = new GrupyService($repo, $events, new WidocznoscService(
+    new CalendarAccessRepository($db),
+    $repo,
+    $events,
+));
 
 /** @return array{przynaleznosci: array<string, array{e: int, g: int, c: int}>, role: list<string>} */
 $teraz = static function () use ($pdo): array {
