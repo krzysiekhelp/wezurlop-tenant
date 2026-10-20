@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.33, 20.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.34, 20.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,28 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.33 → 1.18.34: Enter w polu szukania szuka, a nie idzie dalej; bramka pilnuje
+> nawiasów w arkuszach** (zlecenie Z54, 20.10.2026).
+> - ⚠ **Enter w polu szukania w oknie reguły przerzucał okno do następnego kroku** (zmierzone:
+>   krok 1 → krok 2). To nie była usterka tego ekranu, tylko reguła HTML: przeglądarka na Enter
+>   klika **pierwszy przycisk wysyłający w kolejności drzewa**, a był nim „Dalej". Jedynym
+>   sposobem, żeby to zmienić bez JavaScriptu, jest postawić w formularzu własny przycisk
+>   wysyłający **przed** tamtym — niewidoczny, poza kolejnością tabulacji, z **tym samym numerem
+>   kroku**. Enter robi więc dokładnie to, co pisanie w polu: szuka. Zasada ogólna: **formularz,
+>   w którym pierwszy `submit` znaczy co innego niż Enter w jego polu tekstowym, jest źle
+>   złożony** — i widać to dopiero wtedy, gdy ktoś naciśnie Enter.
+> - ⚠ Przy okazji poprawka drogi **bez JavaScriptu**: podmiot reguły jedzie teraz w ukrytych polach
+>   także w kroku 1. Bez nich żądanie z Enter składało się z samych pól formularza (rodzaj podmiotu
+>   niesie zakładka w adresie), więc serwer wracał do wartości domyślnej i pokazywał listę
+>   przełożonych zamiast kont — zmierzone: zero pozycji. Zaznaczona pozycja listy i tak wygrywa
+>   z tymi polami, bo niesie rodzaj i numer razem.
+> - **Bramka `check-rules` sprawdza teraz parowanie nawiasów klamrowych w KAŻDYM arkuszu**, także
+>   w `00-tokens.css` (wyjątek dotyczy wartości kolorów, nie składni). Dwa komunikaty: „nadmiarowy
+>   `}`" — bo przeglądarka odrzuci po nim **następną regułę**, i „niezamknięty blok" — bo wciągnie
+>   do siebie wszystko, co po nim stoi. Komentarze i napisy w cudzysłowach schodzą przed liczeniem,
+>   więc `content: "}"` nie udaje nawiasu bloku. Oba przypadki sprawdzone na celowo zepsutej kopii
+>   arkusza; na obecnym stanie repozytorium kryterium jest zielone.
 
 > **Zmiana 1.18.32 → 1.18.33: `/admin/widocznosc` — nowy ekran reguł dostępu do kalendarza,
 > szczegółowość osobna dla każdego wiersza** (zlecenie Z53, 19–20.10.2026).

@@ -64,6 +64,22 @@
                    `{#- … -#}` między atrybutami zjadł odstęp i pole nie było wyłączone.
                    ⚠ Dlatego TEN komentarz jest bez myślników: one właśnie kasują odstępy. #}
                {% if firma_wybrana %}disabled{% endif %}>
+        {#- ⚠ **Enter w polu szukania ma SZUKAĆ, a nie iść dalej.** Bez tego przycisku Enter
+            trafiał w pierwszy `submit` formularza, czyli w „Dalej", i przerzucał okno do
+            następnego kroku w chwili, w której człowiek dopisywał litery do szukanego tekstu
+            (zmierzone 20.10.2026: krok 1 → krok 2). Przeglądarka wybiera na Enter **pierwszy
+            przycisk wysyłający w kolejności drzewa**, więc jedynym sposobem, żeby to zmienić
+            bez JavaScriptu, jest postawić tu własny — i dać mu TEN SAM numer kroku.
+            ⚠ Bez JavaScriptu Enter przeładowuje stronę z otwartym oknem na tym samym kroku
+            i wpisanym tekstem; z htmx-em robi dokładnie to samo żądanie, co pisanie w polu,
+            czyli nic nowego. Przycisk jest niewidoczny i poza kolejnością tabulacji, bo szukanie
+            dzieje się samo w trakcie pisania — on istnieje wyłącznie po to, żeby przejąć Enter. -#}
+        <button type="submit" class="visually-hidden" tabindex="-1"
+                formmethod="get" formaction="{{ url('/admin/widocznosc') }}"
+                name="krok" value="{{ krok }}"
+                {% if hx %}hx-get="{{ baza }}&amp;{{ stan }}&amp;krok={{ krok }}"
+                hx-include="closest form"
+                hx-target="#widocznosc-okno-tresc" hx-swap="innerHTML"{% endif %}>Szukaj</button>
     </label>
 
     <div class="wid-lista-wybor__ramka">

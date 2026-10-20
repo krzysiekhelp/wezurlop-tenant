@@ -88,10 +88,15 @@
         i wyglądało na niedziałający przycisk (zmierzone). -#}
     {#- ⚠ Wybory z pozostałych kroków jadą w ukrytych polach — inaczej zapis z kroku 3 zgubiłby
         to, co człowiek wskazał w kroku 1. -#}
-    {% if okno.krok != 1 %}
-        <input type="hidden" name="kto" value="{{ okno.kto }}">
-        <input type="hidden" name="kto_id" value="{{ okno.kto_id }}">
-    {% endif %}
+    {#- ⚠ **Podmiot jedzie w ukrytych polach TAKŻE w kroku 1** — i to jest poprawka drogi bez
+        JavaScriptu, nie porządki. W kroku 1 rodzaj podmiotu niesie zakładka (adres), a numer
+        pole wyboru z listy; gdy człowiek naciśnie Enter w polu szukania, żądanie składa się
+        **wyłącznie z pól formularza**, więc bez tych dwóch serwer wracał do wartości domyślnej
+        i pokazywał listę przełożonych zamiast kont (zmierzone 20.10.2026: zero pozycji).
+        ⚠ Zaznaczona pozycja listy (`wybor`) i tak wygrywa z nimi w `stanOkna()`, bo niesie
+        rodzaj i numer razem — te pola mówią tylko, czego szukać, gdy jeszcze nic nie wskazano. -#}
+    <input type="hidden" name="kto" value="{{ okno.kto }}">
+    <input type="hidden" name="kto_id" value="{{ okno.kto_id }}">
     {#- ⚠ **`czyje` jedzie w ukrytym polu TAKŻE w kroku 2** — i to jest poprawka błędu, nie
         porządki. Bez niego żądanie z przycisku „Dalej" nie niosło rodzaju celu w ogóle (numer
         kroku jedzie adresem, a `hx-include` zbiera tylko pola formularza), więc serwer brał

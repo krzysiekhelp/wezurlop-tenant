@@ -229,9 +229,16 @@ final class RuleChecker
             }
         }
         foreach ($this->files('public/assets/css') as $file) {
-            $name = $file->getBasename();
-            if ($file->getExtension() === 'css' && $name !== self::CSS_TOKENS) {
-                $this->matchAll($file, $this->withoutCssComments($this->read($file)), self::CSS_PATTERNS);
+            if ($file->getExtension() !== 'css') {
+                continue;
+            }
+            $bezKomentarzy = $this->withoutCssComments($this->read($file));
+            // ⚠ Nawiasy sprawdzamy w KAŻDYM arkuszu, także w `00-tokens.css`: wyjątek dotyczy
+            // wartości kolorów, a nie składni. Niedomknięty blok w pliku tokenów wyłączyłby
+            // wszystko, co po nim stoi, czyli połowę systemu wizualnego.
+            $this->checkCssNawiasy($file, $bezKomentarzy);
+            if ($file->getBasename() !== self::CSS_TOKENS) {
+                $this->matchAll($file, $bezKomentarzy, self::CSS_PATTERNS);
             }
         }
         foreach (['config', 'bin'] as $dir) {
@@ -347,6 +354,88 @@ final class RuleChecker
      * jest dokumentacją decyzji, a nie kolorem w arkuszu. Zgłoszenie takiego trafienia uczy
      * usuwania uzasadnień z kodu, czyli dokładnie odwrotnie niż chcemy.
      */
+    /**
+     * **Nawiasy klamrowe w arkuszu muszą się parować** (kryterium z 20.10.2026, zlecenie Z54).
+     *
+     * ⚠ Powód jest zmierzony i zaskakujący: przeglądarka po nadmiarowym `}` odrzuca
+     * **NASTĘPNĄ REGUŁĘ**, a nie sam nawias — czyta go jako początek preludium kolejnej reguły
+     * i wyrzuca ją w całości razem z blokiem. Tak samo znika postawiony po nim `@media`.
+     * Zmierzone na osobnym arkuszu 20.10.2026 i w produkcie: jeden taki nawias w
+     * `30-components.css` wyłączał cały blok `@media (pointer: coarse)`, czyli wysokość celów
+     * dotykowych i 16 px w polach — na każdym ekranie telefonu i tabletu. Nic tego nie zgłaszało:
+     * arkusz ładował się bez błędu, a ekran wyglądał jak zawsze, tylko pola były za niskie.
+     *
+     * ⚠ Niedomknięty blok jest groźniejszy w drugą stronę: wciąga do siebie wszystko, co po nim
+     * stoi. W tym samym pliku niedomknięty `@supports not selector(:has(*))` wciągnął cały blok
+     * telefonowy `@media (max-width: 720px)`, więc na przeglądarce z `:has()` reguły dla 720 px
+     * **nie istniały**, choć stały w pliku.
+     *
+     * ⚠ Komentarze i napisy w cudzysłowach schodzą PRZED liczeniem: `content: "}"` jest legalne
+     * i nie jest nawiasem bloku.
+     */
+    private function checkCssNawiasy(SplFileInfo $file, string $bezKomentarzy): void
+    {
+        $tekst = $this->withoutCssStrings($bezKomentarzy);
+        $stos = [];
+        $dlugosc = strlen($tekst);
+        for ($i = 0; $i < $dlugosc; $i++) {
+            if ($tekst[$i] === '{') {
+                $stos[] = $this->lineAt($tekst, $i);
+                continue;
+            }
+            if ($tekst[$i] !== '}') {
+                continue;
+            }
+            if ($stos === []) {
+                $this->hit($file, $this->lineAt($tekst, $i),
+                    'nadmiarowy `}` — przeglądarka odrzuci NASTĘPNĄ regułę, nie ten nawias');
+                continue;
+            }
+            array_pop($stos);
+        }
+        foreach ($stos as $linia) {
+            $this->hit($file, $linia, 'niezamknięty blok otwarty w tej linii — wciągnie do siebie wszystko, co po nim stoi');
+        }
+    }
+
+    /**
+     * Napisy w cudzysłowach zamienione na odstępy, z zachowaniem numerów linii.
+     *
+     * ⚠ Liczy się TYLKO po to, żeby nawias w napisie (`content: "}"`, `content: "{"`) nie udawał
+     * nawiasu bloku. Ucieczka `\"` wewnątrz napisu jest uszanowana; napis niedomknięty do końca
+     * linii kończymy na końcu linii, bo tak robi i przeglądarka.
+     */
+    private function withoutCssStrings(string $content): string
+    {
+        $wynik = $content;
+        $dlugosc = strlen($content);
+        $i = 0;
+        while ($i < $dlugosc) {
+            $znak = $content[$i];
+            if ($znak !== '"' && $znak !== "'") {
+                $i++;
+                continue;
+            }
+            $i++;
+            while ($i < $dlugosc && $content[$i] !== $znak && $content[$i] !== "\n") {
+                if ($content[$i] === '\\') {
+                    $wynik[$i] = ' ';
+                    $i++;
+                    if ($i < $dlugosc && $content[$i] !== "\n") {
+                        $wynik[$i] = ' ';
+                        $i++;
+                    }
+                    continue;
+                }
+                $wynik[$i] = ' ';
+                $i++;
+            }
+            $i++;
+        }
+
+        return $wynik;
+    }
+
     private function withoutCssComments(string $content): string
     {
         return (string) preg_replace_callback(
