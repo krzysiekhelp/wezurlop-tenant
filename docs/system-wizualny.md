@@ -40,6 +40,12 @@ co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej ju
 >   „ · Zaproszenie do aplikacji urlopowej — ustaw hasło"), a w treści pełną nazwę z R2; konto
 >   bez etatu — „wezurlop · Zaproszenie do aplikacji — ustaw hasło". Test `tests/poczta.php`:
 >   200 sprawdzeń (było 171), kryteria łamane po jednym (4, 4 i 5 czerwonych).
+> - ⚠ **Rozjazd temat/treść przy koncie bez etatu w tenancie jednofirmowym zostaje**
+>   (rozstrzygnięcie 20.10.2026): temat mówi „wezurlop · …", a treść i stopka nadal pokazują
+>   nazwę tej jednej firmy ze ścieżki zapasowej z Z60. Powód: **treść przedstawia instalację,
+>   a temat nie udaje pracodawcy** — adresat bez etatu nie jest niczyim pracownikiem, więc
+>   podpisanie TEMATU cudzą firmą byłoby fałszem, a wymienienie jej w treści jest informacją,
+>   czyja to instalacja. To nie jest niespójność do „naprawienia" w żadną stronę.
 
 > **Zmiana 1.18.40 → 1.18.41: jeden zapis w panelu osoby, kolumna dostępu tylko pokazuje**
 > (zlecenie Z61, 20.10.2026).

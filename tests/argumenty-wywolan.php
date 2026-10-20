@@ -257,6 +257,170 @@ require dirname(__DIR__) . '/vendor/autoload.php';
     $check('nie został ani jeden nadmiarowy `null,` w wywołaniach odpowiedz()',
         !str_contains($kod, '$szukaj, null, null,'));
 
+    // ——— Druga rodzina tej samej usterki: TYPY argumentów w `new …(…)` ——————————
+    // ⚠ Powód dopisania (20.10.2026, zlecenie Z63): `/ustawienia` i `/ustawienia/poczta`
+    // zwracały **500 od Z60**, bo `ControllerFactory` podawał `SettingsController` argumenty
+    // `$d->config, $d->mailRenderer`, a konstruktor miał `MailRenderer $renderer, Config $config`
+    // — liczba argumentów zgadzała się co do jednego, więc sprawdzenie wyżej tego nie widziało.
+    // PHP odrzucił wywołanie dopiero w czasie żądania (`TypeError`), czyli u użytkownika.
+    //
+    // ⚠ Sprawdzamy TYLKO argumenty postaci `$d->własciwość` i `$this->własciwość`, bo tylko one
+    // mają zadeklarowany typ do porównania. Zmienne lokalne (`$resetTokens` w `Services`)
+    // pomijamy i **liczymy pominięte** — inaczej test mógłby świecić zielono, bo nie sprawdził
+    // niczego. To ta sama zasada, co „parser w ogóle coś znalazł" wyżej.
+    $mapaUse = static function (array $tok): array {
+        $mapa = [];
+        for ($i = 0, $n = count($tok); $i < $n; $i++) {
+            if (!is_array($tok[$i]) || $tok[$i][0] !== T_USE) {
+                continue;
+            }
+            $sciezka = '';
+            for ($j = $i + 1; $j < $n; $j++) {
+                $x = $tok[$j];
+                if ($x === ';' || $x === '{') {
+                    break;
+                }
+                if (is_array($x) && in_array($x[0], [T_STRING, T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED], true)) {
+                    $sciezka .= $x[1];
+                }
+            }
+            if ($sciezka === '' || !str_contains($sciezka, '\\')) {
+                continue;                       // `use` w ciele klasy (trait) albo domknięciu
+            }
+            $krotka = substr($sciezka, strrpos($sciezka, '\\') + 1);
+            $mapa[$krotka] = $sciezka;
+        }
+
+        return $mapa;
+    };
+
+    /**
+     * Wywołania `new Klasa(…)`: lista `[nazwa klasy, lista argumentów jako tekst]`.
+     *
+     * @return list<array{string, list<string>}>
+     */
+    $konstrukcje = static function (array $tok): array {
+        $wynik = [];
+        for ($i = 0, $n = count($tok); $i < $n - 2; $i++) {
+            if (!is_array($tok[$i]) || $tok[$i][0] !== T_NEW) {
+                continue;
+            }
+            $nazwa = $tok[$i + 1];
+            if (!is_array($nazwa)
+                || !in_array($nazwa[0], [T_STRING, T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED], true)
+                || ($tok[$i + 2] ?? null) !== '(') {
+                continue;                       // `new $klasa`, `new class {…}`, `new (…)`
+            }
+            $argumenty = [];
+            $biezacy = '';
+            $glebokosc = 0;
+            for ($j = $i + 2; $j < $n; $j++) {
+                $x = $tok[$j];
+                $otwiera = $x === '(' || $x === '[' || $x === '{'
+                    || (is_array($x) && $x[0] === T_ATTRIBUTE);
+                $zamyka = $x === ')' || $x === ']' || $x === '}';
+                if ($glebokosc === 1 && $x === ',') {
+                    $argumenty[] = trim($biezacy);
+                    $biezacy = '';
+                    continue;
+                }
+                if ($glebokosc >= 1 && !($zamyka && $glebokosc === 1)) {
+                    $biezacy .= is_array($x) ? $x[1] : $x;
+                }
+                if ($otwiera) {
+                    $glebokosc++;
+                    continue;
+                }
+                if ($zamyka) {
+                    $glebokosc--;
+                    if ($glebokosc === 0) {
+                        break;
+                    }
+                }
+            }
+            if (trim($biezacy) !== '') {
+                $argumenty[] = trim($biezacy);
+            }
+            $wynik[] = [$nazwa[1], $argumenty];
+        }
+
+        return $wynik;
+    };
+
+    /** Nazwa typu właściwości albo parametru; `null`, gdy typu nie ma albo jest złożony. */
+    $typProsty = static function (?ReflectionType $typ): ?string {
+        return $typ instanceof ReflectionNamedType && !$typ->isBuiltin() ? $typ->getName() : null;
+    };
+
+    // ⚠ Dwa miejsca, w których ta aplikacja składa obiekty z gotowych zależności — i jedyne
+    // dwa, w których pomyłka w kolejności jest niewidoczna, bo wszystkie argumenty są obiektami.
+    $miejsca = [
+        ['src/Http/ControllerFactory.php', '$d', Wezurlop\Http\ControllerDependencies::class],
+        ['src/Support/Services.php',       '$this', Wezurlop\Support\Services::class],
+    ];
+    $zleTypy = [];
+    $porownanych = 0;
+    $pominietych = 0;
+    foreach ($miejsca as [$sciezka, $zrodlo, $klasaZrodla]) {
+        $tok = $tokeny((string) file_get_contents(dirname(__DIR__) . '/' . $sciezka));
+        $use = $mapaUse($tok);
+        $wlasciwosci = new ReflectionClass($klasaZrodla);
+        foreach ($konstrukcje($tok) as [$klasa, $argumenty]) {
+            $fqcn = $use[$klasa] ?? $klasa;
+            if (!class_exists($fqcn)) {
+                continue;
+            }
+            $ctor = (new ReflectionClass($fqcn))->getConstructor();
+            if ($ctor === null) {
+                continue;
+            }
+            $parametry = $ctor->getParameters();
+            foreach ($argumenty as $nr => $argument) {
+                if (!preg_match('/^' . preg_quote($zrodlo, '/') . '->([A-Za-z0-9_]+)$/', $argument, $m)) {
+                    $pominietych++;
+                    continue;                   // zmienna lokalna, literał, wywołanie
+                }
+                $parametr = $parametry[$nr] ?? null;
+                if ($parametr === null || $parametr->isVariadic()
+                    || !$wlasciwosci->hasProperty($m[1])) {
+                    $pominietych++;
+                    continue;
+                }
+                $typArgumentu = $typProsty($wlasciwosci->getProperty($m[1])->getType());
+                $typParametru = $typProsty($parametr->getType());
+                if ($typArgumentu === null || $typParametru === null) {
+                    $pominietych++;
+                    continue;
+                }
+                $porownanych++;
+                if (!is_a($typArgumentu, $typParametru, true)) {
+                    $zleTypy[] = sprintf(
+                        '%s: new %s(…) argument #%d to %s->%s (%s), a parametr $%s ma typ %s',
+                        basename($sciezka),
+                        $klasa,
+                        $nr + 1,
+                        $zrodlo,
+                        $m[1],
+                        $typArgumentu,
+                        $parametr->getName(),
+                        $typParametru,
+                    );
+                }
+            }
+        }
+    }
+
+    foreach ($zleTypy as $opis) {
+        echo "      → " . $opis . "\n";
+    }
+    $check(sprintf('fabryki: %d argumentów o znanym typie zgadza się z konstruktorem (pominiętych %d)',
+        $porownanych, $pominietych), $zleTypy === []);
+    $check('porównanie w ogóle coś sprawdziło (> 100 argumentów)', $porownanych > 100);
+    // ⚠ Przypadek z Z60 wprost: te dwa argumenty stały odwrotnie i oba są obiektami.
+    $fabryka = (string) file_get_contents(dirname(__DIR__) . '/src/Http/ControllerFactory.php');
+    $check('SettingsController dostaje mailRenderer przed config',
+        str_contains($fabryka, '$d->urls,' . "\n" . '                $d->mailRenderer, $d->config)'));
+
     echo $failures === 0 ? "\nWszystko OK\n" : "\nBŁĘDÓW: {$failures}\n";
     exit($failures === 0 ? 0 : 1);
 })();
