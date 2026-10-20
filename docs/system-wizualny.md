@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.38, 20.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.39, 20.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,52 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.38 → 1.18.39: `/admin/konta` — dwie zakładki, konta administracyjne wychodzą
+> z ukrycia** (zlecenie Z59, 20.10.2026).
+> - ⚠ **Powód jest usterkowy, nie estetyczny.** Konta administratorów bez etatu nie było na
+>   liście ani w wyszukiwarce (zmierzone przez zarządcę: szukanie po nazwisku dawało „Nikogo
+>   nie znaleziono"), więc nie dało się ich zablokować, zresetować 2FA ani zakończyć im sesji.
+>   Mechanizm: lista zawęża się filtrem firmy z belki, a filtr wymaga ETATU w tej firmie.
+> - **Nagłówek karty to jeden wiersz**: po lewej przełącznik segmentowy „Pracownicy z kadr N" /
+>   „Konta administracyjne M" z ikoną i licznikiem w pigułce, po prawej działania zakładki.
+>   Znak karty i zdanie „Wszystkie osoby z programu kadrowego…" zniknęły — zdanie opisywało
+>   JEDNĄ z dwóch list, a opis zbioru niesie teraz zakładka razem z licznikiem.
+>   ⚠ Zakładki są **odnośnikami `GET`** (`?rodzaj=…`), nie przyciskami ze skryptem: działają bez
+>   JavaScriptu, dają się wkleić i wrócić do nich „wstecz". Zmierzone: ten sam wynik z JS i bez.
+>   ⚠ Licznik liczy ZBIÓR zakładki, nie wynik szukania — inaczej po wpisaniu nazwiska zakładka
+>   mówiłaby „Pracownicy 1" o liście, do której się przełącza (ta sama zasada, co w kaflach).
+> - **„Nowe konto administracyjne" stoi tylko na swojej zakładce**: na liście pracowników był
+>   przyciskiem do czynności, której ta lista nie dotyczy.
+> - **Tabela kont administracyjnych ma własne kolumny**: Osoba (kółko z inicjałami + nazwisko),
+>   E-mail, Rola (klucz + „Administrator"), 2FA, Logowanie, Konto (ta sama plakietka stanu).
+>   ⚠ Kolumna „Logowanie" mówi „dziś, 09:41" przy dzisiejszym logowaniu i samą datę przy
+>   starszym (`Support\Strefa::logowanie()`): pytanie o takie konto brzmi „czy ktoś go dziś
+>   używał", więc dziś rozróżnia godzina, a wcześniej sama data.
+>   Pod tabelą szara notka o tym, skąd te konta się biorą i czego nie wolno (ostatniego
+>   aktywnego administratora nie da się zablokować).
+> - **Panel osoby dla konta administracyjnego**: karty „Dane z kadr" NIE MA (nie ma czego z kadr
+>   pokazać — warunek jest parą: rola na cały tenant i zero etatów), karta trzecia nazywa się
+>   „Rola" i jest tylko do odczytu („Administrator · wszystkie firmy"), karta widoczności mówi
+>   „z uprawnień administratora · reguła domyślna »Administratorzy«".
+>   ⚠ **Odmowa blokady jest ZDANIEM, nie wyłączonym przyciskiem**: „ostatni aktywny administrator"
+>   i „własne konto" nie otworzą się same, a `title` nie istnieje na telefonie i nie wchodzi
+>   na zrzut ekranu. Wyłączony przycisk zostaje tam, gdzie droga naprawdę się otworzy
+>   (ponowienie zaproszenia).
+> - **Kafel „Aktywnych" mówi, czego NIE liczy**: „konta w użyciu · bez N administracyjnych".
+>   Kafle opisują osoby w zakresie firmy z belki, czyli po zatrudnieniu — konta administracyjne
+>   nie wchodzą do żadnej z tych liczb, więc dopisek „w tym N administratorów" byłby nieprawdą.
+> - **Formularz nowego konta administracyjnego**: jedno objaśnienie zamiast trzech, rola jako
+>   NAPIS (wyłączony `<select>` z jedną pozycją wyglądał jak wybór, który ktoś komuś zabrał),
+>   „firma" zamiast „spółki", a zdanie o obowiązkowym 2FA **tylko przy `ADMIN_2FA_REQUIRED=1`**
+>   (zmierzone na tej instalacji z wyłączonym wymogiem: zdania nie ma). Po utworzeniu powrót
+>   na zakładkę kont administracyjnych — bez tego nowe konto nie było widoczne na liście,
+>   na którą wracał formularz.
+> - **Telefon**: przełącznik na całą szerokość, zakładki po równo (142 px przy 375 px), pole
+>   szukania pod nim, a wiersz tabeli kont administracyjnych staje się blokiem trzech linii
+>   (nazwisko ze stanem, adres, rola · 2FA · logowanie). ⚠ Wiersz jest zawijającym się flexem,
+>   nie siatką: w siatce każda z trzech krótkich danych zajmowała własny rząd — zmierzone
+>   273 px wysokości wiersza przed poprawką, 121 px po.
 
 > **Zmiana 1.18.37 → 1.18.38: panel osoby w `/admin/konta` — pięć kart zamiast pięciu sekcji**
 > (zlecenie Z58, 20.10.2026; prototyp zatwierdzony przez Krzysztofa).

@@ -103,7 +103,7 @@ final class ControllerFactory
             AdminAccountController::class  => new AdminAccountController($d->view, $d->accounts, $d->people,
                 $d->invitations, $d->access, $d->konta, $d->events, $d->jobs, $d->termin, $d->twoFactor, $d->devices,
                 $d->permissions, $d->fingerprint, $d->kontekstSpolki, $d->errors, $d->urls,
-                $d->widocznoscKalendarza),
+                $d->widocznoscKalendarza, $d->config),
             AdminIntegrationController::class => new AdminIntegrationController($d->view, $d->session, $d->apiKeyService, $d->apiKeys,
                 $d->sync, $d->syncDomain, $d->events, $d->settings, $d->errors, $d->urls),
             DataController::class          => new DataController($d->view, $d->dataView, $d->kalendarz, $d->permissions,

@@ -53,7 +53,15 @@
     {% endif %}
     {% include 'partials/komunikat.twig' with {'tekst': error, 'rodzaj': 'blad'} only %}
 
-    {#- ══════════ 1. Dane z kadr ══════════ -#}
+    {#- ══════════ 1. Dane z kadr ══════════
+        ⚠ **Karty NIE MA przy koncie administracyjnym** (zlecenie Z59 §3): konto bez etatu
+        w żadnej firmie i z rolą na cały tenant nie przychodzi z kadr, więc karta mogłaby
+        powiedzieć o nim tylko tyle, że nic o nim nie wie — a „Ta osoba nie ma żadnego
+        zatrudnienia" czyta się przy takim koncie jak brak danych, nie jak jego natura.
+        ⚠ Warunek jest PARĄ (rola tenantowa + zero etatów), bo osobno każdy z członów znaczy
+        co innego: zwolniony pracownik też nie ma czynnego etatu, a administrator z etatem
+        zostaje zwykłą osobą z kadr. -#}
+    {% if not (wiersz.caly_tenant and zatrudnienia is empty) %}
     <section class="op-karta">
         <div class="op-karta__glowa">
             <span class="op-karta__znak">{{ ikony.dane() }}</span>
@@ -100,6 +108,7 @@
             {% endfor %}
         {% endif %}
     </section>
+    {% endif %}
 
     {#- ══════════ 2. Dane konta ══════════
         ⚠ Formularz ma `id`, a jego przycisk stoi w STOPCE panelu i wskazuje go atrybutem `form=`.
@@ -149,9 +158,17 @@
     <section class="op-karta">
         <div class="op-karta__glowa">
             <span class="op-karta__znak">{{ ikony.firma() }}</span>
+            {#- ⚠ **Przy roli na cały tenant karta nazywa się „Rola", nie „Dostęp do firm"**
+                (zlecenie Z59 §3): nie ma w niej żadnego dostępu do wyboru, bo rola obejmuje
+                wszystkie firmy — także te, które dopiero powstaną. Tytuł „Dostęp do firm" nad
+                napisem „wszystkie firmy" obiecywał wybór, którego nie ma. -#}
             <div class="op-karta__tytuly">
-                <h3 class="op-karta__tytul">Dostęp do firm</h3>
-                <p class="op-karta__opis">bez żadnej firmy osoba nie widzi w programie niczego</p>
+                <h3 class="op-karta__tytul">{{ wiersz.caly_tenant ? 'Rola' : 'Dostęp do firm' }}</h3>
+                <p class="op-karta__opis">
+                    {{- wiersz.caly_tenant
+                        ? 'obejmuje wszystkie firmy, także przyszłe'
+                        : 'bez żadnej firmy osoba nie widzi w programie niczego' -}}
+                </p>
             </div>
         </div>
         {% if wiersz.caly_tenant %}
@@ -159,7 +176,7 @@
                 zmienia się tego stąd. Pole wyboru z zaznaczonymi wszystkimi firmami kłamałoby
                 o tym, czym ten dostęp jest. -#}
             <p class="op-rola">{{ ikony.klucz() }}<span>Administrator · wszystkie firmy</span></p>
-            <p class="op-karta__notka">Obejmuje też firmy, które dopiero powstaną. Tego dostępu nie zmienia się w panelu osoby.</p>
+            <p class="op-karta__notka">Tej roli nie zmienia się w panelu osoby.</p>
         {% elseif o.account_id is null %}
             <p class="empty-state">Dostęp nadaje się kontu — ta osoba jeszcze go nie ma.</p>
         {% else %}
@@ -348,9 +365,14 @@
                     {#- ⚠ Gdy blokada jest niedozwolona (ostatni administrator, własne konto),
                         przycisk jest WYŁĄCZONY z powodem — powód liczy ten sam serwis, który
                         blokadę wykonuje, a nie szablon. -#}
+                    {#- ⚠ **Przy odmowie nie ma przycisku, jest ZDANIE** (zlecenie Z59 §3).
+                        Wyłączony przycisk z powodem w `title` obiecywał drogę, która się otworzy
+                        — a „ostatni aktywny administrator" i „własne konto" nie otworzą się
+                        same: trzeba najpierw zrobić coś zupełnie innego. `title` nie istnieje
+                        na telefonie i nie wchodzi na zrzut ekranu, więc powód musi być tekstem.
+                        Walidacja serwera zostaje bez zmian (`AccountService::block()`). -#}
                     {% if not zablokowane and odmowa_blokady is not null %}
-                        <button type="button" class="btn btn--ghost btn--sm op-akcja__btn" disabled
-                                title="{{ odmowa_blokady }}">Zablokuj</button>
+                        <span class="op-akcja__powod">{{ odmowa_blokady }}</span>
                     {% else %}
                         <button type="button" class="btn btn--ghost btn--sm op-akcja__btn{{ zablokowane ? '' : ' op-akcja__btn--niebezpieczna' }}"
                                 hx-get="{{ url('/admin/konta/osoba/' ~ o.person_id ~ '/blokada') }}"

@@ -590,6 +590,10 @@ final class Kernel
                 'czas_data'     => static fn (?string $utc): string => Strefa::czas($utc, $viewContext->timezone(), 'd.m.Y'),
                 'czas_godzina'  => static fn (?string $utc): string => Strefa::godzina($utc, $viewContext->timezone()),
                 'czas_godzina_krotka' => static fn (?string $utc): string => Strefa::godzinaKrotka($utc, $viewContext->timezone()),
+                // ⚠ Kolumna „Logowanie" na liście kont administracyjnych (Z59): „dziś, 09:41"
+                // przy dzisiejszym dniu, sama data przy starszym. Strefa z ustawień tenanta,
+                // jak w każdym innym `czas_*` — inaczej „dziś" liczyłoby się w UTC.
+                'czas_logowanie' => static fn (?string $utc): string => Strefa::logowanie($utc, $viewContext->timezone()),
                 'czas_dzien_naglowek' => static fn (?string $utc): string => Strefa::naglowekDnia($utc, $viewContext->timezone()),
                 // ⚠ Prognoza BEZ sekund — patrz `Strefa::prognoza()`. Nie ta sama funkcja
                 // co pomiar, żeby różnicy nie dało się przegapić przy pisaniu szablonu.

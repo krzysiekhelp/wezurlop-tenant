@@ -6472,3 +6472,132 @@ body:has(dialog.modal[open]) { overflow: hidden; }
      bo szerokość liczy się od treści panelu. */
   .op-akcja__btn { width: 84px; }
 }
+
+/* ═══════════ Zakładki listy osób i tabela kont administracyjnych (Z59, 20.10.2026) ═════════
+   ⚠ Rodzina `zak-*` jest tą samą kontrolką, co `wid-seg` w oknie widoczności — i to nie jest
+   kopia, tylko ten sam **kształt dla tego samego znaczenia**: wybór jednego z dwóch
+   równorzędnych widoków. Różni je jedno: tutaj pozycje są ODNOŚNIKAMI `GET` (zakładka jedzie
+   w adresie, działa bez JavaScriptu i da się ją wkleić), a tam przełącznikiem w formularzu. */
+.zak-glowa { align-items: center; gap: var(--s-4); flex-wrap: wrap; }
+.zak {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius);
+  background: var(--c-surface-mute);
+}
+.zak__poz {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-height: 32px;
+  padding: 0 var(--s-3);
+  border-radius: calc(var(--radius) - 2px);
+  font-size: var(--t-small);
+  font-weight: var(--w-medium);
+  color: var(--c-text-2);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.zak__poz .ico { width: 15px; height: 15px; flex: none; color: var(--c-text-3); }
+@media (hover: hover) { .zak__poz:hover { background: var(--c-surface-hover); color: var(--c-text); } }
+/* Zakładka czynna: biała karta na szarym pasku, jak pozycja wybrana w pasku segmentowym. */
+.zak__poz--on {
+  background: var(--c-surface);
+  color: var(--c-text);
+  box-shadow: var(--shadow-card);
+}
+.zak__poz--on .ico { color: var(--c-accent-text); }
+/* Licznik w pigułce: mówi o ZBIORZE zakładki, nie o wyniku szukania. */
+.zak__licznik {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--c-neutral-soft);
+  font-size: var(--t-label);
+  font-variant-numeric: tabular-nums;
+  color: var(--c-text-2);
+}
+.zak__poz--on .zak__licznik { background: var(--c-accent-soft); color: var(--c-accent-text); }
+
+/* Kolumny tabeli kont administracyjnych. Suma 100%: 26 / 28 / 14 / 10 / 12 / 10. */
+.col--rola      { width: 14%; }
+.col--2fa       { width: 10%; }
+.col--logowanie { width: 12%; }
+.cell--rola { display: flex; align-items: center; gap: 6px; }
+.cell--rola .ico { width: 15px; height: 15px; flex: none; color: var(--c-text-3); }
+
+/* Notka pod tabelą: szara, z ikoną — opisuje całą rodzinę tych kont, nie jeden wiersz. */
+.adm-notka {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-2);
+  padding: var(--s-3) var(--s-4);
+  border-top: 1px solid var(--c-line-soft);
+  background: var(--c-bg);
+  font-size: var(--t-caption);
+  color: var(--c-text-3);
+}
+.adm-notka .ico { width: 15px; height: 15px; flex: none; margin-top: 1px; }
+
+@media (max-width: 720px) {
+  /* ⚠ Przełącznik na całą szerokość i po równo: dwie zakładki o różnej szerokości wyglądały
+     jak zakładka plus przycisk. Napis może się skrócić — licznik nie, bo on jest daną. */
+  .zak { width: 100%; }
+  .zak__poz { flex: 1 1 0; justify-content: center; min-width: 0; }
+  .zak__nazwa { overflow: hidden; text-overflow: ellipsis; }
+}
+/* Powód odmowy zamiast przycisku w wierszu akcji (Z59 §3) — tekst, nie `title`: `title`
+   nie istnieje na telefonie i nie wchodzi na zrzut ekranu. */
+.op-akcja__powod { flex: none; max-width: 190px; font-size: var(--t-caption); color: var(--c-text-3); text-align: right; }
+@media (max-width: 720px) { .op-akcja__powod { max-width: 140px; } }
+
+/* ⚠ **Tabela kont administracyjnych na telefonie też przestaje być tabelą** (Z59 §5) — ta sama
+   zasada i ten sam próg co przy liście pracowników: sześć kolumn w procentach nie przewija się
+   w bok, tylko ściska „Logowanie" do dwóch znaków.
+   ⚠ Wiersz jest **zawijającym się flexem**, nie siatką: trzy krótkie dane (rola, 2FA, logowanie)
+   mają stanąć w JEDNEJ linii rozdzielone kropką, a w siatce każda z nich zajmowała własny rząd
+   — zmierzone przed poprawką: wiersz 273 px wysokości, sześć komórek po 48 px.
+   ⚠ `height: auto` na komórkach jest konieczne: `.table td` ma stałą wysokość `--row-h`,
+   która w układzie blokowym mnoży się przez liczbę komórek. */
+@media (max-width: 560px) {
+  .table--adm colgroup, .table--adm thead { display: none; }
+  .table--adm, .table--adm tbody { display: block; width: 100%; }
+  .table--adm tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px var(--s-2);
+    padding: var(--s-3) var(--s-4);
+    border-bottom: 1px solid var(--c-line-soft);
+  }
+  .table--adm td {
+    display: block;
+    width: auto;
+    height: auto;
+    padding: 0;
+    border: 0;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    font-size: var(--t-caption);
+    color: var(--c-text-3);
+  }
+  /* Pierwsza linia: nazwisko i plakietka stanu — ona odpowiada na pierwsze pytanie o takie
+     konto („czy się zaloguje"), więc stoi przy nazwisku, a nie na końcu bloku. */
+  .table--adm td:first-child { order: 1; flex: 1 1 auto; min-width: 0; font-size: var(--t-body); color: var(--c-text); }
+  .table--adm td:last-child { order: 2; flex: none; }
+  /* Druga linia: adres. Trzecia: rola · 2FA · logowanie. */
+  .table--adm td:nth-child(2) { order: 3; flex: 1 1 100%; }
+  .table--adm td:nth-child(3) { order: 4; flex: none; }
+  .table--adm td:nth-child(4) { order: 5; flex: none; }
+  .table--adm td:nth-child(5) { order: 6; flex: none; }
+  .table--adm td:nth-child(4)::before, .table--adm td:nth-child(5)::before { content: '· '; }
+  /* Rola zostaje z ikoną, ale w jednej linii z pozostałymi danymi. */
+  .table--adm .cell--rola { display: inline-flex; }
+}

@@ -1,8 +1,18 @@
-{#- Nowe konto administracyjne (etap 4 zlecenia `konta-budowa-2`, plansza 04 makiety).
+{#- **Nowe konto administracyjne** (zlecenie Z59 §4; wcześniej etap 4 `konta-budowa-2`).
 
     ⚠ Ten sam fragment idzie do okna modalnego (htmx) i na pełny ekran `page/web/admin-account.twig`.
-    ⚠ To JEDYNA ręczna ścieżka tworzenia osoby i konta — i ekran mówi wprost, że pracownika
-    nie da się tu dodać, bo pracownicy przychodzą z R2 i pojawiają się na liście sami. -#}
+
+    ⚠ **Jedno objaśnienie, nie dwa.** Do 20.10.2026 stały tu dwa akapity mówiące to samo
+    („dla osoby, która nie jest w programie kadrowym" i „jedyna ręczna ścieżka…"), a pod
+    kontrolką roli trzecie zdanie o etacie. Ekran, który tłumaczy się trzy razy, czyta się jak
+    ostrzeżenie — a to zwykły formularz na trzy pola.
+
+    ⚠ **Zdanie o 2FA tylko wtedy, gdy wymóg naprawdę działa** (`ADMIN_2FA_REQUIRED`): przy
+    wyłączonym wymogu obiecywałoby drugi składnik, którego nikt nie poprosi — ta sama zasada,
+    co kafel 2FA na `/ustawienia` (Z57 U3).
+
+    ⚠ „firma", nie „spółka" — jedno słowo w całym interfejsie. -#}
+{% import 'partials/ikony.twig' as ikony %}
 <form method="post" action="{{ url('/admin/konta/administracyjne') }}"
       hx-post="{{ url('/admin/konta/administracyjne') }}"
       hx-target="#konto-adm-tresc" hx-swap="innerHTML">
@@ -10,9 +20,8 @@
     <div class="stack">
         {% include 'partials/komunikat.twig' with {'tekst': error, 'rodzaj': 'blad'} only %}
 
-        <p class="notice">Dla osoby, która <strong>nie jest w programie kadrowym</strong> — księgowej z zewnątrz,
-            właściciela, informatyka. Pracownika nie da się dodać tutaj: pracownicy przychodzą z R2
-            i pojawiają się na liście sami.</p>
+        <p class="card__opis">Dla osoby, która <strong>nie jest w programie kadrowym</strong> — właściciela,
+            księgowej z zewnątrz, informatyka. Pracownicy przychodzą z R2 i pojawiają się na liście sami.</p>
 
         <div class="form-grid">
             <label class="field">
@@ -29,31 +38,22 @@
             <input class="input" type="email" name="email" maxlength="254" required value="{{ wpisane.email ?? '' }}">
             {#- ⚠ Hasła nie ustawiamy tutaj: tworzący nie ma znać hasła właściciela konta
                 (CLAUDE.md §15). Idzie zaproszenie z jednorazowym linkiem. -#}
-            <span class="field__hint">Na ten adres pójdzie zaproszenie. Hasło ustawia sobie właściciel konta.</span>
+            <span class="field__hint">Na ten adres pójdzie zaproszenie. Hasło ustawia sobie właściciel konta{% if dwuetapowe_wymagane %}, a przy pierwszym logowaniu sparuje aplikację uwierzytelniającą{% endif %}.</span>
         </label>
         <label class="field">
             <span class="field__label">Telefon — opcjonalnie</span>
-            <input class="input" type="tel" name="telefon" maxlength="32" placeholder="np. 601 204 118" value="{{ wpisane.telefon ?? '' }}">
+            <input class="input" type="tel" name="telefon" maxlength="32" value="{{ wpisane.telefon ?? '' }}">
         </label>
 
         <div class="field">
-            <span class="field__label">Dostęp</span>
-            {#- ⚠ Kontrolka WYŁĄCZONA, nie ukryta — pokazuje, co powstanie, i mówi dlaczego nie
-                ma wyboru. Rola nie przychodzi z żądania: serwer ustawia administratora tenanta
-                niezależnie od tego, co przyjdzie w formularzu. -#}
-            <select class="select" disabled>
-                <option>Administrator tenanta — wszystkie firmy</option>
-            </select>
-            <span class="field__hint">Konto bez zatrudnienia może mieć tylko rolę administratora.
-                Rola pracownika wymaga aktywnego etatu w spółce.</span>
+            <span class="field__label">Rola</span>
+            {#- ⚠ **Napis, nie wyłączona kontrolka** (Z59 §4): `<select disabled>` z jedną pozycją
+                wyglądał jak wybór, którego ktoś komuś zabrał. Rola nie przychodzi z żądania —
+                serwer ustawia administratora tenanta niezależnie od tego, co przyjdzie
+                w formularzu (CLAUDE.md §10 i §11). -#}
+            <p class="op-rola">{{ ikony.klucz() }}<span>Administrator · wszystkie firmy</span></p>
+            <span class="field__hint">Konto bez zatrudnienia może mieć tylko tę rolę. Rola pracownika wymaga aktywnego etatu w firmie.</span>
         </div>
-
-        {#- ⚠ Zdanie o haśle z linku zeszło TUTAJ z komunikatu po utworzeniu konta (Z47):
-            toast znika po pięciu sekundach, a to jest wyjaśnienie, które ma zostać — i czyta
-            się je przed utworzeniem konta, a nie po. -#}
-        <p class="notice notice--warn">Hasło właściciel konta ustawi z linku w zaproszeniu.
-            Administratorzy mają obowiązkowe logowanie dwuetapowe — aplikację uwierzytelniającą
-            sparuje przy pierwszym logowaniu.</p>
     </div>
     <div class="drawer__foot">
         {% if w_oknie %}

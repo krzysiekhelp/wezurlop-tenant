@@ -106,6 +106,23 @@ final class PersonRepository
     private const FILTR_SPOLKI = '(:filter_all = 1 OR EXISTS (
             SELECT 1 FROM employment e4 WHERE e4.person_id = p.id AND e4.company_id = :filter))';
 
+    /**
+     * **Konto administracyjne**: rola na cały tenant i BEZ etatu w jakiejkolwiek firmie
+     * (zlecenie Z59 §3).
+     *
+     * ⚠ Rozstrzyga **para warunków**, nie nazwa ekranu: samo „bez etatu" łapałoby osoby usunięte
+     * z kadr, a sama rola tenantowa — administratora, który ma też etat (on zostaje na liście
+     * pracowników, bo tam go szuka się po nazwisku razem z resztą załogi).
+     *
+     * ⚠ To ten sam warunek, którym `PermissionRepository::hasTenantWideRole()` rozstrzyga
+     * o dostępie do wszystkich firm — i dlatego kod roli przychodzi z jego stałej, a nie
+     * z literału w tym zapytaniu.
+     */
+    private const ADMINISTRACYJNE = '(EXISTS (
+            SELECT 1 FROM role_assignment ra5 JOIN role r5 ON r5.id = ra5.role_id
+             WHERE ra5.account_id = a.id AND ra5.company_id = 0 AND r5.code = :rola_admin)
+        AND NOT EXISTS (SELECT 1 FROM employment e5 WHERE e5.person_id = p.id))';
+
     private const SZUKANIE = "(:search = ''
             OR p.last_name LIKE :like OR p.first_name LIKE :like2 OR a.email LIKE :like3
             OR p.email_private LIKE :like4)";
@@ -189,6 +206,10 @@ final class PersonRepository
                     -- tozsamosci. Gdy prawdziwe sa oba (osoba dodana recznie, potem dopasowana
                     -- do R2), wygrywa wiazanie: jest nowsza i mocniejsza informacja.
                     -- (Bez polskich znakow i cudzyslowow: to wnetrze lancucha PHP w cudzyslowach.)
+                    -- ⚠ Dwie kolumny dla tabeli kont administracyjnych (Z59 §3): tam 2FA
+                    -- i ostatnie logowanie są DANĄ kolumny, a nie szczegółem panelu. Jeden
+                    -- kształt wiersza dla obu list jest tańszy niż drugie zapytanie.
+                    a.totp_enabled_at, a.last_login_at,
                     p.outside_hr AS spoza_kadr,
                     EXISTS (SELECT 1 FROM person_external_ref x WHERE x.person_id = p.id) AS z_kadr,
                     -- Administrator tenanta: `company_id = 0` znaczy wszystkie spółki, także przyszłe.
@@ -223,9 +244,51 @@ final class PersonRepository
             'dostepy'        => (int) $r['dostepy'],
             'dostep_nazwy'   => $r['dostep_nazwy'] === null ? [] : explode("\n", (string) $r['dostep_nazwy']),
             'caly_tenant'    => (bool) $r['caly_tenant'],
+            'totp'           => $r['totp_enabled_at'] !== null,
+            'last_login_at'  => $r['last_login_at'] === null ? null : (string) $r['last_login_at'],
             'spoza_kadr'     => (bool) $r['spoza_kadr'],
             'z_kadr'         => (bool) $r['z_kadr'],
         ], $stmt->fetchAll());
+    }
+
+    /**
+     * **Lista kont administracyjnych** — niezależna od firmy w belce (zlecenie Z59 §3).
+     *
+     * ⚠ `null` w obu miejscach zakresu jest tu TREŚCIĄ, nie skrótem: konto bez etatu nie należy
+     * do żadnej firmy, więc zawężenie po firmie z belki wycinałoby z listy wszystko. To właśnie
+     * dlatego administrator bez etatu nie dawał się znaleźć na liście pracowników — filtr firmy
+     * wymaga etatu w tej firmie (zmierzone przez zarządcę: „Nikogo nie znaleziono").
+     *
+     * @return list<OsobaRow>
+     */
+    public function listaAdministracyjnych(string $search, string $sort, bool $asc, int $limit, int $offset): array
+    {
+        return $this->listaZWarunkiem(
+            self::ADMINISTRACYJNE,
+            ['rola_admin' => PermissionRepository::ROLA_ADMIN],
+            null,
+            $search,
+            $sort,
+            $asc,
+            $limit,
+            $offset,
+            null,
+        );
+    }
+
+    /** Ile kont administracyjnych — do licznika w przełączniku zakładek. */
+    public function ileAdministracyjnych(string $search = ''): int
+    {
+        $stmt = $this->db->pdo()->prepare(
+            'SELECT COUNT(*) FROM person p LEFT JOIN account a ON a.person_id = p.id
+             WHERE ' . self::ADMINISTRACYJNE . ' AND ' . self::ZAKRES . ' AND ' . self::FILTR_SPOLKI
+            . ' AND ' . self::SZUKANIE
+        );
+        $this->bindScope($stmt, null, $search, null);
+        $stmt->bindValue('rola_admin', PermissionRepository::ROLA_ADMIN);
+        $stmt->execute();
+
+        return (int) $stmt->fetchColumn();
     }
 
     public function countForAdmin(?int $companyId, string $search, ?int $filtrSpolki = null): int
@@ -442,6 +505,10 @@ final class PersonRepository
         $stmt = $this->db->pdo()->prepare(
             'SELECT p.id, p.first_name, p.last_name, p.phone, p.email_private,
                     EXISTS (SELECT 1 FROM person_external_ref x WHERE x.person_id = p.id) AS z_kadr,
+                    -- ⚠ Dwie kolumny dla tabeli kont administracyjnych (Z59 §3): tam 2FA
+                    -- i ostatnie logowanie są DANĄ kolumny, a nie szczegółem panelu. Jeden
+                    -- kształt wiersza dla obu list jest tańszy niż drugie zapytanie.
+                    a.totp_enabled_at, a.last_login_at,
                     p.outside_hr AS spoza_kadr,
                     a.id AS account_id, a.email AS account_email, a.status, a.last_login_at,
                     a.totp_enabled_at, a.blocked_reason, a.blocked_at,

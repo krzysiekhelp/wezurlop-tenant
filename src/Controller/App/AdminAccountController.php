@@ -30,6 +30,7 @@ use Wezurlop\Service\TwoFactorService;
 use Wezurlop\Support\AdresKontaktowy;
 use Wezurlop\Support\Komunikat;
 use Wezurlop\Support\UrlGenerator;
+use Wezurlop\Support\Config;
 use Wezurlop\Support\ErrorHandler;
 use Wezurlop\Support\Odmiana;
 use Wezurlop\Support\View;
@@ -62,6 +63,10 @@ final class AdminAccountController
         // panelu). Panel pokazuje jej odpowiedź, a nie własny rachunek: panel mówiący coś
         // innego niż kalendarz byłby gorszy niż panel milczący.
         private readonly CalendarVisibility $widocznosc,
+        // ⚠ Zdanie o obowiązkowym 2FA administratorów musi być zgodne z konfiguracją
+        // (`ADMIN_2FA_REQUIRED`) — ta sama zasada, co kafel na `/ustawienia` z Z57 U3.
+        // Instalacja z wyłączonym wymogiem nie ma prawa obiecywać drugiego składnika.
+        private readonly Config $config,
     ) {
     }
 
@@ -84,9 +89,11 @@ final class AdminAccountController
     private const KOMUNIKATY_ODMOW = [
         AccountService::POWOD_SIEBIE => 'Nie można zablokować konta, na którym jesteś zalogowany — '
             . 'odblokowanie wymagałoby drugiego administratora, a drugiego może nie być.',
-        AccountService::POWOD_OSTATNI_ADMIN => 'To jedyne aktywne konto administratora tenanta. '
-            . 'Najpierw utwórz drugie i poczekaj, aż jego właściciel ustawi hasło — konto zaproszone, '
-            . 'które nigdy nie zostało aktywowane, nie jest zabezpieczeniem.',
+        // ⚠ Pierwsze zdanie **mówi fakt**, drugie — co zrobić (brzmienie z Z59 §3 plus droga
+        // wyjścia). Zdanie bez drogi wyjścia zostawia administratora z zakazem i bez pomysłu.
+        AccountService::POWOD_OSTATNI_ADMIN => 'To ostatni aktywny administrator — nie można go '
+            . 'zablokować. Najpierw utwórz drugie konto i poczekaj, aż jego właściciel ustawi hasło: '
+            . 'konto zaproszone, które nigdy nie zostało aktywowane, nie jest zabezpieczeniem.',
         AccountService::POWOD_NIE_MA => 'Stan tego konta zmienił się w trakcie — odśwież panel.',
     ];
 
@@ -95,6 +102,13 @@ final class AdminAccountController
 
     /** Sortowanie z białej listy (CLAUDE.md §11). */
     private const SORT = ['nazwisko', 'email', 'konto'];
+
+    /**
+     * Zakładki listy (zlecenie Z59). ⚠ Klucze jadą w adresie, więc są **białą listą**, a nie
+     * napisami do porównania w szablonie.
+     */
+    private const RODZAJ_PRACOWNICY = 'pracownicy';
+    private const RODZAJ_ADMIN = 'administracyjne';
 
     /**
      * Lista OSÓB z kolumną „konto" (zlecenie `2026-09-21-konta-budowa.md` §1).
@@ -130,10 +144,34 @@ final class AdminAccountController
         );
         $filtr = $kontekst['spolka']['id'] ?? null;
 
-        $total = $this->people->countForAdmin($companyId, $search, $filtr);
+        // ⚠ **Zakładka z ADRESU, z białej listy** (zlecenie Z59 §1, CLAUDE.md §11): wartość spoza
+        // listy znaczy „pracownicy", a nie błąd — adres wklejony po zmianie nazwy ma pokazać
+        // listę, nie ekran awarii. Działa bez JavaScriptu, bo to zwykły odnośnik `GET`.
+        $rodzaj = $request->queryString('rodzaj', 20) === self::RODZAJ_ADMIN
+            ? self::RODZAJ_ADMIN
+            : self::RODZAJ_PRACOWNICY;
+
+        $stany = $this->people->stateCounters($companyId, $filtr);
+        // ⚠ Licznik w zakładce liczy TEN SAM zbiór, który ta zakładka pokazuje — bez szukanego
+        // tekstu. Inaczej po wpisaniu nazwiska zakładka mówiłaby „Pracownicy 1", czyli o liście,
+        // a nie o zbiorze, do którego się przełącza (ta sama zasada, co w kaflach).
+        $liczniki = [
+            self::RODZAJ_PRACOWNICY => $stany['osoby'],
+            self::RODZAJ_ADMIN => $this->people->ileAdministracyjnych(),
+        ];
+
+        // ⚠ **Konta administracyjne są NIEZALEŻNE od firmy w belce**: konto bez etatu nie należy
+        // do żadnej firmy, więc zawężenie wycięłoby z listy wszystko — i właśnie dlatego dotąd
+        // nie dawały się znaleźć (zmierzone: szukanie po nazwisku administratora dawało
+        // „Nikogo nie znaleziono").
+        $total = $rodzaj === self::RODZAJ_ADMIN
+            ? $this->people->ileAdministracyjnych($search)
+            : $this->people->countForAdmin($companyId, $search, $filtr);
         $page = self::page($request, $total, self::PAGE);
 
-        $osoby = $this->people->listForAdmin($companyId, $search, $sort, $asc, self::PAGE, $page['offset'], $filtr);
+        $osoby = $rodzaj === self::RODZAJ_ADMIN
+            ? $this->people->listaAdministracyjnych($search, $sort, $asc, self::PAGE, $page['offset'])
+            : $this->people->listForAdmin($companyId, $search, $sort, $asc, self::PAGE, $page['offset'], $filtr);
 
         $utworzono = filter_var($request->query('utworzono'), FILTER_VALIDATE_INT);
         $reset = filter_var($request->query('zresetowano'), FILTER_VALIDATE_INT);
@@ -145,7 +183,12 @@ final class AdminAccountController
             'szukaj'      => $search,
             'sortuj'      => $sort,
             'kierunek'    => $asc ? 'asc' : 'desc',
-            'stany'       => $this->people->stateCounters($companyId, $filtr),
+            'stany'       => $stany,
+            'rodzaj'      => $rodzaj,
+            'liczniki'    => $liczniki,
+            // Zdanie o 2FA na formularzu i w notce pod tabelą musi być zgodne z konfiguracją
+            // (ta sama zasada, co kafel 2FA z Z57 U3).
+            'dwuetapowe_wymagane' => $this->config->adminTwoFactorRequired,
             'licencja'    => $this->access->licenceUsage(),
             'spolka'      => $kontekst['spolka'],
             'z_adresu'    => $kontekst['z_adresu'],
@@ -338,7 +381,9 @@ final class AdminAccountController
      */
     public function adminAccountForm(Request $request, array $params): Response
     {
-        $dane = ['error' => null, 'wpisane' => [], 'w_oknie' => $request->isHtmx()];
+        $dane = ['error' => null, 'wpisane' => [], 'w_oknie' => $request->isHtmx(),
+            // Zdanie o obowiązkowym 2FA tylko wtedy, gdy wymóg naprawdę działa (Z59 §4).
+            'dwuetapowe_wymagane' => $this->config->adminTwoFactorRequired];
 
         return $request->isHtmx()
             ? $this->view->render('fragments/admin-account-form.twig', $dane)
@@ -393,7 +438,10 @@ final class AdminAccountController
 
         // ⚠ Po udanym POST przekierowanie (CLAUDE.md §3). Przy htmx nagłówkiem `HX-Redirect`,
         // nie `Location` — inaczej przeglądarka wstawiłaby całą stronę do okna modalnego.
-        $cel = $this->urls->to('/admin/konta') . '?utworzono=' . $accountId;
+        // ⚠ Powrót na ZAKŁADKĘ kont administracyjnych (zlecenie Z59 §4): nowe konto nie ma etatu,
+        // więc na liście pracowników go nie ma — przekierowanie bez zakładki pokazywało listę,
+        // na której właśnie utworzonego konta nie widać.
+        $cel = $this->urls->to('/admin/konta') . '?rodzaj=' . self::RODZAJ_ADMIN . '&utworzono=' . $accountId;
 
         return $request->isHtmx()
             ? Response::html('', 204)->withHeader('HX-Redirect', $cel)
@@ -403,7 +451,8 @@ final class AdminAccountController
     /** @param array<string, string> $wpisane */
     private function formularzZBledem(Request $request, string $blad, array $wpisane): Response
     {
-        $dane = ['error' => $blad, 'wpisane' => $wpisane, 'w_oknie' => $request->isHtmx()];
+        $dane = ['error' => $blad, 'wpisane' => $wpisane, 'w_oknie' => $request->isHtmx(),
+            'dwuetapowe_wymagane' => $this->config->adminTwoFactorRequired];
 
         // ⚠ Kod 200, nie 422 — ta sama zasada co w panelu osoby: odrzucenie wartości nie jest
         // błędem serwera, a htmx nie wstawia odpowiedzi błędnych, więc komunikat by nie dotarł.

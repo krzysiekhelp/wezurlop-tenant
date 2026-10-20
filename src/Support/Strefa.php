@@ -104,6 +104,31 @@ final class Strefa
     }
 
     /** Pełny znacznik do miejsc technicznych: „20.09.2026, 19:27:58”. */
+    /**
+     * **Ostatnie logowanie w kolumnie listy** (zlecenie Z59 §3): „dziś, 09:41" dla dzisiejszego
+     * dnia, sama data dla wcześniejszego, „—" gdy nigdy.
+     *
+     * ⚠ Dzisiejsze logowanie ma GODZINĘ, a wcześniejsze nie — i to nie jest niekonsekwencja.
+     * Pytanie o konto administracyjne brzmi „czy ktoś go dziś używał", więc przy dzisiejszym
+     * dniu rozróżnia godzina, a przy starszym sama data: „14.09.2026, 11:02" w kolumnie
+     * szerokiej na 12% daje szum, a nie informację.
+     *
+     * ⚠ Słowo małą literą, bo stoi w komórce tabeli, a nie w nagłówku dnia (`naglowekDnia()`
+     * pisze „Dziś" wielką, bo tam jest początkiem zdania).
+     */
+    public static function logowanie(?string $utc, string $strefa): string
+    {
+        $moment = $utc === null || trim($utc) === '' ? null : self::moment($utc, $strefa);
+        if ($moment === null) {
+            return '—';
+        }
+        $dzis = new \DateTimeImmutable('now', new \DateTimeZone($strefa));
+
+        return $moment->format('Y-m-d') === $dzis->format('Y-m-d')
+            ? 'dziś, ' . $moment->format('H:i')
+            : $moment->format('d.m.Y');
+    }
+
     public static function czasZSekundami(?string $utc, string $strefa): string
     {
         return self::czas($utc, $strefa, 'd.m.Y, H:i:s');

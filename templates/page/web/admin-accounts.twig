@@ -13,6 +13,7 @@
     którą trzeba zaprosić. -#}
 {% block content %}
 {% import 'partials/ikony.twig' as ikony %}
+{% import 'partials/inicjaly.twig' as znak %}
 {#- ⚠ **Bez `.page__head`** (zlecenie Z30 §1): zdanie o zakresie listy przeszło do nagłówka karty,
     gdzie dotyczy tego, co pod nim stoi; nazwa firmy do podpisu pierwszego kafla, bo to ona mówi,
     czego dotyczy liczba; a „Konto administracyjne" do paska działań karty. Pusty nagłówek strony
@@ -64,7 +65,13 @@
             <span class="kafel__glowa">{{ ikony.konto() }}<span class="kafel__etykieta">Aktywnych</span></span>
             <span class="kafel__dana">
                 <span class="kafel__wartosc">{{ stany.active }}</span>
-                <span class="kafel__opis">konta w użyciu</span>
+                {#- ⚠ **Podpis mówi, czego ten kafel NIE liczy** (zlecenie Z59 §3). Kafle opisują
+                    osoby w zakresie firmy z belki, czyli po ZATRUDNIENIU — a konto administracyjne
+                    etatu nie ma i do żadnej z tych liczb nie wchodzi. Dopisanie „w tym M
+                    administratorów" byłoby nieprawdą: nie ma ich w liczniku, więc nie da się
+                    ich z niego wyjąć. Liczba kont administracyjnych stoi w zakładce, bo tam
+                    opisuje zbiór, który pokazuje. -#}
+                <span class="kafel__opis">konta w użyciu · bez {{ liczniki.administracyjne }} administracyjnych</span>
             </span>
         </div>
         <div class="kafel">
@@ -129,22 +136,34 @@
             i pod nim zdanie o tym, CO jest na liście — zdanie zeszło tu z nagłówka strony, bo
             dotyczy tej listy, a nie całego ekranu. Po prawej, w tym samym rzędzie, wszystkie
             trzy działania paska: szukanie, filtr i nowe konto administracyjne. -#}
-        <div class="card__head card__head--znak card__head--lista">
-            <span class="card__znak">{{ ikony.konta() }}</span>
-            {#- ⚠ **Karta nie ma własnego tytułu, choć zlecenie Z30 go wymieniało** — i to nie jest
-                przeoczenie. Ekran nazywa się „Osoby i konta" i ta nazwa stoi w belce jako jedyny
-                `h1`; powtórzona w nagłówku karty daje DRUGI tytuł tego samego ekranu, co łamie
-                regułę z 11.10 („jeden tytuł na ekran") i zapala kryterium bramki
-                `nazwa_ekranu_w_belce`. Zmierzone: naruszenie na 1920 i 1440 px, obie szerokości
-                nazwane wprost. Zostaje znak i zdanie o tym, co jest na liście — a tytuł tam,
-                gdzie był, czyli w belce. -#}
-            <div class="card__tytuly">
-                <p class="card__opis card__opis--lead">Wszystkie osoby z programu kadrowego, także zwolnione. Większość nie ma konta i to jest stan normalny.</p>
+        {#- ⚠ **Nagłówek karty to JEDEN WIERSZ: zakładki po lewej, działania po prawej**
+            (zlecenie Z59 §1). Znak karty i zdanie „Wszystkie osoby z programu kadrowego…"
+            zniknęły: zdanie opisywało JEDNĄ z dwóch list, a od teraz karta pokazuje dwa różne
+            zbiory — opis zbioru niesie zakładka razem z licznikiem. -#}
+        <div class="card__head card__head--lista zak-glowa">
+            {#- ⚠ Zakładki są ODNOŚNIKAMI `GET` z parametrem w adresie, nie przyciskami ze
+                skryptem: działają bez JavaScriptu, dają się wkleić i wrócić do nich przyciskiem
+                „wstecz". Kształt segmentowy jak w oknie widoczności — ta sama kontrolka znaczy
+                tu to samo: wybór jednego z dwóch równorzędnych widoków. -#}
+            <div class="zak" role="tablist" aria-label="Rodzaj listy">
+                {% for kod, nazwa in {'pracownicy': 'Pracownicy z kadr', 'administracyjne': 'Konta administracyjne'} %}
+                    <a class="zak__poz{{ rodzaj == kod ? ' zak__poz--on' : '' }}"
+                       role="tab" aria-selected="{{ rodzaj == kod ? 'true' : 'false' }}"
+                       href="{{ url('/admin/konta') }}?rodzaj={{ kod }}">
+                        {%- if kod == 'administracyjne' %}{{ ikony.klucz() }}{% else %}{{ ikony.zespol() }}{% endif -%}
+                        <span class="zak__nazwa">{{ nazwa }}</span>
+                        {#- Licznik w pigułce liczy ZBIÓR zakładki, nie wynik szukania. -#}
+                        <span class="zak__licznik">{{ liczniki[kod] }}</span>
+                    </a>
+                {% endfor %}
             </div>
-            {#- Pasek filtrów. ⚠ Etykieta „Szukaj" zniknęła WIZUALNIE, nie z dokumentu: pole z lupą
-                i podpowiedzią mówi widzącemu wszystko, a czytnik ekranu dalej dostaje etykietę
-                (`.visually-hidden` z `10-base.css`). Pole bez żadnej etykiety byłoby polem bez nazwy. -#}
+            {#- Pasek działań. ⚠ Etykieta „Szukaj" zniknęła WIZUALNIE, nie z dokumentu: pole z lupą
+                i podpowiedzią mówi widzącemu wszystko, a czytnik ekranu dalej dostaje etykietę. -#}
             <form class="card__akcje" method="get" action="{{ url('/admin/konta') }}">
+                {#- ⚠ Zakładka jedzie w ukrytym polu, bo szukanie jest `GET`-em tego samego
+                    formularza: bez tego „Filtruj" na zakładce kont administracyjnych wracało
+                    na listę pracowników. -#}
+                <input type="hidden" name="rodzaj" value="{{ rodzaj }}">
                 <div class="pole-szukania">
                     <label class="visually-hidden" for="szukaj">Szukaj osoby</label>
                     {#- ⚠ `type="text"`, nie `search`: przeglądarki dokładają polom wyszukiwania własny
@@ -152,117 +171,190 @@
                         ⚠ Ikona jest SIOSTRĄ pola, nie jego tłem: tło znika przy wysokim kontraście,
                         a element zostaje. -#}
                     {{ ikony.lupa() }}
+                    {#- ⚠ Podpowiedź mówi, że szukanie łapie też adres — bo łapie (pełny adres,
+                        domena, początek), tylko dotąd tego nie mówiła. -#}
                     <input class="input pole-szukania__pole" type="text" id="szukaj" name="szukaj"
-                           value="{{ szukaj }}" maxlength="100" placeholder="nazwisko, imię lub adres">
+                           value="{{ szukaj }}" maxlength="100" placeholder="nazwisko, imię lub e-mail">
                 </div>
-                {#- ⚠ Kontrolka wyboru firmy **zniknęła stąd** (zlecenie `2026-10-10-globalny-wybor-spolki.md`
-                    §1): firmę wybiera jeden znacznik w belce, na każdym ekranie ten sam. Lista
-                    dalej zawęża się po ZATRUDNIENIU w tej firmie — mówi o tym podpis pierwszego kafla. -#}
                 <input type="hidden" name="sortuj" value="{{ sortuj }}">
                 <input type="hidden" name="kierunek" value="{{ kierunek }}">
                 <button class="btn btn--ghost btn--akcja" type="submit">Filtruj</button>
                 {% if szukaj != '' %}
-                    <a class="btn btn--quiet" href="{{ url('/admin/konta') }}">Wyczyść</a>
+                    <a class="btn btn--quiet" href="{{ url('/admin/konta') }}?rodzaj={{ rodzaj }}">Wyczyść</a>
                 {% endif %}
-                {#- ⚠ Zwykły odnośnik: bez JavaScriptu prowadzi na pełny ekran formularza, a z JS
+                {#- ⚠ **„Nowe konto administracyjne" stoi TYLKO na swojej zakładce** (§1 zlecenia):
+                    na liście pracowników był przyciskiem do czynności, której ta lista nie dotyczy.
+                    Zwykły odnośnik: bez JavaScriptu prowadzi na pełny ekran formularza, a z JS
                     `ui.js` otwiera okno i htmx dociąga do niego ten sam fragment.
-                    ⚠ `btn--akcja`, nie `btn--primary`: dwa zielone przyciski na jednym ekranie
-                    sprawiają, że zieleń znaczy „to jest przycisk", a nie „to zrób teraz"
-                    (system wizualny §3.1). Główna czynność tego ekranu to wysyłanie zaproszeń;
-                    konto administracyjne zakłada się raz na wdrożenie. -#}
-                <a class="btn btn--ghost btn--akcja" href="{{ url('/admin/konta/administracyjne') }}"
-                   data-modal-open="konto-adm-modal"
-                   hx-get="{{ url('/admin/konta/administracyjne') }}"
-                   hx-target="#konto-adm-tresc" hx-swap="innerHTML">{{ ikony.plus() }}Konto administracyjne</a>
+                    ⚠ `btn--akcja`, nie `btn--primary`: główna czynność ekranu to wysyłanie
+                    zaproszeń, a konto administracyjne zakłada się raz na wdrożenie
+                    (system wizualny §3.1 — zieleń znaczy „to zrób teraz"). -#}
+                {% if rodzaj == 'administracyjne' %}
+                    <a class="btn btn--ghost btn--akcja" href="{{ url('/admin/konta/administracyjne') }}"
+                       data-modal-open="konto-adm-modal"
+                       hx-get="{{ url('/admin/konta/administracyjne') }}"
+                       hx-target="#konto-adm-tresc" hx-swap="innerHTML">{{ ikony.plus() }}Nowe konto administracyjne</a>
+                {% endif %}
             </form>
         </div>
-        {#- ⚠ Pasek zaznaczania jest FORMULARZEM, a pola wyboru w wierszach wskazują go atrybutem
-            `form="konta-partia"`. Powód: pole adresu w wierszu wysyła htmx osobnym żądaniem,
-            a formularz w formularzu jest niepoprawnym HTML-em — przeglądarka „naprawia" go
-            po swojemu i jedno z dwóch przestaje działać.
+        {#- ══════════ zakładka „Pracownicy z kadr" ══════════ -#}
+        {% if rodzaj == 'pracownicy' %}
+            {#- ⚠ Pasek zaznaczania jest FORMULARZEM, a pola wyboru w wierszach wskazują go atrybutem
+                `form="konta-partia"`. Powód: pole adresu w wierszu wysyła htmx osobnym żądaniem,
+                a formularz w formularzu jest niepoprawnym HTML-em — przeglądarka „naprawia" go
+                po swojemu i jedno z dwóch przestaje działać.
 
-            ⚠ Bez JavaScriptu pasek jest widoczny od razu i działa: zaznaczenie + „Wyślij"
-            to zwykły POST, a licznik po prostu nie liczy. Z JS pasek pokazuje się dopiero
-            przy pierwszym zaznaczeniu i mówi, ilu zaznaczonym brakuje adresu. -#}
-        <form class="selectbar" id="konta-partia" method="post" action="{{ url('/admin/konta/zapros') }}"
-              hx-post="{{ url('/admin/konta/zapros') }}" hx-target="#wynik-tresc" hx-swap="innerHTML"
-              data-selectbar>
-            {% include 'partials/csrf.twig' %}
-            <p class="selectbar__count" data-selectbar-count>Zaznacz osoby, którym chcesz wysłać zaproszenie.</p>
-            <label class="selectbar__opt">
-                {#- Domyślnie WŁĄCZONY, ale decyzja jest jedna dla całej partii i widoczna —
-                    a serwer czyta to, co przyszło, nie domyślną wartość z tego szablonu. -#}
-                <input type="checkbox" name="nadaj_dostep" value="1" checked>
-                Nadaj też dostęp do firm z zatrudnienia
-            </label>
-            <button type="button" class="btn btn--quiet btn--sm" data-selectbar-clear hidden>Wyczyść</button>
-            <button type="submit" class="btn btn--primary btn--sm">Wyślij zaproszenia</button>
-        </form>
-        {#- ⚠ Tabela jest BEZPOŚREDNIM DZIECKIEM KARTY, nie siedzi w `card__body`. Zmierzone:
-            w opakowaniu z `padding: 24` pierwsza komórka zaczynała się 49 px od krawędzi karty
-            (bo komórka dokłada swoje 24), a tabela była o 50 px węższa niż karta, w której stoi.
-            Na dzienniku i na liście pracowników jest 25 px — wcięcie robi PADDING KOMÓRKI,
-            nigdy opakowanie (system-wizualny.md §3.4).
+                ⚠ Bez JavaScriptu pasek jest widoczny od razu i działa: zaznaczenie + „Wyślij"
+                to zwykły POST, a licznik po prostu nie liczy. Z JS pasek pokazuje się dopiero
+                przy pierwszym zaznaczeniu i mówi, ilu zaznaczonym brakuje adresu. -#}
+            <form class="selectbar" id="konta-partia" method="post" action="{{ url('/admin/konta/zapros') }}"
+                  hx-post="{{ url('/admin/konta/zapros') }}" hx-target="#wynik-tresc" hx-swap="innerHTML"
+                  data-selectbar>
+                {% include 'partials/csrf.twig' %}
+                <p class="selectbar__count" data-selectbar-count>Zaznacz osoby, którym chcesz wysłać zaproszenie.</p>
+                <label class="selectbar__opt">
+                    {#- Domyślnie WŁĄCZONY, ale decyzja jest jedna dla całej partii i widoczna —
+                        a serwer czyta to, co przyszło, nie domyślną wartość z tego szablonu. -#}
+                    <input type="checkbox" name="nadaj_dostep" value="1" checked>
+                    Nadaj też dostęp do firm z zatrudnienia
+                </label>
+                <button type="button" class="btn btn--quiet btn--sm" data-selectbar-clear hidden>Wyczyść</button>
+                <button type="submit" class="btn btn--primary btn--sm">Wyślij zaproszenia</button>
+            </form>
+            {#- ⚠ Tabela jest BEZPOŚREDNIM DZIECKIEM KARTY, nie siedzi w `card__body`. Zmierzone:
+                w opakowaniu z `padding: 24` pierwsza komórka zaczynała się 49 px od krawędzi karty
+                (bo komórka dokłada swoje 24), a tabela była o 50 px węższa niż karta, w której stoi.
+                Na dzienniku i na liście pracowników jest 25 px — wcięcie robi PADDING KOMÓRKI,
+                nigdy opakowanie (system-wizualny.md §3.4).
 
-            ⚠ Paski nad tabelą (filtr, zaznaczanie) mają własny `padding` i dlatego zostają
-            wcięte — to one są opakowaniem, nie tabela.
+                ⚠ Paski nad tabelą (filtr, zaznaczanie) mają własny `padding` i dlatego zostają
+                wcięte — to one są opakowaniem, nie tabela.
 
-            ⚠ Bez `.table-scroll`. Dwa powody, oba zmierzone: (1) przy `table-layout: fixed`
-            i szerokościach w procentach tabela nie może być szersza od kontenera, więc nie ma
-            czego przewijać; (2) `.table-scroll` ma `overflow-x: auto`, a to obcina panel
-            kontrolki dostępu — przeglądarka zamienia `overflow-y: visible` na `auto`,
-            gdy druga osa nie jest `visible`. -#}
-            {#- `table--zebra`: zebra i podświetlenie wiersza. ⚠ Modyfikator, nie domyślny wygląd
-                tabeli — powód i pomiar w `30-components.css` przy regule. -#}
-            {#- ⚠ **Bez `table--zebra`** (Z30 §5): zebra i podświetlenie wiersza robiły dwie rzeczy
-                naraz, a wiersz tej listy ma własny rytm — kółko z inicjałami, pole adresu
-                i kontrolka dostępu. Separator `--c-line-soft` i podświetlenie po najechaniu
-                wystarczą, żeby oko trzymało wiersz. -#}
-            <table class="table table--stale table--osoby">
-                    {#- Szerokości kolumn z §1 zlecenia: 4 / 26 / 30 / 24 / 16. Suma 100. -#}
-                    <colgroup>
-                        <col class="col--pick">
-                        <col class="col--osoba">
-                        <col class="col--email">
-                        <col class="col--dostep">
-                        <col class="col--konto">
-                    </colgroup>
-                    <thead>
-                        <tr>
-                            {#- ⚠ Nagłówek kolumny zaznaczenia też nie ucina i też nie ma białych
-                                znaków wokół formantu: inaczej obok pola wyboru siedzi kropka
-                                z `text-overflow` (zobaczone na zrzucie, nie w kodzie). -#}
-                            <th class="cell--kontrolka"><input type="checkbox" class="pick__box" data-selectbar-all aria-label="Zaznacz wszystkie osoby bez konta na tej stronie"></th>
-                            <th>
-                                <a class="table__name" href="{{ url('/admin/konta') }}?szukaj={{ szukaj|url_encode }}&amp;sortuj=nazwisko&amp;kierunek={{ sortuj == 'nazwisko' and kierunek == 'asc' ? 'desc' : 'asc' }}">Osoba</a>
-                            </th>
-                            <th>
-                                <a class="table__name" href="{{ url('/admin/konta') }}?szukaj={{ szukaj|url_encode }}&amp;sortuj=email&amp;kierunek={{ sortuj == 'email' and kierunek == 'asc' ? 'desc' : 'asc' }}">E-mail</a>
-                            </th>
-                            <th>Dostęp do firm</th>
-                            <th>
-                                <a class="table__name" href="{{ url('/admin/konta') }}?szukaj={{ szukaj|url_encode }}&amp;sortuj=konto&amp;kierunek={{ sortuj == 'konto' and kierunek == 'asc' ? 'desc' : 'asc' }}">Konto</a>
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    {% for o in osoby %}
-                        {% include 'fragments/person-row.twig' %}
-                    {% else %}
-                        <tr><td colspan="6" class="empty-state">{% if szukaj != '' %}Nikogo nie znaleziono dla „{{ szukaj }}".{% else %}Brak osób w Twoim zakresie.{% endif %}</td></tr>
-                    {% endfor %}
-                    </tbody>
+                ⚠ Bez `.table-scroll`. Dwa powody, oba zmierzone: (1) przy `table-layout: fixed`
+                i szerokościach w procentach tabela nie może być szersza od kontenera, więc nie ma
+                czego przewijać; (2) `.table-scroll` ma `overflow-x: auto`, a to obcina panel
+                kontrolki dostępu — przeglądarka zamienia `overflow-y: visible` na `auto`,
+                gdy druga osa nie jest `visible`. -#}
+                {#- `table--zebra`: zebra i podświetlenie wiersza. ⚠ Modyfikator, nie domyślny wygląd
+                    tabeli — powód i pomiar w `30-components.css` przy regule. -#}
+                {#- ⚠ **Bez `table--zebra`** (Z30 §5): zebra i podświetlenie wiersza robiły dwie rzeczy
+                    naraz, a wiersz tej listy ma własny rytm — kółko z inicjałami, pole adresu
+                    i kontrolka dostępu. Separator `--c-line-soft` i podświetlenie po najechaniu
+                    wystarczą, żeby oko trzymało wiersz. -#}
+                <table class="table table--stale table--osoby">
+                        {#- Szerokości kolumn z §1 zlecenia: 4 / 26 / 30 / 24 / 16. Suma 100. -#}
+                        <colgroup>
+                            <col class="col--pick">
+                            <col class="col--osoba">
+                            <col class="col--email">
+                            <col class="col--dostep">
+                            <col class="col--konto">
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                {#- ⚠ Nagłówek kolumny zaznaczenia też nie ucina i też nie ma białych
+                                    znaków wokół formantu: inaczej obok pola wyboru siedzi kropka
+                                    z `text-overflow` (zobaczone na zrzucie, nie w kodzie). -#}
+                                <th class="cell--kontrolka"><input type="checkbox" class="pick__box" data-selectbar-all aria-label="Zaznacz wszystkie osoby bez konta na tej stronie"></th>
+                                <th>
+                                    <a class="table__name" href="{{ url('/admin/konta') }}?szukaj={{ szukaj|url_encode }}&amp;sortuj=nazwisko&amp;kierunek={{ sortuj == 'nazwisko' and kierunek == 'asc' ? 'desc' : 'asc' }}">Osoba</a>
+                                </th>
+                                <th>
+                                    <a class="table__name" href="{{ url('/admin/konta') }}?szukaj={{ szukaj|url_encode }}&amp;sortuj=email&amp;kierunek={{ sortuj == 'email' and kierunek == 'asc' ? 'desc' : 'asc' }}">E-mail</a>
+                                </th>
+                                <th>Dostęp do firm</th>
+                                <th>
+                                    <a class="table__name" href="{{ url('/admin/konta') }}?szukaj={{ szukaj|url_encode }}&amp;sortuj=konto&amp;kierunek={{ sortuj == 'konto' and kierunek == 'asc' ? 'desc' : 'asc' }}">Konto</a>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for o in osoby %}
+                            {% include 'fragments/person-row.twig' %}
+                        {% else %}
+                            <tr><td colspan="6" class="empty-state">{% if szukaj != '' %}Nikogo nie znaleziono dla „{{ szukaj }}".{% else %}Brak osób w Twoim zakresie.{% endif %}</td></tr>
+                        {% endfor %}
+                        </tbody>
+                </table>
+        {#- ══════════ zakładka „Konta administracyjne" ══════════ -#}
+        {% else %}
+            {#- ⚠ Tabela ma WŁASNE kolumny, a nie te same co lista pracowników: tu nie ma etatu,
+                więc nie ma „Dostępu do firm" (jest rola na cały tenant), a znaczenie mają rzeczy,
+                które na tamtej liście są szczegółem panelu — 2FA i ostatnie logowanie. -#}
+            <table class="table table--stale table--adm">
+                <colgroup>
+                    <col class="col--osoba">
+                    <col class="col--email">
+                    <col class="col--rola">
+                    <col class="col--2fa">
+                    <col class="col--logowanie">
+                    <col class="col--konto">
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th>
+                            <a class="table__name" href="{{ url('/admin/konta') }}?rodzaj=administracyjne&amp;szukaj={{ szukaj|url_encode }}&amp;sortuj=nazwisko&amp;kierunek={{ sortuj == 'nazwisko' and kierunek == 'asc' ? 'desc' : 'asc' }}">Osoba</a>
+                        </th>
+                        <th>
+                            <a class="table__name" href="{{ url('/admin/konta') }}?rodzaj=administracyjne&amp;szukaj={{ szukaj|url_encode }}&amp;sortuj=email&amp;kierunek={{ sortuj == 'email' and kierunek == 'asc' ? 'desc' : 'asc' }}">E-mail</a>
+                        </th>
+                        <th>Rola</th>
+                        <th>2FA</th>
+                        <th>Logowanie</th>
+                        <th>
+                            <a class="table__name" href="{{ url('/admin/konta') }}?rodzaj=administracyjne&amp;szukaj={{ szukaj|url_encode }}&amp;sortuj=konto&amp;kierunek={{ sortuj == 'konto' and kierunek == 'asc' ? 'desc' : 'asc' }}">Konto</a>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for o in osoby %}
+                    <tr class="osoba-wiersz">
+                        <td class="cell--osoba" title="{{ o.name }}">
+                            {#- ⚠ **Ten sam kształt komórki, co na liście pracowników**: kółko
+                                z inicjałami, nazwisko-odnośnik na panel osoby, plakietka „Ty".
+                                Bez JavaScriptu odnośnik prowadzi na pełny ekran panelu, ze
+                                skryptem otwiera szufladę — ta sama droga w obu zakładkach. -#}
+                            <span class="osoba-wiersz">
+                                {{- znak.kolko(o.name, 'inicjaly--lista') -}}
+                                <a class="table__name osoba-wiersz__nazwa" href="{{ url('/admin/konta/osoba/' ~ o.person_id) }}"
+                                   data-modal-open="osoba-panel"
+                                   hx-get="{{ url('/admin/konta/osoba/' ~ o.person_id) }}"
+                                   hx-target="#osoba-tresc" hx-swap="innerHTML">{{ o.name }}</a>
+                                {%- if o.account_id == current_id %} <span class="chip">Ty</span>{% endif %}
+                            </span>
+                        </td>
+                        <td class="cell--email">{{ o.email ?? '—' }}</td>
+                        {#- Rola jest tu JEDNA i nie da się jej zmienić z listy — stąd napis
+                            z ikoną klucza, a nie kontrolka. -#}
+                        <td class="cell--rola">{{ ikony.klucz() }}Administrator</td>
+                        <td>{{ o.totp ? 'włączone' : '—' }}</td>
+                        {#- ⚠ „dziś, GG:MM" przy dzisiejszym logowaniu, sama data przy starszym,
+                            „—" gdy nigdy (`Support\Strefa::logowanie()`). Jedno miejsce liczy
+                            strefę i słowo „dziś" — w szablonie nie ma ani jednego warunku o dacie. -#}
+                        <td>{{ czas_logowanie(o.last_login_at) }}</td>
+                        <td>{{ include('partials/stan-konta.twig', {'status': o.account_status}, with_context = false) }}</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="6" class="empty-state">{% if szukaj != '' %}Nikogo nie znaleziono dla „{{ szukaj }}".{% else %}Nie ma jeszcze żadnego konta administracyjnego.{% endif %}</td></tr>
+                {% endfor %}
+                </tbody>
             </table>
+            {#- ⚠ Notka pod tabelą, a nie zdanie w nagłówku: mówi o CAŁEJ rodzinie tych kont
+                („skąd się biorą, czego dotyczą, czego nie wolno"), więc czyta się ją po obejrzeniu
+                listy, a nie przed. Ostatnie zdanie jest regułą serwera (`AccountService`),
+                nie uprzejmością ekranu. -#}
+            <p class="adm-notka">{{ ikony.klodka() }}<span>Konta spoza programu kadrowego (właściciel, księgowa z zewnątrz, informatyk) zakłada się ręcznie. Działają we wszystkich firmach, niezależnie od wyboru w belce. Ostatniego aktywnego administratora nie da się zablokować.</span></p>
+        {% endif %}
         <div class="card__foot card__foot--lista">
             <span>Pokazano {{ strona.razem > 0 ? strona.offset + 1 : 0 }}–{{ strona.offset + osoby|length }} z {{ strona.razem }}</span>
             {% if strona.stron > 1 %}
                 <nav class="pager" aria-label="Strony listy osób">
                     {% if strona.numer > 1 %}
-                        <a class="btn btn--ghost btn--sm" href="{{ url('/admin/konta') }}?szukaj={{ szukaj|url_encode }}&amp;sortuj={{ sortuj|url_encode }}&amp;kierunek={{ kierunek|url_encode }}&amp;strona={{ strona.numer - 1 }}">Poprzednia</a>
+                        <a class="btn btn--ghost btn--sm" href="{{ url('/admin/konta') }}?rodzaj={{ rodzaj }}&amp;szukaj={{ szukaj|url_encode }}&amp;sortuj={{ sortuj|url_encode }}&amp;kierunek={{ kierunek|url_encode }}&amp;strona={{ strona.numer - 1 }}">Poprzednia</a>
                     {% endif %}
                     <span class="pager__info">Strona {{ strona.numer }} z {{ strona.stron }}</span>
                     {% if strona.numer < strona.stron %}
-                        <a class="btn btn--ghost btn--sm" href="{{ url('/admin/konta') }}?szukaj={{ szukaj|url_encode }}&amp;sortuj={{ sortuj|url_encode }}&amp;kierunek={{ kierunek|url_encode }}&amp;strona={{ strona.numer + 1 }}">Następna</a>
+                        <a class="btn btn--ghost btn--sm" href="{{ url('/admin/konta') }}?rodzaj={{ rodzaj }}&amp;szukaj={{ szukaj|url_encode }}&amp;sortuj={{ sortuj|url_encode }}&amp;kierunek={{ kierunek|url_encode }}&amp;strona={{ strona.numer + 1 }}">Następna</a>
                     {% endif %}
                 </nav>
             {% endif %}

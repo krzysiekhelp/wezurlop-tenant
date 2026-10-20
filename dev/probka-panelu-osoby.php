@@ -62,6 +62,10 @@ $osoba = static function (?string $status, array $nadpisz = []): array {
     ];
 };
 
+$zrodlaAdmina = ['rodzaj' => Z::CZYJE_FIRMA, 'ikona' => 'firma', 'cel' => 'Cała firma',
+    'skad' => 'z uprawnień administratora · reguła domyślna „Administratorzy"',
+    'zakres' => Z::ZE_SZCZEGOLAMI, 'osob' => 53];
+
 $zrodla = [
     ['rodzaj' => Z::CZYJE_PODWLADNI, 'ikona' => 'drzewo', 'cel' => 'Swoi podwładni',
         'skad' => 'z hierarchii · reguła domyślna „Każdy przełożony"', 'zakres' => Z::BEZ_SZCZEGOLOW, 'osob' => 4],
@@ -74,8 +78,14 @@ $przypadki = [
     'zaproszony'  => ['status' => 'invited', 'zrodla' => [], 'caly_tenant' => false],
     'aktywne'     => ['status' => 'active', 'zrodla' => $zrodla, 'caly_tenant' => false],
     'zablokowane' => ['status' => 'blocked', 'zrodla' => $zrodla, 'caly_tenant' => false],
-    // Piąty przypadek, nie stan konta: administrator tenanta nie ma pola wyboru firm.
+    // Piąty przypadek, nie stan konta: administrator tenanta Z ETATEM — zostaje osobą z kadr,
+    // więc karta „Dane z kadr" jest, a pola wyboru firm nie ma (rola obejmuje wszystkie).
     'administrator' => ['status' => 'active', 'zrodla' => $zrodla, 'caly_tenant' => true],
+    // ⚠ Szósty: **konto administracyjne** (zlecenie Z59) — rola na cały tenant i ZERO etatów.
+    // Karty „Dane z kadr" nie ma wcale, bo nie ma czego z kadr pokazać; w miejscu dostępu
+    // do firm stoi rola tylko do odczytu, a w karcie „Konto" — odmowa blokady zdaniem.
+    'konto_administracyjne' => ['status' => 'active', 'zrodla' => [$zrodlaAdmina], 'caly_tenant' => true,
+        'bez_etatow' => true, 'odmowa' => 'To ostatni aktywny administrator — nie można go zablokować.'],
 ];
 
 $wynik = [];
@@ -88,7 +98,7 @@ foreach ($przypadki as $nazwa => $p) {
             'dostepy' => 1,
             'etat_spolki' => 2,
         ],
-        'zatrudnienia' => [
+        'zatrudnienia' => ($p['bez_etatow'] ?? false) ? [] : [
             ['id' => 31, 'company_id' => 3, 'company' => 'ALFA sp. z o.o.', 'nip' => '1111111111',
                 'fte_numerator' => 1, 'fte_denominator' => 1, 'hired_at' => '2020-01-02',
                 'terminated_at' => null, 'aktywne' => true, 'limit_min' => 10400, 'limit_rok' => 2026],
@@ -111,7 +121,7 @@ foreach ($przypadki as $nazwa => $p) {
         'zaproszenie_link' => $p['status'] === 'invited' ? 'czynny' : 'brak',
         'zaproszenie_zadanie' => null,
         'termin' => ['awaria' => false, 'zdanie' => 'w ciągu 5 minut'],
-        'odmowa_blokady' => null,
+        'odmowa_blokady' => $p['odmowa'] ?? null,
         'rok' => 2026,
         'current_id' => 99,
         'notice' => null,
@@ -140,6 +150,9 @@ foreach ($przypadki as $nazwa => $p) {
         'rola_tylko_do_odczytu' => str_contains($html, 'op-rola'),
         'zrodel' => substr_count($html, 'class="op-zrodlo"'),
         'zdanie_o_pierwszenstwie' => str_contains($html, 'wygrywa szerszy zakres'),
+        // Z59: odmowa blokady jest ZDANIEM, nie wyłączonym przyciskiem.
+        'odmowa_zdaniem' => str_contains($html, 'op-akcja__powod'),
+        'odmowa_wylaczonym_przyciskiem' => (bool) preg_match('/op-akcja__btn" disabled[^>]*>Zablokuj/', $html),
         'widzi_tylko_siebie' => str_contains($html, 'Widzi tylko siebie.'),
         'widocznosc_bez_konta' => str_contains($html, 'Widoczność dotyczy konta'),
         'stopka_przyciskow' => substr_count($html, 'form="osoba-dane"'),
