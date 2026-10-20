@@ -206,77 +206,11 @@
             <p class="notice notice--warn" role="status">Cron jest zadeklarowany, ale jeszcze nie potwierdzony przebiegiem. Do tego czasu pilne wiadomości wychodzą także po zwykłych żądaniach.</p>
         {% endif %}
 
-        {#- ⚠ Cztery kafelki danych na tle strony, a nie lista par: to są CZTERY ODPOWIEDZI
-            na cztery pytania („kiedy ostatnio", „kiedy znowu", „jak często", „jaki serwer"),
-            czytane obok siebie, a nie jedna za drugą.
-            ⚠ OBIE formy czasu, i czas bezwzględny NIE w `title`: `title` nie istnieje na telefonie
-            i nie wchodzi na zrzut ekranu — a zrzut od klienta to często jedyne, co dostajemy.
-            „Ile temu" jest prawdą w chwili renderowania, więc karta otwarta przed godziną
-            kłamie; tylko data z sekundami i strefą da się zestawić z logiem i z dziennikiem. -#}
-        <div class="ustaw-dane">
-            <div class="ustaw-dana">
-                <span class="ustaw-dana__etykieta">Ostatni przebieg</span>
-                {% if cron.nigdy %}
-                    <span class="ustaw-dana__wartosc"><span class="chip chip--danger">nigdy</span></span>
-                {% else %}
-                    <span class="ustaw-dana__wartosc">{{ cron.wiek == 0 ? 'mniej niż minutę temu' : cron.wiek ~ ' min temu' }}</span>
-                    <span class="ustaw-dana__podpis">{{ czas_pelny(cron.ostatni_utc) }}</span>
-                {% endif %}
-            </div>
-            {#- ⚠ Prognoza znika przy awarii: wyliczona z ostatniego przebiegu wypada wtedy
-                w przeszłości i obiecuje coś, co nie nastąpi (patrz ekran Poczty). -#}
-            <div class="ustaw-dana">
-                <span class="ustaw-dana__etykieta">Najbliższy spodziewany</span>
-                {% if cron.najblizszy_utc and not cron.awaria %}
-                    {#- ⚠ Bez sekund: to prognoza z zadeklarowanej częstotliwości, a nie pomiar —
-                        „około 12:20:01" udawałoby dokładność, której nie mamy. Pełny czas niżej. -#}
-                    <span class="ustaw-dana__wartosc">około {{ czas_prognoza(cron.najblizszy_utc) }}</span>
-                    <span class="ustaw-dana__podpis">{{ czas_pelny(cron.najblizszy_utc) }}</span>
-                {% else %}
-                    <span class="ustaw-dana__wartosc ustaw-dana__wartosc--brak">nie wiadomo</span>
-                    <span class="ustaw-dana__podpis">dopóki cron nie przebiegnie</span>
-                {% endif %}
-            </div>
-            <div class="ustaw-dana">
-                <span class="ustaw-dana__etykieta">Zadeklarowana częstotliwość</span>
-                <span class="ustaw-dana__wartosc">{{ cron.minuty > 0 ? 'co ' ~ cron.minuty ~ ' min' : 'nieznana' }}</span>
-                <span class="ustaw-dana__podpis">{{ cron.minuty > 0 ? 'z konfiguracji instalacji' : 'nie podano przy instalacji' }}</span>
-            </div>
-            <div class="ustaw-dana">
-                <span class="ustaw-dana__etykieta">Profil serwera</span>
-                <span class="ustaw-dana__wartosc">{{ cron.profil ?: 'nieustalony' }}</span>
-                <span class="ustaw-dana__podpis">{{ cron.po_http ? 'zadanie uruchamiane po HTTP' : 'zadanie z crontaba' }}</span>
-            </div>
-        </div>
-
-        {#- ══ Sonda: „czy cron podejmuje zadania" — pytanie inne niż „kiedy ostatnio przebiegł" ══
-            ⚠ Znacznik przebiegu mówi, że runner ruszył; sonda mówi, że **zadanie postawione teraz**
-            zostało podjęte. Przy pierwszej instalacji to jedyna różnica, która ma znaczenie.
-            ⚠ **Zielonej plakietki „cron podejmuje zadania" już nie ma** (§6 zlecenia): stan
-            spodziewany nie potrzebuje znaku — wystarczy zdanie z datą potwierdzenia. Plakietki
-            zostają tam, gdzie coś jest nie tak (sonda czeka, sonda bez odpowiedzi). -#}
-        <div class="ustaw-pasek">
-            <span class="ustaw-pasek__tresc">
-                {% if cron.sonda.stan == 'czeka' %}
-                    <span class="chip chip--warn">sonda czeka</span>
-                    <span class="field__hint">Postawiona {{ czas_pelny(cron.sonda.wyslana_utc) }}. Podejmie ją najbliższy przebieg crona; jeśli nie zniknie w ciągu {{ cron.sonda.termin_min }} min, cron nie jest ustawiony.</span>
-                {% elseif cron.sonda.stan == 'potwierdzona' %}
-                    <span class="field__hint">Ostatnie potwierdzenie: {{ czas_pelny(cron.sonda.wynik_utc) }}.</span>
-                {% elseif cron.sonda.stan == 'bez_odpowiedzi' %}
-                    <span class="chip chip--danger">sonda bez odpowiedzi</span>
-                    <span class="field__hint">Postawiona {{ czas_pelny(cron.sonda.wyslana_utc) }} i nikt jej nie podjął — <strong>cron nie jest ustawiony</strong>. Polecenie do wklejenia jest niżej.</span>
-                {% else %}
-                    <span class="field__hint">Sonda sprawdza co innego niż znacznik przebiegu: czy zadanie postawione teraz zostanie podjęte.</span>
-                {% endif %}
-            </span>
-            <form method="post" action="{{ url('/ustawienia/cron/sprawdz') }}">
-                {% include 'partials/csrf.twig' %}
-                {#- ⚠ To NIE jest „uruchom teraz": stawia zadanie i wraca. Wykonać ma je przebieg
-                    crona — uruchomienie runnera w żądaniu przy limicie 30 s to ta pułapka,
-                    przez którą wysyłka kiedyś wisiała w formularzu. -#}
-                <button type="submit" class="btn btn--ghost btn--akcja">{{ ikony.odswiezenie() }}Sprawdź cron</button>
-            </form>
-        </div>
+        {#- ⚠ **Kafle i wiersz sondy stoją w osobnym pliku** (`fragments/cron-sonda.twig`,
+            zlecenie Z65), bo ten sam fragment odpowiada na odpytywanie `GET /ustawienia/cron/sonda`
+            i podmienia się w miejscu. Dwa pliki na jeden wiersz znaczyłyby wiersz, który po
+            odświeżeniu wygląda inaczej niż przed nim. -#}
+        {% include 'fragments/cron-sonda.twig' with {'cron': cron} only %}
 
         {#- ⚠ Lista zależności nie jest ozdobą: bez niej klient uzna cron za szczegół techniczny
             i go nie ustawi, a potem zgłosi „wysłałem zaproszenie i nie przyszło". -#}

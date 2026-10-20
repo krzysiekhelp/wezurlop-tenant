@@ -74,7 +74,7 @@ use Wezurlop\Support\WorkTime;
             // więc po nim jest znak nowej linii, a nie spacja — i sprawdzenie liczyło zero.
             !$zZaproszeniem || (preg_match_all('/data-zapros(?![\w-])/', $html) === 1
                 && str_contains($html, 'data-napis-zapisz-i-wyslij="Zapisz i wyślij"')
-                && str_contains($html, 'data-opis-bez-adresu="Najpierw wpisz adres e-mail')));
+                && str_contains($html, 'data-opis-bez-adresu="najpierw wpisz adres e-mail')));
         // ⚠ Zaproszenie NIE MA własnego formularza: osobny `POST /admin/konta/zapros` z panelu
         // był właśnie tą drugą drogą, która wysyłała zaproszenie na adres sprzed zapisu.
         $check($nazwa . ': zaproszenie nie ma w panelu własnego formularza',

@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.43, 20.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.44, 20.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,37 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.43 → 1.18.44: sprawdzanie crona jako żywy wiersz z odliczaniem**
+> (zlecenie Z65, projekt zatwierdzony przez Krzysztofa 20.10.2026).
+> - **Wiersz zmienia się W MIEJSCU, bez okna i bez przeładowania**: pytanie „czy cron działa"
+>   ma odpowiedź tam, gdzie je zadano. Trzy stany, bo trzy różne rzeczy są do powiedzenia —
+>   **CZEKA** (ikona zegara w kółku `--c-accent-soft`, „Sprawdzam crona…", pasek postępu 6 px
+>   na całą szerokość wiersza i licznik mm:ss po prawej), **DZIAŁA** (ramka i tło akcentu,
+>   kółko z ptaszkiem, „Cron działa", pod spodem godzina odhaczenia i czas oczekiwania,
+>   przycisk „Sprawdź ponownie" w wariancie `ghost`) oraz **NIE ODPOWIEDZIAŁ** (barwy
+>   ostrzeżenia z tokenów `--c-warn-*`, trójkąt, nazwany skutek „poczta, przypomnienia
+>   i sprzątanie stoją" i przycisk `primary` „Sprawdź jeszcze raz").
+> - ⚠ **Licznik ma token `--t-stat` (24 px), nie 22 px z prototypu.** 22 px nie jest tokenem,
+>   a licznik jest **daną** — tym samym, czym liczba w kaflu pulpitu. Cyfry tabelarne, żeby
+>   „4:09" nie przeskakiwało w „3:59" o pół znaku.
+> - **Koniec odliczania liczy SERWER**: pierwszy spodziewany przebieg po postawieniu sondy plus
+>   zapas z jednej stałej (`CronStan::ZAPAS_SONDY_S` = 60 s). Skrypt dostaje dwa znaczniki czasu
+>   w atrybutach `data-sonda-start` i `data-sonda-koniec` i tylko tyka — gdyby liczył termin sam,
+>   dwie przeglądarki z różnie ustawionym zegarem pokazałyby dwa wyroki o jednym cronie.
+> - ⚠ **Odpytywanie gaśnie samo**: atrybuty `hx-get` i `hx-trigger="every 5s"` renderują się
+>   tylko w stanie nieostatecznym, a odpowiedź podmienia pojemnik razem z nimi. Nie ma żadnego
+>   „wyłącz po wyniku" do przeoczenia, bo nie ma czego wyłączać.
+> - **Szerokość paska idzie zmienną CSS** (`--sonda-postep`) ustawianą skryptem, nie atrybutem
+>   `style` w szablonie: wartość podaje skrypt, regułę trzyma arkusz (CLAUDE.md §6).
+> - **Bez JavaScriptu** wiersz pokazuje ten sam stan CZEKA ze statycznym „do GG:MM:SS"
+>   i odnośnikiem „Odśwież wynik"; odnośnik chowa reguła przy `html.js`, a nie dokładanie go
+>   skryptem — przeglądarka bez skryptów musi dostać tę drogę z serwera.
+> - **Kafle „Ostatni przebieg" i „Najbliższy spodziewany" odświeżają się razem z wynikiem**,
+>   bo stoją w tym samym fragmencie: po odhaczeniu sondy znacznik przebiegu jest już nowy.
+> - **Telefon (375 px)**: wiersz w dwóch liniach — ikona, tytuł i licznik w pierwszej, pasek
+>   i zdanie pod spodem, przyciski stanów końcowych na całą szerokość. Przycisk 32 px obok dwóch
+>   linijek tekstu w kolumnie 343 px zabierał tekstowi tyle, że zdanie łamało się na pięć wierszy.
 
 > **Zmiana 1.18.42 → 1.18.43: wiersz zaproszenia w panelu osoby ma trzy stany**
 > (zlecenie Z64, zgłoszenie Krzysztofa z 20.10.2026).

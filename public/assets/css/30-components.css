@@ -1485,6 +1485,91 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 }
 .ustaw-pasek__tresc { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); min-width: 0; }
 
+/* ——— sonda crona: jeden wiersz, trzy stany (zlecenie Z65) ———————————————————————
+   ⚠ Wiersz zmienia się W MIEJSCU, bez okna: pytanie „czy cron działa" ma odpowiedź tam, gdzie
+   je zadano. Trzy stany mają trzy różne wyglądy, bo mówią trzy różne rzeczy — czekamy, działa,
+   nie odpowiedział.
+   ⚠ **Siatka, nie flex**: pasek postępu ma zająć CAŁĄ szerokość wiersza pod treścią, a licznik
+   stać przy prawej krawędzi. We flexie wymagałoby to opakowania, które nie znaczy nic. */
+.sonda {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--s-2) var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius);
+}
+.sonda__znak {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--c-accent-soft);
+  color: var(--c-accent-text);
+}
+.sonda__tresc { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sonda__tytul { font-size: var(--t-body); font-weight: var(--w-semibold); color: var(--c-text); }
+.sonda__podpis { font-size: var(--t-caption); color: var(--c-text-3); }
+/* ⚠ Licznik to DANA, nie nagłówek: ten sam token, co liczba w kaflu pulpitu (`--t-stat`).
+   Prototyp mówił 22 px, a 22 px nie jest tokenem — bliższy token jest 24 px i opisuje
+   dokładnie to, czym licznik jest. Cyfry tabelarne, żeby „4:09" nie przeskakiwało na „3:59". */
+.sonda__licznik {
+  font-size: var(--t-stat);
+  font-variant-numeric: tabular-nums;
+  color: var(--c-text-2);
+  white-space: nowrap;
+}
+/* Pasek postępu: cały wiersz pod treścią, 6 px, zaokrąglony. */
+.sonda__pasek {
+  grid-column: 1 / -1;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--c-line);
+  overflow: hidden;
+}
+/* ⚠ Szerokość wypełnienia podaje `--sonda-postep`, którą ustawia `modules/cron-sonda.js`
+   z dwóch znaczników czasu Z SERWERA. Zmienna, a nie `style="width"` w szablonie: w szablonie
+   nie ma stylów (CLAUDE.md §6), a skrypt ma podać JEDNĄ liczbę, nie regułę. Bez skryptu
+   pasek stoi na zerze i nic nie obiecuje — wtedy informacją jest napis „do GG:MM:SS". */
+.sonda__wypelnienie {
+  display: block;
+  width: var(--sonda-postep, 0%);
+  height: 100%;
+  background: var(--c-accent);
+}
+.sonda__odswiez { font-size: var(--t-caption); white-space: nowrap; }
+/* ⚠ Z JavaScriptem wynik przychodzi sam, więc odnośnik „Odśwież wynik" jest zbędny i znika.
+   Chowamy go REGUŁĄ przy `html.js`, a nie dokładaniem odnośnika skryptem: przeglądarka bez
+   skryptów musi dostać tę drogę z serwera, nie od kodu, który u niej nie działa. */
+.js .sonda__odswiez { display: none; }
+/* Stan „działa": oprawa akcji, bo to jest dobra wiadomość i ma być widoczna od razu. */
+.sonda--dziala { border-color: var(--c-accent); background: var(--c-accent-soft); }
+/* ⚠ `--c-surface` jako kolor znaku na akcencie — ten sam token, którym robi to `.btn--primary`.
+   Biel wpisana z palca jest wartością koloru poza `00-tokens.css` (system wizualny §1)
+   i wyłapał ją `bin/check-rules.php` jeszcze przed pierwszym renderem. */
+.sonda--dziala .sonda__znak { background: var(--c-accent); color: var(--c-surface); }
+/* ⚠ Stan „nie odpowiedział" bierze barwy OSTRZEŻENIA z tokenów — poczta wtedy stoi, więc
+   wiersz ma wyglądać jak ostrzeżenie w całej aplikacji, a nie jak wymysł tego ekranu. */
+.sonda--milczy { border-color: var(--c-warn-line); background: var(--c-warn-bg); }
+.sonda--milczy .sonda__znak { background: var(--c-warn-soft); color: var(--c-warn-text); }
+.sonda--milczy .sonda__tytul { color: var(--c-warn-text); }
+
+/* ⚠ Telefon: dwa wiersze (§3 zlecenia). Ikona, tytuł i licznik w pierwszym, pasek i zdanie
+   pod spodem, przyciski stanów końcowych na całą szerokość — przycisk 32 px obok dwóch linijek
+   tekstu w 343 px kolumnie zabiera tekstowi tyle, że zdanie łamie się na pięć wierszy. */
+@media (max-width: 480px) {
+  .sonda { grid-template-columns: auto 1fr; }
+  .sonda__licznik { grid-column: 2; justify-self: end; }
+  .sonda__tresc { grid-column: 1 / -1; }
+  .sonda__pasek { order: 2; }
+  .sonda form,
+  .sonda .btn { grid-column: 1 / -1; width: 100%; }
+}
+
 /* Zwijana instrukcja dla hostingodawcy — tytuł i metryka w jednym wierszu `summary`. */
 .disclosure__tytul { font-size: var(--t-body); font-weight: var(--w-medium); color: var(--c-text); }
 .disclosure__meta { margin-left: auto; font-size: var(--t-caption); color: var(--c-text-3); }

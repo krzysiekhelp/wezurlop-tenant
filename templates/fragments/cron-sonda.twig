@@ -1,0 +1,148 @@
+{#- **Stan crona i sonda — jeden fragment dla ekranu i dla odpytywania** (zlecenie Z65).
+
+    ⚠ Ten plik renderuje się w dwóch miejscach: w karcie „Cron" na `/ustawienia` i jako odpowiedź
+    `GET /ustawienia/cron/sonda`, którą htmx podmienia co kilka sekund. Gdyby wiersz istniał
+    w dwóch plikach, po odpytaniu wyglądałby inaczej niż przed nim — i zauważyłby to dopiero
+    człowiek czekający na wynik.
+
+    ⚠ **Odpytywanie zatrzymuje się SAMO w stanie końcowym.** Atrybuty `hx-*` stoją na tym
+    pojemniku i renderują się **tylko** gdy sonda trwa (`cron.sonda.trwa`), a odpowiedź podmienia
+    pojemnik razem z nimi (`outerHTML`). Stan końcowy przychodzi więc bez `hx-get` i pętla gaśnie
+    bez żadnego `clearInterval` — nie ma czego gasić.
+
+    ⚠ Kafle „Ostatni przebieg" i „Najbliższy spodziewany" są W ŚRODKU, bo odświeżają się razem
+    z wynikiem (§2 zlecenia): po odhaczeniu sondy znacznik przebiegu jest już nowy i karta nie
+    może pokazywać starego.
+
+    Zmienne: `cron` (pełny stan z `CronStan::stan()`). -#}
+{% import 'partials/ikony.twig' as ikony %}
+<div id="cron-stan" class="stack"
+     {%- if cron.sonda.trwa %} hx-get="{{ url('/ustawienia/cron/sonda') }}" hx-trigger="every 5s"
+     hx-target="this" hx-swap="outerHTML"{% endif %}>
+
+    {#- ⚠ Cztery kafelki danych na tle strony, a nie lista par: to są CZTERY ODPOWIEDZI
+        na cztery pytania („kiedy ostatnio", „kiedy znowu", „jak często", „jaki serwer"),
+        czytane obok siebie, a nie jedna za drugą.
+        ⚠ OBIE formy czasu, i czas bezwzględny NIE w `title`: `title` nie istnieje na telefonie
+        i nie wchodzi na zrzut ekranu — a zrzut od klienta to często jedyne, co dostajemy.
+        „Ile temu" jest prawdą w chwili renderowania, więc karta otwarta przed godziną
+        kłamie; tylko data z sekundami i strefą da się zestawić z logiem i z dziennikiem. -#}
+    <div class="ustaw-dane">
+        <div class="ustaw-dana">
+            <span class="ustaw-dana__etykieta">Ostatni przebieg</span>
+            {% if cron.nigdy %}
+                <span class="ustaw-dana__wartosc"><span class="chip chip--danger">nigdy</span></span>
+            {% else %}
+                <span class="ustaw-dana__wartosc">{{ cron.wiek == 0 ? 'mniej niż minutę temu' : cron.wiek ~ ' min temu' }}</span>
+                <span class="ustaw-dana__podpis">{{ czas_pelny(cron.ostatni_utc) }}</span>
+            {% endif %}
+        </div>
+        {#- ⚠ Prognoza znika przy awarii: wyliczona z ostatniego przebiegu wypada wtedy
+            w przeszłości i obiecuje coś, co nie nastąpi (patrz ekran Poczty). -#}
+        <div class="ustaw-dana">
+            <span class="ustaw-dana__etykieta">Najbliższy spodziewany</span>
+            {% if cron.najblizszy_utc and not cron.awaria %}
+                {#- ⚠ Bez sekund: to prognoza z zadeklarowanej częstotliwości, a nie pomiar —
+                    „około 12:20:01" udawałoby dokładność, której nie mamy. Pełny czas niżej. -#}
+                <span class="ustaw-dana__wartosc">około {{ czas_prognoza(cron.najblizszy_utc) }}</span>
+                <span class="ustaw-dana__podpis">{{ czas_pelny(cron.najblizszy_utc) }}</span>
+            {% else %}
+                <span class="ustaw-dana__wartosc ustaw-dana__wartosc--brak">nie wiadomo</span>
+                <span class="ustaw-dana__podpis">dopóki cron nie przebiegnie</span>
+            {% endif %}
+        </div>
+        <div class="ustaw-dana">
+            <span class="ustaw-dana__etykieta">Zadeklarowana częstotliwość</span>
+            <span class="ustaw-dana__wartosc">{{ cron.minuty > 0 ? 'co ' ~ cron.minuty ~ ' min' : 'nieznana' }}</span>
+            <span class="ustaw-dana__podpis">{{ cron.minuty > 0 ? 'z konfiguracji instalacji' : 'nie podano przy instalacji' }}</span>
+        </div>
+        <div class="ustaw-dana">
+            <span class="ustaw-dana__etykieta">Profil serwera</span>
+            <span class="ustaw-dana__wartosc">{{ cron.profil ?: 'nieustalony' }}</span>
+            <span class="ustaw-dana__podpis">{{ cron.po_http ? 'zadanie uruchamiane po HTTP' : 'zadanie z crontaba' }}</span>
+        </div>
+    </div>
+
+    {#- ══ Sonda: „czy cron podejmuje zadania" — pytanie inne niż „kiedy ostatnio przebiegł" ══
+        ⚠ Znacznik przebiegu mówi, że runner ruszył; sonda mówi, że **zadanie postawione teraz**
+        zostało podjęte. Przy pierwszej instalacji to jedyna różnica, która ma znaczenie.
+        ⚠ Trzy stany, trzy różne rzeczy do powiedzenia (§1 zlecenia Z65): czekamy, działa,
+        nie odpowiedział. Czwarty („nikt nie pytał") nie jest stanem sondy, tylko jej brakiem
+        — i wtedy wiersz mówi, czym sonda jest, zamiast udawać wynik. -#}
+    {% if cron.sonda.stan == 'czeka' %}
+        {#- ⚠ Dwie liczby w atrybutach, obie z SERWERA: początek i koniec odliczania. Skrypt
+            tylko tyka — nie zgaduje terminu, nie czyta zegara przeglądarki do wyroku, nie zna
+            reguły. Bez skryptu zostaje napis „do GG:MM:SS", czyli ta sama informacja. -#}
+        <div class="sonda sonda--czeka" data-sonda
+             data-sonda-start="{{ cron.sonda.wyslana_utc }}Z"
+             data-sonda-koniec="{{ cron.sonda.koniec_utc }}Z">
+            <span class="sonda__znak">{{ ikony.zegar() }}</span>
+            <span class="sonda__tresc">
+                <span class="sonda__tytul">Sprawdzam crona…</span>
+                <span class="sonda__podpis">znacznik czeka na najbliższy przebieg
+                    około {{ czas_godzina(cron.sonda.koniec_utc) }} (+{{ cron.sonda.zapas_s }} s zapasu)</span>
+            </span>
+            {#- Licznik: z JavaScriptem tyka mm:ss, bez niego mówi, do której godziny czekamy. -#}
+            <span class="sonda__licznik" data-sonda-licznik
+                  aria-live="off">do {{ czas_godzina(cron.sonda.koniec_utc) }}</span>
+            <span class="sonda__pasek" role="presentation">
+                <span class="sonda__wypelnienie" data-sonda-pasek></span>
+            </span>
+            {#- ⚠ Odnośnik odświeżenia istnieje ZAWSZE i jest ścieżką bez skryptu; arkusz chowa go,
+                gdy skrypt działa (`html.js`), bo wtedy wynik przychodzi sam. Odwrotna kolejność
+                (dokładanie odnośnika skryptem) znaczyłaby brak drogi w przeglądarce bez JS. -#}
+            <a class="sonda__odswiez" href="{{ url('/ustawienia') }}#cron-stan">Odśwież wynik</a>
+        </div>
+    {% elseif cron.sonda.stan == 'potwierdzona' %}
+        <div class="sonda sonda--dziala" data-sonda>
+            <span class="sonda__znak">{{ ikony.ptaszek() }}</span>
+            <span class="sonda__tresc">
+                <span class="sonda__tytul">Cron działa</span>
+                <span class="sonda__podpis">znacznik odhaczony o {{ czas_godzina(cron.sonda.wynik_utc) }}
+                    {%- if cron.sonda.czekalismy_mmss is not null %} · czekaliśmy {{ cron.sonda.czekalismy_mmss }}{% endif %}</span>
+            </span>
+            <form method="post" action="{{ url('/ustawienia/cron/sprawdz') }}"
+                  hx-post="{{ url('/ustawienia/cron/sprawdz') }}" hx-target="#cron-stan" hx-swap="outerHTML">
+                {% include 'partials/csrf.twig' %}
+                <button type="submit" class="btn btn--ghost btn--akcja" data-zajety="Sprawdzam…">
+                    {{ ikony.odswiezenie() }}Sprawdź ponownie</button>
+            </form>
+        </div>
+    {% elseif cron.sonda.stan == 'bez_odpowiedzi' %}
+        {#- ⚠ Barwa ostrzeżenia z TOKENÓW (`--c-warn-*`), nie z prototypu: to jest stan, w którym
+            poczta stoi, i ma wyglądać jak ostrzeżenie w całej aplikacji, a nie jak własny wymysł
+            tego jednego wiersza. -#}
+        <div class="sonda sonda--milczy" data-sonda role="alert">
+            <span class="sonda__znak">{{ ikony.uwaga() }}</span>
+            <span class="sonda__tresc">
+                <span class="sonda__tytul">Cron nie odpowiedział</span>
+                <span class="sonda__podpis">przebieg spodziewany o {{ czas_godzina(cron.sonda.koniec_utc) }}
+                    nie przyszedł w {{ cron.sonda.zapas_s }} s zapasu — poczta, przypomnienia i sprzątanie stoją.
+                    Sprawdź „Co ustawić u hostingodawcy" poniżej.</span>
+            </span>
+            <form method="post" action="{{ url('/ustawienia/cron/sprawdz') }}"
+                  hx-post="{{ url('/ustawienia/cron/sprawdz') }}" hx-target="#cron-stan" hx-swap="outerHTML">
+                {% include 'partials/csrf.twig' %}
+                <button type="submit" class="btn btn--primary btn--akcja" data-zajety="Sprawdzam…">
+                    {{ ikony.odswiezenie() }}Sprawdź jeszcze raz</button>
+            </form>
+        </div>
+    {% else %}
+        <div class="sonda" data-sonda>
+            <span class="sonda__znak">{{ ikony.zegar() }}</span>
+            <span class="sonda__tresc">
+                <span class="sonda__podpis">Sonda sprawdza co innego niż znacznik przebiegu:
+                    czy zadanie postawione teraz zostanie podjęte.</span>
+            </span>
+            <form method="post" action="{{ url('/ustawienia/cron/sprawdz') }}"
+                  hx-post="{{ url('/ustawienia/cron/sprawdz') }}" hx-target="#cron-stan" hx-swap="outerHTML">
+                {% include 'partials/csrf.twig' %}
+                {#- ⚠ To NIE jest „uruchom teraz": stawia zadanie i wraca. Wykonać ma je przebieg
+                    crona — uruchomienie runnera w żądaniu przy limicie 30 s to ta pułapka,
+                    przez którą wysyłka kiedyś wisiała w formularzu. -#}
+                <button type="submit" class="btn btn--ghost btn--akcja" data-zajety="Sprawdzam…">
+                    {{ ikony.odswiezenie() }}Sprawdź cron</button>
+            </form>
+        </div>
+    {% endif %}
+</div>

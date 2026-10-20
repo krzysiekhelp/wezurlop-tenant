@@ -84,6 +84,9 @@ $shared = [
     ['POST', '/ustawienia/strefa',                       [SettingsController::class, 'saveTimezone'],  'permission' => 'admin.settings', 'zakres' => 'tenant'],
     // ⚠ Sonda crona, nie „uruchom teraz": stawia zadanie i wraca. Wykonać ma je przebieg crona.
     ['POST', '/ustawienia/cron/sprawdz',                 [SettingsController::class, 'checkCron'],     'permission' => 'admin.settings', 'zakres' => 'tenant'],
+    // ⚠ Lekki GET do odpytywania stanu sondy (zlecenie Z65) — sam wiersz, bez reszty ekranu.
+    // `GET`, bo niczego nie zmienia: sondę stawia `POST` wyżej (CLAUDE.md §3).
+    ['GET',  '/ustawienia/cron/sonda',                   [SettingsController::class, 'cronProbe'],     'permission' => 'admin.settings', 'zakres' => 'tenant'],
     // ⚠ Skrzynka na alerty (Z49): zapis i wysyłka próbna jednym POST-em, bo próba dotyczy adresu
     // WPISANEGO w pole, a nie zapisanego — rozstrzyga nazwa wciśniętego przycisku.
     ['POST', '/ustawienia/alerty',                       [SettingsController::class, 'saveAlertEmail'], 'permission' => 'admin.settings', 'zakres' => 'tenant'],

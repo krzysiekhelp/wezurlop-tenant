@@ -52,7 +52,7 @@ ls ~/.cache/ms-playwright
 
 ```bash
 cd /home/dev/tenant
-python3 dev/bramka-ekranowa.py            # oba okna: 374 px z dotykiem i 1920 px z myszą
+python3 dev/bramka-ekranowa.py            # trzy szerokości: 374 px z dotykiem, 1366 i 1920 px z myszą
 python3 dev/bramka-ekranowa.py waska      # tylko 374 px (lustro /m)
 python3 dev/bramka-ekranowa.py szeroka    # tylko 1920 px (oba warianty)
 python3 dev/bramka-ekranowa.py kody       # TYLKO przebieg po ekranach, bez kryteriów

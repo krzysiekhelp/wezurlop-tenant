@@ -36,6 +36,17 @@ final class CronStan
     /** Plik ze znacznikiem odrzuconego (przedwczesnego) wywołania crona po HTTP. */
     public const PLIK_ODRZUCEN = '/cron-http.odrzucone';
 
+    /**
+     * **Zapas na przebieg crona** — ile sekund po spodziewanym uruchomieniu wolno jeszcze czekać,
+     * zanim sonda dostanie odpowiedź „nie odpowiedział" (zlecenie Z65).
+     *
+     * ⚠ Jedna stała, nie liczba w szablonie: ten sam zapas liczy odliczanie na ekranie i wyrok
+     * serwera, a dwie kopie jednej liczby rozjadą się przy pierwszej zmianie. 60 s, bo przebieg
+     * crona startuje z dokładnością do kilkudziesięciu sekund (crontab odpala pełną minutę,
+     * a wariant po HTTP zależy od tego, kiedy ktoś wejdzie na stronę).
+     */
+    public const ZAPAS_SONDY_S = 60;
+
     public function __construct(
         private readonly Config $config,
         private readonly CronHeartbeat $heartbeat,
@@ -70,7 +81,8 @@ final class CronStan
      *     profil: string, po_http: bool, kolejka_po_zadaniu: bool, zapasowy_czynny: bool,
      *     polecenie_crontab: string, plik_http: string, sciezka_shim: string, tresc_shim: string,
      *     odstep_http_s: int, ostatni_przebieg_http: ?int, ostatnie_odrzucenie: ?int,
-     *     sonda: array{stan: string, wyslana_utc: ?string, wynik_utc: ?string, termin_min: int}
+     *     sonda: array{stan: string, wyslana_utc: ?string, wynik_utc: ?string, termin_min: int,
+     *         koniec_utc: ?string, czekalismy_s: ?int, trwa: bool}
      * }
      */
     public function stan(): array
@@ -140,29 +152,108 @@ final class CronStan
      * ⚠ Termin: dwa zadeklarowane okresy, nie mniej niż 15 minut — tak samo jak próg awarii,
      * bo to ta sama zasada („jedno spóźnione uruchomienie to nie awaria, brak dwóch już tak").
      *
-     * @return array{stan: string, wyslana_utc: ?string, wynik_utc: ?string, termin_min: int}
+     * @return array{stan: string, wyslana_utc: ?string, wynik_utc: ?string, termin_min: int,
+     *     koniec_utc: ?string, czekalismy_s: ?int, czekalismy_mmss: ?string,
+     *     zapas_s: int, trwa: bool}
      */
     private function sonda(int $minuty): array
     {
-        $wyslana = $this->settings->get(JobRunner::USTAWIENIE_SONDA_WYSLANA);
-        $wynik = $this->settings->get(JobRunner::USTAWIENIE_SONDA_WYNIK);
-        $termin = max(2 * ($minuty > 0 ? $minuty : 5), 15);
-        $stan = 'brak';
-        if ($wyslana !== '') {
-            $czasWyslania = (int) strtotime($wyslana . ' UTC');
-            $czasWyniku = $wynik === '' ? 0 : (int) strtotime($wynik . ' UTC');
-            if ($czasWyniku >= $czasWyslania) {
-                $stan = 'potwierdzona';
-            } else {
-                $stan = time() - $czasWyslania > $termin * 60 ? 'bez_odpowiedzi' : 'czeka';
+        return self::stanSondy(
+            $this->settings->get(JobRunner::USTAWIENIE_SONDA_WYSLANA),
+            $this->settings->get(JobRunner::USTAWIENIE_SONDA_WYNIK),
+            $this->heartbeat->ageMinutes() === null ? null : $this->heartbeat->ostatniUtc(),
+            $minuty,
+            time(),
+        );
+    }
+
+    /**
+     * **Decyzja o stanie sondy — funkcja czysta** (zlecenie Z65).
+     *
+     * ⚠ Wyjęta z metody czytającej bazę, żeby dała się sprawdzić bez bazy i bez przeglądarki:
+     * trzy przypadki (świeża, potwierdzona, po terminie) to trzy wywołania z wpisanymi czasami.
+     * Dopóki decyzja siedziała razem z odczytem ustawień, każdy test o niej był testem o bazie.
+     *
+     * ⚠ **Koniec odliczania = spodziewany przebieg PO postawieniu sondy, plus zapas**
+     * (`ZAPAS_SONDY_S`). Nie „dwa okresy od wysłania", jak było do 20.10.2026: tamten termin
+     * bywał dłuższy niż dwa przebiegi i człowiek czekał 15 minut na odpowiedź, którą można dać
+     * po jednym. Spodziewany przebieg liczymy od OSTATNIEGO znanego przebiegu, dodając okres
+     * tyle razy, ile potrzeba, by wypadł nie wcześniej niż sonda — bo sondę podejmuje pierwszy
+     * przebieg po jej postawieniu, a nie ten, który właśnie minął.
+     *
+     * ⚠ Gdy cron nigdy nie przebiegł, nie ma od czego liczyć: wtedy terminem jest „okres
+     * od postawienia sondy" plus zapas. To jedyny przypadek, w którym zgadujemy — i mówi o tym
+     * `nigdy` w stanie crona, a nie samo odliczanie.
+     *
+     * @param string $wyslana znacznik UTC postawienia sondy (`''` = nigdy nie stawiano)
+     * @param string $wynik znacznik UTC odhaczenia sondy przez przebieg crona
+     * @param ?string $ostatniPrzebieg znacznik UTC ostatniego przebiegu albo `null`
+     * @param int $minuty zadeklarowana częstotliwość w minutach (0 = nieznana)
+     * @param int $teraz czas bieżący jako znacznik uniksowy
+     * @return array{stan: string, wyslana_utc: ?string, wynik_utc: ?string, termin_min: int,
+     *     koniec_utc: ?string, czekalismy_s: ?int, czekalismy_mmss: ?string,
+     *     zapas_s: int, trwa: bool}
+     */
+    public static function stanSondy(
+        string $wyslana,
+        string $wynik,
+        ?string $ostatniPrzebieg,
+        int $minuty,
+        int $teraz
+    ): array {
+        $okres = ($minuty > 0 ? $minuty : 5) * 60;
+        $pusta = [
+            'stan' => 'brak', 'wyslana_utc' => null, 'wynik_utc' => null,
+            'termin_min' => (int) ceil(($okres + self::ZAPAS_SONDY_S) / 60),
+            'koniec_utc' => null, 'czekalismy_s' => null, 'czekalismy_mmss' => null,
+            // ⚠ Zapas podaje SERWER, razem ze stanem: szablon ma go wypisać, a nie znać.
+            'zapas_s' => self::ZAPAS_SONDY_S, 'trwa' => false,
+        ];
+        if ($wyslana === '') {
+            return $pusta;
+        }
+        $czasWyslania = (int) strtotime($wyslana . ' UTC');
+        $czasWyniku = $wynik === '' ? 0 : (int) strtotime($wynik . ' UTC');
+        if ($czasWyniku >= $czasWyslania) {
+            return [
+                'stan' => 'potwierdzona',
+                'wyslana_utc' => $wyslana,
+                'wynik_utc' => $wynik,
+                'termin_min' => $pusta['termin_min'],
+                'koniec_utc' => null,
+                // Ile naprawdę czekaliśmy — liczba na ekran, nie szacunek.
+                'czekalismy_s' => max(0, $czasWyniku - $czasWyslania),
+                // Format mm:ss liczy serwer, bo to ta sama liczba, którą wypisuje — a szablon
+                // nie jest miejscem na dzielenie z resztą (CLAUDE.md §5).
+                'czekalismy_mmss' => sprintf(
+                    '%d:%02d',
+                    intdiv(max(0, $czasWyniku - $czasWyslania), 60),
+                    max(0, $czasWyniku - $czasWyslania) % 60,
+                ),
+                'zapas_s' => self::ZAPAS_SONDY_S,
+                'trwa' => false,
+            ];
+        }
+        $spodziewany = $czasWyslania + $okres;
+        if ($ostatniPrzebieg !== null) {
+            $spodziewany = (int) strtotime($ostatniPrzebieg . ' UTC');
+            // Pierwszy przebieg NIE WCZEŚNIEJSZY niż postawienie sondy.
+            while ($spodziewany < $czasWyslania) {
+                $spodziewany += $okres;
             }
         }
+        $koniec = $spodziewany + self::ZAPAS_SONDY_S;
 
         return [
-            'stan'        => $stan,
-            'wyslana_utc' => $wyslana === '' ? null : $wyslana,
-            'wynik_utc'   => $wynik === '' ? null : $wynik,
-            'termin_min'  => $termin,
+            'stan' => $teraz > $koniec ? 'bez_odpowiedzi' : 'czeka',
+            'wyslana_utc' => $wyslana,
+            'wynik_utc' => $wynik === '' ? null : $wynik,
+            'termin_min' => $pusta['termin_min'],
+            'koniec_utc' => gmdate('Y-m-d H:i:s', $koniec),
+            'czekalismy_s' => null,
+            'czekalismy_mmss' => null,
+            'zapas_s' => self::ZAPAS_SONDY_S,
+            'trwa' => $teraz <= $koniec,
         ];
     }
 

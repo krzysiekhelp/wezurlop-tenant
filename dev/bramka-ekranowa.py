@@ -163,6 +163,13 @@ ARKUSZ = KORZEN / "public/assets/css/30-components.css"
 
 KONTENERY = [".table-scroll", ".card__body", ".m-content", ".page"]
 
+# ⚠ **Szerokość „laptopowa" dla kryteriów, które otwierają ekran w jednym oknie** — jedna stała,
+# nie liczba wpisana w trzydziestu wywołaniach. Od 20.10.2026 wynosi **1366**, a nie 1440
+# (decyzja zarządcy, Z63): bramka i pomiar odbiorowy mają mierzyć te same trzy szerokości,
+# bo dwie listy szerokości znaczą dwa różne „sprawdzone". 1366 jest przy tym węższa, więc
+# sprawdzenia, które przy 1440 przechodziły „z zapasem", teraz mówią prawdę o laptopie.
+SZEROKOSC_LAPTOPA = 1366
+
 
 def prog_z_arkusza() -> int:
     """Próg zamiany tabeli w listę, ODCZYTANY z arkusza (§11.4)."""
@@ -750,7 +757,7 @@ def sprawdz_nakladki(b, sciezki: list[str]) -> list[dict]:
     """
     wyniki = []
     for wys in WYSOKOSCI_NAKLADEK:
-        ctx = b.new_context(viewport={"width": 1440, "height": wys}, ignore_https_errors=True)
+        ctx = b.new_context(viewport={"width": SZEROKOSC_LAPTOPA, "height": wys}, ignore_https_errors=True)
         pg = ctx.new_page()
         try:
             pg.goto(BAZA + "/logowanie", wait_until="networkidle")
@@ -1080,7 +1087,7 @@ def sprawdz_ostrzezenie_wyjscia(b) -> dict:
         skończyć się na `ok=1`,
       - `wyjscie` — po przeciągnięciu klik w menu boczne: okno MUSI być.
     """
-    ctx = b.new_context(viewport={"width": 1440, "height": 900}, ignore_https_errors=True)
+    ctx = b.new_context(viewport={"width": SZEROKOSC_LAPTOPA, "height": 900}, ignore_https_errors=True)
     pg = ctx.new_page()
     okna: list[str] = []
     # ⚠ Przed `try`, nie w środku: `finally` sięga po tę listę także wtedy, gdy wyjątek padnie
@@ -1666,7 +1673,7 @@ def sprawdz_poziomy_kalendarza(b, usterka: str | None = None) -> dict:
     poziom_przed = stan.get("przed", 0)
     slownik = [n for n in stan.get("slownik", []) if len(n) > 6]
 
-    ctx = nowy_kontekst(b, usterka, viewport={"width": 1440, "height": 900}, ignore_https_errors=True)
+    ctx = nowy_kontekst(b, usterka, viewport={"width": SZEROKOSC_LAPTOPA, "height": 900}, ignore_https_errors=True)
     pg = ctx.new_page()
     try:
         pg.goto(BAZA + "/logowanie", wait_until="networkidle")
@@ -1874,8 +1881,8 @@ def sprawdz_wymiane_fragmentu(b) -> dict:
             pg.wait_for_url(lambda u: "/kontekst" not in u, timeout=15000)
         return pg
 
-    ctx = b.new_context(viewport={"width": 1440, "height": 900}, ignore_https_errors=True)
-    bez_js = b.new_context(viewport={"width": 1440, "height": 900}, ignore_https_errors=True,
+    ctx = b.new_context(viewport={"width": SZEROKOSC_LAPTOPA, "height": 900}, ignore_https_errors=True)
+    bez_js = b.new_context(viewport={"width": SZEROKOSC_LAPTOPA, "height": 900}, ignore_https_errors=True,
                            java_script_enabled=False)
     try:
         pg = zaloguj(ctx)
@@ -2006,7 +2013,7 @@ def sprawdz_zasieg_podgladu(b, usterka: str | None = None) -> dict:
         return {"ok": False, "powod": "dane robocze nie dają gałęzi do pomiaru", "ids": ids}
     ja, dziecko, wnuk = ids["ja"], ids["wolni"][0], ids["wolni"][1]
 
-    ctx_adm = b.new_context(viewport={"width": 1440, "height": 900}, ignore_https_errors=True)
+    ctx_adm = b.new_context(viewport={"width": SZEROKOSC_LAPTOPA, "height": 900}, ignore_https_errors=True)
     adm = ctx_adm.new_page()
     przygotowane = False
     # Przed `try`, bo `finally` przywraca ten wiersz także po wyjątku.
@@ -2032,7 +2039,7 @@ def sprawdz_zasieg_podgladu(b, usterka: str | None = None) -> dict:
                 return {"ok": False, "powod": "nie udalo sie przygotowac galezi", "kod": w["kod"]}
         przygotowane = True
 
-        ctx = nowy_kontekst(b, usterka, viewport={"width": 1440, "height": 900}, ignore_https_errors=True)
+        ctx = nowy_kontekst(b, usterka, viewport={"width": SZEROKOSC_LAPTOPA, "height": 900}, ignore_https_errors=True)
         pg = ctx.new_page()
         try:
             pg.goto(BAZA + "/logowanie", wait_until="networkidle")
@@ -2097,7 +2104,8 @@ def sprawdz_zasieg_podgladu(b, usterka: str | None = None) -> dict:
             # więc przy wąskim ekranie siatka MOŻE jechać w bok we własnym opakowaniu — ale
             # `.card__body` przewijać się nie może, a kolumna dnia musi zostać czytelna.
             miary = {}
-            for etykieta, szer in (("1920", 1920), ("1440", 1440), ("374", 374)):
+            # ⚠ Te same trzy szerokości, co w przebiegu po ekranach (Z63): 1920 / 1366 / 374.
+            for etykieta, szer in (("1920", 1920), ("1366", 1366), ("374", 374)):
                 pg.set_viewport_size({"width": szer, "height": 900})
                 pg.goto(BAZA + "/kalendarz?widok=zespol&osoby=%d,%d,%d" % (ja, dziecko, wnuk)
                         + OGON_SP, wait_until="networkidle")
@@ -2116,7 +2124,7 @@ def sprawdz_zasieg_podgladu(b, usterka: str | None = None) -> dict:
                     nazwa_ucieta: osoba.scrollWidth > osoba.clientWidth + 1,
                   };
                 }""")
-            pg.set_viewport_size({"width": 1440, "height": 900})
+            pg.set_viewport_size({"width": SZEROKOSC_LAPTOPA, "height": 900})
             spoza = wiersze("&osoby=%d" % ids["obcy"])
             inna = wiersze("&osoby=%d" % ids["inna_spolka"]) if ids["inna_spolka"] else []
             mieszane = wiersze("&osoby=%d,%d" % (dziecko, ids["obcy"]))
@@ -2167,7 +2175,7 @@ def sprawdz_zasieg_podgladu(b, usterka: str | None = None) -> dict:
                 and m["kolumna_osoby"] >= 120 and not m["nazwa_ucieta"]
                 for m in miary.values()
             ) and miary["1920"] is not None and not miary["1920"]["siatka_przewija"] \
-                and miary["1440"] is not None and not miary["1440"]["siatka_przewija"]
+                and miary["1366"] is not None and not miary["1366"]["siatka_przewija"]
             return {
                 # ⚠ `domyslne` musi mieć TRZY wiersze (cała przygotowana gałąź) i ZERO zdań
                 # o zawężeniu: przy pełnym widoku nie ma czego tłumaczyć, a przy zawężonym
@@ -2284,7 +2292,7 @@ def sprawdz_rozdzial_rol(b) -> dict:
 
     haslo = HASLO or haslo_dev(LOGIN)
     wstawione = False
-    ctx = b.new_context(viewport={"width": 1440, "height": 900}, ignore_https_errors=True)
+    ctx = b.new_context(viewport={"width": SZEROKOSC_LAPTOPA, "height": 900}, ignore_https_errors=True)
     try:
         proby = probka()
         # Stan wyjściowy: pozycja na diagnostyce ma być CZYSTA, inaczej dowód (c) nic nie znaczy.
@@ -2393,7 +2401,7 @@ def sprawdz_prawde_kalendarza(b, usterka: str | None = None) -> dict:
     poziom_c = poziom_kalendarza(c, None, LOGIN).get("przed", 0)
     filtr_a = filtr_kalendarza(a, None, LOGIN)
 
-    ctx = nowy_kontekst(b, usterka, viewport={"width": 1440, "height": 855}, ignore_https_errors=True)
+    ctx = nowy_kontekst(b, usterka, viewport={"width": SZEROKOSC_LAPTOPA, "height": 855}, ignore_https_errors=True)
     try:
         poziom_kalendarza(a, 2, LOGIN)
         poziom_kalendarza(c, 2, LOGIN)
@@ -2608,7 +2616,7 @@ def sprawdz_panel_wyboru(b) -> dict:
     poziom_b = poziom_kalendarza(druga, None, LOGIN).get("przed", 0)
     filtr_a = filtr_kalendarza(a, None, LOGIN)
 
-    ctx = b.new_context(viewport={"width": 1440, "height": 855}, ignore_https_errors=True)
+    ctx = b.new_context(viewport={"width": SZEROKOSC_LAPTOPA, "height": 855}, ignore_https_errors=True)
     try:
         poziom_kalendarza(a, 2, LOGIN)
         poziom_kalendarza(druga, 2, LOGIN)
@@ -3015,7 +3023,7 @@ def sprawdz_kasowanie_klucza(b) -> dict:
 
     haslo = HASLO or haslo_dev(LOGIN)
     klucz = None
-    ctx = b.new_context(viewport={"width": 1440, "height": 900}, ignore_https_errors=True)
+    ctx = b.new_context(viewport={"width": SZEROKOSC_LAPTOPA, "height": 900}, ignore_https_errors=True)
     try:
         klucz = probka("wydaj")
         kid = int(klucz["id"])
@@ -3093,7 +3101,7 @@ def sprawdz_kasowanie_klucza(b) -> dict:
         pg.set_viewport_size({"width": 1920, "height": 900})
         pg.goto(BAZA + "/admin/integracja", wait_until="networkidle")
         wyrownanie_1920 = pg.evaluate(POMIAR_DZIALAN)
-        pg.set_viewport_size({"width": 1440, "height": 900})
+        pg.set_viewport_size({"width": SZEROKOSC_LAPTOPA, "height": 900})
 
         # ⚠ Ekran potwierdzenia MUSI istnieć dla klucza unieważnionego.
         pg.goto(BAZA + f"/admin/integracja/klucze/{kid}/usun", wait_until="networkidle")
@@ -3262,8 +3270,8 @@ def sprawdz_nazwe_wyswietlana(b) -> dict:
         return {"ok": False, "powod": f"brak hasła konta {LOGIN3} — ekranu wyboru firmy "
                                       "NIE zmierzono (hasła nie ma w repozytorium, §14)"}
 
-    ctx = b.new_context(viewport={"width": 1440, "height": 900}, ignore_https_errors=True)
-    ctx2 = b.new_context(viewport={"width": 1440, "height": 900}, ignore_https_errors=True)
+    ctx = b.new_context(viewport={"width": SZEROKOSC_LAPTOPA, "height": 900}, ignore_https_errors=True)
+    ctx2 = b.new_context(viewport={"width": SZEROKOSC_LAPTOPA, "height": 900}, ignore_https_errors=True)
     nadane = False
     poziomy: list[tuple[int, int]] = []
     try:
@@ -3574,7 +3582,7 @@ def sprawdz_wybor_spolki(b) -> dict:
     ctx2 = None
     dane_probki = None
     try:
-        ctx = b.new_context(viewport={"width": 1440, "height": 1000}, ignore_https_errors=True)
+        ctx = b.new_context(viewport={"width": SZEROKOSC_LAPTOPA, "height": 1000}, ignore_https_errors=True)
         pg = ctx.new_page()
         zaloguj(pg, LOGIN, haslo_admin)
 
@@ -3645,7 +3653,7 @@ def sprawdz_wybor_spolki(b) -> dict:
 
         # 5. Zapamiętana spółka, do której konto straciło dostęp — na obiektach bramki.
         dane_probki = probka("utworz")
-        ctx2 = b.new_context(viewport={"width": 1440, "height": 1000}, ignore_https_errors=True)
+        ctx2 = b.new_context(viewport={"width": SZEROKOSC_LAPTOPA, "height": 1000}, ignore_https_errors=True)
         p2 = ctx2.new_page()
         zaloguj(p2, dane_probki["login"], dane_probki["haslo"])
         p2.goto(BAZA + "/kalendarz", wait_until="networkidle")
@@ -3795,7 +3803,7 @@ def sprawdz_paski_nieobecnosci(b) -> dict:
         # siatki firmy, a pasków na ekranie jest wtedy zero. Stan wyjściowy odczytany PRZED
         # nadaniem i przywracany w `finally` — kontekst i role są trwałe (lekcja z 11.10).
         poziom_kalendarza(spolka, 2, LOGIN)
-        ctx = b.new_context(viewport={"width": 1440, "height": 1000}, ignore_https_errors=True)
+        ctx = b.new_context(viewport={"width": SZEROKOSC_LAPTOPA, "height": 1000}, ignore_https_errors=True)
         pg = ctx.new_page()
         pg.goto(BAZA + "/logowanie", wait_until="networkidle")
         pg.fill("#login-email", LOGIN)
@@ -4106,7 +4114,7 @@ def sprawdz_skale_czasu(b, usterka: str | None = None) -> dict:
     z_bazy = {k: nieobecnosci_pracownika(jaId, *v) for k, v in zakresy.items()}
     ctx = None
     try:
-        ctx = nowy_kontekst(b, usterka, viewport={"width": 1440, "height": 1000}, ignore_https_errors=True)
+        ctx = nowy_kontekst(b, usterka, viewport={"width": SZEROKOSC_LAPTOPA, "height": 1000}, ignore_https_errors=True)
         pg = ctx.new_page()
         pg.goto(BAZA + "/logowanie", wait_until="networkidle")
         pg.fill("#login-email", LOGIN3)
@@ -4139,7 +4147,7 @@ def sprawdz_skale_czasu(b, usterka: str | None = None) -> dict:
             przestawiony = True
             try:
                 poziom_kalendarza(spolka_adm, 2, LOGIN)
-                ctx_adm = nowy_kontekst(b, usterka, viewport={"width": 1440, "height": 1000}, ignore_https_errors=True)
+                ctx_adm = nowy_kontekst(b, usterka, viewport={"width": SZEROKOSC_LAPTOPA, "height": 1000}, ignore_https_errors=True)
                 adm = ctx_adm.new_page()
                 adm.goto(BAZA + "/logowanie", wait_until="networkidle")
                 adm.fill("#login-email", LOGIN)
@@ -4168,7 +4176,7 @@ def sprawdz_skale_czasu(b, usterka: str | None = None) -> dict:
                                  (f"/kalendarz?widok=ja&miesiac={MIESIAC}{OGON}", "miesiac")):
                 pg.goto(BAZA + adres, wait_until="networkidle")
                 waskie[f"{etyk}-{klucz}"] = pg.evaluate(POMIAR_SKALI)
-        pg.set_viewport_size({"width": 1440, "height": 1000})
+        pg.set_viewport_size({"width": SZEROKOSC_LAPTOPA, "height": 1000})
 
         # ⚠ Mierzymy WYŁĄCZNIE przełącznik skal (po nazwie dostępnej „Skala czasu"). Konto
         # pracownika bez podwładnych i bez nadanego poziomu ma JEDNĄ pozycję widoku, więc obok
@@ -4722,7 +4730,8 @@ def sprawdz_znacznik_dzis(b, usterka: str | None = None) -> dict:
             pg.wait_for_load_state("networkidle")
 
         pomiary = {}
-        for etyk, szer, wys in (("1920", 1920, 1080), ("1440", 1440, 900), ("374", 374, 812)):
+        # ⚠ Te same trzy szerokości, co w przebiegu po ekranach (Z63): 1920 / 1366 / 374.
+        for etyk, szer, wys in (("1920", 1920, 1080), ("1366", 1366, 900), ("374", 374, 812)):
             pg.set_viewport_size({"width": szer, "height": wys})
             for skala in ("miesiac", "rok"):
                 ogon = "" if skala == "miesiac" else "&skala=rok"
@@ -4895,7 +4904,7 @@ def sprawdz_jedna_wizualizacje(b, usterka: str | None = None) -> dict:
     try:
         wynik: dict = {}
         # Pracownik — konto, które przed zmianą widziało WYŁĄCZNIE starą siatkę.
-        ctx = nowy_kontekst(b, usterka, viewport={"width": 1440, "height": 1000}, ignore_https_errors=True)
+        ctx = nowy_kontekst(b, usterka, viewport={"width": SZEROKOSC_LAPTOPA, "height": 1000}, ignore_https_errors=True)
         pg = ctx.new_page()
         pg.goto(BAZA + "/logowanie", wait_until="networkidle")
         pg.fill("#login-email", LOGIN3)
@@ -4935,7 +4944,7 @@ def sprawdz_jedna_wizualizacje(b, usterka: str | None = None) -> dict:
         for sp in spolki:
             stan = poziom_kalendarza(int(sp["id"]), 2, LOGIN)
             poziomy.append((int(sp["id"]), int(stan["przed"])))
-        ctx = nowy_kontekst(b, usterka, viewport={"width": 1440, "height": 1000}, ignore_https_errors=True)
+        ctx = nowy_kontekst(b, usterka, viewport={"width": SZEROKOSC_LAPTOPA, "height": 1000}, ignore_https_errors=True)
         pg = ctx.new_page()
         pg.goto(BAZA + "/logowanie", wait_until="networkidle")
         pg.fill("#login-email", LOGIN)
@@ -5105,7 +5114,7 @@ def sprawdz_kontekst_spolki(b) -> dict:
                 pg.wait_for_load_state("networkidle")
             return pg
 
-        ctx = b.new_context(viewport={"width": 1440, "height": 1000}, ignore_https_errors=True)
+        ctx = b.new_context(viewport={"width": SZEROKOSC_LAPTOPA, "height": 1000}, ignore_https_errors=True)
         pg = zaloguj_pracownika(ctx)
 
         def spolka_pulpitu() -> str:
@@ -5164,7 +5173,7 @@ def sprawdz_kontekst_spolki(b) -> dict:
         ctx = None
 
         # 5. Bez JavaScriptu.
-        ctx2 = b.new_context(viewport={"width": 1440, "height": 1000}, ignore_https_errors=True,
+        ctx2 = b.new_context(viewport={"width": SZEROKOSC_LAPTOPA, "height": 1000}, ignore_https_errors=True,
                              java_script_enabled=False)
         p2 = ctx2.new_page()
         p2.goto(BAZA + "/logowanie", wait_until="networkidle")
@@ -5327,7 +5336,7 @@ def sprawdz_dziennik_i_zdania(b) -> dict:
     ctx2 = None
     nadane = False
     try:
-        ctx = b.new_context(viewport={"width": 1440, "height": 900}, ignore_https_errors=True)
+        ctx = b.new_context(viewport={"width": SZEROKOSC_LAPTOPA, "height": 900}, ignore_https_errors=True)
         pg = ctx.new_page()
         pg.goto(BAZA + "/logowanie", wait_until="networkidle")
         pg.fill("#login-email", LOGIN)
@@ -5395,7 +5404,7 @@ def sprawdz_dziennik_i_zdania(b) -> dict:
         w.join(timeout=15)
 
         # Zdania zamiast ciszy — kontem pracownika bez podwładnych i bez poziomu.
-        ctx2 = b.new_context(viewport={"width": 1440, "height": 900}, ignore_https_errors=True)
+        ctx2 = b.new_context(viewport={"width": SZEROKOSC_LAPTOPA, "height": 900}, ignore_https_errors=True)
         p2 = ctx2.new_page()
         p2.goto(BAZA + "/logowanie", wait_until="networkidle")
         p2.fill("#login-email", LOGIN3)
@@ -5917,7 +5926,7 @@ def sprawdz_grupy(b) -> dict:
         )
 
         haslo = HASLO or haslo_dev(LOGIN)
-        ctx = b.new_context(viewport={"width": 1440, "height": 900}, ignore_https_errors=True)
+        ctx = b.new_context(viewport={"width": SZEROKOSC_LAPTOPA, "height": 900}, ignore_https_errors=True)
         pg = ctx.new_page()
         pg.goto(BAZA + "/logowanie", wait_until="networkidle")
         pg.fill("#login-email", LOGIN)
@@ -6822,15 +6831,19 @@ def main() -> int:
         okna.append(("1920-mysz-web", 1920, 1080, False, "", sciezki_web(), admin))
         if pracownik[1]:
             okna.append(("1920-mysz-pracownik", 1920, 1080, False, "", PRACOWNIK_WEB, pracownik))
-        # ⚠ 1440 px — najczęstsza szerokość okna na laptopie, i przez trzy tygodnie ślepy punkt
-        # tej bramki: mierzyła 1920 i 374, a tabele przewijały się w bok dokładnie POMIĘDZY.
-        # Zmierzone przed naprawą: /diagnostyka 301 i 167 px, /dane/synchronizacja 191 px,
-        # /admin/integracja 80 px, /dane 10 px — pięć tabel, o dwóch z nich nikt nie wiedział.
+        # ⚠ Szerokość laptopowa — i przez trzy tygodnie ślepy punkt tej bramki: mierzyła 1920
+        # i 374, a tabele przewijały się w bok dokładnie POMIĘDZY. Zmierzone przed naprawą:
+        # /diagnostyka 301 i 167 px, /dane/synchronizacja 191 px, /admin/integracja 80 px,
+        # /dane 10 px — pięć tabel, o dwóch z nich nikt nie wiedział.
         # ⚠ Próg dołożony PO naprawie, nie przed: bramka świecąca na czerwono od pierwszego dnia
         # przestaje być bramką.
-        okna.append(("1440-mysz-web", 1440, 900, False, "", sciezki_web(), admin))
+        # ⚠ **1366 px, nie 1440** (decyzja zarządcy z 20.10.2026, Z63): bramka i pomiar odbiorowy
+        # mają mierzyć TE SAME trzy szerokości (1920 / 1366 / 374), bo dwie listy szerokości
+        # znaczą dwa różne „sprawdzone" — a 1366 jest i węższa, i częstsza na laptopach.
+        # Czwartej szerokości nie dokładamy: każda kosztuje ~25% czasu przebiegu.
+        okna.append(("1366-mysz-web", 1366, 900, False, "", sciezki_web(), admin))
         if pracownik[1]:
-            okna.append(("1440-mysz-pracownik", 1440, 900, False, "", PRACOWNIK_WEB, pracownik))
+            okna.append(("1366-mysz-pracownik", 1366, 900, False, "", PRACOWNIK_WEB, pracownik))
 
     raport: dict = {"prog_z_arkusza": prog, "naruszenia": [], "prog_naruszony": [],
                     "ekranow": 0, "bledy": [], "csp": [], "kody": [], "bez_dostepu": None, "nakladki": [],

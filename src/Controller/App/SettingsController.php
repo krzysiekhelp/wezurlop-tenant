@@ -543,7 +543,31 @@ final class SettingsController
         $this->events->record('maintenance.cron_probe_requested', $this->accountId($request), null,
             $this->actorLabel($request), 'tenant', null);
 
+        // ⚠ **Ze skryptem wracamy samym wierszem, bez skryptu przekierowaniem** (zlecenie Z65):
+        // wiersz zmienia się W MIEJSCU i od razu zaczyna odliczać, a przeglądarka bez htmx
+        // dostaje ekran ze stanem CZEKA i odnośnikiem „Odśwież wynik". Ten sam stan w obu
+        // drogach, bo liczy go serwer — `?ok=sonda` zostaje dla komunikatu nad kartą.
+        if ($request->isHtmx()) {
+            return $this->view->render('fragments/cron-sonda.twig', ['cron' => $this->cron->stan()]);
+        }
+
         return Response::redirectFor($request, $this->urls->to('/ustawienia') . '?ok=sonda');
+    }
+
+    /**
+     * Stan sondy jako sam wiersz — **lekki GET do odpytywania** (zlecenie Z65).
+     *
+     * ⚠ Odpowiedź jest tym samym fragmentem, który renderuje ekran: jedno miejsce na wygląd
+     * i na stan, więc po odpytaniu wiersz nie może wyglądać inaczej niż przed nim.
+     *
+     * ⚠ **Nic nie zapisuje.** To zwykły odczyt stanu (CLAUDE.md §3: `GET` wyłącznie do odczytu);
+     * sondę stawia osobny `POST`, a odhacza ją przebieg crona.
+     *
+     * @param array<string, string> $params
+     */
+    public function cronProbe(Request $request, array $params): Response
+    {
+        return $this->view->render('fragments/cron-sonda.twig', ['cron' => $this->cron->stan()]);
     }
 
     /**

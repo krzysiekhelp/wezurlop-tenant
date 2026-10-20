@@ -2,6 +2,10 @@
 
 {% block nazwa_ekranu %}Ustawienia{% endblock %}
 
+{#- ⚠ Moduł odliczania sondy crona tylko na tym ekranie — ta sama zasada, co przy htmx
+    i pozostałych modułach: plik na ekranie, który go nie ma, to koszt bez pożytku. -#}
+{% set cron_js = true %}
+
 {% block content %}
     {#- ⚠ **Bez nagłówka strony** (zlecenie Z27 §1): zdanie „Konfiguracja instalacji." nie mówiło
         nic ponad nazwę ekranu, która stoi już w belce, a `.page__head` bez tytułu i bez akcji
