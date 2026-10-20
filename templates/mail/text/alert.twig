@@ -1,0 +1,16 @@
+{#- Wersja tekstowa alertu — te same zmienne i ta sama kolejność, co w HTML. -#}
+{% extends 'layout.twig' %}
+
+{% block naglowek %}{{ naglowek }}{% endblock %}
+
+{% block tresc %}{% for zdanie in zdania %}{{ zdanie }}
+
+{% endfor %}{% if wiersze is not empty %}{% for w in wiersze %}{{ w.etykieta }}: {{ w.wartosc }}
+{% endfor %}
+{% endif %}{% if kroki is not empty %}Co sprawdzić po kolei:
+{% for krok in kroki %}  {{ loop.index }}. {{ krok }}
+{% endfor %}
+{% endif %}{% endblock %}
+
+{% block stopka %}{% if stopka_zdanie %}{{ stopka_zdanie }}
+{% endif %}{% endblock %}

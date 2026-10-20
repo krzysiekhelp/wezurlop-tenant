@@ -6,6 +6,7 @@ namespace Wezurlop\Service\Mail;
 
 use Twig\Environment;
 use Twig\Loader\FilesystemLoader;
+use Wezurlop\Support\Strefa;
 
 /**
  * Treść wiadomości: **jeden zestaw zmiennych, dwa wyjścia** (HTML i tekst).
@@ -28,6 +29,22 @@ use Twig\Loader\FilesystemLoader;
  */
 final class MailRenderer
 {
+    /**
+     * **Jeden wzór tematu dla całej poczty** (zlecenie Z60): „wezurlop · Zaproszenie do
+     * aplikacji", „wezurlop · Wiadomość próbna", „wezurlop · Alert: …".
+     *
+     * ⚠ To **odwołuje** wcześniejsze rozstrzygnięcie, które zabraniało stawiać nazwę produktu
+     * na początku tematu zaproszenia („pracownik ma poznać wiadomość od pracodawcy, nie od
+     * dostawcy"). Zarządca wymienił zaproszenie wprost w nowym wzorze, a nazwa pracodawcy
+     * stoi w treści i w stopce każdej wiadomości. Rozstrzygnięcie zapisane tutaj, żeby nikt
+     * nie „naprawiał" tego z powrotem bez decyzji.
+     *
+     * ⚠ Prefiks dokłada ta klasa, nie nadawcy: osiem miejsc składających temat z ręki
+     * rozjechałoby się przy pierwszym nowym rodzaju wiadomości — i rozjechało się
+     * („wezurlop: …" z dwukropkiem w siedmiu alertach).
+     */
+    public const PREFIKS = 'wezurlop · ';
+
     private ?Environment $html = null;
 
     private ?Environment $tekst = null;
@@ -35,24 +52,43 @@ final class MailRenderer
     /**
      * @param string $templatesPath katalog `templates/` aplikacji
      * @param string|null $cachePath cache Twiga (poza webrootem) albo null
+     * @param string $strefa strefa instalacji — do znacznika czasu w stopce
      */
     public function __construct(
         private readonly string $templatesPath,
         private readonly ?string $cachePath = null,
+        private readonly string $strefa = Strefa::DOMYSLNA,
     ) {
     }
 
     /**
      * Wiadomość z szablonu.
      *
+     * ⚠ **Dane wspólne dokłada ta metoda**, a nie każdy nadawca: barwy, krój, znacznik czasu,
+     * a także wartości domyślne (`akcja`, `firma`, `podglad`). Przy `strict_variables` brak
+     * jednej z nich wywala render — a to jest ta klasa wyjątków, które nadawca alertu zauważy
+     * dopiero wtedy, gdy alert naprawdę będzie potrzebny.
+     *
      * @param string $szablon nazwa bez rozszerzenia, np. `zaproszenie`
      * @param array<string, mixed> $dane te same zmienne dla obu wersji
      */
     public function wiadomosc(string $szablon, string $do, string $temat, array $dane): MailMessage
     {
+        $dane += [
+            'temat'   => $temat,
+            'podglad' => '',
+            'firma'   => null,
+            'akcja'   => null,
+            'barwy'   => BarwyPoczty::MAPA,
+            'kroj'    => BarwyPoczty::KROJ,
+            // ⚠ Znacznik czasu z nazwą strefy: wiadomość bywa czytana po dwóch dniach, a klient
+            // poczty pokazuje swoją strefę — bez nazwy nie wiadomo, czyją godzinę się czyta.
+            'teraz'   => Strefa::czas(gmdate('Y-m-d H:i:s'), $this->strefa) . ' (' . $this->strefa . ')',
+        ];
+
         return new MailMessage(
             $do,
-            $temat,
+            self::PREFIKS . $temat,
             // ⚠ Kolejność wywołań nieprzypadkowa: tekst jest obowiązkowy, więc gdyby jego
             // szablonu brakowało, wiadomość nie powstanie wcale — zamiast wyjść bez wersji
             // tekstowej i wpaść odbiorcy do spamu.

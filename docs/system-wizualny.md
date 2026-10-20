@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.39, 20.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.40, 20.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,47 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.39 → 1.18.40: jeden wygląd WSZYSTKICH wiadomości** (zlecenie Z60, 20.10.2026).
+> - ⚠ **Stan przed zmianą, policzony:** jedenaście rodzajów wiadomości, z czego **trzy** miały
+>   wspólny układ i wersję HTML (zaproszenie, reset hasła, alert o logowaniach), a **osiem**
+>   było napisami sklejanymi w PHP — bez HTML-a, bez wspólnej stopki, z tematami w dwóch
+>   wzorach („wezurlop: …" i bez prefiksu). Alert wygląda inaczej niż zaproszenie, bo nikt tego
+>   nie zobaczy dwa razy — wiadomość czyta się raz, w dniu wysyłki.
+> - **Jeden układ dla wszystkich** (`templates/mail/layout.twig` + `text/layout.twig`): nagłówek
+>   z nazwą produktu w barwach marki (tekst, zero obrazków), tytuł, treść, **najwyżej jedno
+>   działanie** i stopka: nazwa firmy, zdanie „Wiadomość wysłana automatycznie z aplikacji
+>   wezurlop — nie odpowiadaj na nią." oraz **data i godzina w strefie instalacji**.
+>   ⚠ Znacznik czasu jest nowy i jest treścią: alert bywa czytany po dwóch dniach, a bez daty
+>   nie mówi, czy opisuje stan z dziś, czy z zeszłego tygodnia.
+> - ⚠ **Przycisk akcji przeniósł się do UKŁADU.** Każda wiadomość ma najwyżej jedno działanie,
+>   a adres pod przyciskiem musi stać zawsze — przycisk bez adresu jest bezużyteczny w czytniku
+>   tekstowym i przy zablokowanych stylach. Szablon treści podaje `akcja` (napis + link) albo
+>   `null` i nie powtarza konstrukcji przycisku.
+> - **Dwa nowe szablony zamiast ośmiu** (`alert` i `proba`): treść alertów się różni, ale KSZTAŁT
+>   nie — zdanie o stanie, dane w parach, „co sprawdzić po kolei". Osiem osobnych układów
+>   znaczyłoby osiem miejsc do rozjechania się.
+> - ⚠ **Barwy poczty mają jedno miejsce w kodzie** (`Service\Mail\BarwyPoczty`): wartości
+>   przepisane z `00-tokens.css`, nazwy kluczy po roli („akcja", nie „zielony"). `var(--…)`
+>   w poczcie nie działa, więc wartości muszą być wpisane — ale nie rozsypane po szablonach.
+>   Test pilnuje, że nie rozjechały się z tokenami.
+> - **Tematy w jednym wzorze**: prefiks „wezurlop · " dokłada `MailRenderer`, nie nadawcy.
+>   ⚠ To **odwołuje** rozstrzygnięcie, które zabraniało nazwy produktu na początku tematu
+>   zaproszenia („pracownik ma poznać wiadomość od pracodawcy") — zarządca wymienił zaproszenie
+>   wprost w nowym wzorze, a nazwa pracodawcy stoi w treści i w stopce każdej wiadomości.
+> - **Wiadomość próbna mówi, co sprawdza i którą drogą poszła** („Serwer poczty działa",
+>   host i port w danych; przy zrzucie do pliku — „zrzut do pliku w var/mail"). ⚠ Bez loginu
+>   i hasła SMTP: host i port są konfiguracją instalacji, hasło jest sekretem (CLAUDE.md §14).
+>   Ten sam szablon obsługuje próbę z ekranu poczty, próbę skrzynki alertowej i **wiadomość
+>   testową instalatora** — pierwsza wiadomość, jaką klient widzi z instalacji, nie może być
+>   jedyną bez układu.
+> - **Podgląd: wariant A** (`dev/probka-poczty.php`) — renderuje każdy rodzaj na danych
+>   fikcyjnych do katalogu tymczasowego poza repozytorium. Trasa podglądu, nawet schowana za
+>   `APP_ENV=dev`, byłaby kolejnym wejściem renderującym treść, którego trzeba pilnować.
+> - **Test** `tests/poczta.php`: 171 sprawdzeń — każdy rodzaj renderowany prawdziwym renderem
+>   ze `strict_variables`, wspólny nagłówek i stopka w obu wersjach, znacznik czasu, szerokość
+>   600 px, zero obrazków, zero `class=`, zero słowa „spółk", przycisk i adres jako tekst,
+>   zgodność barw z tokenami.
 
 > **Zmiana 1.18.38 → 1.18.39: `/admin/konta` — dwie zakładki, konta administracyjne wychodzą
 > z ukrycia** (zlecenie Z59, 20.10.2026).
@@ -2848,8 +2889,21 @@ CSP bez `unsafe-inline`; w skrzynce odbiorcy nie ma czego chronić CSP, a jest c
   `AltBody` pisany drugi raz z ręki rozjeżdża się przy pierwszej poprawce i **nikt tego nie
   zauważy**, bo wersję tekstową czyta ułamek odbiorców — dlatego `MailRenderer` renderuje obie
   z jednego zestawu zmiennych (`templates/mail/*.twig` i `templates/mail/text/*.twig`),
-- ⚠ **jeden układ** (`templates/mail/layout.twig`), trzy szablony treści. Kopia układu w trzech
-  plikach to ten sam wzorzec, przez który mieliśmy dwie nazwy nagłówka strony,
+- ⚠ **jeden układ** (`templates/mail/layout.twig`) i **cztery szablony treści** dla wszystkich
+  jedenastu rodzajów wiadomości: `zaproszenie`, `haslo-reset`, `alert` (sześć rodzajów alertów)
+  i `proba` (trzy drogi wiadomości próbnej). Od Z60 **nie ma ani jednej wiadomości sklejanej
+  w PHP** — osiem takich było do 20.10.2026 i żadna nie miała ani wersji HTML, ani wspólnej
+  stopki. Kopia układu w kilku plikach to ten sam wzorzec, przez który mieliśmy dwie nazwy
+  nagłówka strony,
+- ⚠ **przycisk akcji i adres pod nim rysuje UKŁAD**, nie szablon treści (Z60): wiadomość ma
+  najwyżej jedno działanie, a poprawka przycisku ma być w jednym miejscu,
+- ⚠ **stopka niesie datę i godzinę w strefie instalacji** (Z60): alert czytany po dwóch dniach
+  bez znacznika czasu nie mówi, czy opisuje stan z dziś, czy z zeszłego tygodnia; strefa jest
+  wypisana, bo klient poczty pokazuje swoją,
+- ⚠ **barwy poczty mieszkają w `Service\Mail\BarwyPoczty`**, a nie w szablonach: wartości
+  przepisane z `00-tokens.css` raz, nazwy kluczy opisują rolę. Rozsypane po szablonach rozjadą
+  się przy pierwszej zmianie palety — a rozjazdu nikt nie zobaczy,
+- ⚠ **temat w jednym wzorze**: „wezurlop · …", prefiks dokłada `MailRenderer`,
 - ⚠ **nazwa firmy klienta w treści i w stopce** — i to **pełna nazwa z R2**, nie nasza nazwa
   wyświetlana: w wiadomości urzędowej liczy się nazwa z umowy. Bez nazwy pracodawcy zaproszenie
   wygląda jak phishing i tak zostanie potraktowane,

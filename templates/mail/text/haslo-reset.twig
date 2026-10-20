@@ -1,11 +1,10 @@
+{#- Wersja tekstowa resetu hasła. Adres linku wypisuje układ (blok `akcja`). -#}
 {% extends 'layout.twig' %}
 
 {% block naglowek %}Ustawienie nowego hasła{% endblock %}
 
 {% block tresc %}Ktoś poprosił o ustawienie nowego hasła do konta {{ login }}.
-Jeśli to Ty, otwórz ten adres:
-
-{{ link }}
+Jeśli to Ty, otwórz adres poniżej.
 
 Link jest ważny {{ waznosc }} i działa jeden raz. Ustawienie nowego hasła
 kończy wszystkie Twoje sesje na innych urządzeniach.

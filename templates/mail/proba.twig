@@ -1,0 +1,28 @@
+{#- **Wiadomość próbna** — z ekranu poczty i ze skrzynki alertów (zlecenie Z60).
+
+    ⚠ Mówi WPROST, co sprawdza i skąd poszła: „działa" bez tej informacji nie odpowiada na
+    pytanie, które administrator sobie zadaje („to przez który serwer to przeszło?").
+    ⚠ **Bez loginu i hasła SMTP** — ani w treści, ani w wierszach danych (CLAUDE.md §14).
+    Host i port są konfiguracją instalacji, nie sekretem; hasło jest sekretem i nie wychodzi. -#}
+{% extends 'layout.twig' %}
+
+{% block naglowek %}{{ naglowek }}{% endblock %}
+
+{% block tresc %}
+        <tr><td style="font-family:{{ kroj }}; font-size:15px; line-height:1.6; color:{{ barwy.tekst }}; padding:0 0 18px 0;">{{ zdanie }}</td></tr>
+
+        {% if wiersze is not empty %}
+        <tr><td style="padding:0 0 18px 0;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+            {% for w in wiersze %}
+            <tr>
+              <td width="190" style="font-family:{{ kroj }}; font-size:13px; line-height:1.7; color:{{ barwy.podpis }};">{{ w.etykieta }}</td>
+              <td style="font-family:{{ kroj }}; font-size:13px; line-height:1.7; color:{{ barwy.tekst }};">{{ w.wartosc }}</td>
+            </tr>
+            {% endfor %}
+          </table>
+        </td></tr>
+        {% endif %}
+{% endblock %}
+
+{% block stopka %}Tę wiadomość wysłał administrator z ekranu ustawień — nikt inny jej nie dostał.<br>{% endblock %}

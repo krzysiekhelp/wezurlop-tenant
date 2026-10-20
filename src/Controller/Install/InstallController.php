@@ -22,7 +22,7 @@ use Wezurlop\Service\Install\PrefixDetector;
 use Wezurlop\Service\Install\SchemaProbeRepository;
 use Wezurlop\Service\ServerProfile;
 use Wezurlop\Service\JobRunner;
-use Wezurlop\Service\Mail\MailMessage;
+use Wezurlop\Service\Mail\MailRenderer;
 use Wezurlop\Service\Mail\FileTransport;
 use Wezurlop\Service\Mail\SmtpTransport;
 use Wezurlop\Support\Config;
@@ -311,11 +311,25 @@ final class InstallController
                     $transport = $mail['transport'] === 'file'
                         ? new FileTransport($this->varPath . '/mail')
                         : new SmtpTransport(['port' => (int) $mail['port']] + $mail);
-                    $transport->send(new MailMessage(
-                        $testTo,
-                        'wezurlop: wiadomość testowa instalatora',
-                        "Konfiguracja poczty w instalatorze wezurlop działa.\n",
-                    ));
+                    // ⚠ **Instalator renderuje wiadomość tym samym układem, co aplikacja**
+                    // (zlecenie Z60), choć nie ma jeszcze ani bazy, ani ustawień tenanta:
+                    // `MailRenderer` potrzebuje wyłącznie katalogu szablonów, a strefa jest
+                    // domyślna, bo nikt jej jeszcze nie wybrał. Inaczej pierwsza wiadomość,
+                    // jaką klient widzi z tej instalacji, byłaby jedyną bez układu.
+                    $renderer = new MailRenderer($this->appRoot . '/templates');
+                    $transport->send($renderer->wiadomosc('proba', $testTo, 'Wiadomość próbna', [
+                        'podglad'  => 'Konfiguracja poczty w instalatorze działa.',
+                        'naglowek' => 'Serwer poczty działa',
+                        'zdanie'   => 'Ta wiadomość przeszła przez serwer poczty wpisany '
+                            . 'w instalatorze. Jeśli ją widzisz, zaproszenie dla pierwszego '
+                            . 'administratora też dotrze.',
+                        'wiersze'  => [
+                            ['etykieta' => 'Odbiorca', 'wartosc' => $testTo],
+                            ['etykieta' => 'Serwer poczty', 'wartosc' => $mail['transport'] === 'file'
+                                ? 'zrzut do pliku w var/mail'
+                                : $mail['host'] . ':' . (string) $mail['port']],
+                        ],
+                    ]));
                 } catch (Throwable $e) {
                     $this->logger->warning('Instalator: wysyłka testowa nieudana', ['error' => $e->getMessage()]);
                     $errors[] = 'Wysyłka testowa nie powiodła się. Sprawdź serwer, port, szyfrowanie i dane logowania.';

@@ -30,6 +30,7 @@ use Wezurlop\Repository\SyncTaskRepository;
 use Wezurlop\Repository\TenantSettingRepository;
 use Wezurlop\Security\Password;
 use Wezurlop\Security\RateLimiter;
+use Wezurlop\Support\Strefa;
 use Wezurlop\Security\SecretBox;
 use Wezurlop\Security\Totp;
 use Wezurlop\Service\AccountMailService;
@@ -296,6 +297,9 @@ final class Services
         return $this->mailRenderer ??= new MailRenderer(
             $this->config->templatesPath,
             $this->config->isDev() ? null : $this->config->varPath . '/cache/twig',
+            // ⚠ Strefa INSTALACJI do znacznika czasu w stopce (Z60) — ta sama, z której liczą
+            // godziny ekrany; wartość domyślna tylko wtedy, gdy ustawienia jej nie mają.
+            (string) $this->settings->get('timezone', Strefa::DOMYSLNA),
         );
     }
 

@@ -266,6 +266,7 @@ final class Kernel
             $kontekstSpolki,
             $csrf,
             $services->limiter,
+            $services->mailRenderer(),
         ));
         // ⚠ Znacznik spółki w belce: **jedno** rozstrzygnięcie na żądanie, liczone leniwie
         // (ekran logowania i strona błędu nie pytają o nic).

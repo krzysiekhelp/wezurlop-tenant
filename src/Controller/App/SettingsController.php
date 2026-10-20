@@ -18,7 +18,7 @@ use Wezurlop\Repository\TenantSettingRepository;
 use Wezurlop\Service\AuthService;
 use Wezurlop\Service\CronStan;
 use Wezurlop\Service\JobRunner;
-use Wezurlop\Service\Mail\MailMessage;
+use Wezurlop\Service\Mail\MailRenderer;
 use Wezurlop\Service\Mail\MailSettings;
 use Wezurlop\Service\Mail\MailTransport;
 use Wezurlop\Service\Mail\TransportFactory;
@@ -103,6 +103,10 @@ final class SettingsController
         private readonly JobRepository $jobs,
         private readonly TransportFactory $transporty,
         private readonly UrlGenerator $urls,
+        // ⚠ Wiadomość próbna idzie tym samym układem i tym samym renderem, co każda inna
+        // wiadomość z aplikacji (zlecenie Z60) — inaczej „próba" sprawdzałaby inną drogę
+        // niż ta, o którą administratorowi chodzi.
+        private readonly MailRenderer $renderer,
         // ⚠ **Ta sama konfiguracja, z której czyta `/diagnostyka`** (zlecenie Z57 U3): kafel
         // „Weryfikacja 2-etapowa" twierdził „wymagana" na sztywno, także przy
         // `ADMIN_2FA_REQUIRED=0` — czyli dwa ekrany tej samej aplikacji mówiły sprzeczne
@@ -362,12 +366,16 @@ final class SettingsController
         try {
             // Ten sam dekorator dziennika, co w kolejce i przy wiadomości próbnej poczty (Z43):
             // próba zostawia wpis `mail.sent` albo `mail.failed` z odbiorcą.
-            $this->dziennikPoczty($request, 'wiadomość próbną', 'wiadomości próbnej')->send(new MailMessage(
-                $adres,
-                'wezurlop: wiadomość próbna na skrzynkę alertową',
-                "To wiadomość próbna z ekranu ustawień.\n"
-                . "Jeśli ją widzisz, alerty systemowe z tej instalacji dotrą na ten adres.\n",
-            ));
+            // ⚠ **Wspólny układ i wersja HTML+tekst** (zlecenie Z60): wiadomość próbna wygląda
+            // tak samo jak każda inna z tej instalacji — po to się ją wysyła.
+            $this->dziennikPoczty($request, 'wiadomość próbną', 'wiadomości próbnej')
+                ->send($this->renderer->wiadomosc('proba', $adres, 'Wiadomość próbna', [
+                    'podglad'  => 'Alerty systemowe będą przychodzić na ten adres.',
+                    'naglowek' => 'Skrzynka na alerty działa',
+                    'zdanie'   => 'Alerty systemowe z tej instalacji będą przychodzić na ten adres: '
+                        . 'cisza connectora, nieużyty klucz integracji, podejrzenie ataku na konta.',
+                    'wiersze'  => $this->wierszeProby($adres),
+                ]));
         } catch (Throwable $e) {
             return $this->oknoAlertow($wpisany, $e->getMessage());
         }
@@ -381,6 +389,32 @@ final class SettingsController
         // „Wysłana" przy zrzucie do pliku na środowisku deweloperskim byłoby nieprawdą,
         // a to jest komunikat, po którym administrator uznaje integrację za sprawdzoną.
         return $this->render($this->zdanieProby($adres), null, false, [], [], true, $wpisany);
+    }
+
+    /**
+     * Dane wiadomości próbnej w parach — **którą drogą poszła** (zlecenie Z60).
+     *
+     * ⚠ **Bez loginu i hasła SMTP** (CLAUDE.md §14). Host i port są konfiguracją instalacji
+     * i właśnie o nie pyta administrator czytający wiadomość próbną („to przez co to przeszło?");
+     * hasło jest sekretem i nie opuszcza serwera.
+     *
+     * @return list<array{etykieta: string, wartosc: string}>
+     */
+    private function wierszeProby(string $adres): array
+    {
+        $wiersze = [['etykieta' => 'Odbiorca', 'wartosc' => $adres]];
+        if ($this->transporty->rodzaj() === 'plik') {
+            $wiersze[] = ['etykieta' => 'Droga', 'wartosc' => 'zrzut do pliku w var/mail (tryb deweloperski)'];
+
+            return $wiersze;
+        }
+        // ⚠ Host, port i szyfrowanie — to, co administrator sprawdza w wiadomości próbnej.
+        // Login i hasło SMTP nie wychodzą (CLAUDE.md §14).
+        $wiersze[] = ['etykieta' => 'Serwer poczty',
+            'wartosc' => $this->poczta->host() . ':' . $this->poczta->port()
+                . ' (' . $this->poczta->szyfrowanie() . ')'];
+
+        return $wiersze;
     }
 
     /**
@@ -606,12 +640,14 @@ final class SettingsController
             // ⚠ Wpis w dzienniku robi TEN SAM dekorator, co w kolejce (Z43 §C): wiadomość próbna
             // ma zostawić wpis tej samej rodziny `mail.*`, z odbiorcą — a nie własną parę kodów
             // `tenant.mail_test_*` bez adresu, która wpadała do filtra „firmy".
-            $this->dziennikPoczty($request, 'wiadomość próbną', 'wiadomości próbnej')->send(new MailMessage(
-                $adres,
-                'wezurlop: wiadomość próbna',
-                "To wiadomość próbna z ekranu ustawień poczty.\n"
-                . "Jeśli ją widzisz, wysyłka z tej instalacji działa.\n",
-            ));
+            $this->dziennikPoczty($request, 'wiadomość próbną', 'wiadomości próbnej')
+                ->send($this->renderer->wiadomosc('proba', $adres, 'Wiadomość próbna', [
+                    'podglad'  => 'Wysyłka z tej instalacji działa.',
+                    'naglowek' => 'Serwer poczty działa',
+                    'zdanie'   => 'Ta wiadomość przeszła przez serwer poczty skonfigurowany '
+                        . 'w tej instalacji. Jeśli ją widzisz, zaproszenia i resety haseł też dotrą.',
+                    'wiersze'  => $this->wierszeProby($adres),
+                ]));
         } catch (Throwable $e) {
             return $this->renderMail('', null, ['ok' => false, 'tekst' => $e->getMessage()]);
         }

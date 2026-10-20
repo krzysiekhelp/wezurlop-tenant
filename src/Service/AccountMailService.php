@@ -11,7 +11,6 @@ use Wezurlop\Repository\JobRepository;
 use Wezurlop\Repository\PasswordResetTokenRepository;
 use Wezurlop\Repository\TenantSettingRepository;
 use Wezurlop\Security\OneTimeToken;
-use Wezurlop\Service\Mail\MailMessage;
 use Wezurlop\Service\Mail\MailRenderer;
 use Wezurlop\Service\Mail\MailTransport;
 use Wezurlop\Support\NazwaOsoby;
@@ -83,50 +82,96 @@ final class AccountMailService
      * @return bool false = brak skonfigurowanej skrzynki (zdarzenie jest w dzienniku)
      */
     /**
-     * Cisza connectora (zlecenie 21.09.2026 §2.2). ⚠ Komunikat mówi, CO SPRAWDZIĆ — „brak połączenia”
-     * nie pomaga nikomu, kto ma zdecydować, czy dzwonić do informatyka, czy do nas.
+     * **Alert systemowy jedną drogą** (zlecenie Z60): wspólny szablon `alert`, wspólna stopka,
+     * wersja HTML i tekstowa z jednego zestawu zmiennych.
+     *
+     * ⚠ Do 20.10.2026 każdy z tych alertów sklejał własny napis w PHP — osiem rodzajów, osiem
+     * układów, zero HTML-a i zero wspólnej stopki. Treść różni się, ale KSZTAŁT nie: zdanie
+     * o stanie, dane w parach, co sprawdzić po kolei. Ta metoda jest tym kształtem.
+     *
+     * ⚠ Adres bierzemy ze skrzynki alertowej tenanta i **nic nie wysyłamy, gdy jej nie ma** —
+     * wartość `false` znaczy „zadanie bezprzedmiotowe", nie „błąd" (patrz `JobRunner`).
+     *
+     * @param list<string> $zdania
+     * @param list<array{etykieta: string, wartosc: string}> $wiersze
+     * @param list<string> $kroki
+     */
+    private function alert(
+        MailTransport $transport,
+        string $temat,
+        string $podglad,
+        array $zdania,
+        array $wiersze = [],
+        array $kroki = [],
+        bool $pilny = false,
+        ?string $stopka = null,
+        ?array $akcja = null
+    ): bool {
+        $to = (string) $this->settings->get('alert_email');
+        if ($to === '' || filter_var($to, FILTER_VALIDATE_EMAIL) === false) {
+            return false;
+        }
+        $transport->send($this->renderer->wiadomosc('alert', $to, 'Alert: ' . $temat, [
+            'podglad'  => $podglad,
+            'naglowek' => $temat,
+            'zdania'   => $zdania,
+            'wiersze'  => $wiersze,
+            'kroki'    => $kroki,
+            'pilny'    => $pilny,
+            'stopka_zdanie' => $stopka,
+            'akcja'    => $akcja,
+            // ⚠ Nazwa firmy w stopce alertu: adresatem jest administrator TEJ instalacji,
+            // a jedna skrzynka alertowa obsługuje czasem dwie instalacje u tego samego klienta.
+            'firma'    => $this->companies->singleR2Name(),
+        ]));
+
+        return true;
+    }
+
+    /** Ekran integracji — wspólna akcja alertów o connectorze. */
+    private function akcjaIntegracja(): array
+    {
+        return ['napis' => 'Otwórz ekran integracji', 'link' => $this->config->absoluteUrl('/admin/integracja')];
+    }
+
+    /**
+     * Cisza connectora (zlecenie 21.09.2026 §2.2). ⚠ Komunikat mówi, CO SPRAWDZIĆ — „brak
+     * połączenia" nie pomaga nikomu, kto ma zdecydować, czy dzwonić do informatyka, czy do nas.
      *
      * @param array<string, mixed> $payload
      */
     public function deliverIntegrationAlert(array $payload, MailTransport $transport): bool
     {
-        $to = $this->settings->get('alert_email');
-        if ($to === '' || filter_var($to, FILTER_VALIDATE_EMAIL) === false) {
-            return false;
-        }
         $prog = is_int($payload['prog_godzin'] ?? null) ? $payload['prog_godzin'] : 24;
         $klucze = is_array($payload['klucze'] ?? null) ? $payload['klucze'] : [];
-        $lista = '';
+        $wiersze = [['etykieta' => 'Cisza dłuższa niż', 'wartosc' => $prog . ' h']];
         foreach ($klucze as $nazwa => $godzin) {
-            $lista .= '  - ' . (string) $nazwa . ': ' . (string) $godzin . " h bez ani jednego żądania\n";
+            $wiersze[] = ['etykieta' => 'Klucz „' . (string) $nazwa . '"',
+                'wartosc' => (string) $godzin . ' h bez ani jednego żądania'];
         }
-        $strefa = $this->settings->get('timezone', Strefa::DOMYSLNA);
-        $transport->send(new MailMessage(
-            $to,
-            'wezurlop: connector przestał się odzywać',
-            "Synchronizacja kadr stoi.\n\n"
-            . "Instalacja wezurlop pod adresem {$this->config->appUrl} nie otrzymała od connectora żadnego żądania "
-            . "przez ponad {$prog} godzin. Klucz instalacji jest ważny — to nie jest wygaśnięcie klucza.\n\n"
-            . "Klucze bez ruchu:\n" . $lista . "\n"
-            . "Co sprawdzić po kolei:\n"
-            . "  1. czy maszyna z connectorem jest włączona,\n"
-            . "  2. czy usługa connectora wstała po restarcie,\n"
-            . "  3. czy nie zmienił się adres serwera programu kadrowego ani hasło do niego,\n"
-            . "  4. czy z tej maszyny da się otworzyć adres {$this->config->appUrl}.\n\n"
-            . "Stan bieżący: {$this->config->appUrl}/admin/integracja oraz /diagnostyka.\n"
-            . "Czas w tej wiadomości i na ekranach: strefa {$strefa}.\n"
-            . "Kolejny alert dopiero wtedy, gdy connector się odezwie i zamilknie ponownie.\n",
-        ));
 
-        return true;
+        return $this->alert(
+            $transport,
+            'connector przestał się odzywać',
+            'Synchronizacja kadr stoi od ponad ' . $prog . ' godzin.',
+            [
+                'Synchronizacja kadr stoi.',
+                'Ta instalacja nie otrzymała od connectora żadnego żądania przez ponad ' . $prog
+                    . ' godzin. Klucz instalacji jest ważny — to nie jest wygaśnięcie klucza.',
+            ],
+            $wiersze,
+            [
+                'czy maszyna z connectorem jest włączona,',
+                'czy usługa connectora wstała po restarcie,',
+                'czy nie zmienił się adres serwera programu kadrowego ani hasło do niego,',
+                'czy z tej maszyny da się otworzyć adres ' . $this->config->appUrl . '.',
+            ],
+            true,
+            'Kolejny alert dopiero wtedy, gdy connector się odezwie i zamilknie ponownie.',
+            $this->akcjaIntegracja(),
+        );
     }
 
-    /**
-     * Klucz wydany i nieużyty (rozstrzygnięcie 20.09.2026). ⚠ Pierwsze zdanie mówi, że NIC SIĘ
-     * NIE ZEPSUŁO — alert brzmiący jak awaria, a awarią niebędący, uczy ludzi ignorować alerty.
-     *
-     * @param array<string, mixed> $payload
-     */
     /**
      * Cisza JEDNEJ firmy przy działającym connectorze (zlecenie Z18, 17.10.2026).
      *
@@ -139,81 +184,78 @@ final class AccountMailService
      */
     public function deliverCompanyIdleAlert(array $payload, MailTransport $transport): bool
     {
-        $to = $this->settings->get('alert_email');
-        if ($to === '' || filter_var($to, FILTER_VALIDATE_EMAIL) === false) {
-            return false;
-        }
         $firma = is_string($payload['firma'] ?? null) ? $payload['firma'] : '(bez nazwy)';
         $prog = is_int($payload['prog_godzin'] ?? null) ? $payload['prog_godzin'] : 24;
         $godzin = is_int($payload['godzin'] ?? null) ? $payload['godzin'] : $prog;
         $ostatni = is_string($payload['ostatni_przebieg'] ?? null) ? $payload['ostatni_przebieg'] : null;
-        $strefa = $this->settings->get('timezone', Strefa::DOMYSLNA);
-        $kiedy = $ostatni === null ? 'nieznany' : Strefa::czas($ostatni, $strefa) . ' (' . $strefa . ')';
-        $transport->send(new MailMessage(
-            $to,
-            'wezurlop: jedna firma przestala sie synchronizowac',
-            "Connector działa, ale dane jednej firmy stoją.
+        $strefa = (string) $this->settings->get('timezone', Strefa::DOMYSLNA);
 
-"
-            . "Firma: {$firma}
-"
-            . "Ostatni domknięty przebieg: {$kiedy}, czyli {$godzin} h temu (próg {$prog} h).
-
-"
-            . "To NIE jest cisza całego connectora — pozostałe firmy tej instalacji synchronizują się "
-            . "dalej, więc maszyna i usługa connectora działają. Stoi strumień tej jednej firmy.
-
-"
-            . "Co sprawdzić po kolei:
-"
-            . "  1. ekran {$this->config->appUrl}/admin/integracja — czy ta firma nie czeka na decyzję "
-            . "(zmieniony odcisk tożsamości zatrzymuje strumień do czasu potwierdzenia),
-"
-            . "  2. czy klucz instalacji ma tę firmę w zakresie,
-"
-            . "  3. czy connector ma połączenie z bazą kadrową TEJ firmy — druga firma może mieć inną,
-"
-            . "  4. dziennik zdarzeń: wpisy `integration.company_idle` i `sync.*` tej firmy.
-
-"
-            . "Dane kadrowe tej firmy w wezurlop są w tym czasie nieaktualne — limity i nieobecności "
-            . "pokazują stan sprzed ostatniego domkniętego przebiegu.
-"
-            . "Kolejny alert o tej firmie dopiero wtedy, gdy znów się zsynchronizuje i zamilknie ponownie.
-",
-        ));
-
-        return true;
+        return $this->alert(
+            $transport,
+            'jedna firma przestała się synchronizować',
+            'Connector działa, ale dane firmy ' . $firma . ' stoją.',
+            [
+                'Connector działa, ale dane jednej firmy stoją.',
+                'To NIE jest cisza całego connectora — pozostałe firmy tej instalacji synchronizują '
+                    . 'się dalej, więc maszyna i usługa connectora działają. Stoi strumień tej jednej firmy.',
+                'Dane kadrowe tej firmy są w tym czasie nieaktualne: limity i nieobecności pokazują '
+                    . 'stan sprzed ostatniego domkniętego przebiegu.',
+            ],
+            [
+                ['etykieta' => 'Firma', 'wartosc' => $firma],
+                ['etykieta' => 'Ostatni domknięty przebieg',
+                    'wartosc' => $ostatni === null ? 'nieznany' : Strefa::czas($ostatni, $strefa)],
+                ['etykieta' => 'Cisza', 'wartosc' => $godzin . ' h (próg ' . $prog . ' h)'],
+            ],
+            [
+                'czy ta firma nie czeka na decyzję — zmieniony odcisk tożsamości zatrzymuje strumień '
+                    . 'do czasu potwierdzenia,',
+                'czy klucz instalacji ma tę firmę w zakresie,',
+                'czy connector ma połączenie z bazą kadrową TEJ firmy — druga firma może mieć inną,',
+                'dziennik zdarzeń: wpisy `integration.company_idle` i `sync.*` tej firmy.',
+            ],
+            true,
+            'Kolejny alert o tej firmie dopiero wtedy, gdy znów się zsynchronizuje i zamilknie ponownie.',
+            $this->akcjaIntegracja(),
+        );
     }
 
+    /**
+     * Klucz wydany i nieużyty (rozstrzygnięcie 20.09.2026). ⚠ Pierwsze zdanie mówi, że NIC SIĘ
+     * NIE ZEPSUŁO — alert brzmiący jak awaria, a awarią niebędący, uczy ludzi ignorować alerty.
+     *
+     * @param array<string, mixed> $payload
+     */
     public function deliverUnusedKeyAlert(array $payload, MailTransport $transport): bool
     {
-        $to = $this->settings->get('alert_email');
-        if ($to === '' || filter_var($to, FILTER_VALIDATE_EMAIL) === false) {
-            return false;
-        }
         $prog = is_int($payload['prog_godzin'] ?? null) ? $payload['prog_godzin'] : 72;
         $klucze = is_array($payload['klucze'] ?? null) ? $payload['klucze'] : [];
-        $lista = '';
+        $wiersze = [];
         foreach ($klucze as $nazwa => $godzin) {
-            $lista .= '  - ' . (string) $nazwa . ': wydany ' . (string) $godzin . " h temu, nigdy nieużyty\n";
+            $wiersze[] = ['etykieta' => 'Klucz „' . (string) $nazwa . '"',
+                'wartosc' => 'wydany ' . (string) $godzin . ' h temu, nigdy nieużyty'];
         }
-        $strefa = $this->settings->get('timezone', Strefa::DOMYSLNA);
-        $transport->send(new MailMessage(
-            $to,
-            'wezurlop: wydany klucz czeka na wklejenie',
-            "Nic się nie zepsuło — synchronizacja kadr działa na dotychczasowym kluczu.\n\n"
-            . "W instalacji wezurlop pod adresem {$this->config->appUrl} wydano klucz instalacji ponad {$prog} godzin temu "
-            . "i connector ani razu go nie użył:\n" . $lista . "\n"
-            . "Najczęstsza przyczyna: klucz został wydany, ale nikt nie wkleił go w konfiguracji connectora.\n"
-            . "Co zrobić: wklej klucz w connectorze i uruchom test połączenia, albo — jeśli wydano go przez pomyłkę —\n"
-            . "unieważnij go na stronie {$this->config->appUrl}/admin/integracja. Dotychczasowy klucz działa do czasu,\n"
-            . "aż nowy po raz pierwszy zakończy synchronizację.\n\n"
-            . "Czas w tej wiadomości i na ekranach: strefa {$strefa}.\n"
-            . "Kolejna wiadomość dopiero wtedy, gdy ten klucz zostanie użyty albo unieważniony i sytuacja powtórzy się od nowa.\n",
-        ));
 
-        return true;
+        return $this->alert(
+            $transport,
+            'wydany klucz czeka na wklejenie',
+            'Nic się nie zepsuło — synchronizacja działa na dotychczasowym kluczu.',
+            [
+                'Nic się nie zepsuło — synchronizacja kadr działa na dotychczasowym kluczu.',
+                'W tej instalacji wydano klucz instalacji ponad ' . $prog
+                    . ' godzin temu i connector ani razu go nie użył.',
+                'Najczęstsza przyczyna: klucz został wydany, ale nikt nie wkleił go w konfiguracji '
+                    . 'connectora. Wklej go i uruchom test połączenia albo — jeśli wydano go przez '
+                    . 'pomyłkę — unieważnij. Dotychczasowy klucz działa do czasu, aż nowy po raz '
+                    . 'pierwszy zakończy synchronizację.',
+            ],
+            $wiersze,
+            [],
+            false,
+            'Kolejna wiadomość dopiero wtedy, gdy ten klucz zostanie użyty albo unieważniony '
+                . 'i sytuacja powtórzy się od nowa.',
+            $this->akcjaIntegracja(),
+        );
     }
 
     /**
@@ -221,115 +263,151 @@ final class AccountMailService
      *
      * ⚠ To jest CICHA DEGRADACJA danych kadrowych: wszystko działa, nikt tego sam nie zauważy,
      * a osoby z dwóch firm przestają się scalać. Dlatego wiadomość idzie raz przy wykryciu.
-     * Budowa jak w pozostałych alertach: stan → co to znaczy → co zrobić.
      *
      * @param array<string, mixed> $payload
      */
     public function deliverIdentitySplitAlert(array $payload, MailTransport $transport): bool
     {
-        $to = $this->settings->get('alert_email');
-        if ($to === '' || filter_var($to, FILTER_VALIDATE_EMAIL) === false) {
-            return false;
-        }
         $klucz = is_string($payload['klucz'] ?? null) ? $payload['klucz'] : '—';
         $firmy = is_string($payload['firmy'] ?? null) ? $payload['firmy'] : '';
         $osob = is_int($payload['osob'] ?? null) ? $payload['osob'] : 0;
-        $strefa = $this->settings->get('timezone', Strefa::DOMYSLNA);
-        $transport->send(new MailMessage(
-            $to,
-            'wezurlop: dwie instalacje connectora obsługują firmy jednego klucza',
-            "Synchronizacja działa, ale dane osób się rozchodzą.\n\n"
-            . "W instalacji wezurlop pod adresem {$this->config->appUrl} firmy obsługiwane kluczem „{$klucz}” "
-            . "liczą identyfikatory osób z dwóch różnych sekretów. To znaczy, że obsługują je dwie osobne "
-            . "instalacje connectora.\n\n"
-            . "Co to znaczy dla danych: osoba zatrudniona w dwóch takich firmach jest w wezurlop widziana "
-            . "jako DWIE osoby — jej limity i nieobecności nie połączą się. Osób zatrudnionych w więcej niż "
-            . "jednej firmie jest obecnie: {$osob}.\n\n"
-            . "Firmy i ich grupy:\n  " . str_replace(' | ', "\n  ", $firmy) . "\n\n"
-            . "Co zrobić: jeśli to pomyłka, obie firmy powinien obsługiwać jeden connector — jedna instalacja "
-            . "i jeden sekret. Jeśli tak ma być, zostaw; synchronizacja obu firm działa.\n"
-            . "Stan bieżący: {$this->config->appUrl}/admin/integracja oraz /diagnostyka.\n\n"
-            . "Czas w tej wiadomości i na ekranach: strefa {$strefa}.\n"
-            . "Kolejna wiadomość dopiero wtedy, gdy rozjazd ustanie i pojawi się ponownie.\n",
-        ));
+        $wiersze = [
+            ['etykieta' => 'Klucz', 'wartosc' => $klucz],
+            ['etykieta' => 'Osób w więcej niż jednej firmie', 'wartosc' => (string) $osob],
+        ];
+        foreach (explode(' | ', $firmy) as $grupa) {
+            if (trim($grupa) !== '') {
+                $wiersze[] = ['etykieta' => 'Grupa firm', 'wartosc' => trim($grupa)];
+            }
+        }
 
-        return true;
+        return $this->alert(
+            $transport,
+            'dwie instalacje connectora obsługują firmy jednego klucza',
+            'Synchronizacja działa, ale dane osób się rozchodzą.',
+            [
+                'Synchronizacja działa, ale dane osób się rozchodzą.',
+                'Firmy obsługiwane kluczem „' . $klucz . '" liczą identyfikatory osób z dwóch '
+                    . 'różnych sekretów. To znaczy, że obsługują je dwie osobne instalacje connectora.',
+                'Co to znaczy dla danych: osoba zatrudniona w dwóch takich firmach jest widziana '
+                    . 'jako DWIE osoby — jej limity i nieobecności nie połączą się.',
+                'Co zrobić: jeśli to pomyłka, obie firmy powinien obsługiwać jeden connector — jedna '
+                    . 'instalacja i jeden sekret. Jeśli tak ma być, zostaw; synchronizacja obu firm działa.',
+            ],
+            $wiersze,
+            [],
+            true,
+            'Kolejna wiadomość dopiero wtedy, gdy rozjazd ustanie i pojawi się ponownie.',
+            $this->akcjaIntegracja(),
+        );
     }
 
+    /**
+     * Alerty bezpieczeństwa: odsłonięty katalog danych i podejrzane logowania.
+     *
+     * @param array<string, mixed> $payload
+     */
     public function deliverSecurityAlert(array $payload, MailTransport $transport): bool
     {
-        $to = $this->settings->get('alert_email');
-        if ($to === '' || filter_var($to, FILTER_VALIDATE_EMAIL) === false) {
-            return false;
-        }
         if (($payload['kind'] ?? '') === 'storage_exposed') {
-            $transport->send(new MailMessage(
-                $to,
-                'wezurlop: katalog storage/ jest dostępny z internetu',
-                "Dobowa kontrola instalacji wezurlop pod adresem {$this->config->appUrl} pobrała przez HTTP plik "
-                . "kontrolny z katalogu storage/. Oznacza to, że pliki spoza katalogu public/ (w tym załączniki, "
-                . "a potencjalnie także konfiguracja) mogą być dostępne z internetu.\n\n"
-                . "Sprawdź ustawienie katalogu domeny i plik .htaccess (np. po zmianie typu serwera albo wgraniu innej "
-                . "aplikacji). Szczegóły w dzienniku zdarzeń (security.storage_exposed) i na stronie /diagnostyka.\n",
-            ));
-
-            return true;
+            return $this->alert(
+                $transport,
+                'katalog storage/ jest dostępny z internetu',
+                'Dobowa kontrola pobrała przez HTTP plik z katalogu storage/.',
+                [
+                    'Dobowa kontrola instalacji pobrała przez HTTP plik kontrolny z katalogu storage/.',
+                    'Oznacza to, że pliki spoza katalogu public/ — w tym załączniki, a potencjalnie '
+                        . 'także konfiguracja — mogą być dostępne z internetu.',
+                    'Sprawdź ustawienie katalogu domeny i plik .htaccess (np. po zmianie typu serwera '
+                        . 'albo wgraniu innej aplikacji). Szczegóły w dzienniku zdarzeń '
+                        . '(security.storage_exposed) i na stronie diagnostyki.',
+                ],
+                [],
+                [],
+                true,
+                null,
+                ['napis' => 'Otwórz diagnostykę', 'link' => $this->config->absoluteUrl('/diagnostyka')],
+            );
         }
         $failures = is_int($payload['failures'] ?? null) ? $payload['failures'] : 0;
         $window = is_int($payload['window_minutes'] ?? null) ? $payload['window_minutes'] : 0;
-        $temat = 'Nietypowa liczba nieudanych logowań';
+
         // ⚠ WYŁĄCZNIE LICZBY — zero adresów i zero nazw kont (CLAUDE.md §14). Kto i skąd
         // próbował, zostaje w dzienniku zdarzeń, do którego trzeba się zalogować.
-        $transport->send($this->renderer->wiadomosc('alert-bezpieczenstwa', $to, $temat, [
-            'temat'    => $temat,
-            'podglad'  => $failures . ' nieudanych logowań w ciągu ' . $window . ' minut.',
-            'naglowek' => $temat,
-            'zdanie'   => 'W ciągu ostatnich ' . $window . ' minut odnotowaliśmy ' . $failures
-                . ' nieudanych prób logowania. Żadne konto nie zostało zablokowane — blokada całej '
-                . 'firmy byłaby skutkiem, o który atakującemu chodzi.',
-            'wiersze'  => [
+        return $this->alert(
+            $transport,
+            'nietypowa liczba nieudanych logowań',
+            $failures . ' nieudanych logowań w ciągu ' . $window . ' minut.',
+            [
+                'W ciągu ostatnich ' . $window . ' minut odnotowaliśmy ' . $failures
+                    . ' nieudanych prób logowania.',
+                'Żadne konto nie zostało zablokowane — blokada całej firmy byłaby skutkiem, o który '
+                    . 'atakującemu chodzi. Kto i skąd próbował, zapisał dziennik zdarzeń.',
+            ],
+            [
                 ['etykieta' => 'Nieudanych prób', 'wartosc' => (string) $failures],
                 ['etykieta' => 'W ciągu', 'wartosc' => $window . ' minut'],
                 ['etykieta' => 'Kolejny alert', 'wartosc' => 'najwcześniej za godzinę'],
             ],
-            'firma'    => $this->companies->singleR2Name(),
-        ]));
-
-        return true;
+            [],
+            true,
+            null,
+            ['napis' => 'Otwórz dziennik zdarzeń', 'link' => $this->config->absoluteUrl('/admin/dziennik')],
+        );
     }
 
     /**
-     * Alert do kadr z synchronizacji (docs/api-connector.md 3.5). Na skrzynkę alertową tenanta — rola kadr
-     * powstanie w turze B. Bez danych osobowych: numer wniosku i kod (komunikat programu kadrowego bywa
-     * z imieniem i nazwiskiem, więc zostaje w aplikacji).
+     * Alerty kadrowe z synchronizacji wniosków (zlecenie Etapu 3).
+     *
+     * ⚠ Pięć różnych stanów, jedna rodzina wiadomości — i tylko jeden z nich jest PILNY:
+     * wniosek bez wpisu w kadrach, przy którym pracownik mógł już wyjechać.
      *
      * @param array<string, mixed> $payload
      */
     public function deliverHrAlert(array $payload, MailTransport $transport): bool
     {
-        $to = $this->settings->get('alert_email');
-        if ($to === '' || filter_var($to, FILTER_VALIDATE_EMAIL) === false) {
-            return false;
-        }
         $id = is_int($payload['leave_request_id'] ?? null) ? $payload['leave_request_id'] : 0;
         $code = is_string($payload['kod'] ?? null) ? $payload['kod'] : '—';
-        [$subject, $body] = match ($payload['kind'] ?? '') {
-            'zmiana_czesciowa' => ['PILNE: wniosek bez wpisu w kadrach',
-                "Wniosek nr {$id}: zmiana w programie kadrowym nie powiodła się, a przywrócenie poprzednich wpisów też nie. "
-                . "Urlop NIE jest zapisany w kadrach, a pracownik mógł już wyjechać. Skontaktuj się z pracownikiem i popraw wpis.\n"],
-            'ostrzezenie'      => ['Wniosek zapisany z ostrzeżeniem', "Wniosek nr {$id} zapisano w kadrach z ostrzeżeniem ({$code}).\n"],
-            'weryfikacja'      => ['Wniosek zatrzymany przed wysyłką do kadr', "Wniosek nr {$id} nie przeszedł weryfikacji na danych z kadr i czeka na wyjaśnienie.\n"],
-            'obcy_wpis'        => ['Wpis w kadrach podpisany jako nasz, ale przez nas niewydany',
-                'W programie kadrowym pojawił się wpis ' . (is_string($payload['wpis'] ?? null) ? $payload['wpis'] : '—')
-                . " oznaczony jako utworzony przez connector, a my nie wydaliśmy takiego zadania.\n"
-                . "Najczęściej to pozostałość po testach. Jeśli nie — może znaczyć, że do tej samej bazy kadrowej "
-                . "pisze DRUGA instalacja. Sprawdź to, zanim zacznie się mieszać z urlopami pracowników.\n"],
-            default            => ['Błąd zapisu wniosku w kadrach', "Wniosek nr {$id}: program kadrowy odrzucił zapis ({$code}). Wniosek czeka na wyjaśnienie.\n"],
+        $wpis = is_string($payload['wpis'] ?? null) ? $payload['wpis'] : '—';
+        [$temat, $zdania, $pilny] = match ($payload['kind'] ?? '') {
+            'zmiana_czesciowa' => ['wniosek bez wpisu w kadrach', [
+                'Zmiana w programie kadrowym nie powiodła się, a przywrócenie poprzednich wpisów też nie.',
+                'Urlop NIE jest zapisany w kadrach, a pracownik mógł już wyjechać. Skontaktuj się '
+                    . 'z pracownikiem i popraw wpis.',
+            ], true],
+            'ostrzezenie' => ['wniosek zapisany z ostrzeżeniem', [
+                'Wniosek zapisano w kadrach, ale program kadrowy zgłosił ostrzeżenie.',
+            ], false],
+            'weryfikacja' => ['wniosek zatrzymany przed wysyłką do kadr', [
+                'Wniosek nie przeszedł weryfikacji na danych z kadr i czeka na wyjaśnienie.',
+            ], false],
+            'obcy_wpis' => ['wpis w kadrach podpisany jako nasz, ale przez nas niewydany', [
+                'W programie kadrowym pojawił się wpis ' . $wpis . ' oznaczony jako utworzony przez '
+                    . 'connector, a my nie wydaliśmy takiego zadania.',
+                'Najczęściej to pozostałość po testach. Jeśli nie — może znaczyć, że do tej samej '
+                    . 'bazy kadrowej pisze DRUGA instalacja. Sprawdź to, zanim zacznie się mieszać '
+                    . 'z urlopami pracowników.',
+            ], true],
+            default => ['błąd zapisu wniosku w kadrach', [
+                'Program kadrowy odrzucił zapis wniosku. Wniosek czeka na wyjaśnienie.',
+            ], false],
         };
-        $transport->send(new MailMessage($to, 'wezurlop: ' . $subject,
-            $body . 'Szczegóły w aplikacji: ' . $this->config->absoluteUrl('/') . "\n"));
+        $wiersze = [['etykieta' => 'Wniosek', 'wartosc' => 'nr ' . $id]];
+        if ($code !== '—') {
+            $wiersze[] = ['etykieta' => 'Kod z programu kadrowego', 'wartosc' => $code];
+        }
 
-        return true;
+        return $this->alert(
+            $transport,
+            $temat,
+            'Wniosek nr ' . $id . ': ' . $temat . '.',
+            $zdania,
+            $wiersze,
+            [],
+            $pilny,
+            null,
+            ['napis' => 'Otwórz aplikację', 'link' => $this->config->absoluteUrl('/')],
+        );
     }
 
     /**
@@ -356,10 +434,12 @@ final class AccountMailService
             $this->resetTokens->create($accountId, $generated['hash'], self::RESET_VALID_MINUTES, $ipHash);
             $temat = 'Ustawienie nowego hasła';
             $message = $this->renderer->wiadomosc('haslo-reset', $account['email'], $temat, [
-                'temat'   => $temat,
                 'podglad' => 'Link do ustawienia nowego hasła, ważny ' . self::RESET_VALID_MINUTES . ' minut.',
                 'login'   => $account['email'],
-                'link'    => $this->config->absoluteUrl('/haslo/nowe') . '?token=' . $generated['token'],
+                // ⚠ Przycisk i adres pod nim rysuje układ (Z60) — szablon treści nie powtarza
+                // tej konstrukcji, więc poprawka przycisku jest w jednym miejscu.
+                'akcja'   => ['napis' => 'Ustaw nowe hasło',
+                    'link' => $this->config->absoluteUrl('/haslo/nowe') . '?token=' . $generated['token']],
                 'waznosc' => self::RESET_VALID_MINUTES . ' minut',
                 'firma'   => $this->nazwaPracodawcy($accountId),
             ]);
@@ -374,14 +454,18 @@ final class AccountMailService
             $this->invitations->create($accountId, $generated['hash'], self::INVITATION_VALID_MINUTES, $createdBy);
             // ⚠ Temat mówi, CO ZROBIĆ, i nie zawiera ani tokenu, ani nazwy naszego produktu
             // na pierwszym miejscu: pracownik ma poznać wiadomość od pracodawcy, nie od dostawcy.
-            $temat = 'Dostęp do systemu urlopowego — ustaw hasło';
+            // ⚠ **Temat ma wzór wspólny dla całej poczty** (Z60): prefiks „wezurlop · " dokłada
+            // `MailRenderer`, a tu zostaje to, CO ZROBIĆ. Wcześniejsze rozstrzygnięcie zabraniało
+            // nazwy produktu na początku tematu zaproszenia; zarządca odwołał je w Z60, wymieniając
+            // zaproszenie wprost we wzorze. Nazwa pracodawcy stoi w treści i w stopce.
+            $temat = 'Zaproszenie do aplikacji — ustaw hasło';
             $zaprosil = $createdBy === null ? null : $this->accounts->findById($createdBy);
             $message = $this->renderer->wiadomosc('zaproszenie', $account['email'], $temat, [
-                'temat'   => $temat,
                 'podglad' => 'Ustaw hasło i zaloguj się do systemu urlopowego.',
                 'imie_w_wolaczu' => $this->imieWWolaczu($account['first_name'] ?? null),
                 'firma'   => $this->nazwaPracodawcy($accountId),
-                'link'    => $this->config->absoluteUrl('/zaproszenie') . '?token=' . $generated['token'],
+                'akcja'   => ['napis' => 'Ustaw hasło i zaloguj się',
+                    'link' => $this->config->absoluteUrl('/zaproszenie') . '?token=' . $generated['token']],
                 'login'   => $account['email'],
                 'zapraszajacy' => $zaprosil === null ? null : NazwaOsoby::imieNazwisko(
                     (string) ($zaprosil['first_name'] ?? ''),

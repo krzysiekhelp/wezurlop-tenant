@@ -1,3 +1,4 @@
+{#- Wersja tekstowa zaproszenia. Adres linku wypisuje układ (blok `akcja`). -#}
 {% extends 'layout.twig' %}
 
 {% block naglowek %}Masz dostęp do systemu urlopowego{% endblock %}
@@ -6,9 +7,7 @@
 
 {% if firma %}{{ firma }} udostępnia Ci system{% else %}Masz dostęp do systemu{% endif %}, w którym składasz wnioski urlopowe,
 sprawdzasz swój limit dni i widzisz kalendarz nieobecności zespołu.
-Żeby zacząć, ustaw własne hasło:
-
-{{ link }}
+Żeby zacząć, ustaw własne hasło pod adresem poniżej.
 
 Link jest ważny {{ waznosc_dni }} i działa jeden raz.
 

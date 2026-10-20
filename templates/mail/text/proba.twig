@@ -1,0 +1,12 @@
+{#- Wersja tekstowa wiadomości próbnej — te same zmienne co w HTML. -#}
+{% extends 'layout.twig' %}
+
+{% block naglowek %}{{ naglowek }}{% endblock %}
+
+{% block tresc %}{{ zdanie }}
+{% if wiersze is not empty %}
+{% for w in wiersze %}{{ w.etykieta }}: {{ w.wartosc }}
+{% endfor %}{% endif %}{% endblock %}
+
+{% block stopka %}Tę wiadomość wysłał administrator z ekranu ustawień — nikt inny jej nie dostał.
+{% endblock %}

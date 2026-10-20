@@ -113,6 +113,9 @@ final class ControllerDependencies
         // który sięga po token wprost; pozostałe dostają go w szablonie przez `csrf_token()`.
         public readonly CsrfToken $csrf,
         public readonly RateLimiter $limiter,
+        // Render wiadomości — wiadomość próbna z ekranu ustawień idzie tym samym układem,
+        // co poczta z kolejki (zlecenie Z60).
+        public readonly \Wezurlop\Service\Mail\MailRenderer $mailRenderer,
     ) {
     }
 }
