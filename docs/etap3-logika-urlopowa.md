@@ -678,6 +678,127 @@ odkręcać przy pierwszym typie wrażliwym.
 
 ---
 
+## 8b. Widoczność kalendarza — reguły dostępu (Z53, 19–20.10.2026)
+
+Rozdział 8 mówi, **kto widzi co z urzędu**. Ten mówi, jak administrator firmy **dokłada wgląd
+poza hierarchią** — i zastępuje mechanizm, który stał tu do 19.10.2026 (trójstanowy przełącznik
+„brak / ogólny / pełny" w panelu osoby, oparty na uprawnieniach `calendar.view_all`
+i `calendar.view_all_details`).
+
+### Dlaczego tamten kształt był zły
+
+⚠ **„Kto widzi kogo" jest RELACJĄ, a panel jednej osoby pokazuje tylko jej połowę.** Z ekranu
+konta nie dawało się odpowiedzieć na pytanie „kto widzi kalendarz tej osoby", bo odpowiedź leżała
+rozsypana po panelach wszystkich pozostałych kont. Drugi powód: poziom był **jeden na cały
+tenant** — nadany raz, działał we wszystkich firmach, w których konto miało cokolwiek do
+oglądania, a granica firmy jest w tym produkcie granicą danych kadrowych.
+
+### Model
+
+Reguła należy do **firmy** i ma trzy człony:
+
+| człon | wartości |
+|---|---|
+| KTO WIDZI | `supervisor_all` (reguła domyślna firmy) · `supervisor` (jeden przełożony) · `account` (konto) · `group` (grupa) |
+| CZYJE NIEOBECNOŚCI | `subordinates` (gałąź pod widzem) · `company` (cała firma) · `groups` (wskazane grupy) · `persons` (wskazane osoby) |
+| ZAKRES | `bez_szczegolow` · `ze_szczegolami` |
+
+- ⚠ **Przełożony i wskazana osoba to ZATRUDNIENIE, nie osoba.** Jedna osoba miewa etat w dwóch
+  firmach, a reguła należy do jednej — porównanie po `person_id` dawałoby regule z ALFY wpływ
+  na tę samą osobę w BECIE, czyli przeciek przez granicę firmy.
+- ⚠ **Jedna lista celu, nie dwie.** Grupy i osoby jadą tym samym polem, bo reguła ma dokładnie
+  jeden rodzaj celu (`target_kind`); dwa pola oznaczałyby stan, w którym oba są pełne,
+  i pytanie, które z nich obowiązuje.
+- ⚠ **Podpis reguły** (`UNIQUE (company_id, signature)`) pilnuje, żeby tej samej reguły nie dało
+  się nadać dwa razy. Podpis reguły domyślnej **nie zawiera zakresu** — jest jedna i zmienia się
+  jej zakres, a nie zakłada drugą.
+
+### Reguła domyślna firmy
+
+„Wszyscy przełożeni › Swoi podwładni" **istnieje zawsze** i nie daje się usunąć. Dopóki nikt jej
+nie ruszył, wiersza w tabeli nie ma, a obowiązuje `bez_szczegolow` — i **stosuje to jedno miejsce
+w kodzie** (`CalendarVisibility::zakresPrzelozonych()`), a nie `DEFAULT` kolumny i kod naraz.
+Inaczej administrator widziałby na liście jeden zakres, a pracownik dostawał drugi.
+
+⚠ Reguła domyślna obejmuje widza **tylko wtedy, gdy ktoś pod nim dziś stoi** — inaczej „każdy
+przełożony" znaczyłoby „każdy".
+
+### Wygrywa SZERSZY dostęp, nigdy węższy
+
+Kilka reguł dotyczących tej samej pary daje **maksimum** zakresów. Odwrotne rozstrzygnięcie
+znaczyłoby, że nadanie dostępu jednej osobie **odbiera** dostęp innej — a tego nikt nie przewidzi
+przy wypełnianiu okna. Ta sama zasada rozstrzyga sprzeczne zaznaczenie w kroku 2 okna
+(„cała firma" kontra wskazane osoby): wygrywa zbiór szerszy, bo i tak obejmuje tamte osoby.
+
+### Szczegółowość jest OSOBNA DLA KAŻDEGO WIERSZA
+
+⚠ **To odwołuje wcześniejsze uzasadnienie** (jednolita szczegółowość całej siatki kalendarza,
+łącznie z własnym wierszem). Tamto brzmiało: ekran służy do ZESTAWIANIA, więc wiersz o innej
+szczegółowości czyta się jak inny **rodzaj** nieobecności, a nie jak inny dostęp. Przestało
+obowiązywać z powodu rzeczowego, nie estetycznego: **reguła może obejmować jedną grupę, a nie
+całą firmę**, więc jednolity ekran musiałby równać albo w dół (zabierać dostęp, który ktoś nadał),
+albo w górę (dawać dostęp, którego nikt nie nadał). Ryzyko „inny wiersz = inny rodzaj" zdejmuje
+legenda, która nazywa szary pasek wprost („nieobecny").
+
+### `bez_szczegolow` to NIE jest dawny „rodzaj ogólny"
+
+Dawny poziom 1 pokazywał „urlop" albo „zwolnienie" — a **„zwolnienie" przy cudzym nazwisku jest
+daną o zdrowiu** tak samo jak nazwa ze słownika, tylko mniej dokładną. Został sam FAKT
+nieobecności: jedno słowo „nieobecny" dla wszystkich rodzajów, jeden token wypełnienia.
+
+⚠ **Rodzaj nie opuszcza serwera w żadnej postaci** — ani tekstem, ani klasą, ani w `title`,
+`aria-label` czy `data-*`. Ukrycie stylem się nie liczy. Rozstrzyga o tym **jedna funkcja**
+(`KalendarzPracownika::pasek()`), bo decyzja postawiona w szablonie znaczyłaby, że pierwszy nowy
+widok pokaże nazwy rodzajów bez pytania.
+
+### Wszystko liczy się W CHWILI ODCZYTU
+
+- gałąź hierarchii i skład grup — więc podwładny dopisany jutro jest objęty regułą jutro,
+  bez dotykania reguły,
+- ⚠ **czynność zatrudnienia** — zwolniona osoba przestaje być widoczna natychmiast, i pilnuje
+  tego `CalendarVisibility::zakresy()`, czyli punkt egzekwowania, a nie wywołujący. Zmierzone
+  20.10.2026: siatka zespołu nie pokazuje zwolnionych sama z siebie, więc wyglądało to na
+  działające — ale ta sama funkcja zapytana wprost o zwolnione zatrudnienie odpowiadała
+  `ze_szczegolami`, czyli każdy nowy widok z własną listą osób dostałby dostęp, którego nikt
+  nie nadał.
+
+⚠ **Reguł po zwolnieniu NIE SPRZĄTAMY** (decyzja Krzysztofa 19.10.2026, zmiana wcześniejszego
+polecenia). Zwolnienie przychodzi z synchronizacji i jest już zdarzeniem w dzienniku; drugi wpis
+o skutku ubocznym niczego nie dodaje, a reguła skasowana po cichu zabiera administratorowi
+możliwość zobaczenia, co w niej było. Zamiast tego wiersz reguły pokazuje nazwisko **przekreślone**
+(ta sama konwencja, co na `/admin/konta`), a reguła bez ani jednej czynnej osoby dostaje szarą
+plakietkę „nieaktywna — brak czynnych osób" i **zostaje**. Kasuje ją administrator, świadomie.
+Ponowne zatrudnienie **nie przywraca** dostępu: przy pierwszym zapisie reguły zwolnieni z niej
+wypadają, a dziennik odnotowuje ich jako wartości sprzed zmiany.
+
+### Usunięcie grupy
+
+Grupa po stronie „kto widzi" kasuje regułę w całości; po stronie celu wypada z listy, a reguła
+bez ani jednej grupy znika razem z nią. ⚠ **Robi to kod, nie kaskada bazy** — kaskada zrobiłaby
+to samo po cichu, a administrator dowiedziałby się o utracie dostępu od pracownika, nie
+z dziennika (`calendar_access.auto_changed`).
+
+### Dziennik
+
+Zdarzenia `calendar_access.granted | changed | revoked | auto_changed | migrated` należą do
+istniejącej rodziny filtra „konta i uprawnienia" — nie zakładamy ósmego filtra dla pięciu kodów.
+
+⚠ **Treścią wpisu są IDENTYFIKATORY, nie nazwiska** — odstępstwo od tego, co robi dziennik grup.
+Wpis mówi, **kto czyje nieobecności może oglądać**, czyli opisuje dostęp do danych o zdrowiu:
+para nazwisk w treści byłaby tą informacją zapisaną drugi raz, w miejscu, z którego się jej nie
+kasuje. Nazwy składa ekran dziennika przy odczycie.
+
+### Migracja i uprawnienie
+
+Stare nadania `calendar_viewer` → `bez_szczegolow`, `calendar_viewer_full` → `ze_szczegolami`,
+z celem „cała firma"; nadanie obejmujące cały tenant (`company_id = 0`) rozwija się na każdą firmę,
+w której konto ma rolę pracownika. ⚠ Role zostają w tabeli (migracja ma się cofać), ale nic już
+z nich nie wynika; `calendar_viewer_full` traci `requires_2fa`, bo nie jest już uprawnieniem
+administracyjnym. Ekranem rządzi nowe uprawnienie **`calendar.visibility_manage`** (rola
+`tenant_admin`), a przełącznik w panelu osoby zastępuje odnośnik do `/admin/widocznosc`.
+
+---
+
 ## 9. Powiadomienia
 
 Przez kolejkę `job` i cron (§0 reguł) — **nigdy w żądaniu użytkownika**.

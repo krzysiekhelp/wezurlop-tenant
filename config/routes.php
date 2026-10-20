@@ -19,6 +19,7 @@ use Wezurlop\Controller\App\CalendarController;
 use Wezurlop\Controller\App\ContextController;
 use Wezurlop\Controller\App\DashboardController;
 use Wezurlop\Controller\App\DataController;
+use Wezurlop\Controller\App\VisibilityController;
 use Wezurlop\Controller\App\DeviceController;
 use Wezurlop\Controller\App\DiagnosticsController;
 use Wezurlop\Controller\App\EventLogController;
@@ -157,6 +158,17 @@ $webOnly = [
     ['POST', '/admin/grupy/{id:\d+}/osoby/usun',         [GroupController::class, 'remove'],          'permission' => 'admin.hierarchy', 'zakres' => 'spolka'],
     ['POST', '/admin/grupy/{id:\d+}/nazwa',              [GroupController::class, 'rename'],          'permission' => 'admin.hierarchy', 'zakres' => 'spolka'],
     ['POST', '/admin/grupy/{id:\d+}/usun',               [GroupController::class, 'delete'],          'permission' => 'admin.hierarchy', 'zakres' => 'spolka'],
+
+    // ⚠ **Własne uprawnienie, nie `admin.hierarchy`** (zlecenie Z53 §4). Hierarchia i grupy
+    // układają STRUKTURĘ, a ten ekran rozdaje **wgląd w nieobecności**, czyli w dane o zdrowiu.
+    // Zlanie ich znaczyłoby, że nie da się powierzyć komuś porządkowania działów bez oddania mu
+    // kalendarzy całej firmy. ⚠ Pozycja w menu pilnuje TEGO SAMEGO uprawnienia.
+    // ⚠ Kroki okna idą `GET`-em, bo niczego nie zmieniają (CLAUDE.md §3); zapis i usunięcie `POST`-em.
+    ['GET',  '/admin/widocznosc',                        [VisibilityController::class, 'index'],       'permission' => 'calendar.visibility_manage', 'zakres' => 'spolka'],
+    ['GET',  '/admin/widocznosc/okno',                   [VisibilityController::class, 'okno'],        'permission' => 'calendar.visibility_manage', 'zakres' => 'spolka'],
+    ['GET',  '/admin/widocznosc/pozycje',                [VisibilityController::class, 'pozycje'],     'permission' => 'calendar.visibility_manage', 'zakres' => 'spolka'],
+    ['POST', '/admin/widocznosc/zapisz',                 [VisibilityController::class, 'zapisz'],      'permission' => 'calendar.visibility_manage', 'zakres' => 'spolka'],
+    ['POST', '/admin/widocznosc/{id:\d+}/usun',          [VisibilityController::class, 'usun'],        'permission' => 'calendar.visibility_manage', 'zakres' => 'spolka'],
     ['GET',  '/admin/dziennik',                          [EventLogController::class, 'index'],         'permission' => 'admin.event_log', 'zakres' => 'tenant'],
     ['GET',  '/admin/konta',                             [AdminAccountController::class, 'index'],     'permission' => 'admin.users', 'zakres' => 'spolka'],
     ['POST', '/admin/konta/zapros',                      [AdminAccountController::class, 'inviteBatch'],   'permission' => 'admin.users', 'zakres' => 'spolka'],
@@ -178,8 +190,7 @@ $webOnly = [
     // jako WIERSZ, a nie jako przepisanie ekranu (aneks 23.09 §1).
     // ⚠ To NIE jest mechanizm „nadaj dowolną rolę": endpoint nie przyjmuje nazwy roli w żadnej
     // postaci, a `tenant_admin` jest jawnie odrzucany i zapisywany w dzienniku (aneks §2).
-    ['POST', '/admin/konta/osoba/{id:\d+}/uprawnienia', [AdminAccountController::class, 'savePermissions'], 'permission' => 'admin.users', 'zakres' => 'spolka'],
-    ['POST', '/admin/konta/{id:\d+}/2fa/reset',          [AdminAccountController::class, 'resetTwoFactor'], 'permission' => 'admin.users', 'zakres' => 'spolka'],
+        ['POST', '/admin/konta/{id:\d+}/2fa/reset',          [AdminAccountController::class, 'resetTwoFactor'], 'permission' => 'admin.users', 'zakres' => 'spolka'],
     ['POST', '/admin/konta/{id:\d+}/sesje/zakoncz',      [AdminAccountController::class, 'revokeSessions'], 'permission' => 'admin.users', 'zakres' => 'spolka'],
     // integracja z kadrami: integration.manage działa wyłącznie z przypisania na całego tenanta (permission.tenant_only)
     ['GET',  '/admin/podlaczenie',                       [AdminIntegrationController::class, 'connect'],      'permission' => 'integration.manage', 'zakres' => 'tenant'],

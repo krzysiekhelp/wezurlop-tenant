@@ -35,6 +35,32 @@ final class Odmiana
     }
 
     /**
+     * „1 podwładny", „3 podwładnych", „5 podwładnych" — lista przełożonych w oknie reguły.
+     *
+     * ⚠ Forma mnoga jest **jedna**, w odróżnieniu od `osoby()`: „podwładny" odmienia się jak
+     * przymiotnik, więc po liczebniku 2–4 i po 5 i więcej stoi ten sam dopełniacz mnogi
+     * („2 podwładnych", „5 podwładnych"). Przepuszczenie tego przez `mnoga()` dałoby
+     * „2 podwładni" — to ta sama pułapka, co „1 osoba nieaktywne" na liście grup.
+     */
+    public static function podwladnych(int $ile): string
+    {
+        return abs($ile) === 1 ? 'podwładny' : 'podwładnych';
+    }
+
+    /**
+     * „i 1 inna”, „i 3 inne”, „i 7 innych” — reszta wyliczanki nazwisk w kolumnie CZYJE.
+     *
+     * ⚠ Domyślnym rzeczownikiem jest tu **osoba**, więc forma idzie za rodzajem żeńskim
+     * („inna osoba", „trzy inne osoby", „siedem innych osób") — samo „inne" przy każdej liczbie
+     * dawałoby „i 7 inne". Rzeczownika nie dopisujemy, bo stoi w zdaniu wyżej: kolumna wylicza
+     * nazwiska, a nie „osoby".
+     */
+    public static function inne(int $ile): string
+    {
+        return abs($ile) === 1 ? 'inna' : (self::mnoga($ile) ? 'inne' : 'innych');
+    }
+
+    /**
      * „z 1 osoby”, „z 3 osób”, „z 53 osób” — forma po **przyimku**, nie po liczebniku.
      *
      * ⚠ To osobna funkcja, a nie błąd w `osoby()`. Polski przyimek `z` (i `u`) rządzi

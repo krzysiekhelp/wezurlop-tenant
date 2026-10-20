@@ -1,0 +1,19 @@
+{#- Plakietka zakresu reguły — „bez szczegółów" albo „ze szczegółami".
+
+    ⚠ **Klasa z JAWNEGO warunku, nigdy sklejana z danych** (CLAUDE.md §5, ta sama reguła co
+    w `partials/plakietka.twig` i `partials/ikona-zdarzenia.twig`): `chip--{{ zakres }}` dałoby
+    nazwę klasy pochodzącą z bazy, czyli dokładnie tę rodzinę, przez którą `{% include zmienna %}`
+    jest zakazane.
+
+    ⚠ **„Ze szczegółami" nie dostaje barwy ostrzeżenia.** To jest stan nadany świadomie, a nie
+    usterka do naprawienia (§3.1 systemu wizualnego: kolorujemy to, co wymaga reakcji). Mocniej
+    wyróżnia się samym napisem i ikoną, a nie czerwienią.
+
+    Zmienne: `zakres`, `nazwy` (słownik z `ZakresWidocznosci::nazwy()`). Renderowany `with_context
+    = false`, więc widzi wyłącznie to, co mu podano. -#}
+{% import 'partials/ikony.twig' as ikony %}
+{% if zakres == 'ze_szczegolami' %}
+    <span class="chip chip--zakres chip--zakres-pelny">{{ ikony.lupa() }}{{ nazwy[zakres] }}</span>
+{% else %}
+    <span class="chip chip--zakres">{{ ikony.oko() }}{{ nazwy[zakres] }}</span>
+{% endif %}

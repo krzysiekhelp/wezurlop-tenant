@@ -273,7 +273,17 @@ final class Services
 
     public function grupy(): \Wezurlop\Service\GrupyService
     {
-        return new \Wezurlop\Service\GrupyService($this->grupyRepository(), $this->events);
+        return new \Wezurlop\Service\GrupyService(
+            $this->grupyRepository(),
+            $this->events,
+            // ⚠ Usunięcie grupy sprząta reguły widoczności, które ją wskazują (zlecenie Z53 §1) —
+            // z wpisem w dzienniku, czego kaskada bazy by nie zrobiła.
+            new \Wezurlop\Service\WidocznoscService(
+                new \Wezurlop\Repository\CalendarAccessRepository($this->db),
+                $this->grupyRepository(),
+                $this->events,
+            ),
+        );
     }
 
     public function linkHasla(): LinkHasla

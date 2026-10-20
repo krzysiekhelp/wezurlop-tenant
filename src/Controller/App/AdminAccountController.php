@@ -16,7 +16,6 @@ use Wezurlop\Repository\JobRepository;
 use Wezurlop\Repository\PermissionRepository;
 use Wezurlop\Repository\PersonRepository;
 use Wezurlop\Security\ClientFingerprint;
-use Wezurlop\Service\CalendarVisibility;
 use Wezurlop\Service\AccessService;
 use Wezurlop\Service\AccountMailService;
 use Wezurlop\Service\TerminWysylki;
@@ -52,7 +51,6 @@ final class AdminAccountController
         private readonly TwoFactorService $twoFactor,
         private readonly DeviceService $devices,
         private readonly PermissionRepository $permissions,
-        private readonly CalendarVisibility $widocznosc,
         private readonly ClientFingerprint $fingerprint,
         private readonly KontekstSpolki $kontekstSpolki,
         private readonly ErrorHandler $errors,
@@ -611,12 +609,12 @@ final class AdminAccountController
             'odmowa_blokady' => $odmowaBlokady === null ? null : (self::KOMUNIKATY_ODMOW[$odmowaBlokady] ?? $odmowaBlokady),
             'zatrudnienia' => $this->people->panelEmployments($personId, (int) date('Y')),
             'dostepy'    => $this->people->accessRows($personId),
-            // ⚠ Kontrolka poziomu widoczności kalendarzy stoi przy wierszu (rola, spółka)
-            // w sekcji „Dostęp", a NIE jako czwarta kolumna w tabeli kont: tabela ma 87 wierszy
-            // i służy do masowego zapraszania, a to jest ustawienie dotyczące dwóch osób w firmie.
-            'widocznosc' => $this->widocznoscPanelu($osoba['account_id'], $this->people->accessRows($personId)),
-            'poziomy_nazwy' => CalendarVisibility::nazwy(),
-            'poziomy_opisy' => CalendarVisibility::opisy(),
+            // ⚠ **Kontrolka „Podgląd kalendarzy" ZNIKŁA stąd 19.10.2026** (zlecenie Z53 §3).
+            // Stał tu trójstanowy przełącznik poziomu per para (konto, firma) — i był drugim
+            // miejscem rozdającym wgląd w nieobecności, obok hierarchii. Od Z53 rozdaje go
+            // jeden ekran (`/admin/widocznosc`), bo „kto widzi kogo" jest **relacją**, a panel
+            // jednej osoby pokazuje połowę każdej relacji.
+            'adres_widocznosci' => $this->urls->to('/admin/widocznosc'),
             'rok'        => (int) date('Y'),
             'current_id' => $admin->accountId(),
             'notice'     => null,
@@ -905,132 +903,6 @@ final class AdminAccountController
      * strony listy to 25, więc jedno zaznaczenie „wszystkich na ekranie" mieści się z zapasem.
      */
     private const BATCH_MAX = 50;
-
-    /**
-     * Zakresy, w których można nadać poziom widoczności kalendarzy, z **poziomem nadanym tutaj**.
-     *
-     * ⚠ Zakresem jest para (konto, spółka) — ta sama, na której wisi przypisanie roli
-     * (`szkielet-tenanta.md`). Nie wymyślamy nowego modelu: `company_id = 0` znaczy „wszystkie
-     * spółki", dokładnie jak przy roli administratora tenanta.
-     *
-     * ⚠ Poziom czytamy **z tego zakresu**, nie efektywny: inaczej kontrolka przy spółce ALFA
-     * pokazywałaby poziom nadany na całego tenanta, a wybranie „nie widzi" nie miałoby czego
-     * odebrać (patrz `PermissionRepository::permissionsAssignedAt()`).
-     *
-     * @param list<array{rola: string, company_id: int, spolka: ?string}> $dostepy
-     * @return list<array{company_id: int, etykieta: string, poziom: int}>
-     */
-    private function widocznoscPanelu(?int $accountId, array $dostepy): array
-    {
-        if ($accountId === null) {
-            // Bez konta nie ma komu nadać — sekcja mówi to zdaniem, nie pustą kontrolką.
-            return [];
-        }
-        $zakresy = [];
-        foreach ($dostepy as $d) {
-            $zakresy[$d['company_id']] = $d['company_id'] === 0
-                ? 'wszystkie firmy'
-                : ($d['spolka'] ?? 'firma #' . $d['company_id']);
-        }
-        ksort($zakresy);
-
-        return array_values(array_map(
-            fn (int $companyId, string $etykieta): array => [
-                'company_id' => $companyId,
-                'etykieta' => $etykieta,
-                'poziom' => $this->widocznosc->poziomNadany($accountId, $companyId),
-            ],
-            array_keys($zakresy),
-            array_values($zakresy),
-        ));
-    }
-
-    /**
-     * Zapis uprawnień osoby — `POST`, bo zmienia uprawnienia (CLAUDE.md §3). Dziś sekcja
-     * „Uprawnienia" ma **dokładnie jedną pozycję**: poziom widoczności kalendarza.
-     *
-     * ⚠ Zakres z żądania idzie przez **białą listę** zakresów, które ta osoba naprawdę ma
-     * (CLAUDE.md §11): inaczej dałoby się nadać podgląd w spółce, do której osoba nie ma
-     * żadnego przypisania — czyli utworzyć dostęp, którego nikt nie widzi w sekcji „Dostęp".
-     *
-     * @param array<string, string> $params
-     */
-    public function savePermissions(Request $request, array $params): Response
-    {
-        $admin = $request->attribute(Authenticate::USER);
-        assert($admin instanceof CurrentUser);
-        $companyScope = $this->scope($admin);
-        $personId = filter_var($params['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
-        if ($personId === false) {
-            return $this->errors->errorPage(404, null, $request->isHtmx());
-        }
-        $osoba = $this->people->panelPerson($personId, $companyScope);
-        if ($osoba === null || $osoba['account_id'] === null) {
-            return $this->errors->errorPage(404, null, $request->isHtmx());
-        }
-        // ⚠ **GRANICA (aneks 23.09 §2): ten ekran NIE NADAJE RÓL.** Nie ma parametru roli i mieć
-        // nie będzie — więc `tenant_admin` nie da się tu nadać także wtedy, gdy przyjdzie wprost
-        // w żądaniu. Gdyby jednak przyszedł, odrzucamy CAŁE żądanie i **zapisujemy to
-        // w dzienniku**: próba nadania roli z ekranu, który jej nie nadaje, jest zdarzeniem
-        // bezpieczeństwa, nie literówką. Lista pozycji w formularzu nie jest zabezpieczeniem
-        // (CLAUDE.md §11: wejściu nie ufamy).
-        // ⚠ Do dziennika idzie wyłącznie ROZPOZNANIE wartości, nie sama wartość — pole z żądania
-        // wstawione w log jest drogą do wstrzyknięcia treści do dziennika.
-        $rola = $request->postString('rola', 64) . $request->postString('role', 64);
-        if ($rola !== '') {
-            $this->events->record(
-                'permission.refused',
-                $admin->accountId(),
-                null,
-                $admin->displayName,
-                'account',
-                $osoba['account_id'],
-                null,
-                ['powod' => 'rola w zadaniu', 'tenant_admin' => str_contains($rola, 'tenant_ad' . 'min')],
-            );
-
-            return $this->errors->errorPage(422, null, $request->isHtmx());
-        }
-
-        $zakresy = $this->widocznoscPanelu($osoba['account_id'], $this->people->accessRows($personId));
-        $zadanyZakres = filter_var($request->postString('zakres', 12), FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
-        $poziom = filter_var($request->postString('poziom', 2), FILTER_VALIDATE_INT, ['options' => ['min_range' => 0, 'max_range' => 2]]);
-        $dozwolony = null;
-        foreach ($zakresy as $z) {
-            if ($z['company_id'] === $zadanyZakres) {
-                $dozwolony = $z;
-            }
-        }
-        if ($dozwolony === null || $poziom === false) {
-            return $this->errors->errorPage(404, null, $request->isHtmx());
-        }
-
-        $this->widocznosc->ustaw(
-            (int) $osoba['account_id'],
-            $dozwolony['company_id'],
-            $poziom,
-            $admin->accountId(),
-            $admin->displayName,
-        );
-
-        // ⚠ Bez htmx: POST → przekierowanie → GET (CLAUDE.md §3). Renderowanie panelu wprost
-        // z POST-a zostawiałoby w pasku adresu ścieżkę zapisu, a odświeżenie powtarzałoby
-        // nadanie uprawnienia. Wracamy na PANEL TEJ OSOBY, nie na listę: człowiek jest w środku
-        // ustawiania dostępu jednej osoby i lista kont nie jest odpowiedzią na to, co zrobił.
-        if (!$request->isHtmx()) {
-            return Response::redirectFor($request, $this->urls->to('/admin/konta/osoba/' . $personId));
-        }
-
-        $dane = $this->panelData($personId, $companyScope, $admin);
-        if ($dane === null) {
-            return $this->errors->errorPage(404, null, $request->isHtmx());
-        }
-        $nazwy = CalendarVisibility::nazwy();
-        $dane['notice'] = 'Uprawnienie „podgląd kalendarzy": ' . ($nazwy[$poziom] ?? '—')
-            . ' — ' . $dozwolony['etykieta'] . '.';
-
-        return $this->view->render('fragments/person-panel.twig', $dane + ['w_szufladzie' => true]);
-    }
 
     private function scope(CurrentUser $admin): ?int
     {

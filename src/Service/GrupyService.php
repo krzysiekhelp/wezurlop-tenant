@@ -38,6 +38,7 @@ final class GrupyService
     public function __construct(
         private readonly GroupRepository $grupy,
         private readonly EventLogRepository $events,
+        private readonly WidocznoscService $widocznosc,
     ) {
     }
 
@@ -74,6 +75,18 @@ final class GrupyService
     public function usun(int $groupId, int $companyId, ?int $accountId, ?string $aktor): ?string
     {
         $przed = $this->grupy->find($groupId, $companyId);
+        // ⚠ **Reguły widoczności sprząta się PRZED usunięciem grupy** (zlecenie Z53 §1), bo po nim
+        // nie ma już czego policzyć do dziennika. Reguła z tą grupą po stronie „kto widzi" znika
+        // w całości; po stronie „czyje" grupa wypada z listy, a reguła bez ani jednej grupy znika
+        // razem z nią.
+        // ⚠ Robi to KOD, nie kaskada bazy: kaskada zrobiłaby to samo po cichu, a administrator
+        // dowiedziałby się o utracie dostępu od pracownika, nie z dziennika.
+        // ⚠ Kolejność ma znaczenie także w drugą stronę: gdyby grupy nie dało się usunąć (ma
+        // osoby), reguły bylibyśmy już sprzątnięte — stąd sprawdzenie `find()` wyżej i odmowa
+        // z repozytorium NIZEJ, w jednej transakcji z usunięciem.
+        if ($przed !== null) {
+            $this->widocznosc->poUsunieciuGrupy($companyId, $groupId, $accountId, $aktor);
+        }
         $powod = $this->grupy->usun($groupId, $companyId);
         if ($powod !== null) {
             return $powod;

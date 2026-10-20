@@ -71,6 +71,19 @@ use Wezurlop\Support\Odmiana;
         $check("sprawdzenDopelniacz({$ile})", Odmiana::sprawdzenDopelniacz($ile), $oczekiwane);
     }
 
+    // ⚠ „podwładny" odmienia się jak przymiotnik: jedna forma mnoga dla 2–4 i dla 5+.
+    foreach ([0 => 'podwładnych', 1 => 'podwładny', 2 => 'podwładnych', 3 => 'podwładnych',
+              5 => 'podwładnych', 22 => 'podwładnych'] as $ile => $oczekiwane) {
+        $check("podwladnych({$ile})", Odmiana::podwladnych($ile), $oczekiwane);
+    }
+
+    // ⚠ „inna/inne/innych" idzie za rodzajem ŻEŃSKIM (domyślny rzeczownik: osoba), więc
+    // 2–4 dostaje „inne", a 5+ „innych" — tak samo jak `osoby()`, nie jak `podwladnych()`.
+    foreach ([1 => 'inna', 2 => 'inne', 3 => 'inne', 4 => 'inne', 5 => 'innych',
+              12 => 'innych', 22 => 'inne'] as $ile => $oczekiwane) {
+        $check("inne({$ile})", Odmiana::inne($ile), $oczekiwane);
+    }
+
     echo $failures === 0 ? "Wszystkie sprawdzenia przeszły.\n" : "Nieudane: {$failures}\n";
     exit($failures === 0 ? 0 : 1);
 })();

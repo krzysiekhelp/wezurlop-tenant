@@ -17,10 +17,19 @@
     i dlatego stoi na końcu (i ma inny kształt — patrz `legend__mark--free`).
 
     ⚠ Tokeny wypełnień są te same, co w kratce siatki i w pasku osi czasu. Gdyby legenda miała
-    własne, opisywałaby kolor, którego na ekranie nie ma. -#}
+    własne, opisywałaby kolor, którego na ekranie nie ma.
+
+    ⚠ **„Nieobecność bez szczegółów" wchodzi TYLKO wtedy, gdy taka jest na ekranie** (zlecenie
+    Z53 §2). To nie jest ostrożność, tylko ta sama reguła, co wyżej: pozycja stała opisywałaby
+    szary pasek u kogoś, kto nigdy go nie zobaczy — i sugerowała, że coś przed nim ukryto.
+    ⚠ Stoi **na końcu**, po dniu wolnym: to nie jest czwarty rodzaj nieobecności, tylko
+    informacja o moim dostępie do cudzych danych. -#}
 <div class="legend">
     <span class="legend__item"><span class="legend__mark legend__mark--urlop" aria-hidden="true"></span>urlop</span>
     <span class="legend__item"><span class="legend__mark legend__mark--zasilek" aria-hidden="true"></span>zwolnienie</span>
     <span class="legend__item"><span class="legend__mark legend__mark--kadrowe" aria-hidden="true"></span>inna nieobecność</span>
     <span class="legend__item"><span class="legend__mark legend__mark--free" aria-hidden="true"></span>dzień wolny od pracy</span>
+    {% if ma_bez_szczegolow|default(false) %}
+        <span class="legend__item"><span class="legend__mark legend__mark--bez" aria-hidden="true"></span>nieobecność bez szczegółów</span>
+    {% endif %}
 </div>

@@ -98,6 +98,12 @@ final class KodyZdarzen
         // ⚠ Odrzucenie jest ZAPISYWANE, nie ciche: próba nadania roli z ekranu, który jej nie
         // nadaje, jest zdarzeniem bezpieczeństwa, a nie literówką w żądaniu.
         'permission.refused'            => 'Odrzucona próba nadania uprawnienia',
+        // ——— widoczność kalendarza (zlecenie Z53) ———
+        'calendar_access.granted'       => 'Nadanie dostępu do kalendarza',
+        'calendar_access.changed'       => 'Zmiana dostępu do kalendarza',
+        'calendar_access.revoked'       => 'Odebranie dostępu do kalendarza',
+        'calendar_access.auto_changed'  => 'Dostęp do kalendarza zmieniony po usunięciu grupy',
+        'calendar_access.migrated'      => 'Przeniesienie dawnych poziomów do reguł dostępu',
         'security.ddl_blocked'          => 'Zablokowana próba zmiany schematu bazy',
         'security.login_spraying_suspected' => 'Podejrzenie ataku na wiele kont',
         'security.storage_exposed'      => 'Katalog danych osiągalny z internetu',
@@ -187,7 +193,12 @@ final class KodyZdarzen
      */
     private const RODZAJE = [
         'logowania' => ['nazwa' => 'logowania', 'prefiksy' => ['auth.', '2fa.', 'session.']],
-        'konta'     => ['nazwa' => 'konta i uprawnienia', 'prefiksy' => ['account.', 'access.', 'permission.', 'person.', 'calendar.']],
+        'konta'     => ['nazwa' => 'konta i uprawnienia', 'prefiksy' => ['account.', 'access.', 'permission.', 'person.', 'calendar.',
+            // ⚠ Reguły widoczności kalendarza (Z53) wchodzą do „kont i uprawnień", a NIE
+            // dostają ósmego filtra: to są nadania dostępu, czyli dokładnie to, co ten rodzaj
+            // zbiera. Ósmy filtr byłby decyzją produktową o liście rozwijanej, a nie skutkiem
+            // dopisania kodów. ⚠ `calendar.` NIE łapie `calendar_access.` — to inny napis.
+            'calendar_access.']],
         'grupy'     => ['nazwa' => 'grupy', 'prefiksy' => ['group.']],
         'hierarchia' => ['nazwa' => 'hierarchia', 'prefiksy' => ['hierarchy.']],
         'firmy'     => ['nazwa' => 'firmy', 'prefiksy' => ['tenant.', 'context.', 'employment.']],

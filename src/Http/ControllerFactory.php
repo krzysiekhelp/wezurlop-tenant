@@ -12,6 +12,7 @@ use Wezurlop\Controller\App\CalendarController;
 use Wezurlop\Controller\App\ContextController;
 use Wezurlop\Controller\App\DashboardController;
 use Wezurlop\Controller\App\DataController;
+use Wezurlop\Controller\App\VisibilityController;
 use Wezurlop\Controller\App\DeviceController;
 use Wezurlop\Controller\App\DiagnosticsController;
 use Wezurlop\Controller\App\EventLogController;
@@ -52,6 +53,7 @@ final class ControllerFactory
         HierarchyController::class,
         AdminIntegrationController::class,
         DataController::class,
+        VisibilityController::class,
         DiagnosticsController::class,
         EventLogController::class,
         LicenseController::class,
@@ -98,11 +100,14 @@ final class ControllerFactory
             DeviceController::class        => new DeviceController($d->view, $d->devices, $d->session, $d->fingerprint, $d->errors, $d->urls),
             AdminAccountController::class  => new AdminAccountController($d->view, $d->accounts, $d->people,
                 $d->invitations, $d->access, $d->konta, $d->events, $d->jobs, $d->termin, $d->twoFactor, $d->devices,
-                $d->permissions, $d->widocznoscKalendarza, $d->fingerprint, $d->kontekstSpolki, $d->errors, $d->urls),
+                $d->permissions, $d->fingerprint, $d->kontekstSpolki, $d->errors, $d->urls),
             AdminIntegrationController::class => new AdminIntegrationController($d->view, $d->session, $d->apiKeyService, $d->apiKeys,
                 $d->sync, $d->syncDomain, $d->events, $d->settings, $d->errors, $d->urls),
             DataController::class          => new DataController($d->view, $d->dataView, $d->kalendarz, $d->permissions,
                 $d->apiKeys, $d->syncDomain, $d->errors),
+            VisibilityController::class    => new VisibilityController($d->view, $d->regulyKalendarza,
+                $d->widocznoscService, $d->widocznoscKalendarza, $d->grupyRepo, $d->zasieg,
+                $d->kontekstSpolki, $d->errors, $d->urls),
             DiagnosticsController::class   => new DiagnosticsController($d->view, $d->config, $d->appRoot, $d->canary, $d->events,
                 $d->calendars, $d->tenantReset, $d->settings, $d->apiKeys, $d->syncDomain, $d->session, $d->access,
                 $d->hierarchyRepo, $d->permissions, $d->mailSettings, $d->cron, $d->transportFactory, $d->errors, $d->urls,

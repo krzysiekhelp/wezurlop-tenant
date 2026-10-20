@@ -1,0 +1,302 @@
+{#- **Okno reguły dostępu — trzy kroki w jednym formularzu** (zlecenie Z53 §4 z dopiskiem
+    z 19.10.2026, po zaakceptowaniu prototypu).
+
+    ⚠ **Kroki zmieniają się `GET`-em, zapisuje `POST`.** Przełączenie zakładki, szukanie
+    i doczytanie kolejnych dwudziestu pozycji **niczego nie zmieniają**, więc nie mają prawa być
+    `POST`-em (CLAUDE.md §3). Skutek uboczny jest tu najważniejszą zaletą: cały stan okna siedzi
+    w adresie, więc **bez JavaScriptu okno działa tak samo**, tylko przeładowuje stronę.
+
+    ⚠ **Stan jedzie w ukrytych polach, a nie w sesji.** Sesja znaczyłaby, że dwie karty
+    przeglądarki ustawiają jedną regułę i wygrywa ta, która kliknęła później — bez żadnego
+    śladu dla człowieka.
+
+    ⚠ **Kafelki kroków nie niosą danych** (§4 zlecenia): numer i nazwa, ptaszek po wypełnieniu.
+    Wypisanie w nich wyboru („Kto widzi: Nowak") robiłoby z nagłówka trzecią kopię tego, co
+    i tak stoi w kroku — a przy długim nazwisku rozpychałoby pasek.
+
+    ⚠ **„Wszyscy przełożeni" blokuje krok 2** — i jest to zapisane TU jako `disabled`, a po
+    stronie serwera jako wymuszenie celu `subordinates`. Ekran jest podpowiedzią, nie bramką.
+
+    ⚠ **„Podwładni" przy koncie BEZ etatu w tej firmie jest wyłączone** (decyzja Krzysztofa):
+    takie konto nie ma gałęzi, więc reguła nigdy by nic nie dała — a reguła wyglądająca na
+    nadany dostęp i niedziałająca jest gorsza niż jej brak. Serwer odrzuca ją niezależnie.
+
+    Zmienne: `okno` (stan z `VisibilityController::stanOkna()`), `spolka`, `nazwy_zakresow`,
+    `opisy_zakresow`, opcjonalnie `htmx`. -#}
+{% import 'partials/ikony.twig' as ikony %}
+{#- ⚠ **Atrybuty `hx-*` jadą w OBU drogach renderowania** — i to jest poprawka błędu, nie
+    uproszczenie. Początkowo stało tu `htmx|default(false)`, przez analogię do kalendarza, gdzie
+    cel wymiany istnieje wyłącznie w powłoce webowej. Tutaj analogia jest fałszywa: cel
+    (`#widocznosc-okno-tresc`) stoi **na tej samej stronie**, która renderuje okno. Skutek błędu
+    był cichy i zmierzony: okno otwarte z adresu nie doczytywało kolejnych pozycji, bo wyzwalacz
+    na ostatniej pozycji w ogóle się nie renderował.
+    ⚠ Bez JavaScriptu atrybuty `hx-*` są bezwładne, a każdy z nich ma obok `href` albo
+    `formaction` — więc droga bez skryptów działa tak samo. -#}
+{% set hx = htmx|default(true) %}
+{% set baza = url('/admin/widocznosc/okno') ~ '?spolka=' ~ spolka.id %}
+{% set strona = url('/admin/widocznosc') ~ '?spolka=' ~ spolka.id ~ '&okno=1' %}
+{#- Stan przenoszony między krokami — jeden napis, bo powtarza się w każdym odnośniku. -#}
+{% set stan = 'regula=' ~ okno.regula ~ '&kto=' ~ okno.kto ~ '&kto_id=' ~ okno.kto_id
+    ~ '&czyje=' ~ okno.czyje ~ '&zakres=' ~ okno.zakres %}
+{% set stan_grup = '' %}
+{% for g in okno.grupy %}{% set stan_grup = stan_grup ~ '&grupy[]=' ~ g %}{% endfor %}
+
+{#- ⚠ **Kafelki kroków stoją W NAGŁÓWKU, pod tytułem, a nie nad treścią.** Postawione poza
+    nagłówkiem były przycinane jego dolną krawędzią i wyglądały na urwane; pod tytułem mają nad
+    sobą wyściółkę nagłówka, a pod sobą kreskę oddzielającą je od treści kroku. -#}
+<div class="modal__head modal__head--znak wid-glowa">
+    <span class="card__znak">{{ ikony.oko() }}</span>
+    <div class="card__tytuly">
+        <h3 id="widocznosc-okno-tytul">{{ okno.zmiana ? 'Zmień dostęp do kalendarza' : 'Nowy dostęp do kalendarza' }}</h3>
+        <p class="card__opis">w firmie {{ spolka.nazwa }}</p>
+    </div>
+    <button type="button" class="modal__close" data-modal-close="widocznosc-okno" aria-label="Zamknij okno">{{ ikony.krzyzyk() }}</button>
+</div>
+
+{#- ══════════ Kafelki kroków ══════════ -#}
+<div class="wid-kroki" role="group" aria-label="Kroki">
+    {% for nr, nazwa in {1: 'Kto widzi', 2: 'Czyje nieobecności', 3: 'Zakres'} %}
+        {#- ⚠ **Ptaszek znaczy „ten krok jest wypełniony", a nie „byłeś tu".** Na starcie nie ma
+            go ani na dwójce, ani na trójce: cel i zakres mają wartości domyślne, ale człowiek
+            jeszcze o nich nie rozstrzygnął. Za wypełniony uznajemy krok, przez który naprawdę
+            przeszedł — stąd porównanie z numerem kroku bieżącego, a nie sama obecność wartości. -#}
+        {% set gotowy = (nr == 1 and (okno.kto == 'supervisor_all' or okno.kto_id > 0))
+            or (nr == 2 and okno.krok > 2)
+            or (nr == 3 and okno.regula > 0) %}
+        <a class="wid-krok{{ okno.krok == nr ? ' wid-krok--on' : '' }}{{ gotowy ? ' wid-krok--gotowy' : '' }}"
+           href="{{ strona }}&amp;{{ stan }}{{ stan_grup }}&amp;krok={{ nr }}"
+           {% if hx %}hx-get="{{ baza }}&amp;{{ stan }}{{ stan_grup }}&amp;krok={{ nr }}"
+           hx-target="#widocznosc-okno-tresc" hx-swap="innerHTML"{% endif %}
+           {% if okno.krok == nr %}aria-current="step"{% endif %}>
+            <span class="wid-krok__numer">{% if gotowy %}{{ ikony.ptaszek() }}{% else %}{{ nr }}{% endif %}</span>
+            <span class="wid-krok__nazwa">{{ nazwa }}</span>
+        </a>
+    {% endfor %}
+</div>
+
+<form class="modal__wrap wid-okno" method="post" action="{{ url('/admin/widocznosc/zapisz') }}">
+    {% include 'partials/csrf.twig' %}
+    <input type="hidden" name="spolka" value="{{ spolka.id }}">
+    {#- ⚠ Bez JavaScriptu „Dalej" idzie na pełną stronę — `okno=1` każe jej otworzyć okno
+        z powrotem na właściwym kroku. Z htmx-em pole jest nieszkodliwe. -#}
+    <input type="hidden" name="okno" value="1">
+    <input type="hidden" name="regula" value="{{ okno.regula }}">
+    {#- ⚠ **Numeru kroku NIE MA w ukrytym polu** — i to jest poprawka błędu, który nie dawał
+        żadnego komunikatu. Niesie go wyłącznie przycisk, który wysyła formularz (`name="krok"`).
+        Przy ukrytym polu w żądaniu były **dwie wartości `krok`** — bieżąca z pola i następna
+        z przycisku — a serwer brał pierwszą z brzegu: „Dalej" zostawiało okno na tym samym kroku
+        i wyglądało na niedziałający przycisk (zmierzone). -#}
+    {#- ⚠ Wybory z pozostałych kroków jadą w ukrytych polach — inaczej zapis z kroku 3 zgubiłby
+        to, co człowiek wskazał w kroku 1. -#}
+    {% if okno.krok != 1 %}
+        <input type="hidden" name="kto" value="{{ okno.kto }}">
+        <input type="hidden" name="kto_id" value="{{ okno.kto_id }}">
+    {% endif %}
+    {#- ⚠ **`czyje` jedzie w ukrytym polu TAKŻE w kroku 2** — i to jest poprawka błędu, nie
+        porządki. Bez niego żądanie z przycisku „Dalej" nie niosło rodzaju celu w ogóle (numer
+        kroku jedzie adresem, a `hx-include` zbiera tylko pola formularza), więc serwer brał
+        wartość domyślną: wybrane GRUPY wracały z żądania jako lista bez rodzaju, a po dopisaniu
+        osób byłyby wzięte za zatrudnienia. Rodzaju celu nie zgaduje się z zawartości listy.
+        ⚠ Same pozycje celu są w kroku 2 polami wyboru w liście, więc ukryte kopie dokładałyby
+        je drugi raz. -#}
+    <input type="hidden" name="czyje" value="{{ okno.czyje }}">
+    {% if okno.krok != 2 %}
+        {% for g in okno.grupy %}<input type="hidden" name="grupy[]" value="{{ g }}">{% endfor %}
+    {% endif %}
+    {% if okno.krok != 3 %}<input type="hidden" name="zakres" value="{{ okno.zakres }}">{% endif %}
+
+    <div class="modal__body wid-okno__body">
+        {% if okno.krok == 1 %}
+            {#- ══════════ Krok 1: kto widzi ══════════ -#}
+            {#- ⚠ **Pasek segmentowy na całą szerokość, ikona i napis w JEDNEJ linii.** Trzy
+                kwadraty `.kal-btn` z napisem pod ikoną (kształt z nagłówka kalendarza) mają
+                stałe 64 px i przy „Wybrane grupy" napis wychodził poza przycisk. To jest inna
+                kontrolka: wybór jednego z trzech równorzędnych stanów. -#}
+            <div class="wid-seg" role="group" aria-label="Kto widzi">
+                {#- ⚠ **Kolejność: Osoba · Grupa · Przełożony** (decyzja Krzysztofa 19.10.2026). Nadawanie
+                    dostępu przełożonym jest najrzadsze, a pierwsza zakładka jest tą, którą widać
+                    przy otwarciu — więc stoi na końcu, nie na początku. -#}
+                {#- ⚠ Zakładka „Przełożony" prowadzi na `supervisor`, czyli na listę Z NICZYM
+                    niezaznaczonym. Gdyby prowadziła na `supervisor_all`, samo jej otwarcie
+                    wybierałoby regułę domyślną firmy — a to decyzja, której nikt nie podjął
+                    (zmierzone: po kliknięciu zakładki stopka mówiła już „wybrano: Wszyscy
+                    przełożeni"). Zaznaczoną otwiera wyłącznie ołówek przy wierszu domyślnym. -#}
+                {% for kod, nazwa in {'account': 'Osoba', 'group': 'Grupa', 'supervisor': 'Przełożony'} %}
+                    <a class="wid-seg__poz{{ (okno.kto == kod or (kod == 'supervisor' and okno.kto == 'supervisor_all')) ? ' wid-seg__poz--on' : '' }}"
+                       href="{{ strona }}&amp;regula={{ okno.regula }}&amp;kto={{ kod }}&amp;czyje={{ okno.czyje }}&amp;zakres={{ okno.zakres }}&amp;krok=1"
+                       {% if hx %}hx-get="{{ baza }}&amp;regula={{ okno.regula }}&amp;kto={{ kod }}&amp;czyje={{ okno.czyje }}&amp;zakres={{ okno.zakres }}&amp;krok=1"
+                       hx-target="#widocznosc-okno-tresc" hx-swap="innerHTML"{% endif %}>
+                        {%- if kod == 'supervisor' %}{{ ikony.drzewo() }}{% elseif kod == 'group' %}{{ ikony.etykieta() }}{% else %}{{ ikony.konto() }}{% endif -%}
+                        <span>{{ nazwa }}</span>
+                    </a>
+                {% endfor %}
+            </div>
+
+
+                {% include 'fragments/visibility-list.twig' with {
+                    'okno': okno, 'spolka': spolka, 'hx': hx, 'baza': baza, 'strona': strona,
+                    'stan': stan, 'stan_grup': stan_grup, 'krok': 1,
+                    'wybrane': [okno.kto_id], 'wielokrotny': false,
+                    'wszyscy_przelozeni': okno.kto == 'supervisor' or okno.kto == 'supervisor_all',
+                    'wszyscy_wybrani': okno.kto == 'supervisor_all',
+                    'cala_firma': false, 'firma_wybrana': false, 'pracownikow': 0,
+                    'przelozonych': przelozonych,
+                    'zacheta': okno.zacheta,
+                    'wybrano': okno.wybrano,
+                    'stopka': okno.kto == 'supervisor' or okno.kto == 'supervisor_all'
+                        ? 'tylko osoby, które mają podwładnych' : ''
+                } only %}
+
+        {% elseif okno.krok == 2 %}
+            {#- ══════════ Krok 2: czyje nieobecności ══════════ -#}
+            {#- ⚠ **Zakładki są trzy, a cele cztery** — i to nie jest przeoczenie (dopisek
+                z 19.10.2026 po prototypie). „Cała firma" nie ma własnej zakładki, bo stoi
+                PIERWSZĄ POZYCJĄ listy osób: wybór jest jeden — albo wszyscy, albo wskazani —
+                więc obie możliwości muszą stać w jednym zbiorze i mieć jeden znacznik.
+                Osobna zakładka robiła z tego dwa ekrany, między którymi trzeba się przełączać,
+                żeby porównać, co się właściwie wybiera. -#}
+            <div class="wid-seg" role="group" aria-label="Czyje nieobecności">
+                {% for kod, nazwa in {'persons': 'Osoby', 'groups': 'Grupy', 'subordinates': 'Podwładni'} %}
+                    {#- ⚠ Oba zakazy rozstrzyga SERWER (`stanOkna()` i `WidocznoscService`);
+                        tutaj wyłącznie wyszarzamy, żeby nie dało się wybrać czegoś, co i tak
+                        zostanie odrzucone. Wyszarzenie nie jest zabezpieczeniem. -#}
+                    {% set wylaczony = (okno.kto == 'supervisor_all' and kod != 'subordinates')
+                        or (kod == 'subordinates' and okno.kto_bez_etatu) %}
+                    {#- Zakładka „Osoby" jest czynna przy obu swoich stanach: „cała firma"
+                        i wskazane osoby to jedna lista, nie dwie. -#}
+                    {% set czynna = okno.czyje == kod or (kod == 'persons' and okno.czyje == 'company') %}
+                    {% if wylaczony %}
+                        <span class="wid-seg__poz wid-seg__poz--wylaczona"
+                              title="{{ okno.kto == 'supervisor_all' ? 'Wszyscy przełożeni widzą wyłącznie swoich podwładnych' : 'ta osoba nie jest zatrudniona w tej firmie' }}">
+                            {%- if kod == 'subordinates' %}{{ ikony.drzewo() }}{% elseif kod == 'groups' %}{{ ikony.etykieta() }}{% else %}{{ ikony.konto() }}{% endif -%}
+                            <span>{{ nazwa }}</span>
+                        </span>
+                    {% else %}
+                        <a class="wid-seg__poz{{ czynna ? ' wid-seg__poz--on' : '' }}"
+                           href="{{ strona }}&amp;regula={{ okno.regula }}&amp;kto={{ okno.kto }}&amp;kto_id={{ okno.kto_id }}&amp;czyje={{ kod }}&amp;zakres={{ okno.zakres }}&amp;krok=2"
+                           {% if hx %}hx-get="{{ baza }}&amp;regula={{ okno.regula }}&amp;kto={{ okno.kto }}&amp;kto_id={{ okno.kto_id }}&amp;czyje={{ kod }}&amp;zakres={{ okno.zakres }}&amp;krok=2"
+                           hx-target="#widocznosc-okno-tresc" hx-swap="innerHTML"{% endif %}>
+                            {%- if kod == 'subordinates' %}{{ ikony.drzewo() }}{% elseif kod == 'groups' %}{{ ikony.etykieta() }}{% else %}{{ ikony.konto() }}{% endif -%}
+                            <span>{{ nazwa }}</span>
+                        </a>
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            {% if okno.czyje == 'subordinates' %}
+                {#- ⚠ **Pole wyśrodkowane, z PRZERYWANĄ ramką** — bo to nie jest wybrana pozycja
+                    listy, tylko opis zbioru, którego listy nie ma i mieć nie może: gałąź liczy się
+                    przy każdym wyświetleniu, więc wypisanie nazwisk byłoby migawką, która
+                    zestarzeje się następnego dnia. Przerywana ramka mówi „tu nic nie wybierasz"
+                    bez ani jednego zdania o tym. -#}
+                <div class="wid-zbior">
+                    <span class="wid-zbior__znak">{{ ikony.drzewo() }}</span>
+                    <span class="wid-zbior__nazwa">
+                        {%- if okno.kto == 'group' and okno.kto_nazwa != '' %}Podwładni członków grupy {{ okno.kto_nazwa }}
+                        {%- elseif okno.kto_nazwa != '' %}Podwładni: {{ okno.kto_nazwa }}
+                        {%- else %}Podwładni wskazanej osoby{% endif -%}
+                    </span>
+                    {#- ⚠ Przy grupie gałąź liczy się **pod każdym członkiem z osobna**, bo grupa
+                        nie jest węzłem hierarchii (§8a: etykieta, nie warstwa zatwierdzania). -#}
+                    <span class="wid-zbior__opis">{{ okno.kto == 'group' ? 'Gałąź pod każdym członkiem tej grupy' : 'Cała gałąź pod tą osobą w hierarchii' }} — dziś {{ okno.podwladnych }} {{ odmiana_osob(okno.podwladnych) }}, także przyszli podwładni.</span>
+                    {% if okno.podwladnych == 0 and okno.kto != 'supervisor_all' and okno.kto_nazwa != '' %}
+                        <span class="wid-zbior__uwaga">{{ okno.kto == 'group' ? 'Członkowie tej grupy nie mają dziś podwładnych' : 'Ta osoba nie ma dziś podwładnych' }} — dostęp zadziała, gdy się pojawią.</span>
+                    {% endif %}
+                </div>
+            {% else %}
+                {#- Grupy i osoby to ta sama kontrolka, różni je zawartość listy i to, czy nad
+                    nazwiskami stoi „Cała firma". -#}
+                {% include 'fragments/visibility-list.twig' with {
+                    'okno': okno, 'spolka': spolka, 'hx': hx, 'baza': baza, 'strona': strona,
+                    'stan': stan, 'stan_grup': stan_grup, 'krok': 2,
+                    'wybrane': okno.grupy, 'wielokrotny': true, 'stopka': '',
+                    'wszyscy_przelozeni': false, 'wszyscy_wybrani': false, 'przelozonych': 0,
+                    'cala_firma': okno.czyje != 'groups',
+                    'firma_wybrana': okno.czyje == 'company',
+                    'pracownikow': okno.pracownikow,
+                    'zacheta': okno.zacheta, 'wybrano': okno.wybrano
+                } only %}
+            {% endif %}
+
+        {% else %}
+            {#- ══════════ Krok 3: zakres ══════════ -#}
+            {#- ⚠ **Zaznaczenie idzie za POLEM RADIO, nie za stanem z serwera.** Do 19.10.2026
+                klasa `--wybrany` przychodziła z serwera, więc klik w drugą kartę ustawiał radio,
+                ale ramka, tło i ptaszek zostawały na pierwszej — administrator widział wybrane
+                co innego, niż zostałoby zapisane. Teraz rozstrzyga `:has(:checked)` w arkuszu:
+                czysty CSS, bez przeładowania i bez ani jednej linii JavaScriptu.
+                ⚠ Identyfikatory pól są STAŁE, bo arkusz się do nich odwołuje przy przełączaniu
+                podglądu — nazwa klasy sklejona z danych byłaby tu tym samym błędem, co
+                `{% include zmienna %}` (CLAUDE.md §5). -#}
+            <div class="wid-zakresy wid-zakresy--kolumna">
+                {% for kod, nazwa in nazwy_zakresow %}
+                    <label class="wid-zakres">
+                        <input type="radio" name="zakres" value="{{ kod }}"
+                               id="{{ kod == 'ze_szczegolami' ? 'wid-zakres-pelny' : 'wid-zakres-bez' }}"
+                               {{ okno.zakres == kod ? 'checked' : '' }}>
+                        <span class="wid-zakres__ptak">{{ ikony.ptaszek() }}</span>
+                        <span class="wid-zakres__tresc">
+                            <span class="wid-zakres__nazwa">{{ nazwa|capitalize }}</span>
+                            <span class="wid-zakres__opis">{{ opisy_zakresow[kod] }}</span>
+                        </span>
+                    </label>
+                {% endfor %}
+            </div>
+
+            {#- ⚠ **Podgląd pokazuje SKUTEK, nie przykład** — i ma się zmieniać razem z wyborem,
+                nie po przeładowaniu. Oba warianty stoją w znaczniku, a arkusz pokazuje ten,
+                którego pole jest zaznaczone. Treści nie da się przełączyć samym stylem, więc
+                przełączamy GOTOWE BLOKI; tekst zostaje w Twigu, gdzie jego miejsce.
+                ⚠ Pięć dni z numerami i pustym dniem w środku: bez nich dwa bloki zlewają się
+                w jeden pasek i nie widać, że to dwie osobne nieobecności. -#}
+            <div class="wid-podglad" aria-hidden="true">
+                <span class="wid-podglad__podpis wid-podglad__podpis--bez">Podgląd w kalendarzu — widać tylko, że kogoś nie ma</span>
+                <span class="wid-podglad__podpis wid-podglad__podpis--pelny">Podgląd w kalendarzu — widać rodzaj każdej nieobecności</span>
+                <div class="wid-podglad__dni wid-podglad__dni--bez">
+                    {% for d in [12, 13, 14, 15, 16] %}
+                        {% if d == 14 %}
+                            <span class="wid-podglad__dzien wid-podglad__dzien--pusty"><span class="wid-podglad__numer">{{ d }}</span></span>
+                        {% else %}
+                            <span class="wid-podglad__dzien wid-podglad__dzien--bez"><span class="wid-podglad__numer">{{ d }}</span><span class="wid-podglad__napis">nieobecny</span></span>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                <div class="wid-podglad__dni wid-podglad__dni--pelny">
+                    {% for d in [12, 13, 14, 15, 16] %}
+                        {% if d == 14 %}
+                            <span class="wid-podglad__dzien wid-podglad__dzien--pusty"><span class="wid-podglad__numer">{{ d }}</span></span>
+                        {% else %}
+                            <span class="wid-podglad__dzien wid-podglad__dzien--{{ d < 14 ? 'urlop' : 'zasilek' }}"><span class="wid-podglad__numer">{{ d }}</span><span class="wid-podglad__napis">{{ d < 14 ? 'urlop wypoczynkowy' : 'zwolnienie lekarskie' }}</span></span>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="modal__foot">
+        {#- ⚠ **Oba wyjścia są widoczne na KAŻDYM kroku** (dopisek z 19.10.2026): kreator
+            z ukrytym „Nadaj dostęp" kazałby klikać „Dalej" także wtedy, gdy wszystko jest już
+            wybrane — a przy zmianie istniejącej reguły człowiek zwykle poprawia jedną rzecz.
+            ⚠ **„Anuluj" nie ma**: okno zamyka × w nagłówku, tak jak wszystkie pozostałe.
+            Drugi przycisk zamykający w stopce był trzecim wyjściem z tego samego okna. -#}
+        <div class="btn-row btn-row--jedna-linia">
+            {% if okno.krok > 1 %}
+                <a class="btn btn--ghost" href="{{ strona }}&amp;{{ stan }}{{ stan_grup }}&amp;krok={{ okno.krok - 1 }}"
+                   {% if hx %}hx-get="{{ baza }}&amp;{{ stan }}{{ stan_grup }}&amp;krok={{ okno.krok - 1 }}"
+                   hx-target="#widocznosc-okno-tresc" hx-swap="innerHTML"{% endif %}>Wstecz</a>
+            {% endif %}
+            {% if okno.krok < 3 %}
+                <button type="submit" class="btn btn--ghost" formmethod="get" formaction="{{ url('/admin/widocznosc') }}"
+                        name="krok" value="{{ okno.krok + 1 }}"
+                        {#- ⚠ Numer kroku jedzie w ADRESIE `hx-get`, nie w nazwie przycisku: htmx
+                            zbiera wartości z `input`, `select` i `textarea`, a `<button>` do tego
+                            zbioru nie należy. `name="krok"` obsługuje drogę bez JavaScriptu. -#}
+                        {% if hx %}hx-get="{{ url('/admin/widocznosc/okno') }}?spolka={{ spolka.id }}&amp;krok={{ okno.krok + 1 }}"
+                        hx-include="closest form"
+                        hx-target="#widocznosc-okno-tresc" hx-swap="innerHTML"{% endif %}>Dalej</button>
+            {% endif %}
+            <button type="submit" class="btn btn--primary" name="krok" value="3">{{ okno.zmiana ? 'Zapisz zmiany' : 'Nadaj dostęp' }}</button>
+        </div>
+    </div>
+</form>

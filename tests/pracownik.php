@@ -15,7 +15,6 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
-use Wezurlop\Service\CalendarVisibility;
 use Wezurlop\Service\KalendarzPracownika;
 use Wezurlop\Service\PulpitPracownika;
 use Wezurlop\Service\ZasiegPodgladu;
@@ -177,32 +176,13 @@ use Wezurlop\Support\WorkTime;
     $check('dwadzieścia dwa dni robocze', Odmiana::dniRobocze(22) === 'dni robocze');
     $check('zero dni roboczych', Odmiana::dniRobocze(0) === 'dni roboczych');
 
-    // ——— §8b: POZIOM WIDOCZNOŚCI liczy JEDNA funkcja ————————————————————————————
-    // ⚠ Sedno: poziom ma być określony także dla stanów, które „nie powinny wystąpić" —
-    // bo po ręcznym grzebaniu w bazie albo po dołożeniu roli kadrowej wystąpią.
-    $poziom = CalendarVisibility::poziom(...);
-    $check('brak uprawnień to poziom 0 (domyślny, także dla administratora)',
-        $poziom([]) === CalendarVisibility::POZIOM_BRAK);
-    $check('inne uprawnienia nie dają poziomu',
-        $poziom(['admin.users', 'admin.hierarchy', 'data.view']) === CalendarVisibility::POZIOM_BRAK);
-    $check('samo calendar.view_all to poziom 1',
-        $poziom(['calendar.view_all']) === CalendarVisibility::POZIOM_OGOLNY);
-    $check('oba kody to poziom 2',
-        $poziom(['calendar.view_all', 'calendar.view_all_details']) === CalendarVisibility::POZIOM_PELNY);
-    // ⚠ „Szczegół bez podstawy" to poziom 0, nie 2: prawo do nazwy rodzaju bez prawa wglądu
-    // w ogóle nie jest prawem, na które wolno patrzeć.
-    $check('samo ..._details BEZ podstawy to poziom 0',
-        $poziom(['calendar.view_all_details']) === CalendarVisibility::POZIOM_BRAK);
-    $check('kolejność kodów nie zmienia wyniku',
-        $poziom(['calendar.view_all_details', 'calendar.view_all']) === CalendarVisibility::POZIOM_PELNY);
-    $check('poziom 1 NIE otwiera nazw rodzajów',
-        !CalendarVisibility::widziRodzaj(CalendarVisibility::POZIOM_OGOLNY));
-    $check('poziom 2 otwiera nazwy rodzajów',
-        CalendarVisibility::widziRodzaj(CalendarVisibility::POZIOM_PELNY));
-    $check('poziom 0 nie daje zasięgu spółki',
-        !CalendarVisibility::widziSpolke(CalendarVisibility::POZIOM_BRAK));
-    $check('poziom 1 daje zasięg spółki',
-        CalendarVisibility::widziSpolke(CalendarVisibility::POZIOM_OGOLNY));
+    // ——— §8b: POZIOM WIDOCZNOŚCI — przeniesione do `tests/widocznosc.php` ——————————
+    // ⚠ Tu stało dwanaście sprawdzeń `CalendarVisibility::poziom()`: trójstanowy poziom liczony
+    // z kodów uprawnień (`calendar.view_all`, `..._details`). Z53 (19.10.2026) zastąpił ten
+    // mechanizm regułami dostępu per firma, więc funkcji i stałych POZIOM_* nie ma — a test,
+    // który woła nieistniejącą metodę, przewraca cały plik zamiast zgłosić jedną usterkę.
+    // Przypadki żyją dalej w `tests/widocznosc.php` (a–s), już na nowej funkcji
+    // `ZakresWidocznosci::dlaOsoby()` i na `KalendarzPracownika::pasek()`.
 
     // ——— §5.5: LIMIT WYŚWIETLANIA NIE MOŻE ZAMIENIĆ SIĘ W FILTR ————————————————
     // ⚠ To jest ten test, którego brak kosztowałby najwięcej: kontrolka przy 36 osobach pokazuje

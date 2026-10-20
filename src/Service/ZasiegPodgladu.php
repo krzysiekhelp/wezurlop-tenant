@@ -51,30 +51,52 @@ final class ZasiegPodgladu
      * ⚠ Zasięg NIE jest szczegółowością. Ta funkcja nie wie, czy widać nazwę rodzaju — to osobna
      * oś, którą liczy `CalendarVisibility` (`docs/etap3-logika-urlopowa.md` §8b).
      *
-     * @param int|null $employmentId `null` = konto bez zatrudnienia (administrator z nadanym poziomem)
-     * @return array{widok: string, dozwolone: list<int>, galaz: int, spolka: int}
+     * @param int|null $employmentId `null` = konto bez zatrudnienia (administrator z regułą dostępu)
+     * @param list<int> $zRegul zatrudnienia widoczne z REGUŁ dostępu (zlecenie Z53) — dokładane
+     *        do gałęzi w widoku „Zespół", bo „kogo widzę" to jedna lista, a nie tyle list,
+     *        ile źródeł dostępu
+     * @return array{widok: string, dozwolone: list<int>, galaz: int, spolka: int, moze_firme: bool}
      */
-    public function dlaWidoku(string $zadany, int $companyId, ?int $employmentId, bool $moznaSpolke): array
-    {
+    public function dlaWidoku(
+        string $zadany,
+        int $companyId,
+        ?int $employmentId,
+        bool $moznaSpolke,
+        array $zRegul = []
+    ): array {
         $galaz = $employmentId === null ? [] : $this->dozwolone($companyId, $employmentId);
         $wSpolce = $moznaSpolke ? $this->pracownicy->zatrudnieniaSpolki($companyId) : [];
+        // ⚠ **Gałąź i reguły schodzą się w JEDEN zbiór** (zlecenie Z53 §2): osoby z reguł stoją
+        // na kalendarzu zespołu obok podwładnych i w kontrolce wyboru. Kolejność gałęzi zostaje
+        // z przodu, bo pierwszym identyfikatorem ma być właściciel kalendarza — na tym stoi
+        // `przefiltruj()`.
+        $zespol = self::zlacz($galaz, $zRegul);
 
         // Kolejność warunków = kolejność pozycji przełącznika; każda pozycja istnieje tylko wtedy,
         // gdy ma treść (ta sama reguła, przez którą „Zespół" nie pokazuje się bez podwładnych).
         if ($zadany === KalendarzPracownika::WIDOK_FIRMA && $moznaSpolke) {
             $widok = KalendarzPracownika::WIDOK_FIRMA;
             $dozwolone = $wSpolce;
-        } elseif ($zadany === KalendarzPracownika::WIDOK_ZESPOL && count($galaz) > 1) {
+        } elseif ($zadany === KalendarzPracownika::WIDOK_ZESPOL && count($zespol) > 1) {
             $widok = KalendarzPracownika::WIDOK_ZESPOL;
-            $dozwolone = $galaz;
+            $dozwolone = $zespol;
         } elseif ($galaz !== []) {
             $widok = KalendarzPracownika::WIDOK_JA;
             $dozwolone = [$galaz[0]];
         } else {
             // Konto bez zatrudnienia: „Tylko ja" nie istnieje, bo nie ma czego pokazać.
-            // Z poziomem ≥ 1 wchodzi wprost na „Firma", bez pustego ekranu po drodze (§3 zlecenia).
-            $widok = $moznaSpolke ? KalendarzPracownika::WIDOK_FIRMA : KalendarzPracownika::WIDOK_JA;
-            $dozwolone = $moznaSpolke ? $wSpolce : [];
+            // Z regułą „cała firma" wchodzi wprost na „Firma"; z regułą na grupy — na „Zespół",
+            // gdzie stoją wyłącznie osoby z reguł.
+            if ($moznaSpolke) {
+                $widok = KalendarzPracownika::WIDOK_FIRMA;
+                $dozwolone = $wSpolce;
+            } elseif ($zespol !== []) {
+                $widok = KalendarzPracownika::WIDOK_ZESPOL;
+                $dozwolone = $zespol;
+            } else {
+                $widok = KalendarzPracownika::WIDOK_JA;
+                $dozwolone = [];
+            }
         }
 
         return [
@@ -82,8 +104,12 @@ final class ZasiegPodgladu
             'dozwolone' => $dozwolone,
             // Liczby do zdań o zasięgu: ile osób w gałęzi i ile w całej spółce. Zdanie „dalej
             // nie sięgasz" musi znać oba, inaczej nie da się go napisać prawdziwie.
-            'galaz' => count($galaz),
+            // ⚠ `galaz` liczy od Z53 **gałąź RAZEM z osobami z reguł**, bo to ona rozstrzyga,
+            // czy pozycja „Zespół" ma treść. Nazwa została, znaczenie się poszerzyło — i jest to
+            // zapisane tutaj, a nie domyślane z nazwy.
+            'galaz' => count($zespol),
             'spolka' => $moznaSpolke ? count($wSpolce) : 0,
+            'moze_firme' => $moznaSpolke,
         ];
     }
 
@@ -95,6 +121,67 @@ final class ZasiegPodgladu
     public function dozwolone(int $companyId, int $employmentId): array
     {
         return self::galaz($this->hierarchia->krawedzie($companyId), $employmentId);
+    }
+
+    /**
+     * **Ilu podwładnych ma każdy ze wskazanych przełożonych — CAŁA GAŁĄŹ, nie bezpośredni.**
+     *
+     * ⚠ Powstało po pomiarze z 19.10.2026: ekran pokazywał u jednej osoby „4 podwładnych"
+     * w kroku 1 i „dziś 6 osób" w kroku 2. Nie była to pomyłka arytmetyczna, tylko **dwie różne
+     * definicje tego samego słowa**: zapytanie liczyło bezpośrednich podwładnych, a krok 2 —
+     * gałąź liczoną przez `dozwolone()`. Reguła „Podwładni" daje gałąź, więc gałąź jest
+     * jedyną prawdziwą liczbą; ta druga opisywała coś, czego nikt nie nadaje.
+     *
+     * ⚠ **Jedno czytanie krawędzi na całą listę**, a potem czysta funkcja na każdy korzeń —
+     * dwadzieścia wierszy nie może znaczyć dwudziestu zapytań o hierarchię.
+     *
+     * @param list<int> $korzenie
+     * @return array<int, int> zatrudnienie => liczba podwładnych (bez niego samego)
+     */
+    public function podwladnych(int $companyId, array $korzenie): array
+    {
+        if ($korzenie === []) {
+            return [];
+        }
+        $krawedzie = $this->hierarchia->krawedzie($companyId);
+        $wynik = [];
+        foreach ($korzenie as $korzen) {
+            // `galaz()` zawiera korzeń, więc podwładni to reszta.
+            $wynik[$korzen] = max(0, count(self::galaz($krawedzie, $korzen)) - 1);
+        }
+
+        return $wynik;
+    }
+
+    /**
+     * Złączenie gałęzi hierarchii z osobami widocznymi z reguł — **bez powtórzeń i z gałęzią
+     * z przodu** (zlecenie Z53 §2).
+     *
+     * ⚠ Kolejność nie jest kosmetyką: pierwszym identyfikatorem ma zostać właściciel kalendarza,
+     * bo na tym stoi `przefiltruj()` („nic nie wskazano, więc pokaż właściciela"). Dołożenie
+     * osób z reguł na koniec zachowuje tę własność; wymieszanie list by ją odebrało.
+     *
+     * ⚠ Czysta funkcja — żeby dało się ją sprawdzić testem, a nie tylko układem danych roboczych.
+     *
+     * @param list<int> $galaz
+     * @param list<int> $zRegul
+     * @return list<int>
+     */
+    public static function zlacz(array $galaz, array $zRegul): array
+    {
+        $wynik = $galaz;
+        $ma = [];
+        foreach ($galaz as $id) {
+            $ma[$id] = true;
+        }
+        foreach ($zRegul as $id) {
+            if (!isset($ma[$id])) {
+                $ma[$id] = true;
+                $wynik[] = $id;
+            }
+        }
+
+        return $wynik;
     }
 
     /**

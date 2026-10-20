@@ -14,6 +14,7 @@ use Wezurlop\Repository\EmploymentRepository;
 use Wezurlop\Repository\PracownikRepository;
 use Wezurlop\Service\CalendarVisibility;
 use Wezurlop\Service\KalendarzPracownika;
+use Wezurlop\Service\ZakresWidocznosci;
 use Wezurlop\Service\KontekstSpolki;
 use Wezurlop\Service\ZasiegPodgladu;
 use Wezurlop\Support\Config;
@@ -102,7 +103,8 @@ final class CalendarController
                 'rok' => null, 'lista_roku' => null,
                 'ja' => null, 'zespol' => null, 'osoby' => [], 'wybrane' => [], 'ma_zespol' => false,
                 'ma_firme' => false, 'ukryci' => 0, 'w_zasiegu' => 0, 'obciete' => 0,
-                'poziom' => CalendarVisibility::POZIOM_BRAK, 'zasieg_opis' => null, 'szukaj' => '',
+                'zakresy' => [], 'ma_bez_szczegolow' => false, 'ma_ze_szczegolami' => false,
+                'zasieg_opis' => null, 'szukaj' => '',
                 'spolki' => [], 'spolka' => null, 'osob_w_liscie' => 0, 'pozycji_widoku' => 0,
                 'kontekst_podglad' => null, 'widok_odmowa' => null,
                 'wyl_poza_lista' => [],
@@ -171,7 +173,7 @@ final class CalendarController
             $spolki[(int) $etat['company_id']] = (string) $etat['company_name'];
             $etatWSpolce[(int) $etat['company_id']] ??= (int) $etat['id'];
         }
-        foreach ($this->widocznosc->spolkiZPoziomem($user->accountId()) as $s) {
+        foreach ($this->widocznosc->spolkiZDostepem($user->accountId()) as $s) {
             $spolki[(int) $s['id']] ??= (string) $s['nazwa'];
         }
         if ($spolki === []) {
@@ -335,12 +337,16 @@ final class CalendarController
 
         // ⚠ Poziom czytany z bazy przy KAŻDYM żądaniu — odebranie uprawnienia działa natychmiast
         // (CLAUDE.md §8), a nie „po wylogowaniu".
-        $poziom = $this->widocznosc->poziomKonta($user->accountId(), $spolka['id']);
+        // ⚠ **Zasięg i szczegółowość liczą się z reguł przy KAŻDYM żądaniu** (zlecenie Z53):
+        // odebranie reguły działa natychmiast, a nie po wylogowaniu (CLAUDE.md §8).
+        $widzEtat = $zatrudnienie === null ? null : $jaId;
+        $zRegul = $this->widocznosc->zasiegZRegul($user->accountId(), $spolka['id'], $widzEtat);
         $zasieg = $this->zasieg->dlaWidoku(
             $widokZadany,
             $spolka['id'],
-            $zatrudnienie === null ? null : $jaId,
-            CalendarVisibility::widziSpolke($poziom),
+            $widzEtat,
+            $this->widocznosc->widziCalaFirme($user->accountId(), $spolka['id'], $widzEtat),
+            $zRegul,
         );
         $widok = $zasieg['widok'];
         $dozwolone = $zasieg['dozwolone'];
@@ -379,6 +385,13 @@ final class CalendarController
             ? ['osoby' => [], 'razem' => 0]
             : $this->dane->osobyZasiegu($spolka['id'], $dozwolone, $jaId, $szukaj, $limit);
 
+        // ⚠ **Zakres liczony dla POKAZANYCH osob, jednym odczytem** — nie dla całego zasięgu
+        // i nie w pętli po wierszach. `widokJa` go nie potrzebuje: własne dane widzi się zawsze
+        // w pełni, a ta gałąź i tak nie dochodzi do osi czasu.
+        $zakresyPokazanych = $widok === KalendarzPracownika::WIDOK_JA
+            ? []
+            : $this->widocznosc->zakresy($user->accountId(), $spolka['id'], $widzEtat, $pokazane);
+
         return [
             'zatrudnienie' => $zatrudnienie,
             'spolka' => $spolka,
@@ -402,15 +415,22 @@ final class CalendarController
                 ]
                 : [],
             'widok' => $widok,
-            'poziom' => $poziom,
+            // ⚠ **Zamiast jednej liczby poziomu — mapa zakresów i dwa stany do zdań.** Ekran
+            // nie dostaje już „ile wolno ci widzieć", bo przy różnych regułach jedna liczba
+            // byłaby nieprawdą dla części wierszy.
+            'zakresy' => $zakresyPokazanych,
+            // Legenda dokłada pozycję „nieobecność bez szczegółów" TYLKO wtedy, gdy taka na ekranie
+            // jest (§2 zlecenia) — inaczej opisywałaby kolor, którego nie widać.
+            'ma_bez_szczegolow' => in_array(ZakresWidocznosci::BEZ_SZCZEGOLOW, $zakresyPokazanych, true),
+            'ma_ze_szczegolami' => in_array(ZakresWidocznosci::ZE_SZCZEGOLAMI, $zakresyPokazanych, true),
             'ma_zespol' => $zasieg['galaz'] > 1,
-            'ma_firme' => CalendarVisibility::widziSpolke($poziom),
+            'ma_firme' => $zasieg['moze_firme'],
             // ⚠ **Ile pozycji ma przełącznik widoku** — liczone tu, bo szablon ma wyświetlać,
             // a nie sumować warunki. Przy jednej pozycji przełącznika NIE MA (§3 zlecenia
             // z wieczora 06.10): kontrolka bez drugiego wyboru to przycisk bez działania.
             'pozycji_widoku' => ($zatrudnienie !== null ? 1 : 0)
                 + ($zasieg['galaz'] > 1 ? 1 : 0)
-                + (CalendarVisibility::widziSpolke($poziom) ? 1 : 0),
+                + ($zasieg['moze_firme'] ? 1 : 0),
             // ⚠ Każda skala buduje się **tylko wtedy, gdy jest wybrana** — inaczej jedno żądanie
             // pytałoby bazę o miesiąc i o cały rok naraz, a widać zawsze jedno.
             'ja' => $skala === KalendarzPracownika::SKALA_MIESIAC
@@ -425,7 +445,8 @@ final class CalendarController
                 : null,
             'zespol' => $widok === KalendarzPracownika::WIDOK_JA
                 ? null
-                : $this->kalendarz->widokZespolu($kontekst, $pokazane, $pierwszy, $dzis, $poziom, $nazwyWZasiegu),
+                : $this->kalendarz->widokZespolu($kontekst, $pokazane, $pierwszy, $dzis,
+                    $zakresyPokazanych, $nazwyWZasiegu),
             // Lista kontrolki powstaje **po stronie serwera** z zasięgu i zawiera wyłącznie osoby,
             // które wolno oglądać — a nie wszystkich i ukrywanie pozostałych w szablonie.
             // Szukanie też idzie serwerem, tym samym mechanizmem co kandydat na przełożonego.
@@ -455,7 +476,7 @@ final class CalendarController
             'ukryci' => count($dozwolone) - count($wybrane),
             'obciete' => count($wybrane) - count($pokazane),
             'w_zasiegu' => count($dozwolone),
-            'zasieg_opis' => self::opisZasiegu($widok, $zasieg, $spolka['nazwa'], $poziom),
+            'zasieg_opis' => self::opisZasiegu($widok, $zasieg, $spolka['nazwa']),
             // ⚠ Nazwa spółki pracy, gdy kalendarz pokazuje spółkę **bez mojego etatu** (nadany
             // podgląd). Łata `kontekst_rozjazd` z tego samego dnia **została usunięta razem
             // z wariantem C** (zlecenie §4): pozycja spółki z etatem przełącza teraz kontekst,
@@ -503,11 +524,13 @@ final class CalendarController
      *
      * @param array{widok: string, dozwolone: list<int>, galaz: int, spolka: int} $zasieg
      */
-    private static function opisZasiegu(string $widok, array $zasieg, string $spolka, int $poziom): ?string
+    private static function opisZasiegu(string $widok, array $zasieg, string $spolka): ?string
     {
         if ($widok === KalendarzPracownika::WIDOK_FIRMA) {
-            return 'Widzisz nieobecności całej firmy ' . $spolka . ' — nadane uprawnienie'
-                . (CalendarVisibility::widziRodzaj($poziom) ? ', z nazwami rodzajów.' : ', bez nazw rodzajów.');
+            // ⚠ Bez dopisku o nazwach rodzajów: od Z53 szczegółowość bywa RÓŻNA dla różnych
+            // wierszy tej samej siatki, więc jedno zdanie o całym ekranie kłamałoby dla części
+            // z nich. Mówi o tym legenda, przy samych paskach.
+            return 'Widzisz nieobecności całej firmy ' . $spolka . ' — z nadanej reguły dostępu.';
         }
         if ($widok === KalendarzPracownika::WIDOK_ZESPOL) {
             // ⚠ Zdanie o ZASIĘGU, nie o filtrze: „dalej nie sięgasz" ma inny powód niż
@@ -565,12 +588,13 @@ final class CalendarController
         }
         // ⚠ Zasięg do zapisu liczy TA SAMA funkcja co zasięg widoku — inaczej wyłączenia
         // powstałyby na innym zbiorze, niż ten, który człowiek widział, klikając.
-        $poziom = $this->widocznosc->poziomKonta($user->accountId(), $spolka['id']);
+        $widzEtat = $zatrudnienie === null ? null : (int) $zatrudnienie['id'];
         $zasieg = $this->zasieg->dlaWidoku(
             $request->postString('widok', 8),
             $spolka['id'],
-            $zatrudnienie === null ? null : (int) $zatrudnienie['id'],
-            CalendarVisibility::widziSpolke($poziom),
+            $widzEtat,
+            $this->widocznosc->widziCalaFirme($user->accountId(), $spolka['id'], $widzEtat),
+            $this->widocznosc->zasiegZRegul($user->accountId(), $spolka['id'], $widzEtat),
         );
         $dozwolone = $zasieg['dozwolone'];
         // ⚠ **Zapisujemy stan BIEŻĄCY kontrolki — tą samą funkcją, którą kontrolka się renderuje.**

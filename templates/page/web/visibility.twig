@@ -1,0 +1,258 @@
+{% extends 'layout/web.twig' %}
+{#- `modules/widocznosc.js`: wzajemne odznaczanie „Całej firmy" i wskazanych osób w kroku 2.
+    Bez tego pliku ekran działa — sprzeczne zaznaczenie rozstrzyga serwer (cała firma wygrywa). -#}
+{% set widocznosc_js = true %}
+{% import 'partials/ikony.twig' as ikony %}
+{% import 'partials/inicjaly.twig' as znak %}
+
+{#- ⚠ Tytuł w belce jest **pełny**, a pozycja w menu skrócona: w belce stoi sam, więc musi
+    powiedzieć, czego dotyczy; w menu stoi między „Grupy" i „Hierarchia", gdzie kontekst niesie
+    sąsiedztwo, a dłuższy napis łamałby się na dwa wiersze. -#}
+{% block nazwa_ekranu %}Widoczność kalendarza{% endblock %}
+
+{% block okruchy %}
+{% endblock %}
+
+{#- **Kto widzi czyje nieobecności** (zlecenie Z53 §4).
+
+    ⚠ **Jeden ekran dla całej firmy, a nie kontrolka w panelu osoby.** Do 19.10.2026 wgląd
+    w kalendarze nadawało się trójstanowym przełącznikiem w `Konta › osoba › Uprawnienia`.
+    Powód przeniesienia jest w kształcie samej rzeczy: **„kto widzi kogo" jest RELACJĄ**,
+    a panel jednej osoby pokazuje tylko jej połowę — z tamtego ekranu nie dawało się
+    odpowiedzieć na pytanie „kto widzi kalendarz Nowaka".
+
+    ⚠ **Pierwszy wiersz jest regułą, a nie nagłówkiem.** „Każdy przełożony › Swoi podwładni"
+    siedzi w tej samej tabeli, co pozostałe, i podlega tej samej zasadzie „wygrywa wyższy
+    zakres". Różni się jedną rzeczą: **nie da się jej usunąć**, bo hierarchia istnieje zawsze.
+    Stąd ołówek bez kosza — i stąd zakaz po stronie serwera, nie tylko brak przycisku.
+
+    ⚠ **Reguła niższa nigdy nie ogranicza wyższej.** Ekran mówi to zdaniem pod listą, bo to
+    jedyna rzecz, której nie widać z samych wierszy: administrator patrzący na „bez szczegółów"
+    przy przełożonych i „ze szczegółami" przy regule osoby musi wiedzieć, która wygrywa. -#}
+{% block content %}
+    {% set adres = url('/admin/widocznosc') ~ '?spolka=' ~ spolka.id %}
+
+    {#- ⚠ Cztery liczby z TEJ SAMEJ listy, co wiersze niżej — nie drugim zapytaniem. Kafel
+        „Dodatkowe dostępy" jest liczbą wierszy pod nim; dwa liczniki tej samej rzeczy
+        rozjeżdżają się na pierwszym brakującym warunku. -#}
+    <section class="kafle kafle--auto" aria-label="Stan dostępu do kalendarzy">
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.oko() }}<span class="kafel__etykieta">Dodatkowe dostępy</span></span>
+            <span class="kafel__dana">
+                <span class="kafel__wartosc">{{ kafle.dodatkowych }}</span>
+                <span class="kafel__opis">oprócz przełożonych</span>
+            </span>
+        </div>
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.konto() }}<span class="kafel__etykieta">Osoby z dostępem</span></span>
+            <span class="kafel__dana">
+                <span class="kafel__wartosc">{{ kafle.osob }}</span>
+                <span class="kafel__opis">osoby i grupy wskazane w regułach</span>
+            </span>
+        </div>
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.lupa() }}<span class="kafel__etykieta">Ze szczegółami</span></span>
+            <span class="kafel__dana">
+                {#- ⚠ Liczba nie dostaje barwy ostrzeżenia: to jest stan nadany świadomie,
+                    a nie usterka do naprawienia (§3.1 systemu wizualnego). -#}
+                <span class="kafel__wartosc">{{ kafle.ze_szczegolami }}</span>
+                <span class="kafel__opis">reguły z nazwami rodzajów</span>
+            </span>
+        </div>
+        <div class="kafel">
+            <span class="kafel__glowa">{{ ikony.drzewo() }}<span class="kafel__etykieta">Przełożeni</span></span>
+            <span class="kafel__dana">
+                <span class="kafel__wartosc kafel__wartosc--napis">{{ nazwy_zakresow[zakres_domyslny] }}</span>
+                <span class="kafel__opis">widzą swoich podwładnych</span>
+            </span>
+        </div>
+    </section>
+
+    {% include 'partials/komunikat.twig' with {'tekst': error, 'rodzaj': 'blad'} only %}
+    {% include 'partials/komunikat.twig' with {'tekst': notice, 'rodzaj': 'sukces'} only %}
+    {% include 'partials/spolka-ekranu.twig' with {
+        'spolka': spolka.nazwa, 'z_adresu': spolka_z_adresu,
+        'z_zasobu': spolka_z_zasobu, 'fallback': spolka_fallback} only %}
+
+    <section class="card card--os" id="widocznosc-lista">
+        <div class="card__head card__head--znak card__head--lista">
+            <span class="card__znak">{{ ikony.oko() }}</span>
+            {#- ⚠ Karta bez własnego tytułu: ekran nazywa się „Widoczność" i ta nazwa stoi
+                w belce jako jedyny `h1` (kryterium bramki `nazwa_ekranu_w_belce`). -#}
+            <div class="card__tytuly">
+                <p class="card__opis card__opis--lead">Kto widzi czyje nieobecności w kalendarzu.</p>
+                <p class="card__opis">Przełożeni widzą swoich podwładnych zawsze — regułami dokłada się dostęp poza hierarchią.</p>
+            </div>
+            <div class="card__akcje">
+                {#- ⚠ **„Dodaj dostęp" otwiera zakładkę OSOBA z niczym niezaznaczonym**
+                    (`kto=account`, bez identyfikatora; decyzja Krzysztofa 19.10.2026 — dostęp
+                    dla przełożonych jest najrzadszy, więc jego zakładka stoi na końcu). Zaznaczenie z góry podpowiadałoby
+                    decyzję, której nikt nie podjął — a decyduje się tu o wglądzie w cudze
+                    nieobecności. Z zaznaczoną regułą domyślną otwiera się tylko ołówek przy niej. -#}
+                <a class="btn btn--ghost btn--akcja" href="{{ adres }}&amp;okno=1&amp;kto=account&amp;krok=1"
+                   data-modal-open="widocznosc-okno"
+                   hx-get="{{ url('/admin/widocznosc/okno') }}?spolka={{ spolka.id }}&amp;kto=account&amp;krok=1"
+                   hx-target="#widocznosc-okno-tresc" hx-swap="innerHTML">{{ ikony.plus() }}Dodaj dostęp</a>
+            </div>
+        </div>
+
+        {#- ⚠ **Nagłówki kolumn, 12 px wersalikami** — bez nich wiersz „Nowak › Magazyn · bez
+            szczegółów" trzeba przeczytać dwa razy, żeby zgadnąć, który człon jest który. Ta sama
+            typografia, co nagłówek kolumny w tabeli (`--t-label`). ⚠ `aria-hidden`, bo to nie
+            jest tabela: czytnik ekranu dostaje treść wiersza, a nie podpisy kolumn bez komórek. -#}
+        <div class="wid-naglowki" aria-hidden="true">
+            <span></span>
+            <span>Kto widzi</span>
+            <span></span>
+            <span>Czyje nieobecności</span>
+            <span>Zakres</span>
+            <span></span>
+            <span></span>
+        </div>
+        <ul class="wid-lista">
+            {#- ══════════ Reguła domyślna firmy ══════════ -#}
+            <li class="wid-wiersz wid-wiersz--domyslna">
+                <span class="wid-wiersz__znak">{{ ikony.drzewo() }}</span>
+                <div class="wid-wiersz__kto">
+                    <span class="wid-wiersz__nazwa">Każdy przełożony</span>
+                    <span class="wid-wiersz__opis">{{ przelozonych_opis }} · reguła domyślna firmy</span>
+                </div>
+                <span class="wid-wiersz__strzalka" aria-hidden="true">›</span>
+                {#- ⚠ **Jedna linia z ikoną przed nazwą**, objaśnienie w `title`. Druga linia
+                    powtarzała w każdym wierszu to samo zdanie o liczeniu przy wyświetleniu —
+                    czyli regułę całego ekranu, nie cechę tego wiersza. Ta reguła stoi raz,
+                    w szarej notce pod listą. -#}
+                <div class="wid-wiersz__czyje" title="Cała gałąź pod tą osobą w hierarchii, liczona przy każdym wyświetleniu — także przyszli podwładni">
+                    <span class="wid-wiersz__ikona">{{ ikony.drzewo() }}</span>
+                    <span class="wid-wiersz__nazwa">Swoi podwładni</span>
+                </div>
+                {{ include('partials/zakres-plakietka.twig', {'zakres': zakres_domyslny, 'nazwy': nazwy_zakresow}, with_context = false) }}
+                {#- ⚠ Ołówek, ale **bez kosza**: hierarchia istnieje zawsze, więc tej reguły nie
+                    da się odebrać — można jej tylko zmienić zakres. Serwer odrzuca usunięcie
+                    niezależnie od tego, że przycisku tu nie ma. -#}
+                <a class="ikona-akcja ikona-akcja--edycja" href="{{ adres }}&amp;okno=1&amp;kto=supervisor_all&amp;krok=3&amp;zakres={{ zakres_domyslny }}&amp;regula={{ domyslna_id }}"
+                   data-modal-open="widocznosc-okno"
+                   hx-get="{{ url('/admin/widocznosc/okno') }}?spolka={{ spolka.id }}&amp;kto=supervisor_all&amp;krok=3&amp;zakres={{ zakres_domyslny }}&amp;regula={{ domyslna_id }}"
+                   hx-target="#widocznosc-okno-tresc" hx-swap="innerHTML"
+                   aria-label="Zmień zakres dla wszystkich przełożonych" title="Zmień zakres">{{ ikony.olowek() }}</a>
+                {#- ⚠ Miejsce po koszu zostaje PUSTE, bez ramki: kwadrat w obrysie czytał się
+                    jak przycisk wyłączony, czyli jak „tu da się coś zrobić, ale nie teraz" —
+                    a tej reguły nie da się usunąć nigdy. Kolumna zostaje, żeby ołówki stały
+                    w jednej linii pionowej we wszystkich wierszach. -#}
+                <span class="wid-wiersz__brak-akcji" aria-hidden="true"></span>
+            </li>
+
+            {#- ══════════ Reguły dodatkowe ══════════ -#}
+            {% for r in reguly %}
+                <li class="wid-wiersz">
+                    <span class="wid-wiersz__znak">
+                        {%- if r.kto_rodzaj == 'group' %}{{ ikony.etykieta() }}
+                        {%- elseif r.kto_rodzaj == 'supervisor' %}{{ ikony.drzewo() }}
+                        {%- else %}{{ ikony.konto() }}{% endif -%}
+                    </span>
+                    <div class="wid-wiersz__kto">
+                        <span class="wid-wiersz__nazwa">{{ r.kto }}</span>
+                        <span class="wid-wiersz__opis">{{ r.kto_opis }}</span>
+                    </div>
+                    <span class="wid-wiersz__strzalka" aria-hidden="true">›</span>
+                    {#- ⚠ Przy osobach `title` niesie **pełną listę nazwisk, razem ze zwolnionymi** —
+                        bo to ona mówi, co w regule stoi. Kolumna pokazuje skrót, a nie całość:
+                        dwunastu nazwisk nie da się zmieścić w jednej linii, a zawijanie rozpychałoby
+                        każdy wiersz tabeli. -#}
+                    <div class="wid-wiersz__czyje" title="
+                        {%- if r.czyje_rodzaj == 'subordinates' %}Cała gałąź pod tą osobą w hierarchii, liczona przy każdym wyświetleniu
+                        {%- elseif r.czyje_rodzaj == 'company' %}Wszyscy pracownicy firmy — także zatrudnieni w przyszłości
+                        {%- elseif r.czyje_rodzaj == 'persons' %}{{ r.czyje_pelne }}
+                        {%- else %}Członkowie tych grup — także dopisani do nich później{% endif -%}">
+                        <span class="wid-wiersz__ikona">
+                            {%- if r.czyje_rodzaj == 'subordinates' %}{{ ikony.drzewo() }}
+                            {%- elseif r.czyje_rodzaj == 'company' %}{{ ikony.firma() }}
+                            {%- elseif r.czyje_rodzaj == 'persons' %}{{ ikony.konto() }}
+                            {%- else %}{{ ikony.etykieta() }}{% endif -%}
+                        </span>
+                        {% if r.czyje_rodzaj == 'persons' %}
+                            {#- ⚠ Każde nazwisko w osobnym `span`, bo przekreślenie dotyczy nazwiska,
+                                a nie przecinka między nazwiskami. -#}
+                            <span class="wid-wiersz__nazwa">
+                                {%- for o in r.czyje_osoby -%}
+                                    {%- if not loop.first %}, {% endif -%}
+                                    <span{% if not o.czynne %} class="wid-wiersz__osoba--zwolniona" title="Zatrudnienie zakończone"{% endif %}>{{ o.nazwa }}</span>
+                                {%- endfor -%}
+                                {%- if r.czyje_reszta > 0 %} {{ r.czyje_reszta_opis }}{% endif -%}
+                            </span>
+                            {#- ⚠ Plakietka mówi, że reguła **nic już nie daje**, a nie że jej nie ma:
+                                zostaje na ekranie, żeby administrator sam zdecydował, czy ją skasować. -#}
+                            {% if r.czyje_nieczynna %}
+                                <span class="chip chip--mala wid-wiersz__plakietka">nieaktywna — brak czynnych osób</span>
+                            {% endif %}
+                        {% else %}
+                            <span class="wid-wiersz__nazwa">{{ r.czyje }}</span>
+                        {% endif %}
+                    </div>
+                    {{ include('partials/zakres-plakietka.twig', {'zakres': r.zakres, 'nazwy': nazwy_zakresow}, with_context = false) }}
+                    <a class="ikona-akcja ikona-akcja--edycja" href="{{ adres }}&amp;okno=1&amp;regula={{ r.id }}&amp;kto={{ r.kto_rodzaj }}&amp;kto_id={{ r.kto_id }}&amp;czyje={{ r.czyje_rodzaj }}&amp;zakres={{ r.zakres }}&amp;krok=1{% for g in r.grupy %}&amp;grupy[]={{ g }}{% endfor %}"
+                       data-modal-open="widocznosc-okno"
+                       hx-get="{{ url('/admin/widocznosc/okno') }}?spolka={{ spolka.id }}&amp;regula={{ r.id }}&amp;kto={{ r.kto_rodzaj }}&amp;kto_id={{ r.kto_id }}&amp;czyje={{ r.czyje_rodzaj }}&amp;zakres={{ r.zakres }}&amp;krok=1{% for g in r.grupy %}&amp;grupy[]={{ g }}{% endfor %}"
+                       hx-target="#widocznosc-okno-tresc" hx-swap="innerHTML"
+                       aria-label="Zmień dostęp: {{ r.kto }}" title="Zmień dostęp">{{ ikony.olowek() }}</a>
+                    {#- ⚠ Bez JavaScriptu kosz wysyła formularz; z `ui.js` otwiera okno
+                        potwierdzenia. Jeden przycisk, dwie drogi — tak samo jak na `/admin/grupy`. -#}
+                    <form method="post" action="{{ url('/admin/widocznosc/' ~ r.id ~ '/usun') }}" class="ikona-akcja__form">
+                        {% include 'partials/csrf.twig' %}
+                        <input type="hidden" name="spolka" value="{{ spolka.id }}">
+                        <button type="submit" class="ikona-akcja ikona-akcja--usun"
+                                data-modal-open="wid-usun-{{ r.id }}"
+                                aria-label="Odbierz dostęp: {{ r.kto }}" title="Odbierz dostęp">{{ ikony.kosz() }}</button>
+                    </form>
+                </li>
+            {% endfor %}
+        </ul>
+
+        <div class="card__body card__body--tight">
+            {#- ⚠ **Zdanie o pierwszeństwie jest tu obowiązkowe, nie uprzejme.** Z samych wierszy
+                nie da się odczytać, co się dzieje, gdy dwie reguły dotyczą tej samej osoby —
+                a to jest jedyna zasada, której pomyłka kosztuje dostęp do danych o zdrowiu. -#}
+            <p class="nazwy-podpowiedz"><strong>Bez szczegółów</strong> — widać tylko, że osoba jest nieobecna. <strong>Ze szczegółami</strong> — widać rodzaj i dokładną nazwę z programu kadrowego, w tym rodzaje zwolnień. Gdy kilka reguł dotyczy tej samej osoby, <strong>wygrywa szerszy zakres</strong>; węższa reguła nigdy nie ogranicza szerszej.</p>
+        </div>
+    </section>
+
+    {#- ⚠ Jedno puste okno na cały ekran, a nie jedno na wiersz: treść przychodzi z serwera
+        jednym żądaniem, więc okno nie musi jej znać z wyprzedzenia. -#}
+    {#- ⚠ `data-modal-trwale` jest tu WARUNKIEM DZIAŁANIA, nie ozdobą. Wspólna obsługa okien
+        czyści `.modal__body` przy zamknięciu, a okno otwarte PRZEZ SERWER jest przez nią najpierw
+        zamykane i otwierane na nowo (`close()` + `showModal()`, bo `<dialog open>` z HTML-a nie
+        jest modalne). Bez tego atrybutu treść wyrenderowana na stronie znika zanim cokolwiek
+        zobaczysz — zmierzone: `.wid-okno__body` pusty przy każdym kroku. Ta sama pułapka,
+        co przy oknie nazw firm (Z29). -#}
+    <dialog id="widocznosc-okno" class="modal modal--wid" aria-labelledby="widocznosc-okno-tytul" data-modal-trwale{{ okno_otwarte ? ' open' : '' }}>
+        <div id="widocznosc-okno-tresc" class="modal__wrap">
+            {% if okno_otwarte %}{% include 'fragments/visibility-window.twig' %}{% endif %}
+        </div>
+    </dialog>
+
+    {% for r in reguly %}
+        <dialog id="wid-usun-{{ r.id }}" class="modal modal--grupa" aria-labelledby="wid-usun-{{ r.id }}-tytul" data-modal-trwale>
+            <div class="modal__head modal__head--znak">
+                <span class="card__znak card__znak--niebezpieczny">{{ ikony.kosz() }}</span>
+                <div class="card__tytuly">
+                    <h3 id="wid-usun-{{ r.id }}-tytul">Odbierz dostęp</h3>
+                    <p class="card__opis">{{ r.kto }} › {{ r.czyje }}</p>
+                </div>
+                <button type="button" class="modal__close" data-modal-close="wid-usun-{{ r.id }}" aria-label="Zamknij okno">{{ ikony.krzyzyk() }}</button>
+            </div>
+            <form class="modal__wrap" method="post" action="{{ url('/admin/widocznosc/' ~ r.id ~ '/usun') }}">
+                {% include 'partials/csrf.twig' %}
+                <input type="hidden" name="spolka" value="{{ spolka.id }}">
+                <div class="modal__body">
+                    <p class="nazwy-podpowiedz">Ta osoba przestanie widzieć wskazane nieobecności od następnego wyświetlenia kalendarza. Dostęp z hierarchii i z pozostałych reguł zostaje bez zmian.</p>
+                </div>
+                <div class="modal__foot">
+                    <div class="btn-row btn-row--jedna-linia">
+                        <button type="button" class="btn btn--ghost" data-modal-close="wid-usun-{{ r.id }}">Anuluj</button>
+                        <button type="submit" class="btn btn--danger">Odbierz dostęp</button>
+                    </div>
+                </div>
+            </form>
+        </dialog>
+    {% endfor %}
+{% endblock %}

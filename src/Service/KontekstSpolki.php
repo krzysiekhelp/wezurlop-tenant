@@ -93,7 +93,7 @@ final class KontekstSpolki
             $nazwy[$id] = (string) $etat['company_name'];
             $etatWSpolce[$id] ??= (int) $etat['id'];
         }
-        foreach ($this->widocznosc->spolkiZPoziomem($accountId) as $s) {
+        foreach ($this->widocznosc->spolkiZDostepem($accountId) as $s) {
             $nazwy[(int) $s['id']] ??= (string) $s['nazwa'];
         }
         if ($this->permissions->hasTenantWideRole($accountId)) {

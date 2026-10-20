@@ -31,6 +31,7 @@ final class EkranyBelki
         'wnioski' => '/wnioski',
         'grupy' => '/admin/grupy',
         'hierarchia' => '/admin/hierarchia',
+        'widocznosc' => '/admin/widocznosc',
         'konta' => '/admin/konta',
         'dane' => '/dane',
         'dziennik' => '/admin/dziennik',

@@ -17,6 +17,7 @@ use Wezurlop\Http\Middleware\Middleware;
 use Wezurlop\Http\Middleware\Require2fa;
 use Wezurlop\Http\Middleware\SessionLifetime;
 use Wezurlop\Repository\CompanyCalendarRepository;
+use Wezurlop\Repository\CalendarAccessRepository;
 use Wezurlop\Repository\CalendarFilterRepository;
 use Wezurlop\Repository\DataViewRepository;
 use Wezurlop\Repository\PracownikRepository;
@@ -185,13 +186,23 @@ final class Kernel
         // Jedno repozytorium widoku pracownika dla pulpitu i obu widoków kalendarza — te ekrany
         // muszą czytać te same dane tym samym zapytaniem, nie dwoma.
         $pracownikRepo = new PracownikRepository($services->db);
+        // ⚠ **Jedna instancja widoczności kalendarza na żądanie** — pyta o reguły dostępu przy
+        // każdym wyświetleniu kalendarza i przy znaczniku spółki w belce. Dwie instancje
+        // to dwa razy te same zapytania o reguły, na każdym ekranie.
+        $zasiegPodgladu = new ZasiegPodgladu($services->hierarchyRepository(), $pracownikRepo);
+        $regulyKalendarza = new CalendarAccessRepository($services->db);
+        $widocznoscKalendarza = new CalendarVisibility(
+            $regulyKalendarza,
+            $zasiegPodgladu,
+            $pracownikRepo,
+        );
         // ⚠ **Jedna instancja na żądanie** — ta sama odpowiedź „w jakiej spółce jestem" dla
         // znacznika w belce, dla middleware i dla kontrolerów. Dwie instancje to dwa zapytania
         // o to samo, a przy znaczniku stojącym na każdym ekranie to dwa razy więcej niż trzeba.
         $kontekstSpolki = new KontekstSpolki(
             $services->employments,
             $services->permissions,
-            new CalendarVisibility($services->permissions, $services->db, $services->events),
+            $widocznoscKalendarza,
             $authSession,
             $services->accounts,
         );
@@ -242,9 +253,15 @@ final class Kernel
             $pracownikRepo,
             new PulpitPracownika($pracownikRepo, $services->syncRepository()),
             new KalendarzPracownika($pracownikRepo),
-            new ZasiegPodgladu($services->hierarchyRepository(), $pracownikRepo),
+            $zasiegPodgladu,
             new CalendarFilterRepository($services->db),
-            new CalendarVisibility($services->permissions, $services->db, $services->events),
+            $widocznoscKalendarza,
+            $regulyKalendarza,
+            new \Wezurlop\Service\WidocznoscService(
+                $regulyKalendarza,
+                $services->grupyRepository(),
+                $services->events,
+            ),
             $kontekstSpolki,
         ));
         // ⚠ Znacznik spółki w belce: **jedno** rozstrzygnięcie na żądanie, liczone leniwie

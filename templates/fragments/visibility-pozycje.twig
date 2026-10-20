@@ -1,0 +1,69 @@
+{#- **Pozycje listy wyboru — same `<li>`**, żeby doczytywanie DOPISYWAŁO, a nie podmieniało
+    (zlecenie Z53, dopisek z 19.10.2026 po prototypie Krzysztofa).
+
+    ⚠ **To jest cała różnica między „doczytuje" a „przeładowuje listę".** Podmiana całej listy
+    wymazałaby zaznaczenie razem z pozycją przewinięcia — czyli przy wyborze wielokrotnym
+    człowiek traciłby wskazane grupy co dwadzieścia wierszy. Dopisywanie zostawia istniejące
+    pola formularza nietknięte, bo ich po prostu nie dotyka.
+
+    ⚠ **Wyzwalaczem jest OSTATNIA pozycja, nie przycisk.** `hx-trigger="revealed"` na ostatnim
+    wierszu znaczy „doczytaj, gdy ten wiersz wszedł w pole widzenia"; `hx-swap="afterend"`
+    dokłada kolejne za nim. Przycisk „Pokaż więcej" zostaje wyłącznie w `<noscript>` — przy
+    działającym JavaScripcie go nie ma i nie trzeba go niczym chować, więc nie mignie.
+
+    ⚠ **Licznik stopki jedzie OBOK, poza kolejnością** (`hx-swap-oob`): to jedyna druga rzecz,
+    która zmienia się przy doczytaniu. Liczenie go w przeglądarce byłoby drugim miejscem,
+    w którym powstaje ta sama liczba.
+
+    Zmienne: okno, spolka, hx, krok, wybrane, wielokrotny; opcjonalnie `licznik_oob`. -#}
+{% import 'partials/ikony.twig' as ikony %}
+{% import 'partials/inicjaly.twig' as znak %}
+{% set lista = okno.listy %}
+{% set pokazano = lista.od + lista.pozycje|length %}
+{% set adres_dalej = url('/admin/widocznosc/pozycje') ~ '?spolka=' ~ spolka.id
+    ~ '&regula=' ~ okno.regula ~ '&kto=' ~ okno.kto ~ '&kto_id=' ~ okno.kto_id
+    ~ '&czyje=' ~ okno.czyje ~ '&zakres=' ~ okno.zakres ~ '&krok=' ~ krok
+    ~ '&szukaj=' ~ okno.szukaj|url_encode ~ '&od=' ~ pokazano %}
+{#- ⚠ Wybrane pozycje jadą w adresie doczytywania, bo kolejna dwudziestka ma się narysować
+    z zaznaczeniem — przy zmienianiu reguły wskazane osoby bywają na trzeciej stronie listy. -#}
+{% for g in okno.grupy %}{% set adres_dalej = adres_dalej ~ '&grupy[]=' ~ g %}{% endfor %}
+{% for p in lista.pozycje %}
+    {% set zaznaczona = p.id in wybrane %}
+    {% set ostatnia = loop.last and lista.razem > pokazano %}
+    {#- ⚠ **`intersect once`, a nie `revealed`.** `revealed` sprawdza widoczność względem OKNA
+        i nasłuchuje przewijania STRONY — a ta lista przewija się we własnym pudełku wewnątrz
+        okna modalnego, więc żadne zdarzenie do niego nie dociera. Zmierzone: po czterech
+        przewinięciach lista nadal miała trzy pozycje z dziewięciu. `intersect` stoi na
+        `IntersectionObserver`, który widzi przecięcie z dowolnym przodkiem przewijanym. -#}
+    <li{% if ostatnia and hx %} hx-get="{{ adres_dalej }}" hx-trigger="intersect once"
+        hx-swap="afterend" hx-indicator="#wid-doczytywanie"{% endif %}>
+        <label class="wid-poz">
+            {% if wielokrotny %}
+                <input type="checkbox" name="grupy[]" value="{{ p.id }}" class="visually-hidden" {{ zaznaczona ? 'checked' : '' }}>
+            {% else %}
+                <input type="radio" name="wybor" value="{{ lista.rodzaj == 'przelozony' ? 'supervisor' : (lista.rodzaj == 'grupa' ? 'group' : 'account') }}:{{ p.id }}"
+                       class="visually-hidden" {{ zaznaczona ? 'checked' : '' }}>
+            {% endif %}
+            {#- ⚠ **Kółko z INICJAŁAMI przy osobach, ikona tylko tam, gdzie osoby nie ma.**
+                Ikona człowieka przy dwudziestu wierszach to dwadzieścia razy ten sam rysunek —
+                nie odróżnia niczego. Inicjały odróżniają i są tym samym komponentem, co na liście
+                grup i w hierarchii. Grupa dostaje etykietę, bo grupa nie ma inicjałów. -#}
+            {% if lista.rodzaj == 'grupa' %}
+                <span class="wid-poz__znak wid-poz__znak--grupa">{{ ikony.etykieta() }}</span>
+            {% else %}
+                {{ znak.kolko(p.nazwa, 'inicjaly--wid') }}
+            {% endif %}
+            <span class="wid-poz__tresc">
+                <span class="wid-poz__nazwa">{{ p.nazwa }}</span>
+                {#- ⚠ Druga linia jest **daną, nie ozdobą**: przy osobie mówi, czy ma etat w tej
+                    firmie (od tego zależy, czy wolno jej dać „Podwładnych"), przy grupie — ile
+                    osób obejmie reguła, przy przełożonym — ilu ma dziś podwładnych. -#}
+                <span class="wid-poz__opis">{{ p.opis != '' ? p.opis : 'bez grupy' }}</span>
+            </span>
+            <span class="wid-poz__ptak">{{ ikony.ptaszek() }}</span>
+        </label>
+    </li>
+{% endfor %}
+{% if licznik_oob|default(false) %}
+    <span id="wid-stopka-licznik" hx-swap-oob="true">pokazano {{ pokazano }} z {{ lista.razem }}</span>
+{% endif %}

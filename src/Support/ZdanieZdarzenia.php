@@ -90,6 +90,14 @@ final class ZdanieZdarzenia
         'permission.refused'            => ['próbował(a) nadać uprawnienie {uprawnienie} — odrzucone', 'klodka', self::BARWA_USUNIECIE],
         'calendar.visibility_granted'   => ['nadał(a) {podmiot} podgląd kalendarza[ na poziomie {poziom}]', 'kalendarz', self::BARWA_DODANIE],
         'calendar.visibility_revoked'   => ['odebrał(a) {podmiot} podgląd kalendarza', 'kalendarz', self::BARWA_USUNIECIE],
+        // ⚠ Zdania mówią **kto widzi kogo**, bo tym jest reguła — a nie „nadano uprawnienie X".
+        // W treści technicznej są same identyfikatory (§5 zlecenia Z53, CLAUDE.md §18); nazwy
+        // składa ekran dziennika z tych identyfikatorów, a nie zapis w bazie.
+        'calendar_access.granted'       => ['nadał(a) dostęp do kalendarza: {kto} → {czyje} · {zakres}', 'kalendarz', self::BARWA_DODANIE],
+        'calendar_access.changed'       => ['zmienił(a) dostęp do kalendarza: {kto} → {czyje} · {zakres}[ (było: {bylo})]', 'olowek', self::BARWA_ZWYKLA],
+        'calendar_access.revoked'       => ['odebrał(a) dostęp do kalendarza: {kto} → {czyje} · {zakres}', 'kalendarz', self::BARWA_USUNIECIE],
+        'calendar_access.auto_changed'  => ['dostęp do kalendarza zmieniony po usunięciu grupy[ — reguł skasowanych: {skasowanych}][, skróconych: {skroconych}]', 'kosz', self::BARWA_USUNIECIE],
+        'calendar_access.migrated'      => ['przeniósł dawne poziomy podglądu do reguł dostępu[ — reguł: {regul}][, bez firmy: {bez_firmy}]', 'kalendarz', self::BARWA_ZWYKLA],
         'person.email_set'              => ['ustawił(a) adres e-mail osobie {podmiot}', 'koperta', self::BARWA_ZWYKLA],
         'person.contact_changed'        => ['zmienił(a) dane kontaktowe osoby {podmiot}', 'olowek', self::BARWA_ZWYKLA],
 

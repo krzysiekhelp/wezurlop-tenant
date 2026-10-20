@@ -1,0 +1,132 @@
+{#- **Lista wyboru w oknie reguły** — ta sama w kroku 1 (przełożeni, osoby, grupy) i w kroku 2
+    (grupy celu). Jeden plik, bo to jedna kontrolka: wyszukiwarka nad ramką, lista w ramce,
+    kółko z inicjałami po lewej, okrągły znacznik po prawej, stopka Z LICZNIKIEM **wewnątrz** ramki.
+
+    ⚠ **Szukanie i doczytywanie idą PO STRONIE SERWERA** (§4 zlecenia). Filtrowanie w przeglądarce
+    znaczyłoby, że o tym, kogo wolno wskazać, decydują dwa miejsca — a jedno z nich stoi
+    w narzędziach deweloperskich.
+
+    ⚠ **Stopka siedzi w ramce, a nie pod nią** (dopisek z 19.10.2026): licznik mówi o zawartości
+    ramki, więc postawiony poza nią czytał się jak podpis całego kroku. Szare tło i kreska nad
+    nim to ta sama konstrukcja, co stopka kolumny w oknie grup.
+
+    ⚠ **„Wszyscy przełożeni" jest PIERWSZĄ POZYCJĄ LISTY, oddzieloną kreską** — nie osobnym
+    pudełkiem nad wyszukiwarką. Wybór jest jeden: albo ta reguła, albo konkretny przełożony,
+    więc obie możliwości muszą stać w jednym zbiorze i mieć jeden znacznik. Postawiona nad
+    wyszukiwarką wyglądała jak „zaznacz wszystko", czyli jak coś zupełnie innego.
+
+    ⚠ **Na starcie nic nie jest zaznaczone.** Zaznaczenie z góry podpowiada decyzję, której nikt
+    nie podjął — a tu decyzja dotyczy wglądu w cudze nieobecności. Wyjątek jest jeden: ołówek
+    przy wierszu „Każdy przełożony" otwiera okno z zaznaczoną tą regułą, bo wtedy naprawdę
+    ją się zmienia.
+
+    ⚠ **„Cała firma" jest pierwszą pozycją tak samo jak „Wszyscy przełożeni"** — z tego samego
+    powodu i w tym samym miejscu. Różni ją jedno: tam wybór jest POJEDYNCZY (reguła albo osoba),
+    a tu „cała firma" stoi nad listą wielokrotnego wyboru. Dlatego jest POLEM WYBORU, nie
+    przełącznikiem: bez JavaScriptu da się zaznaczyć i ją, i osoby, a wtedy **serwer rozstrzyga
+    na rzecz całej firmy** (`stanOkna()`), bo to zbiór szerszy i tak obejmujący tamte osoby.
+
+    ⚠ **Szukanie chowa „Całą firmę", a zaznaczona „Cała firma" wyłącza szukanie.** Jedno wynika
+    z drugiego: szukanie służy wskazaniu konkretnych osób, więc przy zaznaczonej całej firmie
+    nie ma czego szukać, a wpisany tekst znaczy, że człowiek wskazuje już konkretne osoby —
+    wtedy pozycja „wszyscy" tylko by przeszkadzała, bo nie pasuje do żadnego szukanego tekstu.
+
+    Zmienne: okno, spolka, hx, baza, strona, stan, stan_grup, krok, wybrane, wielokrotny, stopka,
+    wszyscy_przelozeni, wszyscy_wybrani, przelozonych, cala_firma, firma_wybrana, pracownikow,
+    zacheta, wybrano. -#}
+{% import 'partials/ikony.twig' as ikony %}
+{% set lista = okno.listy %}
+
+<div class="wid-lista-wybor">
+    {#- ⚠ Pole na całą szerokość, z lupą W Środku po lewej. Wcześniej lupa i pole były dwoma
+        elementami obok siebie, więc lupa stała daleko od tekstu i nie wyglądała na jego część. -#}
+    <label class="wid-szukanie">
+        <span class="field__label visually-hidden">Szukaj</span>
+        {{ ikony.lupa() }}
+        <input class="wid-szukanie__pole" type="search" name="szukaj" value="{{ okno.szukaj }}" maxlength="100"
+               autocomplete="off" placeholder="{{ zacheta }}"
+               {# ⚠ **`hx-include` zbiera ŻYWY stan zaznaczenia**, a `stan_grup` z adresu go nie
+                   zna: adres powstał przy poprzednim renderowaniu, więc po odznaczeniu osoby
+                   wracałaby ona z żądania jako wybrana. Dlatego listy celu nie ma w adresie —
+                   jest w formularzu, gdzie stoją pola wyboru. Droga bez JavaScriptu nie traci
+                   nic, bo tam zaznaczenie i tak wędruje formularzem.
+                   ⚠ Bez myślników, żeby nie skleić `placeholder` z `hx-get` — patrz komentarz
+                   przy `disabled` niżej. #}
+               {% if hx %}hx-get="{{ baza }}&amp;{{ stan }}&amp;krok={{ krok }}"
+               hx-include="closest form"
+               hx-target="#widocznosc-okno-tresc" hx-swap="innerHTML"
+               hx-trigger="input changed delay:300ms"{% endif %}
+               {# ⚠ **`disabled` stoi na SAMYM KOŃCU, tuż przed `>`** — i to nie jest kosmetyka.
+                   Atrybut bez wartości sklejony z następnym daje jedną nazwę (`disabledhx-get`),
+                   bo parser HTML kończy nazwę atrybutu dopiero na odstępie; przy atrybucie
+                   z wartością w cudzysłowie ten sam brak odstępu jest tylko błędem składni,
+                   po którym parser wraca do rozpoznawania nazw. Zmierzone 20.10.2026: komentarz
+                   `{#- … -#}` między atrybutami zjadł odstęp i pole nie było wyłączone.
+                   ⚠ Dlatego TEN komentarz jest bez myślników: one właśnie kasują odstępy. #}
+               {% if firma_wybrana %}disabled{% endif %}>
+    </label>
+
+    <div class="wid-lista-wybor__ramka">
+        <div class="wid-lista-wybor__przewijane">
+            {% if wszyscy_przelozeni %}
+                <label class="wid-poz wid-poz--wszyscy">
+                    <input type="radio" name="wybor" value="supervisor_all:0" class="visually-hidden"
+                           {{ wszyscy_wybrani ? 'checked' : '' }}>
+                    <span class="wid-poz__znak wid-poz__znak--wszyscy">{{ ikony.drzewo() }}</span>
+                    <span class="wid-poz__tresc">
+                        <span class="wid-poz__nazwa">Wszyscy przełożeni</span>
+                        <span class="wid-poz__opis">każdy z hierarchii · dziś {{ przelozonych }} {{ odmiana_osob(przelozonych) }} · ustawienie domyślne</span>
+                    </span>
+                    <span class="wid-poz__ptak">{{ ikony.ptaszek() }}</span>
+                </label>
+            {% endif %}
+            {#- ⚠ Identyfikator jest STAŁY, bo odwołuje się do niego arkusz (przygaszenie
+                wierszy) i `modules/widocznosc.js` (wzajemne odznaczanie). Sklejanie go z danych
+                byłoby tym samym błędem, co `{% include zmienna %}` (CLAUDE.md §5). -#}
+            {% if cala_firma and okno.szukaj == '' %}
+                <label class="wid-poz wid-poz--wszyscy">
+                    <input type="checkbox" name="cala_firma" id="wid-cala-firma" value="1"
+                           class="visually-hidden" {{ firma_wybrana ? 'checked' : '' }}>
+                    <span class="wid-poz__znak wid-poz__znak--wszyscy">{{ ikony.firma() }}</span>
+                    <span class="wid-poz__tresc">
+                        <span class="wid-poz__nazwa">Cała firma</span>
+                        <span class="wid-poz__opis">wszyscy pracownicy firmy · dziś {{ pracownikow }} {{ odmiana_osob(pracownikow) }} · także przyszli</span>
+                    </span>
+                    <span class="wid-poz__ptak">{{ ikony.ptaszek() }}</span>
+                </label>
+            {% endif %}
+            {% if lista.pozycje is empty %}
+                <p class="assign__empty">{{ okno.szukaj != '' ? 'Nikt nie pasuje do szukanego tekstu.' : 'Nie ma tu nikogo do wskazania.' }}</p>
+            {% else %}
+                <ul class="wid-pozycje">
+                    {% include 'fragments/visibility-pozycje.twig' with {
+                        'okno': okno, 'spolka': spolka, 'hx': hx, 'krok': krok,
+                        'wybrane': wybrane, 'wielokrotny': wielokrotny
+                    } only %}
+                </ul>
+            {% endif %}
+        </div>
+
+        <div class="wid-lista-wybor__stopka">
+            {#- ⚠ Licznik ma **stały identyfikator**, bo przy doczytaniu podmienia go odpowiedź
+                serwera poza kolejnością (`hx-swap-oob`). Przeliczanie go w przeglądarce byłoby
+                drugim miejscem, w którym powstaje ta sama liczba. -#}
+            <span id="wid-stopka-licznik">pokazano {{ lista.od + lista.pozycje|length }} z {{ lista.razem }}</span>
+            {#- ⚠ „Ładuję kolejne…" jest WSKAŹNIKIEM htmx, nie własnym stanem: widoczny wyłącznie
+                w trakcie żądania, bez ani jednej linii JavaScriptu. Styl `.htmx-indicator` stoi
+                w naszym arkuszu, bo htmx ma wstrzykiwanie własnego `<style>` wyłączone — inaczej
+                CSP bez `unsafe-inline` zapalałoby naruszenie na każdym ekranie (CLAUDE.md §5). -#}
+            <span id="wid-doczytywanie" class="htmx-indicator">Ładuję kolejne…</span>
+            {% if wybrano != '' %}<span class="wid-lista-wybor__wybrano">{{ wybrano }}</span>
+            {% elseif stopka != '' %}<span>{{ stopka }}</span>{% endif %}
+            {#- ⚠ Przycisk zostaje **wyłącznie dla przeglądarki bez JavaScriptu**. Przy działającym
+                skrypcie listy doczytują się same przy przewijaniu, a przycisk, który trzeba by
+                ukrywać skryptem, mignąłby przy każdym otwarciu okna. -#}
+            {% if lista.razem > lista.od + lista.pozycje|length %}
+                <noscript>
+                    <a href="{{ strona }}&amp;{{ stan }}{{ stan_grup }}&amp;krok={{ krok }}&amp;szukaj={{ okno.szukaj|url_encode }}&amp;od={{ lista.od + lista.pozycje|length }}">Pokaż kolejne 20</a>
+                </noscript>
+            {% endif %}
+        </div>
+    </div>
+</div>

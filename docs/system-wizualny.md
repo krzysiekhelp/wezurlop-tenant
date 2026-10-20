@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.32, 19.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.33, 20.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,74 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.32 → 1.18.33: `/admin/widocznosc` — nowy ekran reguł dostępu do kalendarza,
+> szczegółowość osobna dla każdego wiersza** (zlecenie Z53, 19–20.10.2026).
+> - **Nowy ekran**: kafle stanu, wiersz reguły domyślnej („Każdy przełożony › Swoi podwładni",
+>   bez kosza — miejsce po nim zostaje **puste, bez ramki**, bo kwadrat w obrysie czytał się jak
+>   przycisk wyłączony, czyli „tu da się coś zrobić, ale nie teraz"), pod nim reguły dodatkowe.
+>   Wiersz ma trzy człony relacji (KTO WIDZI › CZYJE NIEOBECNOŚCI › ZAKRES); na telefonie
+>   rozkłada się na trzy linie, a strzałka znika, bo kierunek niesie kolejność.
+> - **Okno reguły: trzy kroki w jednym formularzu.** Kafelki kroków stoją **w nagłówku, pod
+>   tytułem** — 16 px odstępu, bez kreski między tytułem a kafelkami, kreska dopiero pod nimi;
+>   postawione nad treścią były przycinane dolną krawędzią nagłówka i wyglądały na urwane.
+>   Ciało okna ma **stałą wysokość 477 px** (nazwany wyjątek jak `.assign__list`, §12), więc okno
+>   nie skacze między krokami; przewija się wyłącznie lista pozycji. ⚠ Na telefonie ciało okna
+>   **przewija się** (`overflow-y: auto`): przy 375 × 760 px zostaje na nie 400 px, a krok 3 ma
+>   485 px treści — zmierzone, czyli 85 px podglądu znikało pod krawędzią.
+> - **Listy wyboru** (kroki 1 i 2) to jedna kontrolka: wyszukiwarka z lupą **w polu**, ramka
+>   z przewijaną listą, stopka z licznikiem **wewnątrz ramki** (licznik mówi o jej zawartości,
+>   więc postawiony poza nią czytał się jak podpis całego kroku). Doczytywanie po 20 pozycji
+>   wyzwala **ostatni wiersz** (`intersect once`), a nie przycisk; przycisk zostaje
+>   w `<noscript>`. ⚠ `revealed` nie działa: lista przewija się we własnym pudełku, więc
+>   zdarzenie przewijania strony do niej nie dociera (zmierzone: po czterech przewinięciach
+>   lista nadal miała trzy pozycje z dziewięciu).
+> - **Pierwsza pozycja listy, oddzielona kreską**, to wybór innego rodzaju niż nazwisko:
+>   „Wszyscy przełożeni" (ikona drzewa na zielonym tle) w kroku 1 i „Cała firma" (ikona budynku)
+>   w kroku 2. Postawione nad wyszukiwarką wyglądały jak „zaznacz wszystko", czyli jak coś
+>   zupełnie innego. ⚠ Zieleń znaczy tu **akcję** („to obejmuje każdego"), nie stan dobry (§2).
+> - ⚠ **Zaznaczona „Cała firma" przygasza wiersze osób i zapala na nich ptaszki** (`opacity: .5`,
+>   nadal klikalne): puste znaczniki obok zaznaczonej „całej firmy" mówiłyby coś przeciwnego do
+>   prawdy. Wyszukiwarka jest wtedy **wyłączona**, a nie ukryta — pole, które znika i wraca,
+>   przestawiałoby wysokość ramki przy każdym kliknięciu. Przy wpisanym tekście pozycja
+>   „Cała firma" znika z listy.
+> - ⚠ **Zaznaczenie idzie za POLEM, nie za klasą z serwera** — `:has(:checked)` w arkuszu,
+>   w kartach zakresu i w wierszach list. Zmierzone 19.10.2026: klik ustawiał `input.checked`,
+>   ale tło i kółko zostawały tam, gdzie postawiła je odpowiedź serwera, więc do następnego
+>   żądania człowiek widział zaznaczone co innego, niż naprawdę wybrał. Przeglądarka bez `:has()`
+>   dostaje widoczne pola wyboru (`@supports not selector(:has(*))`).
+> - **Krok 3 pokazuje SKUTEK, nie przykład**: pięć dni w tych samych tokenach, których użyje
+>   kalendarz, z numerem dnia w lewym górnym rogu i nazwą u dołu (z wielokropkiem), pustym dniem
+>   w środku. Oba warianty stoją w znaczniku, arkusz pokazuje ten, którego pole jest zaznaczone —
+>   tekstu nie da się przełączyć samym stylem, a tekst w CSS to tekst poza Twigiem.
+> - ⚠ **Dwie liczby z prototypu zostały zastąpione wartościami ze skali** (rozstrzygnięcie
+>   zarządcy 20.10.2026): odstęp kafelków 8 px (`--s-2`) zamiast 6 px, napis 11 px (`--t-label`)
+>   zamiast 10,5 px. Skala odstępów dopuszcza **tylko** swoje wartości, a dopisywanie tokenu dla
+>   jednego podglądu kosztowałoby więcej niż dwa piksele różnicy.
+> - **Kolumna CZYJE przy regule na wskazane osoby**: ikona osoby i nazwiska po przecinku
+>   (do trzech w całości, przy większej liczbie dwa plus „i N innych"), pełna lista w `title`.
+>   Zwolnieni mają nazwisko **przekreślone** — ta sama definicja wyglądu, co na `/admin/konta`
+>   (Z32), dopisana do istniejącej reguły, a nie powtórzona. Reguła bez ani jednej czynnej osoby
+>   dostaje szarą plakietkę „nieaktywna — brak czynnych osób" i **zostaje na ekranie**; ołówek
+>   niesie wtedy wyłącznie osoby czynne.
+> - **Kalendarz**: pasek bez szczegółów ma własny token wypełnienia (`.team-grid__bar--bez`)
+>   i napis „nieobecny”, a legenda nazywa go wprost (`.legend__mark--bez`). Szczegółowość bywa
+>   **różna w różnych wierszach tej samej siatki** — uzasadnienie jednolitości zostało odwołane
+>   wprost w `docs/etap3-logika-urlopowa.md` §8b.
+> - **Panel osoby traci trójstanowy przełącznik widoczności**; w jego miejsce stoi odnośnik
+>   do `/admin/widocznosc`, bo „kto widzi kogo" jest relacją, a panel jednej osoby pokazuje
+>   tylko jej połowę.
+> - ⚠ **Dwie pułapki arkusza i szablonu, zmierzone przy tym zleceniu** — obie dają kod, który
+>   wygląda dobrze i nie działa:
+>   1. **nadmiarowy `}` kasuje NASTĘPNĄ regułę**, a nie sam nawias (przeglądarka czyta go jako
+>      początek preludium kolejnej reguły i odrzuca ją w całości; tak samo znika `@media`
+>      postawiony po nim). Stąd osobna naprawa w `main`: jeden taki nawias wyłączał cały blok
+>      `@media (pointer: coarse)`, czyli wysokość celów dotykowych i 16 px w polach, na każdym
+>      ekranie telefonu i tabletu;
+>   2. **komentarz `{#- … -#}` między atrybutami skleja je**, bo myślniki kasują odstęp.
+>      Przy atrybucie z wartością w cudzysłowie to tylko błąd składni, po którym parser wraca
+>      do rozpoznawania nazw; przy atrybucie **bez wartości** (`disabled`) powstaje jedna nazwa
+>      `disabledhx-get` i atrybut nie działa. Komentarz między atrybutami pisze się bez myślników.
 
 > **Zmiana 1.18.31 → 1.18.32: `/admin/grupy` — cały stan ekranu odświeża się po zmianie składu,
 > karta traci własny tytuł** (zlecenie Z52 z dopiskiem, 19.10.2026).

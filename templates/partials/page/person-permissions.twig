@@ -1,39 +1,30 @@
-{#- Sekcja „Uprawnienia" w panelu osoby. Zmienne: o, widocznosc, poziomy_nazwy, poziomy_opisy,
-    w_szufladzie.
+{#- Sekcja „Uprawnienia" w panelu osoby. Zmienne: o, adres_widocznosci.
 
-    ⚠ **Nazwa i szablon są OGÓLNE, choć dziś jest tu dokładnie JEDNA pozycja** (poziom widoczności
-    kalendarza). Powód: w Etapie 3 tą samą drogą — para (konto, spółka), panel osoby, wpis
-    w dzienniku — dojdą role przełożonego i kadrowej. Wtedy druga pozycja dołoży się jako
-    **wiersz w tej pętli**, a nie jako przepisanie ekranu (aneks 23.09 §1).
+    ⚠ **Trójstanowy przełącznik „Podgląd kalendarzy" ZNIKŁ STĄD 19.10.2026** (zlecenie Z53 §3).
+    Stał tu wybór poziomu per para (konto, firma) i był drugim miejscem rozdającym wgląd
+    w cudze nieobecności — obok hierarchii, która robi to sama z siebie. Powód przeniesienia
+    jest w kształcie samej rzeczy: **„kto widzi kogo" jest RELACJĄ**, a panel jednej osoby
+    pokazuje tylko jej połowę. Z tego ekranu nie dało się odpowiedzieć na pytanie „kto widzi
+    kalendarz Nowaka", bo odpowiedź była rozsypana po panelach wszystkich pozostałych osób.
+
+    ⚠ **Zostaje odnośnik, a nie nic.** Administrator stojący w panelu osoby i szukający jej
+    dostępu do kalendarzy ma się dowiedzieć, gdzie ten dostęp teraz mieszka — inaczej
+    przeniesienie funkcji wygląda jak jej usunięcie.
+
+    ⚠ **Nazwa sekcji zostaje OGÓLNA**, choć dziś nie ma w niej ani jednej kontrolki: w Etapie 3
+    tą samą drogą — para (konto, firma), panel osoby, wpis w dzienniku — dojdą role przełożonego
+    i kadrowej. Wtedy dołożą się tutaj, a nie przepiszą ekran (aneks 23.09 §1).
 
     ⚠ **To NIE jest mechanizm „nadaj dowolną rolę".** `tenant_admin` nie pojawia się tu w żadnej
     postaci, bo administrator tenanta **nie może być pracownikiem** (`etap3` §8c): konto
     pracownika jest używane codziennie, na telefonie, do rzeczy błahych — gdyby niosło klucze
-    do instalacji, najcenniejszy cel byłby jednocześnie najczęściej używanym kontem. Serwer
-    odrzuca rolę przysłaną wprost i zapisuje to w dzienniku; ekran nie jest zabezpieczeniem.
-
-    ⚠ Atrybuty `hx-*` TYLKO w szufladzie: cel wymiany (`#osoba-tresc`) istnieje wyłącznie tam.
-    Na ekranie zapasowym htmx bez celu **nie robi NIC i nie mówi o tym** — zmierzone: klik
-    nie zapisywał się, bez błędu w konsoli i bez wpisu w dzienniku. -#}
-{% if widocznosc is not empty %}
-    <div class="pane__head pane__head--wtorny"><span class="pane__title">Uprawnienia</span></div>
-    {% for z in widocznosc %}
-        <form class="widocznosc" method="post" action="{{ url('/admin/konta/osoba/' ~ o.person_id ~ '/uprawnienia') }}"
-              {% if w_szufladzie %}hx-post="{{ url('/admin/konta/osoba/' ~ o.person_id ~ '/uprawnienia') }}"
-              hx-target="#osoba-tresc" hx-swap="innerHTML"{% endif %}>
-            {% include 'partials/csrf.twig' %}
-            <input type="hidden" name="zakres" value="{{ z.company_id }}">
-            <span class="widocznosc__zakres">Podgląd kalendarzy · {{ z.etykieta }}</span>
-            <div class="segmented">
-                {% for poziom, nazwa in poziomy_nazwy %}
-                    <button type="submit" name="poziom" value="{{ poziom }}"
-                            class="segmented__item{{ z.poziom == poziom ? ' segmented__item--on' : '' }}"
-                            title="{{ poziomy_opisy[poziom] }}">{{ nazwa }}</button>
-                {% endfor %}
-            </div>
-        </form>
-        <span class="field__hint">{{ poziomy_opisy[z.poziom] }}</span>
-    {% endfor %}
-{% elseif o.account_id is null %}
+    do instalacji, najcenniejszy cel byłby jednocześnie najczęściej używanym kontem. -#}
+{% if o.account_id is null %}
     <span class="field__hint">Uprawnienia nadaje się kontu — ta osoba jeszcze go nie ma.</span>
+{% else %}
+    <div class="pane__head pane__head--wtorny"><span class="pane__title">Uprawnienia</span></div>
+    {#- ⚠ Zwykły odnośnik, bez htmx: to wyjście NA INNY EKRAN, a nie wymiana fragmentu w szufladzie.
+        Ten sam odnośnik działa w szufladzie i na ekranie zapasowym. -#}
+    <a class="btn btn--ghost btn--akcja" href="{{ adres_widocznosci }}">Widoczność kalendarza<span class="settings-list__dalej" aria-hidden="true">›</span></a>
+    <span class="field__hint">Kto widzi czyje nieobecności, ustawia się regułami na jednym ekranie — razem dla całej firmy, bo to jest relacja między osobami, a nie cecha jednej z nich.</span>
 {% endif %}

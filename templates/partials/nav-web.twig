@@ -19,7 +19,7 @@
         {% endif %}
     </div>
 
-    {% if can('admin.users') or can('admin.hierarchy') or can('integration.manage') or can('admin.settings') or can('admin.license') or can('admin.event_log') %}
+    {% if can('admin.users') or can('admin.hierarchy') or can('calendar.visibility_manage') or can('integration.manage') or can('admin.settings') or can('admin.license') or can('admin.event_log') %}
         <div class="nav-group">
             <div class="nav-group__label">Administracja</div>
             {% if can('admin.users') %}
@@ -32,6 +32,12 @@
             {% if can('admin.hierarchy') %}
                 <a class="nav-item{% if active('/admin/grupy') %} nav-item--on{% endif %}" href="{{ url('/admin/grupy') }}"><span class="nav-item__ico">{{ ikony.konta() }}</span>Grupy</a>
                 <a class="nav-item{% if active('/admin/hierarchia') %} nav-item--on{% endif %}" href="{{ url('/admin/hierarchia') }}"><span class="nav-item__ico">{{ ikony.zespol() }}</span>Hierarchia</a>
+            {% endif %}
+            {#- ⚠ Widoczność stoi POD grupami i hierarchią, bo z nich korzysta: reguła wskazuje
+                grupę albo przełożonego. Pilnuje **własnego** uprawnienia, nie `admin.hierarchy` —
+                układanie struktury i rozdawanie wglądu w dane o zdrowiu to dwie różne rzeczy. -#}
+            {% if can('calendar.visibility_manage') %}
+                <a class="nav-item{% if active('/admin/widocznosc') %} nav-item--on{% endif %}" href="{{ url('/admin/widocznosc') }}"><span class="nav-item__ico">{{ ikony.oko() }}</span>Widoczność</a>
             {% endif %}
             {% if can('integration.manage') %}
                 <a class="nav-item{% if active('/admin/integracja') or active('/admin/podlaczenie') %} nav-item--on{% endif %}" href="{{ url('/admin/integracja') }}"><span class="nav-item__ico">{{ ikony.integracja() }}</span>Integracja{% set czekajace = zgloszenia_firm() %}{% if czekajace > 0 %}<span class="nav-item__badge">{{ czekajace }}</span>{% endif %}</a>

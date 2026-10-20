@@ -1653,7 +1653,11 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 .table--osoby .osoba-wiersz--zwolniony .table__name,
 .table--pracownicy .osoba-wiersz--zwolniony .table__name,
 .osoba-wiersz--zwolniony .osoba-wiersz__nazwa,
-.osoba-wiersz--zwolniony .table__name {
+.osoba-wiersz--zwolniony .table__name,
+/* ⚠ Kolumna CZYJE na `/admin/widocznosc` dopisuje się TUTAJ, a nie do własnej reguły: wygląd
+   zwolnienia ma jedną definicję w całym arkuszu. Druga, identyczna, rozjechałaby się przy
+   pierwszej zmianie koloru. */
+.wid-wiersz__osoba--zwolniona {
   color: var(--c-text-4);
   text-decoration: line-through;
   text-decoration-color: var(--c-text-4);
@@ -1854,6 +1858,8 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 .legend__mark--urlop   { background: var(--c-pasek-urlop-tlo); }
 .legend__mark--zasilek { background: var(--c-pasek-zwolnienie-tlo); }
 .legend__mark--kadrowe { background: var(--c-pasek-kadrowe-tlo); }
+/* Próbka dostępu bez szczegółów — ten sam obrys co pasek, bo to on ją odróżnia. */
+.legend__mark--bez { background: var(--c-neutral-soft); border: 1px solid var(--c-line); }
 /* ⚠ Dzień wolny NIE jest paskiem — to tło kolumny, więc próbka zostaje prostokątem z obrysem.
    Gdyby i ona była pigułką, legenda mówiłaby, że dzień wolny jest nieobecnością. */
 .legend__mark--free    { width: 14px; height: 14px; border-radius: 2px; background: var(--c-surface-hover); border: 1px solid var(--c-line); }
@@ -2739,6 +2745,19 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 .team-grid__bar--kadrowe {
   background: var(--c-pasek-kadrowe-tlo);
   color: var(--c-pasek-kadrowe-tekst);
+}
+/* ⚠ **Pasek „nieobecny” — dostęp BEZ SZCZEGÓŁÓW** (zlecenie Z53 §2). Nie jest czwartym
+   rodzajem nieobecności: mówi o MOIM dostępie do cudzych danych, nie o tym, co tej osobie jest.
+   ⚠ **Obrys jest tu kanałem informacji, nie ozdobą.** Tło `--c-neutral-soft` leży blisko
+   `--c-pasek-kadrowe-tlo` („inna nieobecność”), a oba potrafią stać w jednej siatce — w różnych
+   wierszach, bo w jednym wierszu zakres jest jeden. Sama różnica jasności byłaby za mała;
+   kreską odróżniamy je tak samo, jak kropkę w wykazie wpisów od pasteli pod nią.
+   ⚠ Od dnia wolnego odróżnia go **kształt**: dzień wolny jest tłem komórki, a to jest pigułka
+   z napisem — czyli ta sama różnica, którą niesie legenda. */
+.team-grid__bar--bez {
+  background: var(--c-neutral-soft);
+  color: var(--c-text-3);
+  border: 1px solid var(--c-line);
 }
 
 /* ⚠ Pasek JEDNODNIOWY niesie sam numer dnia (zlecenie 11.10 §2) i jest najwęższym paskiem
@@ -4223,6 +4242,10 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 .msiatka__kratka--urlop   { background: var(--c-pasek-urlop-tlo);      color: var(--c-pasek-urlop-tekst);      font-weight: var(--w-semibold); }
 .msiatka__kratka--zasilek { background: var(--c-pasek-zwolnienie-tlo); color: var(--c-pasek-zwolnienie-tekst); font-weight: var(--w-semibold); }
 .msiatka__kratka--kadrowe { background: var(--c-pasek-kadrowe-tlo);    color: var(--c-pasek-kadrowe-tekst);    font-weight: var(--w-semibold); }
+/* ⚠ Kratka „bez szczegółów” nie występuje dziś na żadnym ekranie — siatkę miesiąca rysuje
+   wyłącznie widok własnych danych. Reguła stoi tu, bo token `bez` jest wspólny dla całej
+   rodziny i pierwszy ekran, który pokaże cudzą siatkę, ma nie być białą kratką. */
+.msiatka__kratka--bez     { background: var(--c-neutral-soft);          color: var(--c-text-3);                 font-weight: var(--w-semibold); }
 
 /* ⚠ **Dzień dzisiejszy w SIATCE to OBWÓDKA CAŁEJ KRATKI, nie plakietka na numerze**
    — zmiana z 17.10.2026 (zlecenie Z6, prototyp zatwierdzony przez Krzysztofa w przeglądarce).
@@ -5686,4 +5709,484 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   .diag-wiersz__uwaga { grid-column: 2 / -1; }
   .diag-grupa__glowa { padding: var(--s-3) var(--s-4); gap: var(--s-2); }
   .diag-grupa .diag-wiersz { padding-left: calc(var(--s-4) + 18px + var(--s-2)); }
+}
+
+/* ══════════ Ekran widoczności kalendarza (zlecenie Z53, 19.10.2026; wymiary z prototypu) ══════════
+   ⚠ **Rodzina `wid-*` powstała, bo nie było czego użyć** — a nie dlatego, że ekran chciał własnego
+   wyglądu. Wiersz reguły to trzy człony rozdzielone strzałką („kto › czyje · zakres"), czyli
+   kształt, którego nie ma ani `.group-list__row`, ani `.settings-list__row`. Wszystko, co dało
+   się wziąć gotowe, jest wzięte: kółko inicjałów to `.inicjaly`, plakietka zakresu to `.chip`,
+   zdanie wiodące karty to `.card__opis--lead`, wskaźnik doczytywania to `.htmx-indicator`.
+
+   ⚠ Reguły stoją na KOŃCU arkusza, bo o pierwszeństwie decyduje kolejność w pliku (§1 systemu
+   wizualnego) — rodzina dopisana wcześniej przegrywałaby z `.card` i `.chip`. */
+
+/* ——— lista reguł ——————————————————————————————————————————————————————— */
+/* ⚠ Nagłówki kolumn **mają tę samą siatkę co wiersz** i to jest warunek, nie porządek: dwie
+   niezależne definicje kolumn rozjechałyby się przy pierwszej zmianie szerokości. */
+.wid-naglowki,
+.wid-wiersz {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) 16px minmax(0, 1.2fr) auto 32px 32px;
+  align-items: center;
+  gap: var(--s-3);
+}
+.wid-naglowki {
+  padding: var(--s-3) var(--s-5);
+  border-top: 1px solid var(--c-line);
+  background: var(--c-surface-mute);
+  font-size: var(--t-label);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--c-text-3);
+}
+.wid-lista { list-style: none; margin: 0; padding: 0; }
+.wid-wiersz { padding: var(--s-4) var(--s-5); border-top: 1px solid var(--c-line-soft); }
+@media (hover: hover) { .wid-wiersz:hover { background: var(--c-surface-hover); } }
+/* ⚠ Reguła domyślna ma **mocniejszą dolną kreskę**, a nie inne tło: jest regułą jak pozostałe,
+   tylko stałą. Inne tło czytałoby się jako „wyłączona" albo „zaznaczona". */
+.wid-wiersz--domyslna { border-bottom: 1px solid var(--c-line); }
+.wid-wiersz__znak {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-card);
+  background: var(--c-neutral-soft);
+  color: var(--c-text-2);
+}
+.wid-wiersz__kto { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+/* Kolumna CZYJE jest JEDNOLINIOWA: ikona przed nazwą, objaśnienie w `title`. */
+.wid-wiersz__czyje { display: flex; align-items: center; gap: var(--s-2); min-width: 0; }
+.wid-wiersz__ikona { display: flex; flex: none; color: var(--c-text-3); }
+.wid-wiersz__nazwa {
+  font-size: var(--t-body);
+  font-weight: var(--w-semibold);
+  color: var(--c-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wid-wiersz__opis { font-size: var(--t-caption); color: var(--c-text-3); }
+/* Strzałka mówi KIERUNEK relacji („ten widzi tamtych"), więc jest treścią, nie ozdobą —
+   ale czytnik ekranu dostaje ją jako `aria-hidden`, bo sens niosą oba człony obok. */
+.wid-wiersz__strzalka { color: var(--c-text-4); text-align: center; }
+/* ⚠ Puste miejsce po koszu, **bez ramki**: kwadrat w obrysie czytał się jak przycisk wyłączony,
+   czyli „tu da się coś zrobić, ale nie teraz" — a tej reguły nie da się usunąć nigdy. */
+.wid-wiersz__brak-akcji { display: block; width: 32px; height: 32px; }
+/* Plakietka „nieaktywna" stoi ZA nazwiskami i nie kurczy się razem z nimi. */
+.wid-wiersz__plakietka { flex: none; }
+
+/* ⚠ Plakietka zakresu niesie ikonę, bo sam napis „ze szczegółami" przy dwunastu wierszach
+   zlewa się z „bez szczegółów" — różnią się dwiema literami na początku. */
+.chip--zakres { display: inline-flex; align-items: center; gap: var(--s-1); white-space: nowrap; }
+.chip--zakres-pelny { background: var(--c-accent-soft); color: var(--c-accent-text); }
+
+/* ——— okno reguły ———————————————————————————————————————————————————————— */
+/* ⚠ **600 px, nie 850.** Okno ma trzy kroki o jednej kolumnie treści; szersze rozciągało wiersze
+   listy na pół ekranu, przez co nazwisko i druga linia stały po przeciwnych stronach pustki. */
+.modal--wid { width: min(600px, calc(100vw - 32px)); max-width: min(600px, calc(100vw - 32px)); }
+/* ⚠ **Tytuł i kafelki kroków to jeden nagłówek**: kreska stoi dopiero pod kafelkami, a nie
+   między nimi i tytułem (poprawka z 20.10.2026 po sprawdzeniu z prototypem). Kreska w środku
+   dzieliła nagłówek na dwa pudełka i kafelki stykały się z nią górną krawędzią. */
+.wid-glowa { padding-bottom: var(--s-4); border-bottom: 0; }
+/* ⚠ Kafelki kroków stoją w NAGŁÓWKU, pod tytułem: postawione nad treścią były przycinane dolną
+   krawędzią nagłówka i wyglądały na urwane. Kreska pod nimi oddziela je od treści kroku. */
+.wid-kroki {
+  display: flex;
+  gap: var(--s-2);
+  padding: 0 var(--s-5) var(--s-4);
+  border-bottom: 1px solid var(--c-line);
+}
+.wid-krok {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  flex: 1 1 0;
+  min-width: 0;
+  height: 48px;
+  padding: 0 var(--s-3);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
+  background: var(--c-surface);
+  color: var(--c-text-3);
+  font-size: var(--t-caption);
+  text-decoration: none;
+}
+/* Aktywny krok: zielona ramka i jasne tło — ta sama para tokenów, co stan wybrany wszędzie indziej. */
+.wid-krok--on { border-color: var(--c-accent); background: var(--c-accent-soft); color: var(--c-accent-text); }
+.wid-krok__numer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--c-neutral-soft);
+  color: var(--c-text-3);
+  font-size: var(--t-caption);
+  font-weight: var(--w-semibold);
+}
+.wid-krok--on .wid-krok__numer { background: var(--c-accent); color: var(--c-surface); }
+/* ⚠ Ptaszek jest IKONĄ, nie znakiem „✓": znak brałby krój z otoczenia i zależał od podzbioru
+   czcionki (ta sama lekcja, co strzałka „→" w 1.18.26). */
+.wid-krok--gotowy:not(.wid-krok--on) .wid-krok__numer { background: var(--c-accent-soft); color: var(--c-accent-text); }
+.wid-krok__nazwa { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ⚠ **Stała wysokość treści** (§4 zlecenia: „bez suwaka w samym oknie"). 477 px z prototypu —
+   dzięki temu okno nie skacze między krokami, a przewija się wyłącznie lista pozycji. To ten
+   sam nazwany wyjątek, co `.assign__list` w oknie grupy (`system-wizualny.md` §12). */
+.wid-okno__body { display: flex; flex-direction: column; gap: var(--s-4); height: 477px; overflow: hidden; }
+
+/* ——— przełącznik segmentowy ——————————————————————————————————————————— */
+/* ⚠ To NIE jest `.kal-btn`: tamte kwadraty mają stałe 64 px i napis pod ikoną, więc „Wybrane
+   grupy" wychodziło poza przycisk. Tu wybiera się jeden z trzech równorzędnych stanów, więc
+   pasek na całą szerokość z ikoną i napisem w jednej linii. */
+.wid-seg {
+  display: flex;
+  flex: none;
+  gap: var(--s-1);
+  padding: 4px;
+  border-radius: 10px;
+  background: var(--c-neutral-soft);
+}
+.wid-seg__poz {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  flex: 1 1 0;
+  min-width: 0;
+  height: 34px;
+  border-radius: 7px;
+  color: var(--c-text-2);
+  font-size: var(--t-caption);
+  font-weight: var(--w-medium);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.wid-seg__poz .ico { width: 15px; height: 15px; flex: none; }
+.wid-seg__poz--on { background: var(--c-surface); color: var(--c-text); box-shadow: var(--shadow-card); }
+/* Pozycja wyłączona NIE jest odnośnikiem — to `<span>`, więc nie da się jej kliknąć ani złapać
+   tabulatorem. Wygaszenie mówi „nie tutaj", a `title` mówi dlaczego. */
+.wid-seg__poz--wylaczona { opacity: .45; cursor: default; }
+
+/* ——— lista wyboru ——————————————————————————————————————————————————————— */
+.wid-lista-wybor { display: flex; flex-direction: column; gap: var(--s-3); min-height: 0; flex: 1 1 auto; }
+/* ⚠ Lupa jest W POLU, po lewej — wcześniej stała obok pola jako osobny element i nie wyglądała
+   na jego część. Wyściółka 36 px to 12 px marginesu + 18 px ikony + 6 px odstępu. */
+.wid-szukanie { position: relative; display: block; flex: none; }
+.wid-szukanie .ico { position: absolute; left: 12px; top: 10px; color: var(--c-text-4); pointer-events: none; }
+/* ⚠ Pole jest `.input` z dwiema zmianami: pełna szerokość i miejsce na lupę po lewej.
+   Własny obrys, promień i krój byłyby czwartym polem tekstowym w tym arkuszu, które wygląda
+   prawie jak pozostałe trzy. */
+.wid-szukanie__pole {
+  width: 100%;
+  height: 38px;
+  min-height: 38px;
+  padding: 0 var(--s-4) 0 36px;
+  border: 1px solid var(--c-line-strong);
+  border-radius: var(--radius);
+  background: var(--c-surface);
+  color: var(--c-text-2);
+  font: inherit;
+  font-size: var(--t-body);
+}
+.wid-szukanie__pole::placeholder { color: var(--c-text-3); }
+.wid-lista-wybor__ramka {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+.wid-lista-wybor__przewijane { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+/* ⚠ Stopka siedzi W RAMCE: licznik mówi o jej zawartości, więc postawiony poza nią czytał się
+   jak podpis całego kroku. Szare tło i kreska nad — ta sama konstrukcja, co stopka kolumny
+   w oknie grup. */
+.wid-lista-wybor__stopka {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--s-3);
+  flex: none;
+  padding: var(--s-2) var(--s-4);
+  border-top: 1px solid var(--c-line);
+  background: var(--c-surface-mute);
+  font-size: var(--t-caption);
+  color: var(--c-text-3);
+}
+.wid-lista-wybor__wybrano { color: var(--c-text-2); font-weight: var(--w-medium); }
+.wid-pozycje { list-style: none; margin: 0; padding: 0; }
+
+/* ⚠ **Wiersz ma 50 px** (§4 zlecenia) i to jest wysokość liczona, nie wzięta z oka: dwie linie
+   (14 px/500 i 12 px) plus wyściółka `--s-2` z góry i z dołu dają dokładnie tyle. */
+.wid-poz {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 22px;
+  align-items: center;
+  gap: var(--s-3);
+  min-height: 50px;
+  padding: var(--s-2) var(--s-4);
+  border-top: 1px solid var(--c-line-soft);
+  cursor: pointer;
+}
+.wid-pozycje li:first-child .wid-poz { border-top: 0; }
+@media (hover: hover) { .wid-poz:hover { background: var(--c-surface-hover); } }
+/* ⚠ **Zaznaczenie idzie za POLEM, nie za klasą z serwera** — ten sam błąd i ta sama naprawa,
+   co w kartach zakresu. Zmierzone 19.10.2026: klik w wiersz ustawiał `input.checked`, ale tło
+   i kółko zostawały tam, gdzie postawiła je odpowiedź serwera — więc do następnego żądania
+   człowiek widział zaznaczone co innego, niż naprawdę wybrał. Zarządca zgłosił to tylko dla
+   kroku 3; w krokach 1 i 2 wyglądało dobrze, bo każda zmiana zakładki przerysowuje okno. */
+.wid-poz:has(input:checked) { background: var(--c-accent-soft); }
+@media (hover: hover) { .wid-poz:has(input:checked):hover { background: var(--c-accent-soft); } }
+/* „Wszyscy przełożeni" jest PIERWSZĄ pozycją listy, oddzieloną mocniejszą kreską — wyborem
+   innego rodzaju (reguła firmy), a nie pierwszym nazwiskiem. */
+.wid-poz--wszyscy { border-top: 0; border-bottom: 1px solid var(--c-line); }
+.wid-poz__znak { display: flex; align-items: center; justify-content: center; color: var(--c-text-3); }
+/* ⚠ Zielone tło pod drzewem: ta pozycja znaczy regułę obejmującą wszystkich, więc odróżnia się
+   od nazwisk nie tylko rysunkiem. Zieleń znaczy tu AKCJĘ („to obejmuje każdego"), nie stan dobry. */
+.wid-poz__znak--wszyscy {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--c-accent-soft);
+  color: var(--c-accent-text);
+}
+.wid-poz__znak--grupa {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--c-neutral-soft);
+}
+.inicjaly--wid { --inicjaly-bok: 28px; }
+.wid-poz__tresc { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.wid-poz__nazwa {
+  font-size: var(--t-body);
+  font-weight: var(--w-medium);
+  color: var(--c-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wid-poz__opis {
+  font-size: var(--t-caption);
+  color: var(--c-text-4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Znacznik: puste kółko albo kółko z ptaszkiem. ⚠ Zieleń ZNACZY TU AKCJĘ — „to wybrałem" —
+   a nie stan dobry, więc jest zgodna z §2 systemu wizualnego. */
+.wid-poz__ptak {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--c-line);
+  border-radius: 999px;
+  color: transparent;
+}
+.wid-poz:has(input:checked) .wid-poz__ptak { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-surface); }
+
+/* ⚠ **„Cała firma" przygasza wiersze osób i zapala na nich ptaszki** — bo obejmuje je wszystkie,
+   także te, których na liście jeszcze nie widać. Puste znaczniki obok zaznaczonej „Całej firmy"
+   mówiłyby coś przeciwnego do prawdy: że tych osób reguła nie dotyczy.
+   ⚠ Rozstrzyga POLE, nie klasa z serwera (ta sama lekcja, co w kartach zakresu i w wierszach
+   listy): przeglądarka odznacza „Całą firmę" w chwili kliknięcia w osobę, więc stan z serwera
+   byłby o jedno kliknięcie do tyłu. Dzięki temu działa też na wierszach DOCZYTANYCH później —
+   reguła wisi na przodku, a nie na wierszach, których jeszcze nie ma.
+   ⚠ Przygaszone, ale nadal klikalne: kliknięcie w osobę to właśnie droga wyjścia z „całej firmy"
+   (`modules/widocznosc.js` odznacza wtedy pierwszą pozycję). Dlatego `opacity`, a nie `disabled`. */
+.wid-lista-wybor:has(#wid-cala-firma:checked) .wid-pozycje .wid-poz { opacity: .5; }
+.wid-lista-wybor:has(#wid-cala-firma:checked) .wid-pozycje .wid-poz__ptak {
+  background: var(--c-accent);
+  border-color: var(--c-accent);
+  color: var(--c-surface);
+}
+/* ⚠ Szukanie przy zaznaczonej „Całej firmie" jest WYŁĄCZONE, nie ukryte: pole, które znika
+   i wraca, przestawia wysokość ramki przy każdym kliknięciu. Atrybut `disabled` stawia serwer,
+   a przeglądarka go zdejmuje razem z odznaczeniem — stan jest jeden, w jednym miejscu. */
+.wid-szukanie__pole:disabled {
+  background: var(--c-surface-mute);
+  color: var(--c-text-4);
+  cursor: not-allowed;
+}
+.wid-szukanie:has(.wid-szukanie__pole:disabled) .ico { color: var(--c-text-4); opacity: .6; }
+
+/* ——— krok 2: zbiór bez listy ————————————————————————————————————————— */
+/* ⚠ **Przerywana ramka mówi „tu nic nie wybierasz"** bez ani jednego zdania o tym. Gałąź
+   i „wszyscy pracownicy" liczą się przy każdym wyświetleniu, więc wypisanie nazwisk byłoby
+   migawką, która zestarzeje się następnego dnia. */
+.wid-zbior {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: var(--s-6);
+  border: 1px dashed var(--c-line-strong);
+  border-radius: var(--radius-card);
+  text-align: center;
+}
+.wid-zbior__znak {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: var(--c-neutral-soft);
+  color: var(--c-text-2);
+}
+.wid-zbior__nazwa { font-size: var(--t-body); font-weight: var(--w-semibold); color: var(--c-text); }
+.wid-zbior__opis { max-width: var(--measure); font-size: var(--t-caption); color: var(--c-text-3); line-height: var(--lh-body); }
+.wid-zbior__uwaga { font-size: var(--t-caption); color: var(--c-text-4); }
+
+/* ——— krok 3: karty zakresu i podgląd ——————————————————————————————————— */
+/* ⚠ Karty JEDNA POD DRUGĄ, nie obok siebie: różnica między nimi siedzi w zdaniu opisu, a dwie
+   kolumny po 260 px łamały te zdania na pięć wierszy i zrównywały je wizualnie z nagłówkiem. */
+.wid-zakresy { display: grid; gap: var(--s-3); }
+.wid-zakresy--kolumna { grid-template-columns: minmax(0, 1fr); }
+.wid-zakres {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: start;
+  gap: var(--s-3);
+  padding: var(--s-5);
+  border: 1.5px solid var(--c-line);
+  border-radius: 12px;
+  cursor: pointer;
+}
+/* ⚠ **Zaznaczenie idzie za POLEM, nie za klasą z serwera.** Klasa przychodziła z odpowiedzi,
+   więc klik w drugą kartę ustawiał radio, a ramka i tło zostawały na pierwszej — administrator
+   widział wybrane co innego, niż zostałoby zapisane (zmierzone 19.10.2026). `:has()` rozstrzyga
+   to w arkuszu, bez przeładowania i bez ani jednej linii JavaScriptu. */
+.wid-zakres:has(input:checked) { border-color: var(--c-accent); background: var(--c-accent-soft); }
+.wid-zakres input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.wid-zakres__ptak {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--c-line);
+  border-radius: 999px;
+  background: var(--c-surface);
+  color: transparent;
+}
+.wid-zakres:has(input:checked) .wid-zakres__ptak { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-surface); }
+.wid-zakres__tresc { display: flex; flex-direction: column; gap: var(--s-1); }
+.wid-zakres__nazwa { font-size: var(--t-body); font-weight: var(--w-semibold); color: var(--c-text); }
+.wid-zakres__opis { font-size: var(--t-caption); color: var(--c-text-3); line-height: var(--lh-body); }
+
+/* ⚠ **Podgląd pokazuje SKUTEK, nie przykład.** Pięć dni w tych samych tokenach, których użyje
+   kalendarz, z numerami dni i pustym dniem w środku — bez nich dwa bloki zlewają się w jeden
+   pasek i nie widać, że to dwie osobne nieobecności. Podpis stoi W pudełku, bo opisuje jego
+   zawartość; postawiony nad nim czytał się jak nagłówek całego kroku. */
+.wid-podglad {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: 14px var(--s-5);
+  border-radius: 10px;
+  background: var(--c-surface-mute);
+}
+.wid-podglad__podpis { font-size: var(--t-caption); color: var(--c-text-3); }
+/* ⚠ **Pięć dni w JEDNYM rzędzie** — i ta reguła przez dwa dni nie działała wcale, bo wiersz
+   wyżej stał nadmiarowy `}`. Przeglądarka po takim błędzie odrzuca **następną regułę**, a nie
+   sam nawias (zmierzone 20.10.2026 na osobnym arkuszu: `.b` po nadmiarowym `}` nie wchodzi
+   do `cssRules`, a cały `@media` po nim znika tak samo). Kafelki dostawały więc `display: block`
+   ze znacznika `div`, stawały jeden pod drugim na 5 × 54 px i podgląd ucinała stała wysokość
+   ciała okna — widać było dwa i pół dnia. Stąd reguła praktyczna: nawias do pary dopisujemy
+   w tej samej zmianie, bo taki błąd nie zgłasza się niczym poza wyglądem o jeden ekran dalej. */
+.wid-podglad__dni { display: flex; gap: var(--s-2); }
+/* ⚠ Numer u góry po lewej, napis u dołu — a nie oba na środku: kafelek dnia w kalendarzu
+   wygląda dokładnie tak, a podgląd ma pokazywać skutek, nie własny pomysł na kafelek. */
+.wid-podglad__dzien {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex: 1 1 0;
+  min-width: 0;
+  height: 54px;
+  padding: var(--s-2) var(--s-1);
+  border-radius: 7px;
+  background: var(--c-surface);
+  font-size: var(--t-label);
+  line-height: var(--lh-tight);
+  text-align: left;
+  overflow: hidden;
+}
+.wid-podglad__numer { font-size: var(--t-caption); font-weight: var(--w-semibold); opacity: .75; }
+/* ⚠ Napis jest W SPANIE, bo wielokropek nie działa na samym węźle tekstowym. Przy pięciu
+   kafelkach w 600-pikselowym oknie „urlop wypoczynkowy" i tak się nie mieści — ma zostać
+   przyciętą nazwą rodzaju, a nie rozepchnąć rzędu. */
+.wid-podglad__napis { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Dzień bez nieobecności: puste pudełko z obrysem — brak danych, nie dana „nic". */
+.wid-podglad__dzien--pusty { background: transparent; border: 1px solid var(--c-line); color: var(--c-text-4); }
+.wid-podglad__dzien--urlop { background: var(--c-pasek-urlop-tlo); color: var(--c-pasek-urlop-tekst); }
+.wid-podglad__dzien--zasilek { background: var(--c-pasek-zwolnienie-tlo); color: var(--c-pasek-zwolnienie-tekst); }
+.wid-podglad__dzien--bez { background: var(--c-neutral-soft); color: var(--c-text-3); }
+
+/* ⚠ Blok stoi PO regułach `.wid-podglad__dni`, bo o pierwszeństwie przy równej szczegółowości
+   decyduje kolejność w pliku (§1 systemu wizualnego). Postawiony wyżej przegrywał z `display: grid`
+   z reguły bazowej i **oba warianty były widoczne naraz** — zmierzone.
+   ⚠ **Oba warianty podglądu stoją w znaczniku, arkusz pokazuje jeden.** Treści nie da się
+   przełączyć samym stylem (a tekst w CSS to tekst poza Twigiem), więc przełączamy GOTOWE BLOKI.
+   Kosztuje to pięć ukrytych elementów i daje podgląd, który zmienia się razem z kliknięciem,
+   a nie po żądaniu do serwera. */
+.wid-podglad__podpis--pelny,
+.wid-podglad__dni--pelny { display: none; }
+.wid-okno__body:has(#wid-zakres-pelny:checked) .wid-podglad__podpis--bez,
+.wid-okno__body:has(#wid-zakres-pelny:checked) .wid-podglad__dni--bez { display: none; }
+.wid-okno__body:has(#wid-zakres-pelny:checked) .wid-podglad__podpis--pelny { display: block; }
+.wid-okno__body:has(#wid-zakres-pelny:checked) .wid-podglad__dni--pelny { display: flex; }
+/* ⚠ **Przeglądarka bez `:has()` dostaje widoczne pole wyboru**, zamiast zaznaczenia, którego
+   nie ma. Bez tego wybór byłby tam niewidoczny — a to ten sam błąd, który właśnie naprawiamy,
+   tylko ciszej. Podgląd pokazuje wtedy wariant „bez szczegółów" i mówi o tym podpis. */
+@supports not selector(:has(*)) {
+  .wid-zakres input { position: static; width: auto; height: auto; clip: auto; }
+  /* ⚠ To samo w wierszach listy — tam zaznaczenie też rozstrzyga `:has()`. Wiersz dostaje
+     czwartą kolumnę na pole, zamiast wpuszczać je w siatkę trzykolumnową bokiem. */
+  .wid-poz input { position: static; width: auto; height: auto; clip: auto; }
+  .wid-poz { grid-template-columns: 16px 28px minmax(0, 1fr) 22px; }
+}
+
+/* ⚠ **Telefon: wiersz reguły rozkłada się na trzy linie, a nie przewija w bok.** Trzy człony
+   relacji mają własne wiersze; strzałka znika, bo kierunek niesie kolejność. Ta sama decyzja,
+   co w `.table--pracownicy` na wąskim ekranie. */
+@media (max-width: 720px) {
+  .wid-naglowki { display: none; }
+  .wid-wiersz { grid-template-columns: 38px minmax(0, 1fr) 32px 32px; }
+  .wid-wiersz__strzalka { display: none; }
+  .wid-wiersz__kto { grid-column: 2 / -1; }
+  .wid-wiersz__czyje { grid-column: 2 / -1; }
+  .wid-kroki { padding-inline: var(--s-4); }
+  .wid-krok { flex-direction: column; justify-content: center; gap: 2px; height: auto; padding: var(--s-2); }
+  .wid-krok__nazwa { font-size: var(--t-label); }
+  /* ⚠ Ikona i napis mogą się tu zawinąć, ale **nie wyjść poza przycisk** — stąd `min-width: 0`
+     na pozycji i zawijanie treści, a nie `white-space: nowrap` z przewijaniem w bok. */
+  .wid-seg__poz { flex-direction: column; gap: 0; height: auto; padding: var(--s-2) 2px; white-space: normal; }
+  /* ⚠ **Na telefonie ciało okna PRZEWIJA SIĘ, a nie ucina.** Stała wysokość 477 px i `overflow:
+     hidden` to decyzja dla pulpitu („bez suwaka w samym oknie"); przy 375 × 760 px na okno zostaje
+     400 px, a krok 3 ma 485 px treści — zmierzone, czyli 85 px podglądu znikało pod krawędzią.
+     ⚠ `min-height` schodzi do zera, bo przy niskim ekranie wymuszone 360 px wypychało stopkę
+     z okna, które samo ma `overflow: hidden` — lekarstwo gorsze od choroby. */
+  .wid-okno__body { height: auto; min-height: 0; overflow-y: auto; }
+  /* ⚠ **Pięć dni zostaje pięcioma dniami także na telefonie** — zawinięcie ich do dwóch rzędów
+     pokazywałoby tydzień, którego w kalendarzu nie ma. Mieszczą się, bo schodzi wyściółka
+     podglądu i odstęp między kafelkami; napis i tak przycina wielokropek. */
+  .wid-podglad { padding: var(--s-3); }
+  .wid-podglad__dni { gap: var(--s-1); }
+  .wid-podglad__dzien { padding: var(--s-1) 3px; }
 }

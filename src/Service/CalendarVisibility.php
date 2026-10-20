@@ -4,216 +4,249 @@ declare(strict_types=1);
 
 namespace Wezurlop\Service;
 
-use Wezurlop\Db\Connection;
-use Wezurlop\Repository\EventLogRepository;
-use Wezurlop\Repository\PermissionRepository;
+use Wezurlop\Repository\CalendarAccessRepository;
+use Wezurlop\Repository\PracownikRepository;
 
 /**
- * Poziom widoczności cudzych kalendarzy — **jedno miejsce, w którym ta liczba powstaje**
- * (`docs/etap3-logika-urlopowa.md` §8b, decyzja Krzysztofa 23.09.2026).
+ * **Jedna funkcja rozstrzyga, co widz widzi u oglądanej osoby** — dla TRÓJKI
+ * (widz, osoba oglądana, firma) zwraca `brak` | `bez_szczegolow` | `ze_szczegolami`
+ * (`docs/etap3-logika-urlopowa.md` §8b, przebudowa ze zlecenia Z53 z 19.10.2026).
  *
- * ```
- * 0 — nie widzi        brak uprawnień (DOMYŚLNY, także dla administratora tenanta)
- * 1 — rodzaj ogólny    calendar.view_all
- * 2 — całość           calendar.view_all + calendar.view_all_details
- * ```
+ * ⚠ **Przebudowa, nie dołożenie drugiej drogi.** Do 19.10.2026 ta klasa liczyła JEDNĄ LICZBĘ
+ * NA KONTO I FIRMĘ (0 / 1 / 2) z uprawnień `calendar.view_all` i `calendar.view_all_details`,
+ * a ta liczba jechała na cały ekran. Od Z53 szczegółowość zależy od tego, **kogo się ogląda**,
+ * bo reguła dostępu może obejmować jedną grupę, a nie całą firmę. Uprawnień tych nic już nie
+ * czyta; role, które je nadawały, zostają w bazie jako martwy zapis do osobnej decyzji.
  *
- * ⚠ **Kod sprawdza UPRAWNIENIE, nigdy nazwę roli.** To cała cena za to, że rola kadrowa
- * z Etapu 3 dostanie te same kody i nie trzeba będzie niczego scalać ręcznie. Jedno
- * porównanie do nazwy roli gdziekolwiek w aplikacji i ta obietnica przepada — dlatego
- * nazwy ról żyją wyłącznie w migracji i w `AdminAccountController` (tam, gdzie się NADAJE),
- * a wszystkie decyzje o widoczności czytają `poziom()`.
+ * ⚠ **Trzy źródła, jeden wynik: MAKSIMUM** (`ZakresWidocznosci::wyzszy()`).
+ *   1. własne dane — zawsze `ze_szczegolami`,
+ *   2. hierarchia — przełożony widzi swoją gałąź w zakresie ustawionym przez administratora
+ *      dla tej firmy (domyślnie `bez_szczegolow`),
+ *   3. reguły dostępu — konto albo grupa, do której widz należy, wskazane po stronie „kto widzi".
+ * Gdyby porównanie stało w trzech miejscach, czwarte źródło dołożone za miesiąc trafiłoby
+ * do dwóch z nich.
  *
- * ⚠ **Poziom liczy jedna funkcja, a nie trzy `if`-y po kontrolerach.** Gdyby ktoś miał obie role
- * albo samo `..._details` (np. po ręcznym grzebaniu w bazie), wynik musi być określony w tym
- * jednym miejscu. Po ostatnich turach wiadomo, czym kończą się dwa miejsca decydujące o tej
- * samej rzeczy: „pusta lista” znaczyła dwie różne rzeczy w dwóch drogach i zostawiała na ekranie
- * wiersz, którego nikt nie zaznaczył.
+ * ⚠ **Zasięg i szczegółowość dalej są dwiema osiami, choć reguła nadaje je razem.** Reguła mówi
+ * „kto widzi kogo" (zasięg) i „jak dokładnie" (szczegółowość) jednym zapisem, ale liczone są
+ * osobno: `zasiegZRegul()` i `widziCalaFirme()` odpowiadają na pierwsze pytanie,
+ * `zakresy()` na drugie. Zlanie ich dałoby przełożonego, który widzi szczegół, bo ma szeroki
+ * zasięg — dokładnie to, przed czym §8b ostrzegał od 23.09.2026.
  *
- * ⚠ **Poziom i zasięg to dwie niezależne osie.** Tu jest wyłącznie **szczegółowość** (czy widać
- * nazwę rodzaju ze słownika). Kogo widać — rozstrzyga `ZasiegPodgladu`. Zlanie ich dałoby
- * przełożonego, który widzi szczegół, bo ma szeroki zasięg.
+ * ⚠ **Czytane z bazy przy KAŻDYM żądaniu**, więc odebranie reguły działa natychmiast, a nie
+ * „po wylogowaniu" (CLAUDE.md §8).
  */
 final class CalendarVisibility
 {
-    /** Widzi tylko siebie i swoich podwładnych, jak każdy. */
-    public const POZIOM_BRAK = 0;
-
-    /** Widzi całą spółkę, ale wyłącznie „urlop" / „zwolnienie" / „inna nieobecność". */
-    public const POZIOM_OGOLNY = 1;
-
-    /** Widzi całą spółkę z nazwą rodzaju ze słownika — dane o zdrowiu. */
-    public const POZIOM_PELNY = 2;
-
-    public const UPRAWNIENIE_WIDOK = 'calendar.view_all';
-    public const UPRAWNIENIE_SZCZEGOL = 'calendar.view_all_details';
-
-    /**
-     * Role systemowe nadające poziomy. ⚠ Nazwy stoją tu **wyłącznie po to, żeby nadawać** —
-     * do pytania „co ten człowiek widzi" służy `poziom()`, które patrzy na uprawnienia.
-     *
-     * @var array<int, string>
-     */
-    public const ROLE_POZIOMOW = [
-        self::POZIOM_OGOLNY => 'calendar_viewer',
-        self::POZIOM_PELNY => 'calendar_viewer_full',
-    ];
+    public const UPRAWNIENIE_EKRAN = 'calendar.visibility_manage';
 
     public function __construct(
-        private readonly PermissionRepository $permissions,
-        private readonly Connection $db,
-        private readonly EventLogRepository $events,
+        private readonly CalendarAccessRepository $reguly,
+        private readonly ZasiegPodgladu $zasieg,
+        private readonly PracownikRepository $pracownicy,
     ) {
     }
 
     /**
-     * Ustawienie poziomu dla pary (konto, zakres) — **jedna transakcja, jeden wpis w dzienniku**.
+     * **Zakresy dla kompletu oglądanych osób naraz** — jedno czytanie reguł na ekran, nie jedno
+     * na wiersz siatki.
      *
-     * ⚠ Najpierw odbieramy OBIE role, potem nadajemy właściwą. Bez tego konto z rolą „ogólną",
-     * któremu podniesiono poziom, miałoby dwa przypisania — a wtedy odebranie „pełnej" cofałoby
-     * do „ogólnej" po cichu, czyli wybór trójstanowy zaczynałby mieć pamięć, o której nikt nie wie.
+     * ⚠ Siatka zespołu ma do 30 wierszy; pytanie „jaki mam zakres do tej osoby" zadane w pętli
+     * dałoby 30 odczytów reguł i 30 odczytów hierarchii na jedno wyświetlenie miesiąca.
      *
-     * ⚠ Nadanie i odebranie **idą do dziennika zdarzeń z osobą wykonującą** — jak reset 2FA przez
-     * administratora (`etap3` §8b). Sam PODGLĄD kalendarza nie jest logowany: dziennik zapełniłby
-     * się przewijaniem miesięcy i przestałby być czytelny (rozważone i odrzucone w zleceniu).
+     * ⚠ **Własny wiersz zawsze `ze_szczegolami`** — to są własne dane i pracownik widzi je
+     * w pełni także w „Tylko ja". Do 19.10.2026 szczegółowość była jednolita dla całej siatki
+     * *łącznie z własnym wierszem*, i było to uzasadnione tym, że ekran służy do ZESTAWIANIA.
+     * Z53 odwołuje to uzasadnienie wprost (decyzja Krzysztofa): wiersze mają się różnić, bo
+     * dostęp do nich naprawdę jest różny, a legenda mówi, co znaczy szare „nieobecny".
      *
-     * @return array{poziom: int, przed: int} stan po zmianie i przed nią
+     * @param list<int> $osoby identyfikatory zatrudnień, o które pytamy
+     * @return array<int, string> zatrudnienie => zakres
      */
-    public function ustaw(int $accountId, int $companyId, int $poziom, ?int $przez, ?string $aktor): array
+    public function zakresy(int $accountId, int $companyId, ?int $widzEmploymentId, array $osoby): array
     {
-        $przed = $this->poziomNadany($accountId, $companyId);
-        $pdo = $this->db->pdo();
-        $pdo->beginTransaction();
-        try {
-            foreach (self::ROLE_POZIOMOW as $rola) {
-                $this->permissions->revokeRole($accountId, $rola, $companyId);
-            }
-            if (isset(self::ROLE_POZIOMOW[$poziom])) {
-                $this->permissions->assignRole($accountId, self::ROLE_POZIOMOW[$poziom], $companyId, $przez);
-            }
-            $pdo->commit();
-        } catch (\Throwable $e) {
-            $pdo->rollBack();
+        if ($osoby === []) {
+            return [];
+        }
+        $galaz = $widzEmploymentId === null ? [] : $this->zasieg->dozwolone($companyId, $widzEmploymentId);
+        $wGalezi = [];
+        foreach ($galaz as $id) {
+            $wGalezi[$id] = true;
+        }
+        $reguly = $this->regulyZDomyslna($companyId, $accountId, $widzEmploymentId);
+        // Mapa grup potrzebna tylko wtedy, gdy jakakolwiek reguła celuje w grupy — inaczej
+        // zapytanie o przynależności byłoby odczytem, z którego nikt nie skorzysta.
+        $celujeWGrupy = false;
+        foreach ($reguly as $r) {
+            $celujeWGrupy = $celujeWGrupy || $r['target_kind'] === ZakresWidocznosci::CZYJE_GRUPY;
+        }
+        $grupyOsob = $celujeWGrupy ? $this->reguly->grupyZatrudnien($companyId, $osoby) : [];
+        // ⚠ **Zwolnienie odbiera dostęp NATYCHMIAST — i rozstrzyga o tym jedno miejsce: to.**
+        // Reguł po zwolnieniu nie sprzątamy (decyzja Krzysztofa z 19.10.2026): wiersz zostaje,
+        // żeby administrator zobaczył przekreślone nazwisko i sam zdecydował. Skoro tak, to
+        // dostęp musi znikać przy ODCZYCIE, a nie przy zapisie — i nie wolno tego zostawić
+        // wywołującemu. Zmierzone 20.10.2026 przed poprawką: siatka zespołu rzeczywiście nie
+        // pokazuje zwolnionych, więc wyglądało to na działające, ale zapytana wprost o zwolnione
+        // zatrudnienie ta funkcja odpowiadała `ze_szczegolami`. Każdy nowy widok, który poda
+        // własną listę osób (panel osoby, wykaz historyczny, eksport), dostałby wtedy dostęp,
+        // którego nikt nie nadał — a reguła dotyczy danych o zdrowiu.
+        // ⚠ Jedno zapytanie na komplet, nie jedno na wiersz; i jeden warunek zamiast czterech,
+        // bo działa tak samo dla celu „osoby", „grupy", „cała firma" i „podwładni".
+        $czynne = [];
+        foreach ($this->reguly->czynneZatrudnienia($companyId, $osoby) as $id) {
+            $czynne[$id] = true;
+        }
+        // ⚠ „Wszyscy przełożeni" obejmuje widza tylko wtedy, gdy ktoś pod nim DZIŚ stoi. Gałąź
+        // zawiera właściciela, więc jeden element znaczy „bez podwładnych".
+        $jestPrzelozonym = count($galaz) > 1;
 
-            throw $e;
+        $wynik = [];
+        foreach ($osoby as $osoba) {
+            $toJa = $widzEmploymentId !== null && $osoba === $widzEmploymentId;
+            // Własny wiersz zostaje pełny nawet wtedy, gdy etat już wygasł — to są własne dane.
+            if (!$toJa && !isset($czynne[$osoba])) {
+                $wynik[$osoba] = ZakresWidocznosci::BRAK;
+                continue;
+            }
+            // ⚠ Sama decyzja siedzi w czystej funkcji, żeby dało się ją udowodnić testem
+            // (`tests/widocznosc.php`). Tutaj zostaje wyłącznie zebranie danych.
+            $wynik[$osoba] = ZakresWidocznosci::dlaOsoby(
+                $reguly,
+                $toJa,
+                isset($wGalezi[$osoba]),
+                $jestPrzelozonym,
+                $grupyOsob[$osoba] ?? [],
+                $osoba,
+            );
         }
 
-        // ⚠ Kod zdarzenia zależy od KIERUNKU zmiany, nie od tego, którą rolę ruszyliśmy:
-        // przy audycie pyta się „kto komu nadał uprawnienie", nie „która rola zmieniła stan".
-        // ⚠ W zapisie są **sprawca i odbiorca**, także gdy to ta sama osoba (aneks 23.09 §4):
-        // `account_id` to ten, kto nadał, `subject_id` — komu. Pierwsze nadanie sobie samemu
-        // jest właśnie tym wpisem, dla którego ten dziennik istnieje.
-        $this->events->record(
-            $poziom > self::POZIOM_BRAK ? 'permission.granted' : 'permission.revoked',
-            $przez,
-            null,
-            $aktor,
-            'account',
-            $accountId,
-            $companyId > 0 ? $companyId : null,
-            [
-                // CZEGO dotyczy nadanie — rodzina zdarzeń jest ogólna, więc to musi być w treści.
-                'uprawnienie' => 'kalendarz',
-                'poziom' => $poziom,
-                'poziom_przed' => $przed,
-                'zakres' => $companyId === 0 ? 'tenant' : 'spolka',
-            ],
-        );
-
-        return ['poziom' => $poziom, 'przed' => $przed];
+        return $wynik;
     }
 
     /**
-     * Poziom konta w konkretnej spółce — czytany z bazy przy każdym żądaniu, więc odebranie
-     * uprawnienia działa natychmiast (CLAUDE.md §8).
-     */
-    public function poziomKonta(int $accountId, int $companyId): int
-    {
-        return self::poziom($this->permissions->permissionsFor($accountId, $companyId));
-    }
-
-    /**
-     * Spółki, w których to konto ma poziom ≥ 1 — **biała lista** dla konta bez zatrudnienia.
+     * Reguły widza **z dołożoną regułą domyślną firmy**, gdy ta nie jest jeszcze zapisana.
      *
-     * ⚠ Kontroler pyta tutaj, a nie o kod uprawnienia: gdyby znał `calendar.view_all`, ten kod
-     * byłby w dwóch miejscach, a przy dodaniu roli kadrowej trzeba by pamiętać o obu.
+     * ⚠ To jedyne miejsce, w którym stosuje się domyślność „przełożony widzi bez szczegółów".
+     * Gdyby brak wiersza obsługiwał osobno ekran i osobno kalendarz, administrator mógłby
+     * widzieć na liście jeden zakres, a pracownik dostawać drugi.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function regulyZDomyslna(int $companyId, int $accountId, ?int $widzEmploymentId): array
+    {
+        $reguly = $this->reguly->regulyWidza($companyId, $accountId, $widzEmploymentId);
+        foreach ($reguly as $r) {
+            if ($r['subject_kind'] === ZakresWidocznosci::KTO_PRZELOZENI) {
+                return $reguly;
+            }
+        }
+        $reguly[] = [
+            'id' => 0,
+            'scope' => ZakresWidocznosci::DOMYSLNY_PRZELOZONYCH,
+            'target_kind' => ZakresWidocznosci::CZYJE_PODWLADNI,
+            'subject_kind' => ZakresWidocznosci::KTO_PRZELOZENI,
+            'grupy' => [],
+        ];
+
+        return $reguly;
+    }
+
+    /**
+     * Zakres dla JEDNEJ pary — cienka nakładka na `zakresy()`, żeby nie powstała druga
+     * implementacja tej samej decyzji.
+     */
+    public function zakres(int $accountId, int $companyId, ?int $widzEmploymentId, int $osoba): string
+    {
+        return $this->zakresy($accountId, $companyId, $widzEmploymentId, [$osoba])[$osoba]
+            ?? ZakresWidocznosci::BRAK;
+    }
+
+    /**
+     * **Zatrudnienia widoczne z REGUŁ** — poza własną gałęzią hierarchii.
+     *
+     * ⚠ Osoby z reguł wchodzą do widoku „Zespół" obok podwładnych i do kontrolki wyboru osób
+     * (§2 zlecenia). Nie dostają własnego widoku: „kogo widzę" to jedna lista, a nie tyle list,
+     * ile źródeł dostępu.
+     *
+     * @return list<int>
+     */
+    public function zasiegZRegul(int $accountId, int $companyId, ?int $widzEmploymentId): array
+    {
+        $grupy = [];
+        $osoby = [];
+        foreach ($this->reguly->regulyWidza($companyId, $accountId, $widzEmploymentId) as $r) {
+            if ($r['target_kind'] === ZakresWidocznosci::CZYJE_FIRMA) {
+                // Jedna reguła „cała firma" przesłania wszystkie pozostałe — nie ma czego dokładać.
+                return $this->pracownicy->zatrudnieniaSpolki($companyId);
+            }
+            if ($r['target_kind'] === ZakresWidocznosci::CZYJE_OSOBY) {
+                // ⚠ Wskazane osoby wchodzą do zasięgu **po przefiltrowaniu przez czynne etaty
+                // tej firmy** — zwolniona osoba znika z kalendarza sama, bez sprzątania reguł
+                // (decyzja Krzysztofa 19.10.2026). Reguła zostaje i widzi ją tylko administrator.
+                foreach ($this->reguly->czynneZatrudnienia($companyId, $r['grupy']) as $id) {
+                    $osoby[$id] = true;
+                }
+                continue;
+            }
+            if ($r['target_kind'] === ZakresWidocznosci::CZYJE_PODWLADNI) {
+                // ⚠ Gałąź pod widzem jest już w zasięgu z hierarchii — reguła „podwładni"
+                // nie poszerza tego, KOGO widać, tylko JAK DOKŁADNIE. To ta sama para osi,
+                // o której mówi §8b: zasięg i szczegółowość liczą się osobno.
+                continue;
+            }
+            foreach ($r['grupy'] as $g) {
+                $grupy[$g] = true;
+            }
+        }
+        $zGrup = $grupy === []
+            ? []
+            : $this->reguly->zatrudnieniaGrup($companyId, array_map('intval', array_keys($grupy)));
+        foreach ($zGrup as $id) {
+            $osoby[$id] = true;
+        }
+
+        return array_map('intval', array_keys($osoby));
+    }
+
+    /**
+     * Czy widz ma w tej firmie regułę obejmującą **całą firmę** — czyli czy pozycja „Firma"
+     * w przełączniku widoku ma treść.
+     *
+     * ⚠ Reguła celująca w grupy NIE daje tej pozycji, choć daje dostęp do ludzi: „Firma" ma
+     * znaczyć firmę. Te osoby widać w „Zespole", razem z podwładnymi.
+     */
+    public function widziCalaFirme(int $accountId, int $companyId, ?int $widzEmploymentId): bool
+    {
+        foreach ($this->reguly->regulyWidza($companyId, $accountId, $widzEmploymentId) as $r) {
+            if ($r['target_kind'] === ZakresWidocznosci::CZYJE_FIRMA) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Firmy, w których konto ma jakąkolwiek regułę — biała lista ekranu kalendarza dla konta
+     * bez zatrudnienia. Zastępuje dawne `spolkiZPoziomem()`.
      *
      * @return list<array{id: int, nazwa: string}>
      */
-    public function spolkiZPoziomem(int $accountId): array
+    public function spolkiZDostepem(int $accountId): array
     {
-        return $this->permissions->companiesWithPermission($accountId, self::UPRAWNIENIE_WIDOK);
+        return $this->reguly->spolkiZRegula($accountId);
     }
 
     /**
-     * Poziom **nadany dokładnie w tym zakresie** — do kontrolki nadawania, nie do decyzji
-     * o widoczności. Patrz `PermissionRepository::permissionsAssignedAt()`.
+     * Zakres, w jakim przełożeni tej firmy widzą podwładnych — **jedno miejsce, w którym
+     * stosuje się wartość domyślną**. Brak wiersza znaczy „administrator jeszcze nie
+     * rozstrzygnął", a to ma znaczyć dokładnie to samo, co `bez_szczegolow`.
      */
-    public function poziomNadany(int $accountId, int $companyId): int
+    public function zakresPrzelozonych(int $companyId): string
     {
-        return self::poziom($this->permissions->permissionsAssignedAt($accountId, $companyId));
-    }
+        $regula = $this->reguly->regulaDomyslna($companyId);
 
-    /**
-     * ⚠ **Ta jedna funkcja rozstrzyga poziom.** Czysta i statyczna, żeby dała się sprawdzić
-     * testem na wszystkich kombinacjach, w tym na niemożliwych: samo `..._details` bez podstawy
-     * to **poziom 0**, a nie 2 — szczegół bez prawa wglądu w ogóle nie jest szczegółem, na który
-     * wolno patrzeć.
-     *
-     * @param list<string> $uprawnienia kody uprawnień konta w tej spółce
-     */
-    public static function poziom(array $uprawnienia): int
-    {
-        $widok = in_array(self::UPRAWNIENIE_WIDOK, $uprawnienia, true);
-        if (!$widok) {
-            return self::POZIOM_BRAK;
-        }
-
-        return in_array(self::UPRAWNIENIE_SZCZEGOL, $uprawnienia, true)
-            ? self::POZIOM_PELNY
-            : self::POZIOM_OGOLNY;
-    }
-
-    /** Czy poziom pozwala oglądać kalendarz całej spółki (zasięg „Firma"). */
-    public static function widziSpolke(int $poziom): bool
-    {
-        return $poziom >= self::POZIOM_OGOLNY;
-    }
-
-    /** Czy poziom pozwala zobaczyć nazwę rodzaju ze słownika przy cudzej nieobecności. */
-    public static function widziRodzaj(int $poziom): bool
-    {
-        return $poziom >= self::POZIOM_PELNY;
-    }
-
-    /**
-     * Nazwa poziomu dla człowieka — w kontrolce nadawania i w zdaniu na kalendarzu.
-     * ⚠ Trójstanowy wybór, nie „przypisanie roli": człowiek nie ma znać naszych tabel.
-     *
-     * @return array<int, string>
-     */
-    public static function nazwy(): array
-    {
-        return [
-            self::POZIOM_BRAK => 'nie widzi',
-            self::POZIOM_OGOLNY => 'rodzaj ogólny',
-            self::POZIOM_PELNY => 'pełny szczegół',
-        ];
-    }
-
-    /**
-     * Opis poziomu do kontrolki — jedno zdanie, co ten wybór naprawdę otwiera.
-     *
-     * @return array<int, string>
-     */
-    public static function opisy(): array
-    {
-        return [
-            self::POZIOM_BRAK => 'Widzi siebie i swoich podwładnych — tak jak każdy pracownik.',
-            self::POZIOM_OGOLNY => 'Widzi kalendarz całej firmy: kto i kiedy, bez nazwy rodzaju '
-                . '(„urlop", „zwolnienie", „inna nieobecność").',
-            self::POZIOM_PELNY => 'Widzi kalendarz całej firmy z nazwami rodzajów ze słownika — '
-                . 'w tym rodzajami zwolnień, czyli danymi o zdrowiu. Wymaga logowania dwuskładnikowego.',
-        ];
+        return $regula !== null && ZakresWidocznosci::zapisywalny($regula['scope'])
+            ? $regula['scope']
+            : ZakresWidocznosci::DOMYSLNY_PRZELOZONYCH;
     }
 }

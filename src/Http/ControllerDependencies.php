@@ -104,6 +104,8 @@ final class ControllerDependencies
         public readonly ZasiegPodgladu $zasieg,
         public readonly CalendarFilterRepository $filtrKalendarza,
         public readonly CalendarVisibility $widocznoscKalendarza,
+        public readonly \Wezurlop\Repository\CalendarAccessRepository $regulyKalendarza,
+        public readonly \Wezurlop\Service\WidocznoscService $widocznoscService,
         public readonly \Wezurlop\Service\KontekstSpolki $kontekstSpolki,
     ) {
     }

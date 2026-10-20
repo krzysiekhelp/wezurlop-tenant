@@ -346,7 +346,7 @@ final class KalendarzPracownika
             'dzis' => $iso === $dzis,
             'pasek' => $wpis === null ? null : [
                 'zrodlo' => $wpis['zrodlo'],
-                'nazwa' => self::nazwaPaska($wpis, CalendarVisibility::POZIOM_PELNY),
+                'nazwa' => self::pasek($wpis, ZakresWidocznosci::ZE_SZCZEGOLAMI)['nazwa'],
                 'data' => DataDnia::zakres($iso, $iso),
             ],
         ];
@@ -528,7 +528,8 @@ final class KalendarzPracownika
      *
      * @param array<string, mixed> $zatrudnienie
      * @param list<int> $dozwolone wynik `ZasiegPodgladu` — nigdy surowe wejście
-     * @param int $poziom poziom widoczności (`CalendarVisibility`): rozstrzyga SZCZEGÓŁOWOŚĆ
+     * @param array<int, string> $zakresy zatrudnienie => zakres (`CalendarVisibility::zakresy()`):
+     *        rozstrzyga SZCZEGÓŁOWOŚĆ **osobno dla każdego wiersza** (zlecenie Z53)
      * @param array<int, string> $nazwyWZasiegu nazwy dla CAŁEGO zasięgu — nie tylko dla `$dozwolone`,
      *        bo przełożony podpisanej osoby może nie być na pokazanej liście
      * @return array<string, mixed>
@@ -538,10 +539,10 @@ final class KalendarzPracownika
         array $dozwolone,
         DateTimeImmutable $pierwszy,
         string $dzis,
-        int $poziom,
+        array $zakresy,
         array $nazwyWZasiegu
     ): array {
-        return $this->siatka($zatrudnienie, $dozwolone, $pierwszy, $dzis, $poziom, $nazwyWZasiegu);
+        return $this->siatka($zatrudnienie, $dozwolone, $pierwszy, $dzis, $zakresy, $nazwyWZasiegu);
     }
 
     /**
@@ -568,7 +569,7 @@ final class KalendarzPracownika
         array $dozwolone,
         DateTimeImmutable $pierwszy,
         string $dzis,
-        int $poziom,
+        array $zakresy,
         array $nazwyWZasiegu
     ): array {
         $ostatni = $pierwszy->modify('last day of this month');
@@ -608,11 +609,15 @@ final class KalendarzPracownika
                 'osoba' => $osoba['osoba'],
                 'rola' => $osoba['rola'],
                 'ja' => $osoba['ja'],
+                // ⚠ **Zakres bierze się z TEJ OSOBY, nie z ekranu** (zlecenie Z53): widz może
+                // mieć do jednej osoby dostęp ze szczegółami, a do drugiej — sam fakt
+                // nieobecności. Brak wpisu w mapie znaczy `brak` i jest bezpieczny domyślnie
+                // (CLAUDE.md §10: domyślnie odmawiaj).
                 'komorki' => self::wiersz(
                     array_values(array_filter($wpisy, static fn (array $w): bool => $w['employment_id'] === $osoba['id'])),
                     $pierwszy,
                     $naglowki,
-                    $poziom,
+                    $zakresy[$osoba['id']] ?? ZakresWidocznosci::BRAK,
                 ),
             ];
         }
@@ -663,8 +668,15 @@ final class KalendarzPracownika
      * @param list<array{numer: int, skrot: string, wolny: bool, dzis: bool}> $naglowki
      * @return list<array<string, mixed>>
      */
-    private static function wiersz(array $wpisy, DateTimeImmutable $pierwszy, array $naglowki, int $poziom): array
+    private static function wiersz(array $wpisy, DateTimeImmutable $pierwszy, array $naglowki, string $zakres): array
     {
+        // ⚠ **Zakres `brak` znaczy pusty wiersz, a nie wiersz bez napisów.** Osoba bez dostępu
+        // nie powinna tu dojść (zasięg odcina ją wcześniej), ale gdyby doszła, nie wolno
+        // pokazać nawet tego, że jest nieobecna — stąd warunek stoi TU, przy budowaniu komórek,
+        // a nie tylko w zapytaniu.
+        if (!ZakresWidocznosci::widzi($zakres)) {
+            $wpisy = [];
+        }
         $wDniu = [];
         foreach ($naglowki as $naglowek) {
             $iso = $pierwszy->modify('+' . ($naglowek['numer'] - 1) . ' days')->format('Y-m-d');
@@ -699,30 +711,21 @@ final class KalendarzPracownika
                 'rozpietosc' => $koniec - $d + 1,
                 'wolny' => $naglowki[$d - 1]['wolny'],
                 'dzis' => $naglowki[$d - 1]['dzis'],
-                'pasek' => [
-                    'nazwa' => self::nazwaPaska($tu['wpis'], $poziom),
-                    'zrodlo' => $tu['wpis']['zrodlo'],
+                'pasek' => self::pasek($tu['wpis'], $zakres, [
                     'zakres' => DataDnia::zakres($tu['wpis']['od'], $tu['wpis']['do']),
                     // ⚠ **Na pasku stoi ZAKRES DAT, nie nazwa rodzaju** (zlecenie 06.10 §3).
                     // Policzone na sierpniu w BETA: z 17 pasków na ekranie 16 miało napis
                     // „urlop wypoczynkowy", czyli tekst powtarzał legendę szesnaście razy,
                     // a jedyna zmienna i potrzebna rzecz — OD KIEDY DO KIEDY — nie była
-                    // na pasku wcale. Rodzaj zostaje na obrysie, w legendzie, w `title`
-                    // i w `aria-label`; skrótu nazwy przysłanej z kadr nie wymyślamy
-                    // (ta sama reguła co „nie liczymy za kadry").
+                    // na pasku wcale.
                     'zakres_krotki' => DataDnia::zakresKrotki($tu['wpis']['od'], $tu['wpis']['do']),
                     // ⚠ **Numer dnia dla paska JEDNODNIOWEGO — z serwera, nie z JavaScriptu**
-                    // (zlecenie `2026-10-11-paski-nieobecnosci.md` §2). Do 11.10.2026 taki pasek
-                    // miał pusty napis i był bladą plamką bez żadnej informacji; po zmianie
-                    // wypełnienia na kolor rodzaju widać go jeszcze mocniej, więc pustka boli
-                    // bardziej. Numer bez miesiąca, bo siatka jest jednomiesięczna, a „14.08"
-                    // nie wchodzi w 39 px.
-                    // ⚠ To numer kolumny, w której pasek STOI (`$naglowki[$d - 1]['numer']`),
-                    // a nie dzień początku nieobecności z `od` — przy nieobecności zaczętej
-                    // w poprzednim miesiącu te dwie liczby są różne, a człowiek czyta kolumnę.
+                    // (zlecenie `2026-10-11-paski-nieobecnosci.md` §2). To numer KOLUMNY,
+                    // w której pasek stoi, a nie dzień początku nieobecności: przy nieobecności
+                    // zaczętej w poprzednim miesiącu te dwie liczby są różne, a człowiek czyta kolumnę.
                     'numer_dnia' => $naglowki[$d - 1]['numer'],
                     'wiele' => $wiele,
-                ],
+                ]),
             ];
             $d = $koniec;
         }
@@ -816,30 +819,72 @@ final class KalendarzPracownika
     }
 
     /**
-     * **Jedna funkcja rozstrzygająca, co stoi na pasku** — nazwa ze słownika czy rodzaj ogólny.
+     * **Pasek nieobecności — JEDYNE miejsce, w którym rodzaj opuszcza serwer.**
      *
-     * ⚠ Szczegółowość jest **jednolita dla całej siatki, łącznie z własnym wierszem**
-     * (potwierdzone 23.09.2026, `docs/etap3-logika-urlopowa.md` §8b — zapis „własnych
-     * nieobecności to nie dotyczy" został wtedy odwołany jako sprzeczny z decyzją z 22.09).
+     * ⚠ Wydzielone jako czysta funkcja po to, żeby dało się **udowodnić testem**, że przy
+     * `bez_szczegolow` ani jedno pole wyniku nie niesie rodzaju: ani nazwa ze słownika, ani
+     * źródło (z którego powstaje klasa CSS), ani nic, z czego dałoby się go odczytać.
+     * „Ukrycie CSS-em się nie liczy" (§2 zlecenia Z53), a sprawdzenie tego na renderze HTML
+     * dowodziłoby jednego szablonu — ta funkcja dowodzi wszystkich, które z niej korzystają.
      *
-     * ⚠ **Powód jest w tym, po co istnieje ta siatka: do ZESTAWIANIA.** Wiersz o innej
-     * szczegółowości niż reszta czyta się jako inny **rodzaj nieobecności**, a nie jako inny
-     * poziom uprawnień — czyli ekran zbudowany do porównywania zacząłby kłamać w jedynej rzeczy,
-     * do której służy. Utraty dostępu nie ma: pełną nazwę własnego rodzaju widać zawsze
-     * w „Tylko ja", niezależnie od poziomu.
+     * ⚠ Token `bez` jest **stałą tego kodu**, a nie wartością z bazy: gdyby szedł tędy prawdziwy
+     * `zrodlo`, rodzaj dałoby się odczytać z samej nazwy klasy w narzędziach przeglądarki.
      *
-     * ⚠ Poziom 2 otwiera nazwy rodzajów **całej załogi**, w tym rodzaje zwolnień — dane
-     * o zdrowiu. Dlatego rola nadająca ten poziom ma `requires_2fa = 1`, a decyzja siedzi TU,
-     * w jednym miejscu: gdyby stała w szablonie, pierwszy nowy widok pokazałby nazwy bez pytania.
+     * @param array<string, mixed> $wpis
+     * @param array<string, mixed> $reszta pola niezależne od zakresu (daty, numer dnia)
+     * @return array<string, mixed>
+     */
+    public static function pasek(array $wpis, string $zakres, array $reszta = []): array
+    {
+        $pelny = ZakresWidocznosci::widziRodzaj($zakres);
+
+        return [
+            'nazwa' => $pelny ? (string) $wpis['rodzaj'] : self::NIEOBECNY,
+            'zrodlo' => $pelny ? (string) $wpis['zrodlo'] : self::ZRODLO_BEZ,
+        ] + $reszta;
+    }
+
+    /** Token wypełnienia dla dostępu bez szczegółów — jeden dla wszystkich rodzajów. */
+    public const ZRODLO_BEZ = 'bez';
+
+    /**
+     * **Jedna funkcja rozstrzygająca, co stoi na pasku** — nazwa ze słownika kadr albo słowo
+     * „nieobecny".
+     *
+     * ⚠ **Szczegółowość jest OSOBNA DLA KAŻDEGO WIERSZA — od 19.10.2026** (zlecenie Z53,
+     * decyzja Krzysztofa). Do tego dnia była jednolita dla całej siatki, łącznie z własnym
+     * wierszem, i miało to uzasadnienie: ekran służy do ZESTAWIANIA, a wiersz o innej
+     * szczegółowości czyta się jak inny **rodzaj** nieobecności, nie jak inny dostęp.
+     * To uzasadnienie zostało **odwołane wprost** (`docs/etap3-logika-urlopowa.md` §8b):
+     * reguła dostępu może obejmować jedną grupę, a nie całą firmę, więc jednolity ekran
+     * musiałby równać albo w dół (zabierać dostęp, który ktoś nadał), albo w górę (dawać
+     * dostęp, którego nikt nie nadał). Ryzyko „inny wiersz = inny rodzaj" zdejmuje legenda,
+     * która nazywa szary pasek wprost.
+     *
+     * ⚠ **`bez_szczegolow` to NIE jest dawny „rodzaj ogólny".** Tamten pokazywał „urlop" albo
+     * „zwolnienie" — a „zwolnienie" przy cudzym nazwisku jest daną o zdrowiu tak samo jak nazwa
+     * ze słownika, tylko mniej dokładną. Został więc sam FAKT nieobecności, jedno słowo dla
+     * wszystkich rodzajów.
+     *
+     * ⚠ **Decyzja siedzi TU, w jednym miejscu.** Gdyby stała w szablonie, pierwszy nowy widok
+     * pokazałby nazwy bez pytania — a „ukrycie CSS-em się nie liczy" (§2 zlecenia Z53).
      *
      * @param array<string, mixed> $wpis
      */
-    private static function nazwaPaska(array $wpis, int $poziom): string
+    private static function nazwaPaska(array $wpis, string $zakres): string
     {
-        return CalendarVisibility::widziRodzaj($poziom)
+        return ZakresWidocznosci::widziRodzaj($zakres)
             ? (string) $wpis['rodzaj']
-            : self::ogolny((string) $wpis['zrodlo']);
+            : self::NIEOBECNY;
     }
+
+    /**
+     * ⚠ **Jedno słowo dla wszystkich rodzajów przy `bez_szczegolow`** — i to jest cała różnica
+     * wobec dawnego „rodzaju ogólnego". Tamten pokazywał „urlop" albo „zwolnienie", a „zwolnienie"
+     * przy nazwisku jest daną o zdrowiu tak samo jak nazwa ze słownika, tylko mniej dokładną.
+     * Stąd `ogolny()` nie jest tu już wołane; zostało dla własnych danych i dla legendy.
+     */
+    public const NIEOBECNY = 'nieobecny';
 
     /** Rodzaj ogólny ze źródła słownika; nieznane źródło zostaje „nieobecność”, nigdy kodem. */
     public static function ogolny(string $zrodlo): string

@@ -131,10 +131,16 @@
                     <p class="card__meta">Oglądasz kalendarz firmy <strong>{{ spolka.nazwa }}</strong> z nadanego podglądu — nie masz w niej etatu. Twoja firma pracy to <strong>{{ kontekst_podglad }}</strong> i tam liczą się limity oraz wnioski.</p>
                 {% endif %}
                 {% if zasieg_opis is not null %}<p class="card__meta">{{ zasieg_opis }}</p>{% endif %}
-                {% if poziom >= 2 %}
-                    <p class="card__meta">Widzisz <strong>nazwy rodzajów</strong> nieobecności całej firmy — w tym rodzaje zwolnień. To nadane uprawnienie, nie domyślny stan konta.</p>
-                {% else %}
-                    <p class="card__meta">Widzisz <strong>rodzaj ogólny</strong> nieobecności — „urlop" albo „zwolnienie" — nigdy jej przyczyny ani kodu z kadr. Szczegóły własnych nieobecności są w widoku „Tylko ja”.</p>
+                {#- ⚠ **Dwa zdania zamiast jednego „poziomu ekranu"** (zlecenie Z53): od 19.10.2026
+                    szczegółowość bywa RÓŻNA dla różnych wierszy tej samej siatki, bo reguła dostępu
+                    może obejmować jedną grupę, a nie całą firmę. Jedno zdanie o całym ekranie
+                    kłamałoby wtedy dla części wierszy, a rozstrzygać o tym ma serwer, nie szablon —
+                    stąd dwa gotowe stany z modelu, a nie porównanie liczby. -#}
+                {% if ma_ze_szczegolami %}
+                    <p class="card__meta">Przy części osób widzisz <strong>nazwy rodzajów</strong> nieobecności — w tym rodzaje zwolnień. To nadana reguła dostępu, nie domyślny stan konta.</p>
+                {% endif %}
+                {% if ma_bez_szczegolow %}
+                    <p class="card__meta">Szare paski „nieobecny" znaczą, że przy tej osobie masz dostęp <strong>bez szczegółów</strong>: widać sam fakt nieobecności, bez rodzaju i bez przyczyny. Szczegóły własnych nieobecności są zawsze w widoku „Tylko ja".</p>
                 {% endif %}
                 {#- ⚠ **Trzy powody wygaszenia dnia = trzy zdania** (§2.2 zlecenia). Zdanie
                     „Dni wolne są brane z Twojego rozkładu czasu pracy" stało tu także na koncie
