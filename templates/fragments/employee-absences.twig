@@ -79,7 +79,13 @@
                 jedne i drugie, więc stopka z jedną liczbą nie zgadzała się z tym, co widać nad nią.
                 Zmierzone: osoba z 19 wycofanymi nieobecnościami miała w stopce „19 nieobecności
                 · 76 dni roboczych", a w kadrach ani jednego dnia. -#}
-            <span>{{ podsumowanie_nieobecnosci.liczba }} {{ podsumowanie_nieobecnosci.liczba == 1 ? 'nieobecność' : 'nieobecności' }} · {{ podsumowanie_nieobecnosci.dni }} dni roboczych{% if podsumowanie_nieobecnosci.wycofanych > 0 %} · <strong>wycofanych: {{ podsumowanie_nieobecnosci.wycofanych }}</strong> (w tabeli, nieliczone){% endif %}{% if zakres is null and lata|length > 1 %} · lata {{ lata|join(', ') }}{% endif %}{% if przyciete %} · pokazujemy {{ pokazano_najwyzej }} najnowszych — wybierz rok, żeby zobaczyć starsze{% endif %}</span>
+            {#- ⚠ **Odmiana z jednego miejsca** (`Support\Odmiana`, naprawa 20.10.2026 — pozycja 89
+                z `do-sprawdzenia.md`). Stało tu wpisane na sztywno „dni roboczych" dla każdej
+                liczby, czyli „1 dni roboczych" i „23 dni roboczych" zamiast „1 dzień roboczy"
+                i „23 dni robocze". Trzecia forma polskiego liczebnika nie jest wyjątkiem
+                od reguły — jest regułą, i ma jedno miejsce w kodzie. Liczba nieobecności idzie
+                tą samą drogą (`odmiana_nieobecnosci`). -#}
+            <span>{{ podsumowanie_nieobecnosci.liczba }} {{ odmiana_nieobecnosci(podsumowanie_nieobecnosci.liczba) }} · {{ podsumowanie_nieobecnosci.dni }} {{ odmiana_dni_robocze(podsumowanie_nieobecnosci.dni) }}{% if podsumowanie_nieobecnosci.wycofanych > 0 %} · <strong>wycofanych: {{ podsumowanie_nieobecnosci.wycofanych }}</strong> (w tabeli, nieliczone){% endif %}{% if zakres is null and lata|length > 1 %} · lata {{ lata|join(', ') }}{% endif %}{% if przyciete %} · pokazujemy {{ pokazano_najwyzej }} najnowszych — wybierz rok, żeby zobaczyć starsze{% endif %}</span>
             {% if strona.stron > 1 %}
                 <div class="btn-row">
                     {% if strona.numer > 1 %}
