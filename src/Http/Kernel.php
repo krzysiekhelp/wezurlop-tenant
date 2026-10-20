@@ -195,6 +195,7 @@ final class Kernel
             $regulyKalendarza,
             $zasiegPodgladu,
             $pracownikRepo,
+            $services->permissions,
         );
         // ⚠ **Jedna instancja na żądanie** — ta sama odpowiedź „w jakiej spółce jestem" dla
         // znacznika w belce, dla middleware i dla kontrolerów. Dwie instancje to dwa zapytania

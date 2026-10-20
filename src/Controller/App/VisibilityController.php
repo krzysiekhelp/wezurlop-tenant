@@ -200,8 +200,8 @@ final class VisibilityController
         $zeSzczegolami = 0;
         $podmioty = [];
         foreach ($reguly as $r) {
-            if ($r['subject_kind'] === ZakresWidocznosci::KTO_PRZELOZENI) {
-                continue;                       // wiersz domyślny renderuje się osobno
+            if (CalendarAccessRepository::stala((string) $r['subject_kind'])) {
+                continue;                       // oba wiersze stałe renderują się osobno
             }
             $wiersze[] = $this->wiersz($r, $nazwy, $osobyCelu);
             $zeSzczegolami += $r['scope'] === ZakresWidocznosci::ZE_SZCZEGOLAMI ? 1 : 0;
@@ -209,6 +209,7 @@ final class VisibilityController
         }
         $zakresDomyslny = $this->widocznosc->zakresPrzelozonych($companyId);
         $przelozonych = $this->reguly->ilePrzelozonychRazem($companyId);
+        $administratorow = $this->reguly->ileAdministratorow($companyId);
 
         return [
             'spolka' => $kontekst['spolka'],
@@ -218,7 +219,13 @@ final class VisibilityController
             'spolka_fallback' => $kontekst['fallback'],
             'reguly' => $wiersze,
             'zakres_domyslny' => $zakresDomyslny,
-            'domyslna_id' => $this->idDomyslnej($reguly),
+            'domyslna_id' => self::idStalej($reguly, ZakresWidocznosci::KTO_PRZELOZENI),
+            // ⚠ Druga reguła stała: „Administratorzy › Cała firma" (zlecenie Z55). Wiersz stoi
+            // pod przełożonymi i ma ołówek bez kosza — tak samo i z tego samego powodu.
+            'administratorow_id' => self::idStalej($reguly, ZakresWidocznosci::KTO_ADMINI),
+            'zakres_administratorow' => $this->widocznosc->zakresAdministratorow($companyId),
+            'administratorow_opis' => $administratorow . ' ' . Odmiana::kont($administratorow)
+                . ' z prawem zarządzania widocznością · reguła domyślna firmy',
             'przelozonych' => $przelozonych,
             'przelozonych_opis' => $przelozonych . ' ' . Odmiana::osoby($przelozonych) . ' z podwładnymi',
             'nazwy_zakresow' => ZakresWidocznosci::nazwy(),
@@ -255,8 +262,9 @@ final class VisibilityController
         $wybor = explode(':', $wartosc('wybor', 32), 2);
         $kto = $wybor[0] !== '' ? $wybor[0] : $wartosc('kto', 16);
         $ktoId = count($wybor) === 2 ? (int) $wybor[1] : (int) $wartosc('kto_id', 12);
-        $kto = in_array($kto, [ZakresWidocznosci::KTO_PRZELOZENI, ZakresWidocznosci::KTO_PRZELOZONY,
-            ZakresWidocznosci::KTO_KONTO, ZakresWidocznosci::KTO_GRUPA], true)
+        $kto = in_array($kto, [ZakresWidocznosci::KTO_PRZELOZENI, ZakresWidocznosci::KTO_ADMINI,
+            ZakresWidocznosci::KTO_PRZELOZONY, ZakresWidocznosci::KTO_KONTO,
+            ZakresWidocznosci::KTO_GRUPA], true)
             ? $kto
             : ZakresWidocznosci::KTO_PRZELOZENI;
         // ⚠ **Domyślny cel zależy od tego, KOGO wskazano** (decyzja Krzysztofa 19.10.2026).
@@ -276,10 +284,13 @@ final class VisibilityController
         if (count($wybor) === 2 && $wybor[0] === ZakresWidocznosci::KTO_PRZELOZONY) {
             $czyje = ZakresWidocznosci::CZYJE_PODWLADNI;
         }
-        // ⚠ „Wszyscy przełożeni" ma dokładnie jeden możliwy cel — i rozstrzyga o tym serwer,
-        // a nie wyszarzenie pozycji w oknie.
+        // ⚠ Obie reguły stałe mają dokładnie jeden możliwy cel — i rozstrzyga o tym serwer,
+        // a nie wyszarzenie pozycji w oknie: „Wszyscy przełożeni" swoich podwładnych,
+        // „Administratorzy" całą firmę.
         if ($kto === ZakresWidocznosci::KTO_PRZELOZENI) {
             $czyje = ZakresWidocznosci::CZYJE_PODWLADNI;
+        } elseif ($kto === ZakresWidocznosci::KTO_ADMINI) {
+            $czyje = ZakresWidocznosci::CZYJE_FIRMA;
         } elseif ($czyje === ZakresWidocznosci::CZYJE_PODWLADNI
             && $kto === ZakresWidocznosci::KTO_KONTO && $ktoId > 0
             && !$this->maEtat($companyId, $ktoId)) {
@@ -327,10 +338,13 @@ final class VisibilityController
             // zapis już kiedyś nastąpił. Pierwszy zapis ją utworzy; dla człowieka to nadal
             // zmiana jednej, istniejącej pozycji, bo drugiej takiej mieć nie można
             // (sygnatura `supervisor_all|subordinates` jest jedna na firmę).
-            'zmiana' => $regula > 0 || $kto === ZakresWidocznosci::KTO_PRZELOZENI,
+            'zmiana' => $regula > 0 || CalendarAccessRepository::stala($kto),
+            // Reguła stała: w oknie zostaje wyłącznie krok zakresu, bo podmiotu ani celu
+            // nie da się w niej wskazać.
+            'stala' => CalendarAccessRepository::stala($kto),
             'krok' => $krok >= 1 && $krok <= 3 ? $krok : 1,
             'kto' => $kto,
-            'kto_id' => $kto === ZakresWidocznosci::KTO_PRZELOZENI ? 0 : max(0, $ktoId),
+            'kto_id' => CalendarAccessRepository::stala($kto) ? 0 : max(0, $ktoId),
             // Czy wskazane konto ma etat w tej firmie — od tego zależy, czy wolno mu dać
             // „Podwładnych" (kroku 2 nie wolno zostawić ekranowi do rozstrzygnięcia).
             'kto_bez_etatu' => $kto === ZakresWidocznosci::KTO_KONTO && $ktoId > 0
@@ -422,7 +436,7 @@ final class VisibilityController
             ZakresWidocznosci::KTO_KONTO => [
                 'pozycje' => array_map(
                     static fn (array $k): array => ['id' => $k['id'], 'nazwa' => $k['osoba'],
-                        'opis' => $k['etat'] ? '' : 'bez etatu w tej firmie', 'etat' => $k['etat']],
+                        'opis' => self::skadDostep($k['zrodlo']), 'etat' => $k['etat']],
                     $this->reguly->kandydaciKonta($companyId, $szukaj, self::STRONA, $od),
                 ),
                 'razem' => $this->reguly->ileKandydatow($companyId, $szukaj),
@@ -458,6 +472,23 @@ final class VisibilityController
             ZakresWidocznosci::KTO_KONTO => $this->reguly->etatyKonta($companyId, $ktoId),
             ZakresWidocznosci::KTO_PRZELOZONY => [$ktoId],
             default => [],
+        };
+    }
+
+    /**
+     * Druga linia wiersza konta — **skąd to konto ma dostęp do tej firmy** (zlecenie Z55).
+     *
+     * ⚠ Mówi o DOSTĘPIE, nie o zatrudnieniu, bo to on rozstrzyga, czy regułę wolno zapisać.
+     * Konto z przypisaniem na cały tenant nie ma etatu w żadnej firmie, a mimo to jest
+     * prawidłowym podmiotem reguły — i administrator ma to widzieć od razu, zamiast dowiadywać
+     * się z odmowy zapisu.
+     */
+    private static function skadDostep(string $zrodlo): string
+    {
+        return match ($zrodlo) {
+            'tenant' => 'dostęp do wszystkich firm · bez etatu',
+            'dostep' => 'bez etatu w tej firmie',
+            default => '',
         };
     }
 
@@ -637,7 +668,7 @@ final class VisibilityController
     {
         $konta = [];
         foreach ($this->reguly->kandydaciKonta($companyId, '', 1000, 0) as $k) {
-            $konta[$k['id']] = ['nazwa' => $k['osoba'], 'opis' => $k['etat'] ? '' : 'bez etatu'];
+            $konta[$k['id']] = ['nazwa' => $k['osoba'], 'opis' => self::skadDostep($k['zrodlo'])];
         }
         $przelozeni = [];
         foreach ($this->reguly->przelozeni($companyId, '', 1000, 0) as $p) {
@@ -742,10 +773,10 @@ final class VisibilityController
     }
 
     /** @param list<array<string, mixed>> $reguly */
-    private static function idDomyslnej(array $reguly): int
+    private static function idStalej(array $reguly, string $ktoRodzaj): int
     {
         foreach ($reguly as $r) {
-            if ($r['subject_kind'] === ZakresWidocznosci::KTO_PRZELOZENI) {
+            if ($r['subject_kind'] === $ktoRodzaj) {
                 return (int) $r['id'];
             }
         }

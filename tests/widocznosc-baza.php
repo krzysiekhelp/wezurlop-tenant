@@ -32,6 +32,7 @@ use Wezurlop\Repository\CalendarAccessRepository;
 use Wezurlop\Repository\EventLogRepository;
 use Wezurlop\Repository\GroupRepository;
 use Wezurlop\Repository\HierarchyRepository;
+use Wezurlop\Repository\PermissionRepository;
 use Wezurlop\Repository\PracownikRepository;
 use Wezurlop\Service\CalendarVisibility;
 use Wezurlop\Service\WidocznoscService;
@@ -63,10 +64,12 @@ use Wezurlop\Service\ZasiegPodgladu;
     $grupy = new GroupRepository($db);
     $events = new EventLogRepository($db);
     $service = new WidocznoscService($reguly, $grupy, $events);
+    $uprawnienia = new PermissionRepository($db);
     $widocznosc = new CalendarVisibility(
         $reguly,
         new ZasiegPodgladu(new HierarchyRepository($db), new PracownikRepository($db)),
         new PracownikRepository($db),
+        $uprawnienia,
     );
 
     // Znacznik przebiegu w nazwach danych próbnych — żeby dwa równoległe przebiegi sobie nie weszły
@@ -96,8 +99,13 @@ use Wezurlop\Service\ZasiegPodgladu;
                 ['n' => "PRÓBNA {$nazwa} ({$znacznik})", 'nip' => '0' . str_pad((string) random_int(0, 99999999), 8, '0', STR_PAD_LEFT) . $i]
             );
         }
-        // Cztery osoby próbne: widz, dwie osoby celu w ALFIE i jedna osoba w BECIE.
-        foreach (['widz' => 'Jan', 'cel1' => 'Anna', 'cel2' => 'Piotr', 'obcy' => 'Ewa'] as $rola => $imie) {
+        // ⚠ Sześć osób próbnych: widz, dwie osoby celu w ALFIE, jedna w BECIE oraz **dwie bez
+        // żadnego zatrudnienia** — administrator i konto z nadaniem na cały tenant. Te dwie muszą
+        // być bez etatu, inaczej trafiłyby na listę kandydatów przez zatrudnienie i test
+        // sprawdzałby zupełnie inną gałąź zapytania, niż zamierzał (zmierzone: pierwsza wersja
+        // dawała `zrodlo = etat` w firmie BETA).
+        foreach (['widz' => 'Jan', 'cel1' => 'Anna', 'cel2' => 'Piotr', 'obcy' => 'Ewa',
+                  'admin' => 'Marek', 'tenantowy' => 'Zofia'] as $rola => $imie) {
             $osoby[$rola] = $wstaw(
                 'INSERT INTO person (first_name, last_name, outside_hr) VALUES (:i, :n, 0)',
                 ['i' => $imie, 'n' => 'PRÓBNY ' . strtoupper($rola)]
@@ -107,6 +115,27 @@ use Wezurlop\Service\ZasiegPodgladu;
             "INSERT INTO account (person_id, email, status) VALUES (:p, :e, 'active')",
             ['p' => $osoby['widz'], 'e' => strtolower($znacznik) . '-widz@example.invalid']
         );
+        // ⚠ Dwa dodatkowe konta próbne (zlecenie Z55): jedno z uprawnieniem administratora
+        // i jedno z dawnym nadaniem obejmującym cały tenant, ale BEZ uprawnień administratora.
+        // Role przypisujemy po KODZIE z zapytania, nie po numerze — numer bywa inny w każdej bazie.
+        $konta['admin'] = $wstaw(
+            "INSERT INTO account (person_id, email, status) VALUES (:p, :e, 'active')",
+            ['p' => $osoby['admin'], 'e' => strtolower($znacznik) . '-admin@example.invalid']
+        );
+        $konta['tenantowy'] = $wstaw(
+            "INSERT INTO account (person_id, email, status) VALUES (:p, :e, 'active')",
+            ['p' => $osoby['tenantowy'], 'e' => strtolower($znacznik) . '-tenant@example.invalid']
+        );
+        $rola = static function (string $kod) use ($pdo): int {
+            $stmt = $pdo->prepare('SELECT id FROM role WHERE code = :kod');
+            $stmt->execute(['kod' => $kod]);
+
+            return (int) $stmt->fetchColumn();
+        };
+        $wstaw('INSERT INTO role_assignment (account_id, role_id, company_id) VALUES (:a, :r, 0)',
+            ['a' => $konta['admin'], 'r' => $rola('tenant_admin')]);
+        $wstaw('INSERT INTO role_assignment (account_id, role_id, company_id) VALUES (:a, :r, 0)',
+            ['a' => $konta['tenantowy'], 'r' => $rola('calendar_viewer')]);
         foreach (['widz' => 'ALFA', 'cel1' => 'ALFA', 'cel2' => 'ALFA', 'obcy' => 'BETA'] as $rola => $firma) {
             $etaty[$rola] = $wstaw(
                 'INSERT INTO employment (person_id, company_id, is_active) VALUES (:p, :c, 1)',
@@ -119,8 +148,8 @@ use Wezurlop\Service\ZasiegPodgladu;
             'INSERT INTO company_group (company_id, name) VALUES (:c, :n)',
             ['c' => $firmy['BETA'], 'n' => 'Grupa próbna obca ' . $znacznik]
         );
-        $check('dane próbne założone (2 firmy, 4 osoby, 1 konto, 4 etaty, 2 grupy)',
-            $grupaId > 0 && count($etaty) === 4 && $obcaGrupa > 0);
+        $check('dane próbne założone (2 firmy, 6 osób, 3 konta, 4 etaty, 2 grupy)',
+            $grupaId > 0 && count($etaty) === 4 && count($konta) === 3 && $obcaGrupa > 0);
 
         $ileRegul = static fn (): int => (int) $pdo->query('SELECT COUNT(*) FROM calendar_access_rule')->fetchColumn();
 
@@ -230,6 +259,65 @@ use Wezurlop\Service\ZasiegPodgladu;
             : $grupaId;
         $check('h: grupa próbna usunięta', $grupaId === 0);
 
+        // ——— t, u, v, w: REGUŁA „ADMINISTRATORZY" ————————————————————————————————
+        // ⚠ Reguły nie zakładamy: w firmie próbnej jej nie ma, a mimo to ma OBOWIĄZYWAĆ —
+        // brak wiersza znaczy „nierozstrzygnięta", czyli zakres domyślny. To jest sedno
+        // tej konstrukcji i dlatego sprawdzamy ją na firmie, której migracja nie dotknęła.
+        $check('t: w firmie bez wiersza reguła administratorów i tak obowiązuje (zakres domyślny)',
+            $widocznosc->zakresAdministratorow($firmy['ALFA']) === Z::ZE_SZCZEGOLAMI,
+            $widocznosc->zakresAdministratorow($firmy['ALFA']));
+        $check('t: konto z uprawnieniem jest rozpoznane jako administrator tej firmy',
+            $widocznosc->jestAdminem($konta['admin'], $firmy['ALFA']));
+        $check('v: konto bez tego uprawnienia administratorem nie jest',
+            !$widocznosc->jestAdminem($konta['tenantowy'], $firmy['ALFA']));
+        $zakresyAdmina = $widocznosc->zakresy($konta['admin'], $firmy['ALFA'], null, $cele);
+        $check('t: administrator widzi pełną nazwę u każdego w firmie, bez żadnej reguły osobistej',
+            $zakresyAdmina[$cele[0]] === Z::ZE_SZCZEGOLAMI
+            && $zakresyAdmina[$cele[1]] === Z::ZE_SZCZEGOLAMI,
+            json_encode($zakresyAdmina));
+        $check('v: konto bez uprawnienia nie widzi nikogo (ta sama firma, te same osoby)',
+            $widocznosc->zakresy($konta['tenantowy'], $firmy['ALFA'], null, $cele)
+                === [$cele[0] => Z::BRAK, $cele[1] => Z::BRAK]);
+
+        $powodAdmini = $service->zapisz(null, $firmy['ALFA'], Z::KTO_ADMINI, 0, Z::CZYJE_FIRMA, [],
+            Z::BEZ_SZCZEGOLOW, $konta['widz'], 'test');
+        $check('u: zakres reguły administratorów daje się zmienić', $powodAdmini === null,
+            (string) $powodAdmini);
+        $check('u: po zmianie administrator widzi już tylko fakt nieobecności',
+            $widocznosc->zakresy($konta['admin'], $firmy['ALFA'], null, $cele)[$cele[0]]
+                === Z::BEZ_SZCZEGOLOW);
+        // ⚠ Ograniczenie reguły stałej nie zabiera dostępu nadanego OSOBNO — wygrywa szerszy.
+        $service->zapisz(null, $firmy['ALFA'], Z::KTO_KONTO, $konta['admin'], Z::CZYJE_FIRMA, [],
+            Z::ZE_SZCZEGOLAMI, $konta['widz'], 'test');
+        $check('u: osobna reguła „ze szczegółami" wygrywa z ograniczoną regułą administratorów',
+            $widocznosc->zakresy($konta['admin'], $firmy['ALFA'], null, $cele)[$cele[0]]
+                === Z::ZE_SZCZEGOLAMI);
+        $regulaAdminow = $reguly->regulaStala($firmy['ALFA'], Z::KTO_ADMINI);
+        $check('w: reguły administratorów NIE DA SIĘ usunąć — serwer odmawia',
+            $service->usun((int) ($regulaAdminow['id'] ?? 0), $firmy['ALFA'], $konta['widz'], 'test')
+                === WidocznoscService::POWOD_DOMYSLNA);
+        $check('w: po odmowie reguła nadal jest w bazie',
+            $reguly->regulaStala($firmy['ALFA'], Z::KTO_ADMINI) !== null);
+
+        // ——— KANDYDACI: konto z nadaniem na cały tenant ————————————————————————
+        // ⚠ To domknięcie decyzji z Z53 (zlecenie Z55 pkt 2). Bez niego reguła założona takiemu
+        // kontu przez migrację miała martwy ołówek: każdy zapis sprawdza kandydaturę podmiotu.
+        foreach (['ALFA', 'BETA'] as $nazwaFirmy) {
+            $kandydaci = array_column($reguly->kandydaciKonta($firmy[$nazwaFirmy], '', 500, 0), 'zrodlo', 'id');
+            $check("kandydaci: konto z nadaniem tenantowym jest na liście w firmie {$nazwaFirmy}",
+                ($kandydaci[$konta['tenantowy']] ?? '') === 'tenant',
+                (string) ($kandydaci[$konta['tenantowy']] ?? '—'));
+        }
+        $powodTenant = $service->zapisz(null, $firmy['BETA'], Z::KTO_KONTO, $konta['tenantowy'],
+            Z::CZYJE_FIRMA, [], Z::BEZ_SZCZEGOLOW, $konta['widz'], 'test');
+        $check('kandydaci: regułę takiego konta da się zapisać', $powodTenant === null,
+            (string) $powodTenant);
+        $regulaTenant = (int) $pdo->query('SELECT MAX(id) FROM calendar_access_rule WHERE company_id = '
+            . $firmy['BETA'] . ' AND subject_account_id = ' . $konta['tenantowy'])->fetchColumn();
+        $check('kandydaci: i da się ją ZMIENIĆ ołówkiem (zmiana zakresu przechodzi)',
+            $service->zapisz($regulaTenant, $firmy['BETA'], Z::KTO_KONTO, $konta['tenantowy'],
+                Z::CZYJE_FIRMA, [], Z::ZE_SZCZEGOLAMI, $konta['widz'], 'test') === null);
+
         // ——— i: STAN PO MIGRACJI STARYCH POZIOMÓW ————————————————————————————————
         // ⚠ Jedyny przypadek czytający dane robocze — i **wyłącznie czytający**. Migracja jest
         // zdarzeniem jednorazowym, więc nie da się jej powtórzyć na danych próbnych; sprawdzamy
@@ -254,22 +342,35 @@ use Wezurlop\Service\ZasiegPodgladu;
                                    AND car.company_id = ra.company_id)")->fetchColumn();
         $check('i: nadanie starej roli na konkretną firmę ma swoją regułę', $bezReguly === 0,
             (string) $bezReguly);
-        // ⚠ **Ta liczba jest ZNALEZISKIEM, nie kryterium** (20.10.2026). Nadanie obejmujące cały
-        // tenant (`company_id = 0`) rozkładało się tylko na firmy, w których konto ma rolę
-        // pracownika — więc konto, które jej nigdzie nie ma (typowo: administrator tenanta),
-        // **nie dostało ani jednej reguły i po migracji nie widzi już nic**. Kierunek jest
-        // bezpieczny (mniej dostępu, nie więcej), dlatego nie jest to błąd testu; ale jest to
-        // utrata dostępu, której nikt nie rozstrzygnął — czy administrator tenanta ma widzieć
-        // kalendarze wszystkich firm, jest decyzją o danych o zdrowiu, a nie o migracji.
-        // Test tę liczbę WYPISUJE, żeby nie zniknęła z pola widzenia na nowej kopii bazy.
+        // ⚠ **To było ostrzeżenie, a od Z55 jest KRYTERIUM** (20.10.2026). Po Z53 nadanie
+        // obejmujące cały tenant u konta bez roli `employee` nie dawało ani jednej reguły, więc
+        // takie konto po cichu traciło dostęp — test wypisywał tę liczbę, żeby jej nie przeoczyć.
+        // Migracja Z55 domyka obie drogi: konta z uprawnieniem administratora obejmuje reguła
+        // „Administratorzy", pozostałym zakłada regułę osobistą w każdej firmie. Dlatego liczba
+        // nadań, które nie są objęte ANI regułą osobistą, ANI regułą administratorów, ma być zerem.
         $porzucone = (int) $pdo->query("SELECT COUNT(*) FROM role_assignment ra
                JOIN role r ON r.id = ra.role_id
               WHERE r.code IN ('calendar_viewer', 'calendar_viewer_full')
                 AND ra.company_id = 0
                 AND NOT EXISTS (SELECT 1 FROM calendar_access_rule car
                                  WHERE car.subject_kind = 'account'
-                                   AND car.subject_account_id = ra.account_id)")->fetchColumn();
-        echo "      (znalezisko) nadań na cały tenant, które nie dały ani jednej reguły: {$porzucone}\n";
+                                   AND car.subject_account_id = ra.account_id)
+                AND NOT EXISTS (SELECT 1 FROM role_assignment adm
+                                  JOIN role_permission rp ON rp.role_id = adm.role_id
+                                  JOIN permission p ON p.id = rp.permission_id
+                                       AND p.code = 'calendar.visibility_manage'
+                                 WHERE adm.account_id = ra.account_id)")->fetchColumn();
+        $check('i: każde nadanie na cały tenant jest objęte regułą — osobistą albo administratorów',
+            $porzucone === 0, (string) $porzucone);
+        // ⚠ Druga strona tego samego: reguła „Administratorzy" ma istnieć w KAŻDEJ firmie, którą
+        // zastała migracja. Firmy założone później obywają się bez wiersza, bo zakres domyślny
+        // stosuje jedno miejsce w kodzie — i to właśnie sprawdza przypadek `t` wyżej.
+        $bezAdminow = (int) $pdo->query("SELECT COUNT(*) FROM company c
+              WHERE c.id < " . min($firmy) . "
+                AND NOT EXISTS (SELECT 1 FROM calendar_access_rule car
+                                 WHERE car.company_id = c.id AND car.subject_kind = 'admins_all')")->fetchColumn();
+        $check('i: każda firma zastana przez migrację ma wiersz reguły „Administratorzy"',
+            $bezAdminow === 0, (string) $bezAdminow);
     } finally {
         // ——— SPRZĄTANIE ————————————————————————————————————————————————————————
         // ⚠ W `finally`, więc także po wyjątku w połowie przebiegu. Kolejność od najgłębszej

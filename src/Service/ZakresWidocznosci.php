@@ -46,6 +46,17 @@ final class ZakresWidocznosci
     public const DOMYSLNY_PRZELOZONYCH = self::BEZ_SZCZEGOLOW;
 
     /**
+     * ⚠ **Administrator firmy widzi domyślnie WSZYSTKO, ze szczegółami** (decyzja Krzysztofa
+     * z 20.10.2026, odwołuje rozstrzygnięcie z 23.09 „administrator nie widzi z samej roli").
+     * Zaokrąglamy tu w GÓRĘ, odwrotnie niż u przełożonych, i to nie jest niekonsekwencja:
+     * administrator i tak może sobie każdy dostęp nadać trzema kliknięciami na tym samym
+     * ekranie, więc domyślność tylko nazywa stan osiągalny — a nazwany stan da się ograniczyć.
+     * ⚠ Po to właśnie jest regułą, a nie zaszytym wyjątkiem: klient z zewnętrznym informatykiem
+     * ma móc mu ten wgląd **zabrać**, a wyjątku w kodzie nie da się zabrać ekranem.
+     */
+    public const DOMYSLNY_ADMINISTRATOROW = self::ZE_SZCZEGOLAMI;
+
+    /**
      * Podmiot reguły — **cztery rodzaje** (dopisek Krzysztofa z 19.10.2026).
      *
      * ⚠ `KTO_PRZELOZENI` („wszyscy przełożeni") to **reguła domyślna firmy**: istnieje dokładnie
@@ -61,6 +72,21 @@ final class ZakresWidocznosci
     public const KTO_PRZELOZONY = 'supervisor';
     public const KTO_KONTO = 'account';
     public const KTO_GRUPA = 'group';
+
+    /**
+     * ⚠ **Druga reguła domyślna firmy: „Administratorzy"** (zlecenie Z55, 20.10.2026). Obejmuje
+     * konta z uprawnieniem `calendar.visibility_manage` — w tej firmie albo na całym tenancie.
+     *
+     * ⚠ **Rozstrzyga UPRAWNIENIE, nie nazwa roli** (polecenie zarządcy). Nazwa roli jest dziś
+     * jedna (`tenant_admin`), ale role dokładają się w czasie: przy porównaniu z nazwą rola
+     * kadrowa albo „pomoc techniczna" wpadłyby w pełny wgląd w dane o zdrowiu bez niczyjej
+     * decyzji. Wybrane uprawnienie jest najwęższe z możliwych i samo-spójne: kto rozstrzyga
+     * o widoczności, ten może sobie ten dostęp nadać i bez tej reguły.
+     */
+    public const KTO_ADMINI = 'admins_all';
+
+    /** Uprawnienie, które czyni konto „administratorem" w rozumieniu reguły `KTO_ADMINI`. */
+    public const UPRAWNIENIE_ADMINA = 'calendar.visibility_manage';
 
     /**
      * Czyje nieobecności — **gałąź pod widzem**, cała firma albo lista grup.
@@ -86,6 +112,9 @@ final class ZakresWidocznosci
      * domyślną zamiast zmieniać jedyną.
      */
     public const PODPIS_DOMYSLNEJ = self::KTO_PRZELOZENI . ':0|' . self::CZYJE_PODWLADNI;
+
+    /** Podpis drugiej reguły domyślnej — też bez zakresu i z tego samego powodu. */
+    public const PODPIS_ADMINOW = self::KTO_ADMINI . ':0|' . self::CZYJE_FIRMA;
 
     /**
      * Rosnąco — **kolejność jest umową**, na której stoi `wyzszy()`.
@@ -146,15 +175,15 @@ final class ZakresWidocznosci
         bool $wGalezi,
         bool $widzJestPrzelozonym,
         array $grupyOsoby,
-        int $osobaEtat = 0
+        int $osobaEtat = 0,
+        bool $widzJestAdminem = false
     ): string {
         if ($toJa) {
             return self::ZE_SZCZEGOLAMI;
         }
         $zakres = self::BRAK;
         foreach ($reguly as $r) {
-            // „Wszyscy przełożeni" obejmuje widza tylko wtedy, gdy ktoś pod nim DZIŚ stoi.
-            if ($r['subject_kind'] === self::KTO_PRZELOZENI && !$widzJestPrzelozonym) {
+            if (!self::obejmujeWidza($r, $widzJestPrzelozonym, $widzJestAdminem)) {
                 continue;
             }
             $obejmuje = match ($r['target_kind']) {
@@ -214,6 +243,9 @@ final class ZakresWidocznosci
         if ($ktoRodzaj === self::KTO_PRZELOZENI) {
             return self::PODPIS_DOMYSLNEJ;
         }
+        if ($ktoRodzaj === self::KTO_ADMINI) {
+            return self::PODPIS_ADMINOW;
+        }
         $cel = match ($czyjeRodzaj) {
             self::CZYJE_GRUPY => self::CZYJE_GRUPY . ':' . self::lista($grupy),
             self::CZYJE_OSOBY => self::CZYJE_OSOBY . ':' . self::lista($grupy),
@@ -222,6 +254,30 @@ final class ZakresWidocznosci
         };
 
         return $ktoRodzaj . ':' . $ktoId . '|' . $cel . '|' . $zakres;
+    }
+
+    /**
+     * **Czy ta reguła w ogóle dotyczy TEGO widza** — jedno miejsce na całą tę decyzję.
+     *
+     * ⚠ Reguły stałe firmy obejmują widza po jego CESZE, a nie po tym, że stoją w tabeli:
+     * „Wszyscy przełożeni" tylko tego, pod kim ktoś dziś stoi, a „Administratorzy" tylko konto
+     * z uprawnieniem zarządzania widocznością. Jedno i drugie sprawdza się **przy odczycie**,
+     * więc odebranie roli albo ostatniego podwładnego odbiera wgląd od razu, bez dotykania reguły.
+     *
+     * ⚠ **Pytają o to trzy miejsca** (zakres pary, zasięg widoku, „czy widzi całą firmę") i dlatego
+     * odpowiedź jest tu, a nie w każdym z nich. Zmierzone 20.10.2026: po dołożeniu reguły
+     * administratorów dwa z tych miejsc jej nie odsiewały, więc **każde konto** dostawało
+     * w zasięgu całą załogę firmy — bez dostępu do nieobecności, ale z listą nazwisk.
+     *
+     * @param array{subject_kind: string, ...} $regula
+     */
+    public static function obejmujeWidza(array $regula, bool $widzJestPrzelozonym, bool $widzJestAdminem): bool
+    {
+        return match ($regula['subject_kind']) {
+            self::KTO_PRZELOZENI => $widzJestPrzelozonym,
+            self::KTO_ADMINI => $widzJestAdminem,
+            default => true,
+        };
     }
 
     /**

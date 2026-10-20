@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.34, 20.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.35, 20.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,35 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.34 → 1.18.35: `/admin/widocznosc` — drugi wiersz stały „Administratorzy",
+> token CSRF schodzi z adresu** (zlecenie Z55, 20.10.2026).
+> - **Drugi wiersz stały, pod „Każdym przełożonym"**: ikona klucza, „Administratorzy" / „N kont
+>   z prawem zarządzania widocznością · reguła domyślna firmy" › „Cała firma" › zakres. Ołówek
+>   bez kosza, tak samo i z tego samego powodu, co u przełożonych. ⚠ Klucz, nie oko: oko jest
+>   znakiem całego ekranu, więc w wierszu nie odróżniałoby niczego.
+> - ⚠ **Administrator widzi domyślnie wszystko, ze szczegółami** (decyzja Krzysztofa, odwołanie
+>   rozstrzygnięcia z 23.09) — i jest to **reguła, nie wyjątek w kodzie**, bo klient z zewnętrznym
+>   informatykiem ma móc ten wgląd zabrać jednym ołówkiem. Uzasadnienie w pełnej postaci:
+>   `docs/etap3-logika-urlopowa.md` §8b.
+> - **W oknie tej reguły kroki 1 i 2 są WYŁĄCZONE**, a nie ukryte: nie ma w nich czego wybrać
+>   (podmiotem są wszystkie konta z uprawnieniem, celem cała firma), a kliknięcie prowadziłoby
+>   na listę, z której „administratorów" wybrać się nie da — czyli w ślepą uliczkę. Kafelki
+>   zostają przygaszone, żeby okno dalej mówiło, ile kroków ma normalnie.
+> - **Wiersz kandydata mówi, skąd konto ma dostęp**: „bez etatu w tej firmie" albo „dostęp do
+>   wszystkich firm · bez etatu". Druga linia jest **daną**, nie ozdobą — od niej zależy, czy
+>   regułę wolno zapisać, a administrator ma to wiedzieć przed kliknięciem, a nie z odmowy.
+> - ⚠ **Token CSRF zszedł z ukrytego pola na przycisk zapisu.** To jeden formularz, który
+>   `POST`-em zapisuje, a `GET`-ami przełącza kroki i szuka — ukryte pole szło z każdym z nich,
+>   więc token lądował w pasku adresu, w historii i w logach serwera. `name`/`value` przycisku
+>   przeglądarka wysyła **tylko wtedy, gdy to on wysłał formularz**. Zmierzone po zmianie: po
+>   „Dalej" i po Enter w szukaniu w adresie nie ma `_csrf`, a zapis przechodzi z JavaScriptem
+>   i bez niego; żądanie bez tokenu dalej dostaje 419.
+> - ⚠ **Naprawiona rozbieżność znacznika firmy i treści kalendarza.** Kalendarz budował własną
+>   białą listę firm (etaty + firmy z regułami), więc po dołożeniu reguły „Administratorzy" konto
+>   bez etatu miało w belce jedną firmę, a w siatce ludzi z drugiej — zmierzone: znacznik
+>   `data-spolka="3"`, a na ekranie 53 osoby z firmy 4. Lista firm do oglądania powstaje teraz
+>   w jednym miejscu (`KontekstSpolki::spolki()`), tym samym, z którego bierze ją znacznik.
 
 > **Zmiana 1.18.33 → 1.18.34: Enter w polu szukania szuka, a nie idzie dalej; bramka pilnuje
 > nawiasów w arkuszach** (zlecenie Z54, 20.10.2026).

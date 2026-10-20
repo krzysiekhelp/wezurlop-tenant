@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Wezurlop\Service;
 
 use Wezurlop\Repository\CalendarAccessRepository;
+use Wezurlop\Repository\PermissionRepository;
 use Wezurlop\Repository\PracownikRepository;
 
 /**
@@ -43,6 +44,7 @@ final class CalendarVisibility
         private readonly CalendarAccessRepository $reguly,
         private readonly ZasiegPodgladu $zasieg,
         private readonly PracownikRepository $pracownicy,
+        private readonly PermissionRepository $uprawnienia,
     ) {
     }
 
@@ -98,6 +100,10 @@ final class CalendarVisibility
         // ⚠ „Wszyscy przełożeni" obejmuje widza tylko wtedy, gdy ktoś pod nim DZIŚ stoi. Gałąź
         // zawiera właściciela, więc jeden element znaczy „bez podwładnych".
         $jestPrzelozonym = count($galaz) > 1;
+        // ⚠ **Administratorem czyni UPRAWNIENIE, nie nazwa roli** (zlecenie Z55) — i sprawdza się
+        // to przy każdym odczycie, więc odebranie roli odbiera wgląd natychmiast. Jedno pytanie
+        // na ekran, nie jedno na wiersz.
+        $jestAdminem = $this->jestAdminem($accountId, $companyId);
 
         $wynik = [];
         foreach ($osoby as $osoba) {
@@ -116,6 +122,7 @@ final class CalendarVisibility
                 $jestPrzelozonym,
                 $grupyOsob[$osoba] ?? [],
                 $osoba,
+                $jestAdminem,
             );
         }
 
@@ -134,20 +141,45 @@ final class CalendarVisibility
     private function regulyZDomyslna(int $companyId, int $accountId, ?int $widzEmploymentId): array
     {
         $reguly = $this->reguly->regulyWidza($companyId, $accountId, $widzEmploymentId);
+        // ⚠ **Obie reguły stałe dokładają się tą samą drogą**, bo obie znaczą to samo: „brak
+        // wiersza to nie brak reguły, tylko nierozstrzygnięta reguła". Firma założona jutro ma
+        // więc domyślności bez żadnej migracji, a administrator widzi na liście to samo, co
+        // dostaje pracownik.
+        $maStala = [];
         foreach ($reguly as $r) {
-            if ($r['subject_kind'] === ZakresWidocznosci::KTO_PRZELOZENI) {
-                return $reguly;
-            }
+            $maStala[$r['subject_kind']] = true;
         }
-        $reguly[] = [
-            'id' => 0,
-            'scope' => ZakresWidocznosci::DOMYSLNY_PRZELOZONYCH,
-            'target_kind' => ZakresWidocznosci::CZYJE_PODWLADNI,
-            'subject_kind' => ZakresWidocznosci::KTO_PRZELOZENI,
-            'grupy' => [],
-        ];
+        foreach ([
+            ZakresWidocznosci::KTO_PRZELOZENI => [ZakresWidocznosci::CZYJE_PODWLADNI, ZakresWidocznosci::DOMYSLNY_PRZELOZONYCH],
+            ZakresWidocznosci::KTO_ADMINI => [ZakresWidocznosci::CZYJE_FIRMA, ZakresWidocznosci::DOMYSLNY_ADMINISTRATOROW],
+        ] as $kto => [$cel, $zakres]) {
+            if (isset($maStala[$kto])) {
+                continue;
+            }
+            $reguly[] = [
+                'id' => 0,
+                'scope' => $zakres,
+                'target_kind' => $cel,
+                'subject_kind' => $kto,
+                'grupy' => [],
+            ];
+        }
 
         return $reguly;
+    }
+
+    /**
+     * Czy to konto jest administratorem **w tej firmie** — uprawnienie z roli firmowej albo
+     * tenantowej. ⚠ Jedno miejsce na tę odpowiedź: ekran liczy nią wiersz „Administratorzy",
+     * a kalendarz rozstrzyga nią dostęp.
+     */
+    public function jestAdminem(int $accountId, int $companyId): bool
+    {
+        return in_array(
+            ZakresWidocznosci::UPRAWNIENIE_ADMINA,
+            $this->uprawnienia->permissionsFor($accountId, $companyId),
+            true
+        );
     }
 
     /**
@@ -173,7 +205,15 @@ final class CalendarVisibility
     {
         $grupy = [];
         $osoby = [];
+        // ⚠ Reguły stałe odsiewa ta sama funkcja, co przy liczeniu zakresu — inaczej reguła
+        // „Administratorzy" wpuszczałaby **każde konto** na listę całej załogi (zmierzone).
+        // ⚠ Flaga przełożonego jest tu `true` i nie ma jak zaważyć: reguła „Wszyscy przełożeni"
+        // zawsze celuje w podwładnych, a ten cel pomijamy niżej z osobnego powodu.
+        $jestAdminem = $this->jestAdminem($accountId, $companyId);
         foreach ($this->reguly->regulyWidza($companyId, $accountId, $widzEmploymentId) as $r) {
+            if (!ZakresWidocznosci::obejmujeWidza($r, true, $jestAdminem)) {
+                continue;
+            }
             if ($r['target_kind'] === ZakresWidocznosci::CZYJE_FIRMA) {
                 // Jedna reguła „cała firma" przesłania wszystkie pozostałe — nie ma czego dokładać.
                 return $this->pracownicy->zatrudnieniaSpolki($companyId);
@@ -216,8 +256,10 @@ final class CalendarVisibility
      */
     public function widziCalaFirme(int $accountId, int $companyId, ?int $widzEmploymentId): bool
     {
+        $jestAdminem = $this->jestAdminem($accountId, $companyId);
         foreach ($this->reguly->regulyWidza($companyId, $accountId, $widzEmploymentId) as $r) {
-            if ($r['target_kind'] === ZakresWidocznosci::CZYJE_FIRMA) {
+            if ($r['target_kind'] === ZakresWidocznosci::CZYJE_FIRMA
+                && ZakresWidocznosci::obejmujeWidza($r, true, $jestAdminem)) {
                 return true;
             }
         }
@@ -243,10 +285,29 @@ final class CalendarVisibility
      */
     public function zakresPrzelozonych(int $companyId): string
     {
-        $regula = $this->reguly->regulaDomyslna($companyId);
+        return $this->zakresStalej($companyId, ZakresWidocznosci::KTO_PRZELOZENI,
+            ZakresWidocznosci::DOMYSLNY_PRZELOZONYCH);
+    }
+
+    /**
+     * Zakres reguły „Administratorzy" — **to samo miejsce i ta sama domyślność**, co u przełożonych.
+     *
+     * ⚠ Domyślność jest tu odwrotna (`ze_szczegolami`) i to jest decyzja Krzysztofa z 20.10.2026,
+     * a nie przeoczenie: administrator i tak może sobie każdy dostęp nadać tym samym ekranem,
+     * więc reguła tylko **nazywa** ten stan — a nazwany daje się ograniczyć.
+     */
+    public function zakresAdministratorow(int $companyId): string
+    {
+        return $this->zakresStalej($companyId, ZakresWidocznosci::KTO_ADMINI,
+            ZakresWidocznosci::DOMYSLNY_ADMINISTRATOROW);
+    }
+
+    private function zakresStalej(int $companyId, string $ktoRodzaj, string $domyslny): string
+    {
+        $regula = $this->reguly->regulaStala($companyId, $ktoRodzaj);
 
         return $regula !== null && ZakresWidocznosci::zapisywalny($regula['scope'])
             ? $regula['scope']
-            : ZakresWidocznosci::DOMYSLNY_PRZELOZONYCH;
+            : $domyslny;
     }
 }

@@ -142,6 +142,38 @@
                 <span class="wid-wiersz__brak-akcji" aria-hidden="true"></span>
             </li>
 
+            {#- ══════════ Druga reguła stała: administratorzy ══════════
+                ⚠ **Administrator firmy widzi domyślnie wszystko, ze szczegółami** (decyzja
+                Krzysztofa z 20.10.2026, odwołuje rozstrzygnięcie z 23.09 „administrator nie widzi
+                z samej roli"). Stoi to tutaj regułą, a nie wyjątkiem w kodzie, z jednego powodu:
+                klient, którego instalacją opiekuje się zewnętrzny informatyk, ma móc temu koncu
+                wgląd **zabrać** — a wyjątku zaszytego w kodzie nie da się zabrać ekranem.
+                ⚠ Wiersz jest drugi, pod przełożonymi: oba mówią o zastanym stanie firmy, a nie
+                o niczyjej decyzji, więc stoją razem na górze, przed regułami nadanymi ręcznie.
+                ⚠ Klucz, nie oko: ikona oka stoi w znaku całego ekranu, więc w wierszu nie
+                odróżniałaby niczego. -#}
+            <li class="wid-wiersz wid-wiersz--domyslna">
+                <span class="wid-wiersz__znak">{{ ikony.klucz() }}</span>
+                <div class="wid-wiersz__kto">
+                    <span class="wid-wiersz__nazwa">Administratorzy</span>
+                    <span class="wid-wiersz__opis">{{ administratorow_opis }}</span>
+                </div>
+                <span class="wid-wiersz__strzalka" aria-hidden="true">›</span>
+                <div class="wid-wiersz__czyje" title="Wszyscy pracownicy firmy — także zatrudnieni w przyszłości">
+                    <span class="wid-wiersz__ikona">{{ ikony.firma() }}</span>
+                    <span class="wid-wiersz__nazwa">Cała firma</span>
+                </div>
+                {{ include('partials/zakres-plakietka.twig', {'zakres': zakres_administratorow, 'nazwy': nazwy_zakresow}, with_context = false) }}
+                {#- Ołówek bez kosza, tak samo jak u przełożonych: administratorzy w firmie są
+                    zawsze, więc tej reguły nie da się odebrać — można jej zmienić zakres. -#}
+                <a class="ikona-akcja ikona-akcja--edycja" href="{{ adres }}&amp;okno=1&amp;kto=admins_all&amp;krok=3&amp;zakres={{ zakres_administratorow }}&amp;regula={{ administratorow_id }}"
+                   data-modal-open="widocznosc-okno"
+                   hx-get="{{ url('/admin/widocznosc/okno') }}?spolka={{ spolka.id }}&amp;kto=admins_all&amp;krok=3&amp;zakres={{ zakres_administratorow }}&amp;regula={{ administratorow_id }}"
+                   hx-target="#widocznosc-okno-tresc" hx-swap="innerHTML"
+                   aria-label="Zmień zakres dla administratorów" title="Zmień zakres">{{ ikony.olowek() }}</a>
+                <span class="wid-wiersz__brak-akcji" aria-hidden="true"></span>
+            </li>
+
             {#- ══════════ Reguły dodatkowe ══════════ -#}
             {% for r in reguly %}
                 <li class="wid-wiersz">

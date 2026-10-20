@@ -63,6 +63,17 @@
         {% set gotowy = (nr == 1 and (okno.kto == 'supervisor_all' or okno.kto_id > 0))
             or (nr == 2 and okno.krok > 2)
             or (nr == 3 and okno.regula > 0) %}
+        {#- ⚠ **Przy regule „Administratorzy" kroki 1 i 2 są WYŁĄCZONE**, a nie ukryte: ta reguła
+            nie ma podmiotu do wskazania ani celu do wyboru, więc kliknięcie w krok 1 wyrzucałoby
+            człowieka na listę, z której nie da się wybrać „administratorów" — czyli w ślepą
+            uliczkę. Kafelki zostają, bo mówią, ile kroków ma to okno normalnie. -#}
+        {% if okno.kto == 'admins_all' and nr != 3 %}
+            <span class="wid-krok wid-krok--wylaczony"
+                  title="Reguła „Administratorzy" obejmuje wszystkie konta z prawem zarządzania widocznością i całą firmę — można jej zmienić tylko zakres">
+                <span class="wid-krok__numer">{{ nr }}</span>
+                <span class="wid-krok__nazwa">{{ nazwa }}</span>
+            </span>
+        {% else %}
         <a class="wid-krok{{ okno.krok == nr ? ' wid-krok--on' : '' }}{{ gotowy ? ' wid-krok--gotowy' : '' }}"
            href="{{ strona }}&amp;{{ stan }}{{ stan_grup }}&amp;krok={{ nr }}"
            {% if hx %}hx-get="{{ baza }}&amp;{{ stan }}{{ stan_grup }}&amp;krok={{ nr }}"
@@ -71,11 +82,20 @@
             <span class="wid-krok__numer">{% if gotowy %}{{ ikony.ptaszek() }}{% else %}{{ nr }}{% endif %}</span>
             <span class="wid-krok__nazwa">{{ nazwa }}</span>
         </a>
+        {% endif %}
     {% endfor %}
 </div>
 
 <form class="modal__wrap wid-okno" method="post" action="{{ url('/admin/widocznosc/zapisz') }}">
-    {% include 'partials/csrf.twig' %}
+    {#- ⚠ **Tokenu CSRF NIE MA w ukrytym polu — jedzie na przycisku zapisu** (zlecenie Z55).
+        Ten formularz wysyła się dwiema metodami: `POST`-em zapisuje regułę, a `GET`-em przełącza
+        kroki i szuka (bo to odczyty, CLAUDE.md §3). Ukryte pole szło z KAŻDYM z nich, więc token
+        lądował w pasku adresu, w historii przeglądarki i w logach serwera — a sekretów nie
+        trzymamy w adresach (CLAUDE.md §13). Przeglądarka wysyła `name`/`value` przycisku
+        **tylko wtedy, gdy to on wysłał formularz**, więc token idzie dokładnie z tym jednym
+        żądaniem, które go potrzebuje. Przyciski `GET` (Dalej, Szukaj) nie niosą go wcale.
+        ⚠ Middleware nie zmienia się o ani jedną linię: czyta `_csrf` z `POST`-a tak samo,
+        niezależnie od tego, czy wartość przyszła z pola, czy z przycisku. -#}
     <input type="hidden" name="spolka" value="{{ spolka.id }}">
     {#- ⚠ Bez JavaScriptu „Dalej" idzie na pełną stronę — `okno=1` każe jej otworzyć okno
         z powrotem na właściwym kroku. Z htmx-em pole jest nieszkodliwe. -#}
@@ -301,7 +321,11 @@
                         hx-include="closest form"
                         hx-target="#widocznosc-okno-tresc" hx-swap="innerHTML"{% endif %}>Dalej</button>
             {% endif %}
-            <button type="submit" class="btn btn--primary" name="krok" value="3">{{ okno.zmiana ? 'Zapisz zmiany' : 'Nadaj dostęp' }}</button>
+            {#- ⚠ Przycisk niesie **token**, a nie numer kroku — i numeru nie potrzebuje. Dawne
+                `value="3"` nie znaczyło nic: zapis bierze podmiot, cel i zakres z pól formularza,
+                a po udanym zapisie i tak leci przekierowanie, więc krok nie ma czego opisywać.
+                `name` na przycisku jest jedno, a token musi dojechać — więc jedzie on. -#}
+            <button type="submit" class="btn btn--primary" name="_csrf" value="{{ csrf_token() }}">{{ okno.zmiana ? 'Zapisz zmiany' : 'Nadaj dostęp' }}</button>
         </div>
     </div>
 </form>

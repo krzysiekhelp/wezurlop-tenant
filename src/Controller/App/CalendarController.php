@@ -164,26 +164,23 @@ final class CalendarController
     private function kontekstWidoku(Request $request, CurrentUser $user): array
     {
         $etaty = $this->etaty->activeForAccount($user->accountId());
-        $spolki = [];
-        // ⚠ Identyfikator zatrudnienia idzie razem z nazwą, bo od 07.10.2026 **rozstrzyga
-        // o znaczeniu pozycji w kontrolce**: spółka z etatem przełącza kontekst całej sesji
-        // (`POST /kontekst/{id}`), spółka bez etatu tylko widok kalendarza (zlecenie §3).
-        $etatWSpolce = [];
-        foreach ($etaty as $etat) {
-            $spolki[(int) $etat['company_id']] = (string) $etat['company_name'];
-            $etatWSpolce[(int) $etat['company_id']] ??= (int) $etat['id'];
-        }
-        foreach ($this->widocznosc->spolkiZDostepem($user->accountId()) as $s) {
-            $spolki[(int) $s['id']] ??= (string) $s['nazwa'];
-        }
-        if ($spolki === []) {
+        // ⚠ **Lista firm do oglądania powstaje w JEDNYM miejscu** — `KontekstSpolki::spolki()`,
+        // tym samym, z którego bierze ją znacznik w belce. Do 20.10.2026 ten ekran budował ją
+        // sobie sam (etaty + firmy z regułami) i dlatego **rozjechał się ze znacznikiem**:
+        // po dołożeniu reguły „Administratorzy" (Z55) konto administratora bez etatu miało
+        // w belce firmę wybraną, a na kalendarzu **ludzi z zupełnie innej firmy** — bo tamtejsza
+        // firma nie przechodziła przez własną białą listę ekranu i wpadała na pierwszą z brzegu.
+        // Zmierzone: znacznik `data-spolka="3"`, a siatka pokazywała 53 osoby z firmy 4.
+        // ⚠ Identyfikator zatrudnienia jedzie razem z nazwą, bo rozstrzyga o znaczeniu pozycji
+        // w kontrolce: firma z etatem przełącza kontekst całej sesji (`POST /kontekst/{id}`),
+        // firma bez etatu tylko widok kalendarza (zlecenie §3). `spolki()` podaje go tak samo.
+        $lista = $this->kontekstSpolki->spolki($user->accountId());
+        if ($lista === []) {
             return ['spolki' => [], 'spolka' => null, 'zatrudnienie' => null];
         }
-        // Kolejność po nazwie wyświetlanej — ta sama reguła co w pozostałych wykazach spółek.
-        uasort($spolki, static fn (string $a, string $b): int => strcoll($a, $b));
-        $lista = [];
-        foreach ($spolki as $id => $nazwa) {
-            $lista[] = ['id' => $id, 'nazwa' => $nazwa, 'zatrudnienie_id' => $etatWSpolce[$id] ?? null];
+        $spolki = [];
+        foreach ($lista as $poz) {
+            $spolki[(int) $poz['id']] = (string) $poz['nazwa'];
         }
 
         // ⚠ **Spółka przychodzi z adresu ALBO z formularza** — i to nie jest wygoda, tylko

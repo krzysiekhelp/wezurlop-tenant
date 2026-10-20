@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Wezurlop\Repository;
 
 use PDO;
+use PDOStatement;
 use Wezurlop\Db\Connection;
 use Wezurlop\Service\ZakresWidocznosci;
 use Wezurlop\Support\NazwaOsoby;
@@ -48,6 +49,7 @@ final class CalendarAccessRepository
                 AND ( (r.subject_kind = :kto_konto AND r.subject_account_id = :konto)
                    OR (r.subject_kind = :kto_przelozony AND r.subject_employment_id = :etat_a)
                    OR (r.subject_kind = :kto_przelozeni)
+                   OR (r.subject_kind = :kto_admini)
                    OR (r.subject_kind = :kto_grupa AND r.subject_group_id IN (
                          SELECT eg.group_id FROM employment_group eg
                           WHERE eg.employment_id = :etat_b)) )
@@ -59,6 +61,10 @@ final class CalendarAccessRepository
             'konto' => $accountId,
             'kto_przelozony' => ZakresWidocznosci::KTO_PRZELOZONY,
             'kto_przelozeni' => ZakresWidocznosci::KTO_PRZELOZENI,
+            // ⚠ Reguła administratorów wchodzi do zbioru ZAWSZE, a odsiewa ją dopiero
+            // `dlaOsoby()` — po uprawnieniu widza, nie po zapytaniu. Dzięki temu „kto jest
+            // administratorem" rozstrzyga jedno miejsce, a nie dwa (zapytanie i funkcja).
+            'kto_admini' => ZakresWidocznosci::KTO_ADMINI,
             'kto_grupa' => ZakresWidocznosci::KTO_GRUPA,
             // ⚠ `0` zamiast `null`: konto bez zatrudnienia w tej firmie nie należy do żadnej
             // grupy i nie jest niczyim przełożonym; `0` nie trafi w żaden prawdziwy wiersz.
@@ -538,7 +544,7 @@ final class CalendarAccessRepository
      * `bez_szczegolow`. Domyślność stosuje JEDNO miejsce w kodzie
      * (`CalendarVisibility::zakresPrzelozonych()`), a nie `DEFAULT` kolumny i kod naraz.
      */
-    public function regulaDomyslna(int $companyId): ?array
+    public function regulaStala(int $companyId, string $ktoRodzaj): ?array
     {
         $stmt = $this->db->pdo()->prepare(
             'SELECT r.id, r.scope, r.target_kind, r.subject_kind, r.subject_account_id,
@@ -546,10 +552,26 @@ final class CalendarAccessRepository
                FROM calendar_access_rule r
               WHERE r.company_id = :company AND r.subject_kind = :rodzaj'
         );
-        $stmt->execute(['company' => $companyId, 'rodzaj' => ZakresWidocznosci::KTO_PRZELOZENI]);
+        $stmt->execute(['company' => $companyId, 'rodzaj' => $ktoRodzaj]);
         $wiersz = $stmt->fetch();
 
         return is_array($wiersz) ? ($this->zGrupami([$wiersz])[0] ?? null) : null;
+    }
+
+    /**
+     * Cel i podpis obu reguł stałych — **w jednym miejscu**, bo to jedyne, czym się różnią.
+     *
+     * @var array<string, array{string, string}>
+     */
+    private const STALE = [
+        ZakresWidocznosci::KTO_PRZELOZENI => [ZakresWidocznosci::CZYJE_PODWLADNI, ZakresWidocznosci::PODPIS_DOMYSLNEJ],
+        ZakresWidocznosci::KTO_ADMINI => [ZakresWidocznosci::CZYJE_FIRMA, ZakresWidocznosci::PODPIS_ADMINOW],
+    ];
+
+    /** Czy ten rodzaj podmiotu to reguła stała firmy (jedna, nieusuwalna). */
+    public static function stala(string $ktoRodzaj): bool
+    {
+        return array_key_exists($ktoRodzaj, self::STALE);
     }
 
     /**
@@ -560,11 +582,12 @@ final class CalendarAccessRepository
      * i wszystko by działało — ale tylko do chwili, w której ktoś zmieni format podpisu.
      * Jawne „znajdź albo załóż" nie zależy od tej subtelności.
      */
-    public function ustawDomyslna(int $companyId, string $zakres, ?int $przez): void
+    public function ustawStala(int $companyId, string $ktoRodzaj, string $zakres, ?int $przez): void
     {
-        $this->db->transaction(function () use ($companyId, $zakres, $przez): void {
+        [$cel, $podpis] = self::STALE[$ktoRodzaj];
+        $this->db->transaction(function () use ($companyId, $ktoRodzaj, $cel, $podpis, $zakres, $przez): void {
             $pdo = $this->db->pdo();
-            $istnieje = $this->regulaDomyslna($companyId);
+            $istnieje = $this->regulaStala($companyId, $ktoRodzaj);
             if ($istnieje === null) {
                 $pdo->prepare(
                     'INSERT INTO calendar_access_rule
@@ -573,10 +596,10 @@ final class CalendarAccessRepository
                      VALUES (:company, :rodzaj, 0, 0, 0, :cel, :zakres, :podpis, NOW(), :przez)'
                 )->execute([
                     'company' => $companyId,
-                    'rodzaj' => ZakresWidocznosci::KTO_PRZELOZENI,
-                    'cel' => ZakresWidocznosci::CZYJE_PODWLADNI,
+                    'rodzaj' => $ktoRodzaj,
+                    'cel' => $cel,
                     'zakres' => $zakres,
-                    'podpis' => ZakresWidocznosci::PODPIS_DOMYSLNEJ,
+                    'podpis' => $podpis,
                     'przez' => $przez,
                 ]);
 
@@ -719,8 +742,7 @@ final class CalendarAccessRepository
                 self::SQL_KANDYDACI . ' HAVING CONCAT(nazwisko, " ", imie) LIKE :wzor
                  ORDER BY nazwisko, imie, id LIMIT :limit OFFSET :offset'
             );
-        $stmt->bindValue('company', $companyId, PDO::PARAM_INT);
-        $stmt->bindValue('company_b', $companyId, PDO::PARAM_INT);
+        $this->parametryKandydatow($stmt, $companyId);
         if ($szukaj !== '') {
             $stmt->bindValue('wzor', '%' . $szukaj . '%');
         }
@@ -733,6 +755,7 @@ final class CalendarAccessRepository
             'osoba' => NazwaOsoby::doWyswietlenia((string) $r['nazwisko'])
                 . ' ' . NazwaOsoby::doWyswietlenia((string) $r['imie']),
             'etat' => (bool) $r['etat'],
+            'zrodlo' => (string) $r['zrodlo'],
         ], $stmt->fetchAll());
     }
 
@@ -742,8 +765,7 @@ final class CalendarAccessRepository
         $sql = 'SELECT COUNT(*) FROM (' . self::SQL_KANDYDACI
             . ($szukaj === '' ? '' : ' HAVING CONCAT(nazwisko, " ", imie) LIKE :wzor') . ') t';
         $stmt = $pdo->prepare($sql);
-        $stmt->bindValue('company', $companyId, PDO::PARAM_INT);
-        $stmt->bindValue('company_b', $companyId, PDO::PARAM_INT);
+        $this->parametryKandydatow($stmt, $companyId);
         if ($szukaj !== '') {
             $stmt->bindValue('wzor', '%' . $szukaj . '%');
         }
@@ -759,14 +781,14 @@ final class CalendarAccessRepository
      * (§1 zlecenia), więc pokazywanie go byłoby zaproszeniem do nadania dostępu, który nic nie da.
      */
     private const SQL_KANDYDACI = <<<'SQL'
-        SELECT a.id, p.last_name AS nazwisko, p.first_name AS imie, 1 AS etat
+        SELECT a.id, p.last_name AS nazwisko, p.first_name AS imie, 1 AS etat, 'etat' AS zrodlo
           FROM account a
           JOIN person p ON p.id = a.person_id
           JOIN employment e ON e.person_id = p.id AND e.company_id = :company AND e.is_active = 1
          WHERE a.blocked_at IS NULL
          GROUP BY a.id, p.last_name, p.first_name
         UNION
-        SELECT a.id, p.last_name AS nazwisko, p.first_name AS imie, 0 AS etat
+        SELECT a.id, p.last_name AS nazwisko, p.first_name AS imie, 0 AS etat, 'dostep' AS zrodlo
           FROM account a
           JOIN person p ON p.id = a.person_id
           JOIN role_assignment ra ON ra.account_id = a.id AND ra.company_id = :company_b
@@ -774,6 +796,26 @@ final class CalendarAccessRepository
          WHERE a.blocked_at IS NULL
            AND NOT EXISTS (SELECT 1 FROM employment e2
                             WHERE e2.person_id = p.id AND e2.company_id = ra.company_id AND e2.is_active = 1)
+         GROUP BY a.id, p.last_name, p.first_name
+        UNION
+        -- ⚠ Trzecia gałąź: konta z przypisaniem NA CAŁY TENANT (`company_id = 0`), czyli stojące
+        -- ponad firmami — administratorzy i konta z dawnymi nadaniami obejmującymi cały tenant.
+        -- Rola `employee` jest wyłączona, bo przypisanie pracownicze bez firmy nie daje dostępu
+        -- do niczego (docs/szkielet-tenanta.md rozdz. 9) — reszta ról tenantowych daje.
+        -- ⚠ Bez tej gałęzi reguła założona takiemu kontu przez migrację miała martwy ołówek:
+        -- `WidocznoscService::sprawdzPodmiot()` pyta o kandydaturę przy KAŻDYM zapisie, więc
+        -- zmiana zakresu kończyła się odmową „podmiot". Zmierzone 20.10.2026.
+        SELECT a.id, p.last_name AS nazwisko, p.first_name AS imie, 0 AS etat, 'tenant' AS zrodlo
+          FROM account a
+          JOIN person p ON p.id = a.person_id
+          JOIN role_assignment ra2 ON ra2.account_id = a.id AND ra2.company_id = 0
+          JOIN role r2 ON r2.id = ra2.role_id AND r2.code <> 'employee'
+         WHERE a.blocked_at IS NULL
+           AND NOT EXISTS (SELECT 1 FROM employment e3
+                            WHERE e3.person_id = p.id AND e3.company_id = :company_c AND e3.is_active = 1)
+           AND NOT EXISTS (SELECT 1 FROM role_assignment ra3
+                             JOIN role r3 ON r3.id = ra3.role_id AND r3.code = 'employee'
+                            WHERE ra3.account_id = a.id AND ra3.company_id = :company_d)
          GROUP BY a.id, p.last_name, p.first_name
         SQL;
 
@@ -899,6 +941,41 @@ final class CalendarAccessRepository
           JOIN person p ON p.id = e.person_id
          WHERE e.company_id = :company AND e.is_active = 1
         SQL;
+
+    /**
+     * Parametry zapytania o kandydatów — **jedno miejsce**, bo zapytanie ma ich pięć i jedzie
+     * w dwóch metodach (lista i licznik). ⚠ Ta sama wartość pod kilkoma nazwami: PDO bez emulacji
+     * odrzuca powtórzony placeholder (HY093).
+     */
+    private function parametryKandydatow(PDOStatement $stmt, int $companyId): void
+    {
+        foreach (['company', 'company_b', 'company_c', 'company_d'] as $nazwa) {
+            $stmt->bindValue($nazwa, $companyId, PDO::PARAM_INT);
+        }
+    }
+
+    /**
+     * **Ile kont obejmuje reguła „Administratorzy"** — do drugiej linii wiersza na liście reguł.
+     *
+     * ⚠ Liczy się po UPRAWNIENIU, nie po nazwie roli, i tak samo jak przy odczycie dostępu:
+     * konto z tym uprawnieniem w tej firmie **albo na całym tenancie** (`company_id = 0`).
+     * Gdyby ekran liczył inaczej niż egzekwowanie, wiersz mówiłby „3 konta" tam, gdzie widzą
+     * cztery osoby.
+     */
+    public function ileAdministratorow(int $companyId): int
+    {
+        $stmt = $this->db->pdo()->prepare(
+            'SELECT COUNT(DISTINCT ra.account_id)
+               FROM role_assignment ra
+               JOIN role_permission rp ON rp.role_id = ra.role_id
+               JOIN permission p ON p.id = rp.permission_id AND p.code = :uprawnienie
+               JOIN account a ON a.id = ra.account_id AND a.blocked_at IS NULL
+              WHERE ra.company_id IN (0, :company)'
+        );
+        $stmt->execute(['uprawnienie' => ZakresWidocznosci::UPRAWNIENIE_ADMINA, 'company' => $companyId]);
+
+        return (int) $stmt->fetchColumn();
+    }
 
     /** @param list<int> $ids */
     private static function inSql(array $ids, string $prefix): string

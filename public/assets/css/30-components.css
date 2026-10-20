@@ -5835,6 +5835,9 @@ body:has(dialog.modal[open]) { overflow: hidden; }
    czcionki (ta sama lekcja, co strzałka „→" w 1.18.26). */
 .wid-krok--gotowy:not(.wid-krok--on) .wid-krok__numer { background: var(--c-accent-soft); color: var(--c-accent-text); }
 .wid-krok__nazwa { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Krok, w którym nie ma czego wybrać (reguła stała firmy) — przygaszony, bez kursora wskazania.
+   Ta sama para deklaracji, co przy wyłączonej pozycji przełącznika. */
+.wid-krok--wylaczony { opacity: .45; cursor: default; }
 
 /* ⚠ **Stała wysokość treści** (§4 zlecenia: „bez suwaka w samym oknie"). 477 px z prototypu —
    dzięki temu okno nie skacze między krokami, a przewija się wyłącznie lista pozycji. To ten

@@ -75,11 +75,13 @@ final class WidocznoscService
             return $powod;
         }
 
-        // ⚠ Reguła domyślna ma **jedną** drogę zapisu i jest nią zmiana zakresu: ani jej
-        // podmiotu, ani celu nie da się przestawić, bo przestałaby być tym, czym jest.
-        if ($ktoRodzaj === ZakresWidocznosci::KTO_PRZELOZENI) {
-            $przed = $this->reguly->regulaDomyslna($companyId);
-            $this->reguly->ustawDomyslna($companyId, $zakres, $accountId);
+        // ⚠ **Reguły stałe firmy mają JEDNĄ drogę zapisu — zmianę zakresu.** Dotyczy to obu:
+        // „Wszyscy przełożeni" i „Administratorzy". Ani podmiotu, ani celu nie da się w nich
+        // przestawić, bo przestałyby być tym, czym są; ekran też ich tak nie pokazuje (ołówek
+        // otwiera od razu krok zakresu).
+        if (CalendarAccessRepository::stala($ktoRodzaj)) {
+            $przed = $this->reguly->regulaStala($companyId, $ktoRodzaj);
+            $this->reguly->ustawStala($companyId, $ktoRodzaj, $zakres, $accountId);
             $this->zapiszWDzienniku(
                 $przed === null ? 'calendar_access.granted' : 'calendar_access.changed',
                 $accountId,
@@ -88,7 +90,9 @@ final class WidocznoscService
                 $przed['id'] ?? 0,
                 $ktoRodzaj,
                 $ktoId,
-                ZakresWidocznosci::CZYJE_PODWLADNI,
+                $ktoRodzaj === ZakresWidocznosci::KTO_ADMINI
+                    ? ZakresWidocznosci::CZYJE_FIRMA
+                    : ZakresWidocznosci::CZYJE_PODWLADNI,
                 [],
                 $zakres,
                 $przed === null ? null : (string) $przed['scope'],
@@ -112,10 +116,10 @@ final class WidocznoscService
         if ($przed === null) {
             return self::POWOD_BRAK;
         }
-        if ($przed['subject_kind'] === ZakresWidocznosci::KTO_PRZELOZENI) {
-            // Reguła domyślna nie zmienia podmiotu ani celu — tu trafia tylko zmiana zakresu.
-            return $this->zapisz(null, $companyId, ZakresWidocznosci::KTO_PRZELOZENI, 0,
-                ZakresWidocznosci::CZYJE_PODWLADNI, [], $zakres, $accountId, $aktor);
+        if (CalendarAccessRepository::stala((string) $przed['subject_kind'])) {
+            // Reguła stała nie zmienia podmiotu ani celu — tu trafia tylko zmiana zakresu.
+            return $this->zapisz(null, $companyId, (string) $przed['subject_kind'], 0,
+                (string) $przed['target_kind'], [], $zakres, $accountId, $aktor);
         }
         if (!$this->reguly->zmien($ruleId, $companyId, $ktoRodzaj, $ktoId, $czyjeRodzaj, $grupyCelu, $zakres)) {
             return self::POWOD_DUPLIKAT;
@@ -133,7 +137,7 @@ final class WidocznoscService
         if ($przed === null) {
             return self::POWOD_BRAK;
         }
-        if ($przed['subject_kind'] === ZakresWidocznosci::KTO_PRZELOZENI) {
+        if (CalendarAccessRepository::stala((string) $przed['subject_kind'])) {
             return self::POWOD_DOMYSLNA;
         }
         if (!$this->reguly->usun($ruleId, $companyId)) {
@@ -189,7 +193,9 @@ final class WidocznoscService
      */
     private function sprawdzPodmiot(int $companyId, string $ktoRodzaj, int $ktoId): ?string
     {
-        if ($ktoRodzaj === ZakresWidocznosci::KTO_PRZELOZENI) {
+        // ⚠ Reguły stałe nie mają podmiotu wskazywanego z listy — numer musi być zerem,
+        // inaczej ktoś próbuje przerobić je na zwykłą regułę.
+        if (CalendarAccessRepository::stala($ktoRodzaj)) {
             return $ktoId === 0 ? null : self::POWOD_PODMIOT;
         }
         if ($ktoRodzaj === ZakresWidocznosci::KTO_PRZELOZONY) {

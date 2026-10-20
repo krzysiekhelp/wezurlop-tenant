@@ -713,6 +713,50 @@ Reguła należy do **firmy** i ma trzy człony:
   się nadać dwa razy. Podpis reguły domyślnej **nie zawiera zakresu** — jest jedna i zmienia się
   jej zakres, a nie zakłada drugą.
 
+### Dwie reguły domyślne firmy
+
+| reguła | kogo obejmuje | cel | zakres domyślny |
+|---|---|---|---|
+| **Wszyscy przełożeni** | konto, pod którym **dziś** ktoś stoi w hierarchii | swoi podwładni | `bez_szczegolow` |
+| **Administratorzy** | konto z uprawnieniem `calendar.visibility_manage` w tej firmie albo na całym tenancie | cała firma | `ze_szczegolami` |
+
+Obie są **jedną na firmę**, mają podpis **bez zakresu** (zmiana zakresu zmienia tę jedną, a nie
+zakłada drugiej) i **nie dają się usunąć** — na liście mają ołówek, nie kosz, a serwer odrzuca
+usunięcie niezależnie od tego, że przycisku nie ma. Obie obejmują widza **po jego cesze**, a nie
+po tym, że stoją w tabeli: odebranie ostatniego podwładnego albo uprawnienia odbiera wgląd przy
+następnym odczycie, bez dotykania reguły. Rozstrzyga o tym jedna funkcja
+(`ZakresWidocznosci::obejmujeWidza()`), bo pytają o to trzy miejsca: zakres pary, zasięg widoku
+i „czy widzi całą firmę".
+
+⚠ **Administrator tenanta widzi domyślnie WSZYSTKO, ze szczegółami** — decyzja Krzysztofa
+z 20.10.2026, która **odwołuje rozstrzygnięcie z 23.09.2026** („administrator nie widzi kalendarzy
+z samej roli"). Powód odwołania jest praktyczny: administrator i tak może sobie każdy dostęp nadać
+trzema kliknięciami na ekranie Widoczność, więc dawna zasada nie chroniła danych — ukrywała tylko
+stan faktyczny. Nowa postać jest **lepsza niż jedno i drugie**: stan jest nazwany regułą, więc
+klient, którego instalacją opiekuje się zewnętrzny informatyk z kontem administratora, może mu ten
+wgląd **zabrać** jednym ołówkiem. Wyjątku zaszytego w kodzie nie da się zabrać ekranem.
+
+⚠ **Objęcie regułą rozstrzyga UPRAWNIENIE `calendar.visibility_manage`, nie nazwa roli.** Dziś ma
+je wyłącznie `tenant_admin`, ale role dokładają się w czasie, a przy porównaniu z nazwą przyszła
+rola kadrowa albo „pomoc techniczna" wpadłaby w pełny wgląd w dane o zdrowiu **bez niczyjej
+decyzji**. Wybrane uprawnienie jest najwęższe z możliwych i samo-spójne: kto rozstrzyga
+o widoczności, ten może sobie ten dostęp nadać i bez tej reguły. Drugą linią wiersza na liście
+reguł jest więc „N kont z prawem zarządzania widocznością", a nie „N administratorów" — mówi,
+co naprawdę sprawdzamy.
+
+⚠ **Brak wiersza w tabeli znaczy „nierozstrzygnięte", a nie „brak reguły"** — i dotyczy to obu.
+Firma założona jutro ma obie domyślności bez żadnej migracji, bo stosuje je **jedno miejsce
+w kodzie** (`CalendarVisibility::zakresPrzelozonych()` i `::zakresAdministratorow()`). Gdyby brak
+wiersza obsługiwał osobno ekran i osobno kalendarz, administrator widziałby na liście jeden
+zakres, a pracownik dostawał drugi.
+
+⚠ **Kandydaci na podmiot reguły to pracownicy firmy ORAZ konta z dostępem do niej bez etatu** —
+w tym konta z przypisaniem **na cały tenant** (`company_id = 0`). Domknięte 20.10.2026: zapytanie
+realizowało tylko połowę tej decyzji (patrzyło na przypisania firmowe), więc reguła założona
+takiemu kontu przez migrację miała **martwy ołówek** — każdy zapis sprawdza kandydaturę podmiotu
+i kończył się odmową „podmiot". Druga linia wiersza mówi, skąd konto ma dostęp („dostęp do
+wszystkich firm · bez etatu").
+
 ### Reguła domyślna firmy
 
 „Wszyscy przełożeni › Swoi podwładni" **istnieje zawsze** i nie daje się usunąć. Dopóki nikt jej

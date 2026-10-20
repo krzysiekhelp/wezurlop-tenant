@@ -136,6 +136,44 @@ use Wezurlop\Service\ZakresWidocznosci as Z;
     $check('p: po dopisaniu podwładnego w hierarchii widać go bez zmiany reguły',
         Z::dlaOsoby($podwladni, false, true, false, []) === Z::ZE_SZCZEGOLAMI);
 
+    // ——— t, u, v: REGUŁA „ADMINISTRATORZY" ————————————————————————————————————
+    // ⚠ Druga reguła stała firmy (zlecenie Z55). Jej domyślny zakres jest ODWROTNY niż
+    // u przełożonych — `ze_szczegolami` — i to jest decyzja Krzysztofa z 20.10.2026:
+    // administrator i tak może sobie każdy dostęp nadać tym samym ekranem, więc reguła tylko
+    // nazywa stan osiągalny. Nazwany daje się ograniczyć, zaszyty w kodzie nie.
+    $adminowa = static fn (string $zakres): array => $regula(Z::KTO_ADMINI, Z::CZYJE_FIRMA, $zakres);
+    $check('t: administrator bez żadnej reguły osobistej widzi pełną nazwę u każdego w firmie',
+        Z::dlaOsoby([$adminowa(Z::DOMYSLNY_ADMINISTRATOROW)], false, false, false, [], 0, true)
+            === Z::ZE_SZCZEGOLAMI);
+    $check('t: domyślny zakres administratorów to „ze szczegółami"',
+        Z::DOMYSLNY_ADMINISTRATOROW === Z::ZE_SZCZEGOLAMI);
+    $check('u: po zmianie reguły na „bez szczegółów" administrator widzi tylko fakt nieobecności',
+        Z::dlaOsoby([$adminowa(Z::BEZ_SZCZEGOLOW)], false, false, false, [], 0, true)
+            === Z::BEZ_SZCZEGOLOW);
+    // ⚠ Ograniczenie reguły administratorów NIE zabiera dostępu nadanego osobno — bo wygrywa
+    // zbiór szerszy. Inaczej ograniczenie jednej reguły odbierałoby dostęp nadany inną decyzją.
+    $check('u: osobna reguła „ze szczegółami" wygrywa z ograniczoną regułą administratorów',
+        Z::dlaOsoby(
+            [$adminowa(Z::BEZ_SZCZEGOLOW), $regula(Z::KTO_KONTO, Z::CZYJE_FIRMA, Z::ZE_SZCZEGOLAMI)],
+            false, false, false, [], 0, true
+        ) === Z::ZE_SZCZEGOLAMI);
+    $check('v: konto BEZ uprawnienia administratora nie łapie się na tę regułę',
+        Z::dlaOsoby([$adminowa(Z::ZE_SZCZEGOLAMI)], false, false, false, [], 0, false) === Z::BRAK);
+    // ⚠ Ten sam warunek co u przełożonych: reguła stała obejmuje widza po CESZE widza, a nie
+    // po tym, że stoi w tabeli — więc odebranie uprawnienia odbiera wgląd przy następnym odczycie.
+    $check('v: odebranie uprawnienia odbiera wgląd bez dotykania reguły',
+        Z::dlaOsoby([$adminowa(Z::ZE_SZCZEGOLAMI)], false, true, true, [], 0, false) === Z::BRAK);
+    $check('v: administrator i przełożony naraz dostają maksimum z obu reguł',
+        Z::dlaOsoby(
+            [$adminowa(Z::ZE_SZCZEGOLAMI), $domyslna(Z::BEZ_SZCZEGOLOW)],
+            false, true, true, [], 0, true
+        ) === Z::ZE_SZCZEGOLAMI);
+    $check('podpis reguły administratorów też jest bez zakresu',
+        Z::podpis(Z::KTO_ADMINI, 0, Z::CZYJE_FIRMA, [], Z::ZE_SZCZEGOLAMI)
+        === Z::podpis(Z::KTO_ADMINI, 0, Z::CZYJE_FIRMA, [], Z::BEZ_SZCZEGOLOW));
+    $check('podpisy obu reguł stałych są RÓŻNE (to dwie reguły, nie jedna)',
+        Z::PODPIS_ADMINOW !== Z::PODPIS_DOMYSLNEJ);
+
     // ——— b, d: CO WYCHODZI NA EKRAN ————————————————————————————————————————————
     // ⚠ To jest ten test, bez którego cały mechanizm nie znaczy nic: zakres może być policzony
     // dobrze, a rodzaj nieobecności i tak wyjść z serwera w klasie, w `title` albo w polu obok.
