@@ -230,6 +230,11 @@ final class VisibilityController
             'przelozonych_opis' => $przelozonych . ' ' . Odmiana::osoby($przelozonych) . ' z podwładnymi',
             'nazwy_zakresow' => ZakresWidocznosci::nazwy(),
             'opisy_zakresow' => ZakresWidocznosci::opisy(),
+            // ⚠ **Trzy formy słowa „osoba" dla stopki listy** (zlecenie Z57 U4). Słownik odmian
+            // zostaje w `Support\Odmiana` — w przeglądarce zostaje sam wybór formy po liczbie.
+            // Przepisanie słów do JavaScriptu znaczyłoby drugie miejsce, w którym mieszka
+            // polska odmiana, i rozjazd przy pierwszej zmianie brzmienia.
+            'formy_osoby' => implode('|', [Odmiana::osoby(1), Odmiana::osoby(2), Odmiana::osoby(5)]),
             'kafle' => [
                 'dodatkowych' => count($wiersze),
                 'osob' => count($podmioty),
@@ -649,8 +654,12 @@ final class VisibilityController
 
         return [
             'pozycje' => array_map(
+                // ⚠ `osob` jedzie OBOK opisu, a nie zamiast niego: stopka listy w przeglądarce
+                // (`modules/widocznosc.js`, zlecenie Z57 U4) dodaje liczby wybranych grup i osób,
+                // a wyłuskiwanie ich z napisu „12 osób" byłoby parsowaniem własnego tekstu.
                 static fn (array $g): array => ['id' => (int) $g['id'], 'nazwa' => (string) $g['nazwa'],
-                    'opis' => $g['osob'] . ' ' . Odmiana::osoby((int) $g['osob']), 'etat' => true],
+                    'opis' => $g['osob'] . ' ' . Odmiana::osoby((int) $g['osob']), 'etat' => true,
+                    'osob' => (int) $g['osob']],
                 array_slice($pasujace, $od, self::STRONA),
             ),
             'razem' => count($pasujace),

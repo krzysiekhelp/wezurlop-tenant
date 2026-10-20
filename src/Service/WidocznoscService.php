@@ -345,9 +345,16 @@ final class WidocznoscService
         string $zakres,
         ?string $bylo
     ): void {
+        // ⚠ **Przy wskazanych osobach zapisujemy NUMERY ZATRUDNIEŃ, tak samo jak przy grupach**
+        // (zlecenie Z57 U2). Wcześniej wpis niósł sam napis `persons`, więc dziennik nie miał
+        // z czego powiedzieć, kogo reguła dotyczyła — a po jej usunięciu nie da się tego
+        // odtworzyć z niczego innego. Nazwiska dalej **nie** wchodzą do treści wpisu:
+        // nazwy składa ekran przy odczycie (`Support\ZdanieDostepu`).
+        $zListy = $czyjeRodzaj === ZakresWidocznosci::CZYJE_GRUPY
+            || $czyjeRodzaj === ZakresWidocznosci::CZYJE_OSOBY;
         $tresc = [
             'kto' => $ktoRodzaj . ($ktoId > 0 ? ':' . $ktoId : ''),
-            'czyje' => $czyjeRodzaj === ZakresWidocznosci::CZYJE_GRUPY
+            'czyje' => $zListy && $grupyCelu !== []
                 ? $czyjeRodzaj . ':' . implode(',', ZakresWidocznosci::uporzadkuj($grupyCelu))
                 : $czyjeRodzaj,
             'zakres' => $zakres,

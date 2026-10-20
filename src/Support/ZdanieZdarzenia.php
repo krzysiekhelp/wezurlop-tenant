@@ -93,11 +93,24 @@ final class ZdanieZdarzenia
         // ⚠ Zdania mówią **kto widzi kogo**, bo tym jest reguła — a nie „nadano uprawnienie X".
         // W treści technicznej są same identyfikatory (§5 zlecenia Z53, CLAUDE.md §18); nazwy
         // składa ekran dziennika z tych identyfikatorów, a nie zapis w bazie.
-        'calendar_access.granted'       => ['nadał(a) dostęp do kalendarza: {kto} → {czyje} · {zakres}', 'kalendarz', self::BARWA_DODANIE],
-        'calendar_access.changed'       => ['zmienił(a) dostęp do kalendarza: {kto} → {czyje} · {zakres}[ (było: {bylo})]', 'olowek', self::BARWA_ZWYKLA],
-        'calendar_access.revoked'       => ['odebrał(a) dostęp do kalendarza: {kto} → {czyje} · {zakres}', 'kalendarz', self::BARWA_USUNIECIE],
-        'calendar_access.auto_changed'  => ['dostęp do kalendarza zmieniony po usunięciu grupy[ — reguł skasowanych: {skasowanych}][, skróconych: {skroconych}]', 'kosz', self::BARWA_USUNIECIE],
-        'calendar_access.migrated'      => ['przeniósł dawne poziomy podglądu do reguł dostępu[ — reguł: {regul}][, bez firmy: {bez_firmy}]', 'kalendarz', self::BARWA_ZWYKLA],
+        // ⚠ Nazwy podmiotu i celu składa `ZdanieDostepu` z identyfikatorów, przy odczycie —
+        // w treści wpisu zostają numery (Z53 §5). Znak „›", nie „→": strzałki nie ma w kroju
+        // pisma i rysuje się jako pusty prostokąt (zmierzone zrzutem 20.10.2026).
+        'calendar_access.granted'       => ['nadał(a) dostęp do kalendarza: {kto} › {czyje} · {zakres}', 'kalendarz', self::BARWA_DODANIE],
+        'calendar_access.changed'       => ['zmienił(a) dostęp do kalendarza: {kto} › {czyje} · {zakres}[ (było: {bylo})]', 'olowek', self::BARWA_ZWYKLA],
+        'calendar_access.revoked'       => ['odebrał(a) dostęp do kalendarza: {kto} › {czyje} · {zakres}', 'kalendarz', self::BARWA_USUNIECIE],
+        // ⚠ **Reguła stała firmy mówi inaczej, bo da się w niej zmienić WYŁĄCZNIE zakres**
+        // („Wszyscy przełożeni", „Administratorzy" — podmiot i cel są z definicji). Zdanie
+        // o nadaniu i odebraniu dostępu brzmiałoby przy niej nieprawdziwie: tej reguły nikt
+        // nie nadaje ani nie odbiera, ona istnieje.
+        'calendar_access.granted#stala' => ['ustawił(a) zakres reguły {kto}: {zakres}', 'kalendarz', self::BARWA_ZWYKLA],
+        'calendar_access.changed#stala' => ['zmienił(a) zakres reguły {kto}: {bylo} › {zakres}', 'olowek', self::BARWA_ZWYKLA],
+        // ⚠ Orzeczenie, nie bezosobowe „dostęp zmieniony": podmiotem zdania jest sprawca
+        // z wpisu, więc bez czasownika wychodziło „Kowalski Jan dostęp do kalendarza zmieniony".
+        'calendar_access.auto_changed'  => ['zmienił(a) dostęp do kalendarza po usunięciu grupy[ — reguł skasowanych: {skasowanych}][, skróconych: {skroconych}]', 'kosz', self::BARWA_USUNIECIE],
+        // ⚠ Sprawcą jest „Migracja" (etykieta `migracja` niżej), więc orzeczenie w rodzaju
+        // żeńskim: wcześniej czytało się „migracja przeniósł".
+        'calendar_access.migrated'      => ['przeniosła dawne poziomy podglądu do reguł dostępu[ — reguł: {regul}][, bez firmy: {bez_firmy}]', 'kalendarz', self::BARWA_ZWYKLA],
         'person.email_set'              => ['ustawił(a) adres e-mail osobie {podmiot}', 'koperta', self::BARWA_ZWYKLA],
         'person.contact_changed'        => ['zmienił(a) dane kontaktowe osoby {podmiot}', 'olowek', self::BARWA_ZWYKLA],
 
@@ -224,6 +237,9 @@ final class ZdanieZdarzenia
         'instalator' => 'Instalator',
         'system'     => 'System',
         'cron'       => 'Zadanie cykliczne',
+        // ⚠ Etykieta zapisana przez migrację bazy (Z55). Bez tego wiersza na ekranie stało
+        // gołe „migracja" małą literą, jak nazwisko zapisane z błędem.
+        'migracja'   => 'Migracja',
         'przelozony' => 'Przełożony',
     ];
 
@@ -241,8 +257,16 @@ final class ZdanieZdarzenia
     public static function zbuduj(array $wpis): array
     {
         $kod = (string) $wpis['kod'];
-        $wzor = self::ZDANIA[$kod] ?? null;
         $wartosci = self::wartosci($wpis);
+        // ⚠ **Wariant zdania wybiera DANA, nie kod.** Jeden kod zdarzenia opisuje dwie różne
+        // rzeczy, gdy regułą jest reguła stała firmy (da się w niej zmienić tylko zakres) —
+        // a kodu rozdzielić nie wolno: po kodach filtruje się dziennik i stoją w `KodyZdarzen`
+        // razem z wpisami sprzed tej zmiany. Wariant podaje warstwa, która zna treść wpisu
+        // (`ZdanieDostepu`), i nigdy nie przychodzi z żądania.
+        $wariant = (string) ($wartosci['wariant'] ?? '');
+        $wzor = ($wariant === '' ? null : self::ZDANIA[$kod . '#' . $wariant] ?? null)
+            ?? self::ZDANIA[$kod]
+            ?? null;
 
         return [
             'kto'    => self::kto($wpis),
@@ -263,10 +287,20 @@ final class ZdanieZdarzenia
         return isset(self::ZDANIA[$kod]);
     }
 
-    /** @return list<string> */
+    /**
+     * Kody z własnym zdaniem — **bez wariantów** (`kod#wariant`). Wariant nie jest kodem
+     * zdarzenia: nie zapisuje się go w bazie i nie da się po nim filtrować dziennika.
+     *
+     * @return list<string>
+     */
     public static function kody(): array
     {
-        return array_keys(self::ZDANIA);
+        $kody = [];
+        foreach (array_keys(self::ZDANIA) as $klucz) {
+            $kody[explode('#', $klucz)[0]] = true;
+        }
+
+        return array_keys($kody);
     }
 
     /**

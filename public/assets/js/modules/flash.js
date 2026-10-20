@@ -23,8 +23,49 @@
 
   var ZNAKI = { blad: '!', sukces: '✓', uwaga: '!', info: 'i' };
 
+  /* ⚠ **Komunikat musi stać NAD oknem modalnym, inaczej go nie ma** (zlecenie Z57 U7).
+     Zgłoszenie Krzysztofa brzmiało „po kliknięciu nie ma żadnej informacji, że wysłano" —
+     i to była prawda o tym, co widać: okno otwarte przez `showModal()` siedzi w WARSTWIE
+     WIERZCHNIEJ razem ze swoim tłem, a pojemnik komunikatów stoi w zwykłym przepływie, więc
+     toast rysował się **pod** przygaszeniem okna. Żadna wartość `z-index` tego nie zmienia:
+     warstwa wierzchnia jest ponad całym dokumentem.
+     Dlatego przed pokazaniem komunikatu przenosimy pojemnik do otwartego okna, a gdy żadne nie
+     jest otwarte — z powrotem na koniec `body`. Pojemnik jest `position: fixed`, więc po
+     przeniesieniu stoi dokładnie tam, gdzie stał (okno nie jest dla niego blokiem
+     zawierającym — nie ma `transform` ani `filter`). */
+  /* Czy przeglądarka zna `:modal` (Chrome 105+). Bez niego zostaje stan jak przed zmianą:
+     komunikat stoi tam, gdzie stał — nic się nie psuje, po prostu nie poprawia. */
+  var ZNA_MODAL = (function () {
+    try {
+      document.body.matches(':modal');
+
+      return true;
+    } catch (e) {
+      return false;
+    }
+  })();
+
   function kontener() {
-    return document.getElementById('toasty');
+    var cel = document.getElementById('toasty');
+    if (!cel) {
+      return null;
+    }
+    var okno = null;
+    if (ZNA_MODAL) {
+      document.querySelectorAll('dialog[open]').forEach(function (dialog) {
+        /* `open` mają też okna niemodalne (serwer renderuje je tak dla drogi bez JS) — ale tylko
+           modalne zasłaniają dokument, więc tylko one wymagają przeniesienia. */
+        if (dialog.matches(':modal')) {
+          okno = dialog;
+        }
+      });
+    }
+    var rodzic = okno || document.body;
+    if (cel.parentNode !== rodzic) {
+      rodzic.appendChild(cel);
+    }
+
+    return cel;
   }
 
   function rodzajZnany(rodzaj) {

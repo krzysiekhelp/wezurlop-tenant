@@ -67,9 +67,18 @@
     </div>
     <div class="kafel">
         <span class="kafel__glowa">{{ ikony.licencja() }}<span class="kafel__etykieta">Weryfikacja 2-etapowa</span></span>
+        {#- ⚠ **Kafel czyta konfigurację, a nie twierdzi „wymagana"** (zlecenie Z57 U3). Do 20.10.2026
+            stał tu napis wpisany na sztywno, więc przy `ADMIN_2FA_REQUIRED=0` ten ekran mówił
+            „wymagana", a `/diagnostyka` w tej samej instalacji „WYŁĄCZONE". Z dwóch ekranów
+            o stanie zabezpieczenia zgadywało się, który kłamie. -#}
         <span class="kafel__dana">
-            <span class="kafel__wartosc">wymagana</span>
-            <span class="kafel__opis">dla administratora</span>
+            {% if dwuetapowe_wymagane %}
+                <span class="kafel__wartosc">wymagana</span>
+                <span class="kafel__opis">dla administratora</span>
+            {% else %}
+                <span class="kafel__wartosc kafel__wartosc--odchylenie">wyłączona</span>
+                <span class="kafel__opis">ADMIN_2FA_REQUIRED=0</span>
+            {% endif %}
         </span>
     </div>
     <div class="kafel">

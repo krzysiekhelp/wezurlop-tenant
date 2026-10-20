@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.36, 20.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.37, 20.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,62 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.36 → 1.18.37: osiem usterek z odbioru — okno reguły, dziennik, kafel 2FA,
+> stopka listy, odstęp ikon, wiadomość próbna** (zlecenie Z57, 20.10.2026).
+> - ⚠ **Okno reguły dostępu przewijało się całe** (U1): zmierzone `scrollHeight` 1480 px przy
+>   `clientHeight` 701 px, okno otwarte z `scrollTop` 491 — czyli bez nagłówka i bez kafelków
+>   kroków, ze stopką na środku. Przyczyną nie był ani htmx, ani `scrollIntoView`: **pola wyboru
+>   pozycji listy są `.visually-hidden`, czyli `position: absolute`**, a przewijane pudełko listy
+>   nie było pozycjonowane — więc pięćdziesiąt pól „uciekało" z niego i rozpychało okno modalne.
+>   Pudełko dostało `position: relative`. Po poprawce **każdy krok i każda zakładka**: 701/701,
+>   `scrollTop` 0. ⚠ Zasada ogólna: **pudełko z `overflow` przycina tylko to, czego blokiem
+>   zawierającym jest ono samo** — element `absolute` wymaga od niego `position`.
+> - **Stopka listy w oknie reguły mówi prawdę od razu** (U4): po kliknięciu osoby stała tam
+>   nadal liczba całej firmy („wybrano: cała firma · 52 osoby") — czyli napis przeczył
+>   zaznaczeniu, które ten sam ekran właśnie pokazał. Teraz `modules/widocznosc.js` przepisuje
+>   ten jeden napis („wybrano 1 osoba", „wybrano 2 · 34 osoby"), a **słowa przychodzą z serwera**
+>   (`data-formy-osoby` z `Support\Odmiana`) — w przeglądarce zostaje sam wybór formy po liczbie.
+>   Bez JavaScriptu napis renderuje serwer, jak dotąd.
+> - **Ołówek i kosz w wierszu reguły miały odstęp 0 px** (U8, zmierzone 1763–1801 i 1801–1839).
+>   Przyczyna: tory siatki wiersza były wpisane jako `32px`, a kontrolka ma `--control-h` = 38 px,
+>   więc przycisk wystawał z toru i zjadał odstęp. Tory biorą teraz szerokość z `--control-h`,
+>   a ujemny margines pary („6 px między ikonami") obowiązuje **tylko kosza stojącego za
+>   ołówkiem** — bo przy samotnym koszu w wierszu kolejki poczty ściągał go do plakietki,
+>   z którą pary nie tworzy. Po poprawce 6 px, tak jak na `/admin/grupy`, a ołówek we wszystkich
+>   wierszach stoi w jednej kolumnie (x = 1751).
+> - **Kafel „Weryfikacja 2-etapowa" czyta konfigurację** (U3): twierdził „wymagana" na sztywno,
+>   gdy `/diagnostyka` w tej samej instalacji mówiła „WYŁĄCZONE (ADMIN_2FA_REQUIRED=0)". Teraz
+>   przy 0 jest „wyłączona" w barwie odchylenia, z podpisem `ADMIN_2FA_REQUIRED=0`, i to samo
+>   w wierszu karty niżej. Z dwóch ekranów o stanie zabezpieczenia nie wybiera się już,
+>   który kłamie.
+> - **Zdanie wiodące `/admin/widocznosc`** (U5) nie mówi już „Przełożeni widzą swoich podwładnych
+>   **zawsze**" — po Z53 i Z55 nie jest to prawda: zakres przełożonych zmienia się ołówkiem
+>   w pierwszym wierszu, a administratorzy mają drugą regułę domyślną.
+> - **`/admin/integracja` bez ścieżki w belce** (U6): jest pozycją menu, więc ma jeden tytuł,
+>   jak `/admin/konta`. Stało tam „Administracja /" — nazwa grupy menu w roli ekranu nadrzędnego,
+>   czyli ścieżka, której pierwszy człon nigdzie nie prowadzi. Podstrony (`/admin/podlaczenie`,
+>   potwierdzenia) ścieżkę mają i zostają bez zmian.
+> - **Tabela „Ostatnie przebiegi" pokazuje nazwę wyświetlaną firmy** (U6), nie pełną nazwę
+>   prawną z R2 (zmierzone: 51 znaków zamiast 6). Tożsamość firmy niesie na tym ekranie NIP.
+> - **Wiadomość próbna: widać wynik i nie wyjdzie dwa razy** (U7). Trzy rzeczy naraz:
+>   * ⚠ **komunikat był niewidoczny, nie brakujący** — okno otwarte przez `showModal()` siedzi
+>     w warstwie wierzchniej razem ze swoim przygaszeniem, a stos komunikatów stał w zwykłym
+>     przepływie, więc toast rysował się **pod** tłem okna. Żaden `z-index` tego nie zmienia.
+>     `modules/flash.js` przenosi teraz pojemnik do otwartego okna modalnego; zmierzone po
+>     poprawce: `elementFromPoint` w środku toastu trafia w sam toast.
+>   * **przycisk gaśnie na czas żądania** i mówi „Wysyłam…" (`data-zajety`, obsługa w `ui.js`).
+>     ⚠ Wyłączenie idzie przez `setTimeout(…, 0)`, bo przeglądarka buduje listę pól **po**
+>     zdarzeniu `submit`: wyłączony na miejscu przycisk zgubiłby swoje `name`/`value`, czyli
+>     zamieniłby „Wyślij próbę" w zwykły zapis adresu. Zmierzone: w żądaniu dalej jest `proba=1`.
+>   * **zdanie o wyniku mówi, którą drogą wiadomość poszła** — „zapisana do pliku w var/mail"
+>     na środowisku bez SMTP, „Wysłano na …" przy SMTP. Jedno źródło dla obu ekranów.
+> - **Dziennik zdarzeń mówi o regułach zdaniem, nie kodami** (U2): było
+>   „account:4 → persons · ze_szczegolami", jest „nadał(a) dostęp do kalendarza: <nazwisko> ›
+>   <nazwiska> · ze szczegółami". Nazwy składa ekran przy odczycie, w treści wpisu zostają
+>   identyfikatory (Z53 §5). ⚠ Znak **„›", nie „→"**: strzałki nie ma w kroju pisma i rysuje się
+>   jako pusty prostokąt. Reguły stałe firmy mają własne zdanie („zmienił(a) zakres reguły
+>   Administratorzy: ze szczegółami › bez szczegółów"), bo da się w nich zmienić wyłącznie zakres.
 
 > **Zmiana 1.18.35 → 1.18.36: ekrany sprzed zalogowania — spokojne zdanie zamiast strony
 > „formularz wygasł"** (zlecenie Z56, 20.10.2026).

@@ -3863,8 +3863,13 @@ body:has(dialog.modal[open]) { overflow: hidden; }
    w nie otwierałoby grupę zamiast działania — pseudoelement rozpięty na wiersz jest nad nimi. */
 .group-list__czlonkowie { position: relative; z-index: 1; width: var(--ustaw-akcja-w, 156px); justify-content: flex-start; }
 /* ⚠ Odstęp 6 px tylko MIĘDZY ikonami, a nie w całym wierszu: ołówek i kosz to jedna para,
-   a „Członkowie" stoi od nich dalej (odstęp wiersza). Stąd ujemny margines zamiast zmiany `gap`. */
-.ikona-akcja--usun { margin-left: calc(6px - var(--s-3)); }
+   a „Członkowie" stoi od nich dalej (odstęp wiersza). Stąd ujemny margines zamiast zmiany `gap`.
+   ⚠ **Reguła musi widzieć PARĘ, a nie sam kosz** (zlecenie Z57 U8): zapisana na `.ikona-akcja--usun`
+   obowiązywała też tam, gdzie kosz stoi sam — w wierszu kolejki na `/ustawienia/poczta` ściągała
+   go o 6 px do plakietki z liczbą, z którą żadnej pary nie tworzy. Kosz w formularzu łapie się
+   przez `display: contents` tego formularza: to on jest sąsiadem ołówka, a przycisk jego dzieckiem. */
+.ikona-akcja--edycja + .ikona-akcja--usun,
+.ikona-akcja--edycja + .ikona-akcja__form .ikona-akcja--usun { margin-left: calc(6px - var(--s-3)); }
 /* ⚠ **Dwa widoczne przyciski-ikony zamiast menu „⋯"** (Z33 §2). Kwadrat kontrolki, ramka
    kontrolki, ikona w kolorze danej drugorzędnej — dopiero kursor nadaje im znaczenie: ołówek
    bierze barwę akcji, kosz barwę niebezpieczną. Dwa różne kolory na dwóch sąsiednich przyciskach
@@ -5727,7 +5732,11 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 .wid-naglowki,
 .wid-wiersz {
   display: grid;
-  grid-template-columns: 38px minmax(0, 1fr) 16px minmax(0, 1.2fr) auto 32px 32px;
+  /* ⚠ Dwa ostatnie tory mają szerokość KONTROLKI (`--control-h`), a nie wpisane 32 px
+     (zlecenie Z57 U8). Przy torze 32 px przycisk 38 px wystawał o 6 px i zjadał odstęp
+     wiersza: ołówek wychodził w prawo, kosz (z ujemnym marginesem pary) w lewo, i oba się
+     stykały — zmierzone 1763–1801 i 1801–1839, odstęp 0 px przy 6 px na `/admin/grupy`. */
+  grid-template-columns: 38px minmax(0, 1fr) 16px minmax(0, 1.2fr) auto var(--control-h) var(--control-h);
   align-items: center;
   gap: var(--s-3);
 }
@@ -5775,7 +5784,7 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 .wid-wiersz__strzalka { color: var(--c-text-4); text-align: center; }
 /* ⚠ Puste miejsce po koszu, **bez ramki**: kwadrat w obrysie czytał się jak przycisk wyłączony,
    czyli „tu da się coś zrobić, ale nie teraz" — a tej reguły nie da się usunąć nigdy. */
-.wid-wiersz__brak-akcji { display: block; width: 32px; height: 32px; }
+.wid-wiersz__brak-akcji { display: block; width: var(--control-h); height: var(--control-h); }
 /* Plakietka „nieaktywna" stoi ZA nazwiskami i nie kurczy się razem z nimi. */
 .wid-wiersz__plakietka { flex: none; }
 
@@ -5908,7 +5917,17 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   border-radius: var(--radius-card);
   overflow: hidden;
 }
-.wid-lista-wybor__przewijane { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+/* ⚠ **`position: relative` jest tu WARUNKIEM DZIAŁANIA, nie porządkiem** (zlecenie Z57 U1).
+   Każda pozycja listy ma pole wyboru z klasą `.visually-hidden`, czyli `position: absolute`
+   bez przesunięć. Element pozycjonowany absolutnie jest przycinany przez przodka z `overflow`
+   **tylko wtedy, gdy ten przodek należy do jego bloku zawierającego** — a to pudełko nie było
+   pozycjonowane, więc pięćdziesiąt pól „uciekało" z przewijanej listy i rozpychało okno
+   modalne. Zmierzone 20.10.2026 przed poprawką: `dialog.scrollHeight` 1480 px przy
+   `clientHeight` 701 px, a sam `<ul>` sięgał 807 px pod dolną krawędź okna; stąd okno
+   przewinięte do połowy (`scrollTop` 491) po tym, jak przeglądarka „pokazywała" element
+   z ogniskiem albo htmx wyzwalacz doczytywania. Pudełko przewijane listy zostaje więc blokiem
+   zawierającym dla swoich dzieci. */
+.wid-lista-wybor__przewijane { position: relative; flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 /* ⚠ Stopka siedzi W RAMCE: licznik mówi o jej zawartości, więc postawiony poza nią czytał się
    jak podpis całego kroku. Szare tło i kreska nad — ta sama konstrukcja, co stopka kolumny
    w oknie grup. */
@@ -5925,6 +5944,12 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   color: var(--c-text-3);
 }
 .wid-lista-wybor__wybrano { color: var(--c-text-2); font-weight: var(--w-medium); }
+/* ⚠ Ten sam element niesie dwie rzeczy: „co wybrano" (dana, więc mocniej) i podpowiedź kroku
+   („tylko osoby, które mają podwładnych" — treść pomocnicza). Jeden element, bo w przeglądarce
+   napis przechodzi z jednego stanu w drugi (zlecenie Z57 U4), a dwa elementy znaczyłyby
+   pokazywanie i ukrywanie dwóch rzeczy naraz. Podpowiedź wygląda jak przed zmianą: wagą
+   i barwą stopki. */
+.wid-lista-wybor__wybrano--podpowiedz { color: inherit; font-weight: inherit; }
 .wid-pozycje { list-style: none; margin: 0; padding: 0; }
 
 /* ⚠ **Wiersz ma 50 px** (§4 zlecenia) i to jest wysokość liczona, nie wzięta z oka: dwie linie
@@ -6170,7 +6195,7 @@ body:has(dialog.modal[open]) { overflow: hidden; }
    co w `.table--pracownicy` na wąskim ekranie. */
 @media (max-width: 720px) {
   .wid-naglowki { display: none; }
-  .wid-wiersz { grid-template-columns: 38px minmax(0, 1fr) 32px 32px; }
+  .wid-wiersz { grid-template-columns: 38px minmax(0, 1fr) var(--control-h) var(--control-h); }
   .wid-wiersz__strzalka { display: none; }
   .wid-wiersz__kto { grid-column: 2 / -1; }
   .wid-wiersz__czyje { grid-column: 2 / -1; }

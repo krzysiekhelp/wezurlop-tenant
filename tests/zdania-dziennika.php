@@ -17,7 +17,9 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
+use Wezurlop\Service\ZakresWidocznosci as Z;
 use Wezurlop\Support\KodyZdarzen;
+use Wezurlop\Support\ZdanieDostepu;
 use Wezurlop\Support\ZdanieZdarzenia;
 
 (static function (): void {
@@ -210,6 +212,101 @@ use Wezurlop\Support\ZdanieZdarzenia;
         },
     ));
     $check('każdy znany kod wpada do któregoś filtra', $poza === [], implode(', ', $poza));
+
+    // ——— Z57 U2: reguły widoczności zdaniem, nie kodami ————————————————————————————
+    // ⚠ Sedno: w treści wpisu zostają IDENTYFIKATORY (Z53 §5), a nazwy dokłada ekran przy
+    // odczycie. Te sprawdzenia pilnują obu końców tej umowy — i tego, że brak nazwy nie daje
+    // pustego miejsca w zdaniu audytowym.
+    $nazwy = [
+        'konto' => [4 => 'Anna Przykładowa'],
+        'etat'  => [12 => 'Jan Testowy', 15 => 'Ewa Wzorcowa', 18 => 'Adam Próbny', 21 => 'Zofia Wzorcowa'],
+        'grupa' => [1 => 'Magazyn', 2 => 'Produkcja'],
+    ];
+    /** Wpis z treścią taką, jaką zapisuje `WidocznoscService`. */
+    $dostep = static function (string $kod, array $detale) use ($zbuduj, $nazwy): array {
+        return $zbuduj($kod, ZdanieDostepu::wartosci($detale, $nazwy) + $detale);
+    };
+
+    $osoby = $dostep('calendar_access.granted',
+        ['kto' => 'account:4', 'czyje' => 'persons:12,15', 'zakres' => Z::ZE_SZCZEGOLAMI]);
+    $check('zdanie o regule nie zawiera kodów',
+        !str_contains($tekst($osoby), 'account:') && !str_contains($tekst($osoby), 'persons')
+        && !str_contains($tekst($osoby), '_szczegolami'), $tekst($osoby));
+    $check('zdanie o regule podaje nazwy z bazy',
+        str_contains($tekst($osoby), 'Anna Przykładowa') && str_contains($tekst($osoby), 'Jan Testowy')
+        && str_contains($tekst($osoby), 'Ewa Wzorcowa'), $tekst($osoby));
+    $check('zakres słowami', str_contains($tekst($osoby), 'ze szczegółami'), $tekst($osoby));
+    // ⚠ Strzałki „→" nie ma w kroju pisma (zmierzone zrzutem) — w zdaniu stoi „›".
+    $check('rozdziela „›", nie „→"',
+        str_contains($tekst($osoby), ' › ') && !str_contains($tekst($osoby), '→'), $tekst($osoby));
+
+    $wiele = $dostep('calendar_access.granted',
+        ['kto' => 'account:4', 'czyje' => 'persons:12,15,18,21', 'zakres' => Z::BEZ_SZCZEGOLOW]);
+    $check('przy czterech osobach wylicza dwie i „i 2 inne"',
+        str_contains($tekst($wiele), 'Jan Testowy, Ewa Wzorcowa i 2 inne'), $tekst($wiele));
+
+    // ⚠ Wpis sprzed Z57 nie niósł numerów osób — zdanie ma powiedzieć tyle, ile wie,
+    // a nie wyliczyć dzisiejszy skład reguły (to byłby inny stan niż opisywany).
+    $stary = $dostep('calendar_access.granted',
+        ['kto' => 'account:4', 'czyje' => 'persons', 'zakres' => Z::ZE_SZCZEGOLAMI]);
+    $check('stary wpis bez numerów mówi „wskazane osoby"',
+        str_contains($tekst($stary), 'wskazane osoby'), $tekst($stary));
+
+    $brak = $dostep('calendar_access.revoked',
+        ['kto' => 'account:99', 'czyje' => 'groups:1,7', 'zakres' => Z::BEZ_SZCZEGOLOW]);
+    $check('usunięte konto zostaje numerem, nie pustką',
+        str_contains($tekst($brak), 'konto #99 — usunięte'), $tekst($brak));
+    $check('skasowana grupa zostaje numerem',
+        str_contains($tekst($brak), 'grupa #7 — usunięta'), $tekst($brak));
+    $check('istniejąca grupa nazwą', str_contains($tekst($brak), 'Magazyn'), $tekst($brak));
+
+    // ——— reguły stałe firmy: zmienia się w nich WYŁĄCZNIE zakres ———
+    $admini = $dostep('calendar_access.changed',
+        ['kto' => 'admins_all', 'czyje' => 'company', 'zakres' => Z::BEZ_SZCZEGOLOW, 'bylo' => Z::ZE_SZCZEGOLAMI]);
+    $check('reguła stała: zdanie o ZAKRESIE, nie o nadaniu dostępu',
+        $tekst($admini) === 'zmienił(a) zakres reguły Administratorzy: ze szczegółami › bez szczegółów',
+        $tekst($admini));
+    $przelozeni = $dostep('calendar_access.granted',
+        ['kto' => 'supervisor_all', 'czyje' => 'subordinates', 'zakres' => Z::BEZ_SZCZEGOLOW]);
+    $check('pierwszy zapis reguły stałej też mówi o zakresie',
+        $tekst($przelozeni) === 'ustawił(a) zakres reguły Każdy przełożony: bez szczegółów', $tekst($przelozeni));
+    // ⚠ Wariant NIE jest kodem zdarzenia: po kodach filtruje się dziennik.
+    $check('wariant nie wchodzi do spisu kodów',
+        !in_array('calendar_access.changed#stala', ZdanieZdarzenia::kody(), true));
+    $check('kod z wariantem jest w spisie raz',
+        count(array_filter(ZdanieZdarzenia::kody(), static fn (string $k): bool => $k === 'calendar_access.changed')) === 1);
+
+    // ——— stan poprzedni zwykłej reguły: podpis tymi samymi słowami ———
+    $zmiana = $dostep('calendar_access.changed', [
+        'kto' => 'account:4', 'czyje' => 'company', 'zakres' => Z::ZE_SZCZEGOLAMI,
+        'bylo' => 'account:4|groups:1,2|bez_szczegolow',
+    ]);
+    $check('„było" też bez kodów',
+        str_contains($tekst($zmiana), 'było: Anna Przykładowa › grupy: Magazyn, Produkcja · bez szczegółów'),
+        $tekst($zmiana));
+
+    // ——— numery do rozwiązania zbierane z całej strony ———
+    $ids = ZdanieDostepu::identyfikatory([
+        ['kod' => 'calendar_access.granted', 'detale' => ['kto' => 'account:4', 'czyje' => 'persons:12,15']],
+        ['kod' => 'calendar_access.changed', 'detale' => ['kto' => 'group:1', 'czyje' => 'groups:2',
+            'bylo' => 'supervisor:21|company|brak']],
+        ['kod' => 'auth.login_success', 'detale' => ['client' => 'web']],
+    ]);
+    $check('numery kont zebrane', $ids['konta'] === [4], implode(',', $ids['konta']));
+    $check('numery zatrudnień zebrane z celu i z „było"',
+        $ids['etaty'] === [12, 15, 21], implode(',', $ids['etaty']));
+    $check('numery grup zebrane z podmiotu i z celu', $ids['grupy'] === [1, 2], implode(',', $ids['grupy']));
+
+    // ——— sprawca „migracja" i rodzaj gramatyczny orzeczenia ———
+    $migracja = $zbuduj('calendar_access.migrated', ['regul' => 2],
+        ['aktor' => null, 'aktor_etykieta' => 'migracja', 'konto_id' => null]);
+    $check('sprawcą jest „Migracja", nie „migracja"', $migracja['kto'] === 'Migracja', (string) $migracja['kto']);
+    $check('orzeczenie zgodne z rodzajem sprawcy',
+        str_starts_with($tekst($migracja), 'przeniosła'), $tekst($migracja));
+    // ⚠ Wpis po usunięciu grupy ma sprawcę (administratora), więc musi mieć ORZECZENIE.
+    $poGrupie = $zbuduj('calendar_access.auto_changed', ['skasowanych' => 1]);
+    $check('wpis po usunięciu grupy jest zdaniem, nie nagłówkiem',
+        str_starts_with($tekst($poGrupie), 'zmienił(a)'), $tekst($poGrupie));
 
     echo $failures === 0 ? "Wszystkie sprawdzenia przeszły.\n" : "NIE PRZESZŁO: {$failures}\n";
     exit($failures === 0 ? 0 : 1);

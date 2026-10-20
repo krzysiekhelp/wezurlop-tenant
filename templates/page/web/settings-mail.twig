@@ -211,8 +211,11 @@
                     <span class="field__label">Adres do wiadomości próbnej</span>
                     <input class="input" type="email" name="adres" value="{{ alert_email }}" maxlength="254" required>
                 </label>
-                <button type="submit" class="btn btn--ghost btn--akcja poczta-proba__akcja">{{ ikony.samolocik() }}Wyślij wiadomość próbną</button>
-                <span class="field__hint poczta-proba__notka">Jedna wiadomość, limit czasu 10 s.</span>
+                {#- ⚠ `data-zajety`: ten sam mechanizm, co w oknie skrzynki alertowej (Z57 U7) —
+                    przycisk gaśnie na czas żądania, a odstęp między próbami pilnuje serwer. -#}
+                <button type="submit" class="btn btn--ghost btn--akcja poczta-proba__akcja"
+                        data-zajety="Wysyłam…">{{ ikony.samolocik() }}Wyślij wiadomość próbną</button>
+                <span class="field__hint poczta-proba__notka">Jedna wiadomość, limit czasu 10 s, najwyżej raz na minutę.</span>
             </form>
         </div>
     </section>

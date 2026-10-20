@@ -10,6 +10,7 @@ use Wezurlop\Repository\AccountRepository;
 use Wezurlop\Repository\EventLogRepository;
 use Wezurlop\Support\KodyZdarzen;
 use Wezurlop\Support\View;
+use Wezurlop\Support\ZdanieDostepu;
 use Wezurlop\Support\ZdanieZdarzenia;
 
 /**
@@ -59,6 +60,7 @@ final class EventLogController
         $offset = ($numer - 1) * self::PAGE;
 
         $wpisy = $this->events->page($konto, $osoba === null ? null : (int) $osoba, self::PAGE, $offset, $prefiksy);
+        $wpisy = $this->zNazwamiRegul($wpisy);
 
         return $this->view->render('page/web/event-log.twig', [
             'wpisy'  => array_map(self::opis(...), $wpisy),
@@ -98,6 +100,43 @@ final class EventLogController
             'kto_konto' => $wpis['aktor'] !== null ? $wpis['konto_id'] : null,
             'zdanie'   => $zdanie,
         ];
+    }
+
+    /**
+     * **Nazwy w zdaniach o regułach widoczności** — składane przy ODCZYCIE (zlecenie Z57 U2).
+     *
+     * ⚠ W treści wpisu stoją identyfikatory (`account:4 › persons:12,15`) i tak ma zostać:
+     * para „kto widzi czyje nieobecności" opisuje dostęp do danych o zdrowiu, więc nazwisk
+     * nie zapisujemy do tabeli, z której się ich nie kasuje (Z53 §5, CLAUDE.md §18). Ekran
+     * dokłada nazwy tutaj, z bazy, i dlatego usunięcie konta zmienia zdanie na „konto #4 —
+     * usunięte", a nie wymazuje wpis.
+     *
+     * ⚠ Trzy zapytania na stronę dziennika, nie trzy na wiersz — i tylko wtedy, gdy na stronie
+     * jest choć jeden wpis z tej rodziny.
+     *
+     * @param list<array<string, mixed>> $wpisy
+     * @return list<array<string, mixed>>
+     */
+    private function zNazwamiRegul(array $wpisy): array
+    {
+        $ids = ZdanieDostepu::identyfikatory($wpisy);
+        if ($ids === ['konta' => [], 'etaty' => [], 'grupy' => []]) {
+            return $wpisy;
+        }
+        $nazwy = $this->events->nazwyDoZdan($ids['konta'], $ids['etaty'], $ids['grupy']);
+
+        return array_map(static function (array $wpis) use ($nazwy): array {
+            if (!ZdanieDostepu::dotyczy((string) $wpis['kod'])) {
+                return $wpis;
+            }
+            $detale = is_array($wpis['detale'] ?? null) ? $wpis['detale'] : [];
+            // ⚠ Nazwy NADPISUJĄ identyfikatory w wartościach zdania, a nie dokładają się obok:
+            // zdanie ma jeden zestaw kluczy, a surowa treść wpisu zostaje w `title` wiersza
+            // (`szczegoly`), czyli w miejscu, w którym audyt jej szuka.
+            $wpis['detale'] = ZdanieDostepu::wartosci($detale, $nazwy) + $detale;
+
+            return $wpis;
+        }, $wpisy);
     }
 
     /**

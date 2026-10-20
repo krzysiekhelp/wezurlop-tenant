@@ -249,6 +249,97 @@ final class EventLogRepository
         return ['konto' => $accountId, 'konto_podmiot' => $accountId, 'osoba' => $personId ?? 0];
     }
 
+    /**
+     * **Nazwy do zdań o regułach widoczności** — konta, zatrudnienia i grupy po numerach
+     * z treści wpisów (zlecenie Z57 U2).
+     *
+     * ⚠ Trzy zapytania na ekran, nie trzy na wiersz: numery zbiera `ZdanieDostepu` ze
+     * wszystkich wpisów strony naraz.
+     *
+     * ⚠ **Bez zawężenia do firmy, i to jest zamierzone.** Dziennik jest ekranem całego tenanta
+     * (trasa z `zakres => tenant` i uprawnieniem `admin.event_log`), a nazwa osoby jest ta sama
+     * niezależnie od firmy wpisu. Zawężenie dałoby tu puste nazwy przy wpisach z firmy,
+     * z której czytający właśnie nie patrzy — czyli audyt z dziurami.
+     *
+     * ⚠ Zwracamy **tylko nazwy**: ani adresów, ani stanów kont (CLAUDE.md §3).
+     *
+     * @param list<int> $konta
+     * @param list<int> $etaty
+     * @param list<int> $grupy
+     * @return array{konto: array<int, string>, etat: array<int, string>, grupa: array<int, string>}
+     */
+    public function nazwyDoZdan(array $konta, array $etaty, array $grupy): array
+    {
+        return [
+            'konto' => $this->nazwyOsob(
+                'SELECT a.id, p.first_name AS imie, p.last_name AS nazwisko
+                   FROM account a JOIN person p ON p.id = a.person_id
+                  WHERE a.id IN (%s)',
+                $konta,
+            ),
+            'etat' => $this->nazwyOsob(
+                'SELECT e.id, p.first_name AS imie, p.last_name AS nazwisko
+                   FROM employment e JOIN person p ON p.id = e.person_id
+                  WHERE e.id IN (%s)',
+                $etaty,
+            ),
+            'grupa' => $this->nazwyWierszy('SELECT id, name AS nazwa FROM company_group WHERE id IN (%s)', $grupy),
+        ];
+    }
+
+    /**
+     * @param list<int> $ids
+     * @return array<int, string>
+     */
+    private function nazwyOsob(string $sql, array $ids): array
+    {
+        $out = [];
+        foreach ($this->poId($sql, $ids) as $r) {
+            $out[(int) $r['id']] = NazwaOsoby::imieNazwisko((string) $r['imie'], (string) $r['nazwisko']);
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param list<int> $ids
+     * @return array<int, string>
+     */
+    private function nazwyWierszy(string $sql, array $ids): array
+    {
+        $out = [];
+        foreach ($this->poId($sql, $ids) as $r) {
+            $out[(int) $r['id']] = (string) $r['nazwa'];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Odczyt po liście numerów — **placeholdery budowane z LICZBY wartości**, nigdy z ich
+     * treści (CLAUDE.md §4). Wartości idą wyłącznie przez `execute()`.
+     *
+     * @param list<int> $ids
+     * @return list<array<string, mixed>>
+     */
+    private function poId(string $sql, array $ids): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static fn (int $x): bool => $x > 0)));
+        if ($ids === []) {
+            return [];
+        }
+        $nazwy = [];
+        $parametry = [];
+        foreach ($ids as $i => $id) {
+            $nazwy[] = ':id' . $i;
+            $parametry['id' . $i] = $id;
+        }
+        $stmt = $this->db->pdo()->prepare(sprintf($sql, implode(', ', $nazwy)));
+        $stmt->execute($parametry);
+
+        return $stmt->fetchAll();
+    }
+
     private static function osoba(mixed $imie, mixed $nazwisko): ?string
     {
         if (!is_string($imie) || !is_string($nazwisko)) {

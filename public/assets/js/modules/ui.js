@@ -32,6 +32,42 @@
 
   window.WezurlopUi = {zamknij: zamknij};
 
+  /* ——— przycisk zajęty na czas żądania ————————————————————————————————————————————
+     ⚠ **Zgłoszenie Krzysztofa (Z57 U7):** przycisk „Wyślij próbę" po kliknięciu zostawał
+     czynny, więc dało się go kliknąć kilka razy i tyle samo razy wysłać wiadomość. Przycisk
+     z atrybutem `data-zajety` dostaje więc po wysłaniu formularza napis z tego atrybutu
+     i `disabled` do końca życia tej strony (po odpowiedzi strona i tak przychodzi od nowa).
+
+     ⚠ **To jest WYGODA, nie bramka.** Odstęp między wiadomościami pilnuje serwer
+     (`SettingsController::PROBA_ODSTEP`) — bez tego dwie karty przeglądarki albo wyłączony
+     JavaScript wysłałyby dwie wiadomości i żaden wyszarzony przycisk by tego nie zauważył.
+
+     ⚠ **`setTimeout`, a nie wyłączenie w obsłudze zdarzenia** — i to nie jest ostrożność.
+     Przeglądarka buduje listę pól do wysłania PO zdarzeniu `submit`, a pole wyłączone na liście
+     nie wchodzi: wyłączenie przycisku na miejscu zgubiłoby jego `name`/`value`, czyli dla okna
+     alertów zamieniłoby „Wyślij próbę" (`proba=1`) w zwykły zapis adresu. Zero milisekund
+     wystarcza, bo wysyłka startuje w tym samym zadaniu. */
+  document.addEventListener('submit', function (event) {
+    var form = event.target instanceof HTMLFormElement ? event.target : null;
+    if (!form) {
+      return;
+    }
+    var przycisk = event.submitter;
+    if (!przycisk || !przycisk.hasAttribute || !przycisk.hasAttribute('data-zajety')) {
+      return;
+    }
+    var napis = przycisk.getAttribute('data-zajety');
+    window.setTimeout(function () {
+      przycisk.disabled = true;
+      /* ⚠ Napis wymieniamy, zamiast dopisywać: `textContent` kasuje też ikonę, która stoi
+         przed nim — i to jest w porządku, bo ikona samolotu przy „Wysyłam…" mówiłaby, że
+         wiadomość już poleciała. Po odpowiedzi serwer renderuje przycisk od nowa. */
+      if (napis !== '') {
+        przycisk.textContent = napis;
+      }
+    }, 0);
+  });
+
   document.addEventListener('click', function (event) {
     var target = event.target instanceof Element ? event.target : null;
     if (!target) {

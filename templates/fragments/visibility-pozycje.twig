@@ -39,7 +39,11 @@
         hx-swap="afterend" hx-indicator="#wid-doczytywanie"{% endif %}>
         <label class="wid-poz">
             {% if wielokrotny %}
-                <input type="checkbox" name="grupy[]" value="{{ p.id }}" class="visually-hidden" {{ zaznaczona ? 'checked' : '' }}>
+                {#- ⚠ `data-osob` tylko przy grupach i tylko dlatego, że stopka listy sumuje
+                    osoby wybranych grup w przeglądarce (zlecenie Z57 U4). Liczba przychodzi
+                    z serwera jako DANA — ten sam zbiór, z którego powstaje opis wiersza. -#}
+                <input type="checkbox" name="grupy[]" value="{{ p.id }}" class="visually-hidden"
+                       {% if lista.rodzaj == 'grupa' %}data-osob="{{ p.osob }}"{% endif %} {{ zaznaczona ? 'checked' : '' }}>
             {% else %}
                 <input type="radio" name="wybor" value="{{ lista.rodzaj == 'przelozony' ? 'supervisor' : (lista.rodzaj == 'grupa' ? 'group' : 'account') }}:{{ p.id }}"
                        class="visually-hidden" {{ zaznaczona ? 'checked' : '' }}>

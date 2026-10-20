@@ -133,8 +133,24 @@
                 w naszym arkuszu, bo htmx ma wstrzykiwanie własnego `<style>` wyłączone — inaczej
                 CSP bez `unsafe-inline` zapalałoby naruszenie na każdym ekranie (CLAUDE.md §5). -#}
             <span id="wid-doczytywanie" class="htmx-indicator">Ładuję kolejne…</span>
-            {% if wybrano != '' %}<span class="wid-lista-wybor__wybrano">{{ wybrano }}</span>
-            {% elseif stopka != '' %}<span>{{ stopka }}</span>{% endif %}
+            {#- ⚠ **Jeden element na „co wybrano", renderowany ZAWSZE** (zlecenie Z57 U4).
+                Do 20.10.2026 napis powstawał tylko na serwerze, więc po kliknięciu osoby stopka
+                dalej mówiła „wybrano: cała firma · 52 osoby" — czyli przeczyła zaznaczeniu, które
+                `modules/widocznosc.js` właśnie zmienił na ekranie (zmierzone). Teraz ten sam plik
+                dopisuje liczbę do tego elementu, a serwer renderuje go tak jak dotąd: bez
+                JavaScriptu napis jest poprawny po każdym żądaniu.
+                ⚠ **Słowa podaje serwer, nie przeglądarka**: `data-formy-osoby` niesie trzy formy
+                z `Support\Odmiana`, a w JS zostaje sam wybór formy po liczbie. Inaczej słownik
+                polskich odmian istniałby w dwóch miejscach.
+                ⚠ `data-pusto` to napis, do którego stopka WRACA po odznaczeniu wszystkiego —
+                bez niego podpowiedź z kroku 1 („tylko osoby, które mają podwładnych") przepadała
+                po pierwszym kliknięciu. -#}
+            <span class="wid-lista-wybor__wybrano{{ wybrano == '' ? ' wid-lista-wybor__wybrano--podpowiedz' : '' }}"
+                  data-wybrano
+                  data-rodzaj="{{ wielokrotny ? (cala_firma ? 'osoby' : 'grupy') : 'jeden' }}"
+                  data-firma-osob="{{ pracownikow }}"
+                  data-formy-osoby="{{ formy_osoby }}"
+                  data-pusto="{{ stopka }}">{{ wybrano != '' ? wybrano : stopka }}</span>
             {#- ⚠ Przycisk zostaje **wyłącznie dla przeglądarki bez JavaScriptu**. Przy działającym
                 skrypcie listy doczytują się same przy przewijaniu, a przycisk, który trzeba by
                 ukrywać skryptem, mignąłby przy każdym otwarciu okna. -#}

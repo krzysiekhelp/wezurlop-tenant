@@ -24,6 +24,7 @@ use Wezurlop\Service\Mail\MailTransport;
 use Wezurlop\Service\Mail\TransportFactory;
 use Wezurlop\Service\Mail\TransportZDziennikiem;
 use Wezurlop\Support\Strefa;
+use Wezurlop\Support\Config;
 use Wezurlop\Support\UrlGenerator;
 use Wezurlop\Support\View;
 use Wezurlop\Support\ZadaniaKolejki;
@@ -48,6 +49,26 @@ final class SettingsController
     /** Limit długości adresu alertowego — ta sama liczba, co w kolumnie `account.email`. */
     private const ALERT_MAX = 254;
 
+    /**
+     * **Najkrótszy odstęp między wiadomościami próbnymi** (zlecenie Z57 U7).
+     *
+     * ⚠ Zgłoszenie Krzysztofa: przycisk zostaje czynny, więc da się kliknąć wiele razy — i tyle
+     * samo razy wyjdzie wiadomość. Wyszarzenie przycisku jest wygodą, a nie bramką: dwa żądania
+     * wyślą się tak samo z dwóch kart. Odstęp pilnuje więc SERWER, jednym poleceniem na bazie.
+     *
+     * ⚠ Okienko jest JEDNO dla całej instalacji, a nie jedno na adres. Odstęp „na adres"
+     * wymagałby wiersza na każdy wpisany kiedykolwiek adres (albo jego skrótu) w tabeli
+     * ustawień — a chronimy tu serwer poczty i cudzą skrzynkę przed podwójnym kliknięciem,
+     * nie przed zalewem na wiele adresów naraz. Wiadomość próbną wysyła jedna osoba, ręcznie.
+     */
+    private const PROBA_ODSTEP = 60;
+
+    /** Klucz okienka czasu — wspólny dla obu przycisków próby (alerty i poczta). */
+    private const PROBA_SLOT = 'mail_test_last_at';
+
+    /** Odmowa przy zbyt częstej próbie — jedno zdanie dla obu ekranów. */
+    private const PROBA_ZA_CZESTO = 'Odczekaj chwilę przed kolejną próbą. Wiadomość próbną wysyłamy najwyżej raz na minutę.';
+
     private const NOTICES = [
         // ⚠ Zdanie wiodące, kropka, krótkie dopowiedzenie (Z47) — komunikat stoi w toaście,
         // który pogrubia pierwsze zdanie i znika po pięciu sekundach. Gdzie widać nazwy
@@ -70,7 +91,6 @@ final class SettingsController
         // (albo pustego na pustym) nic nie zmienia, a „zapisana" i „wyczyszczona" opisują zmianę,
         // której nie było — zmierzone na zapisie samej spacji przy pustym adresie.
         'alerty_bez_zmian' => 'Skrzynka na alerty bez zmian. Adres jest ten sam.',
-        'alerty_proba' => 'Wiadomość próbna wysłana. Jeśli nie dotarła, sprawdź folder spamu.',
     ];
 
     public function __construct(
@@ -83,6 +103,11 @@ final class SettingsController
         private readonly JobRepository $jobs,
         private readonly TransportFactory $transporty,
         private readonly UrlGenerator $urls,
+        // ⚠ **Ta sama konfiguracja, z której czyta `/diagnostyka`** (zlecenie Z57 U3): kafel
+        // „Weryfikacja 2-etapowa" twierdził „wymagana" na sztywno, także przy
+        // `ADMIN_2FA_REQUIRED=0` — czyli dwa ekrany tej samej aplikacji mówiły sprzeczne
+        // rzeczy o stanie zabezpieczenia. Stan obniżony ma być widoczny (CLAUDE.md §9).
+        private readonly Config $config,
     ) {
     }
 
@@ -330,6 +355,10 @@ final class SettingsController
         if (!$this->poczta->skonfigurowana() && $this->transporty->rodzaj() !== 'plik') {
             return $this->oknoAlertow($wpisany, TransportFactory::POWOD_BRAK_KONFIGURACJI);
         }
+        // ⚠ Odstęp sprawdzamy PRZED wysyłką i jednym poleceniem (patrz `PROBA_ODSTEP`).
+        if (!$this->settings->claimSlot(self::PROBA_SLOT, self::PROBA_ODSTEP)) {
+            return $this->oknoAlertow($wpisany, self::PROBA_ZA_CZESTO);
+        }
         try {
             // Ten sam dekorator dziennika, co w kolejce i przy wiadomości próbnej poczty (Z43):
             // próba zostawia wpis `mail.sent` albo `mail.failed` z odbiorcą.
@@ -348,7 +377,21 @@ final class SettingsController
         // (CLAUDE.md §3) nie ma tu czego chronić. Przekierowanie zamknęłoby okno i zgubiło
         // WPISANY adres — człowiek sprawdza go właśnie po to, żeby zaraz kliknąć „Zapisz",
         // a adresu nie da się odesłać w adresie strony, bo trafiłby do logów serwera (§14).
-        return $this->render('alerty_proba', null, false, [], [], true, $wpisany);
+        // ⚠ Zdanie mówi, KTÓRĄ DROGĄ wiadomość poszła — tak samo jak na ekranie poczty.
+        // „Wysłana" przy zrzucie do pliku na środowisku deweloperskim byłoby nieprawdą,
+        // a to jest komunikat, po którym administrator uznaje integrację za sprawdzoną.
+        return $this->render($this->zdanieProby($adres), null, false, [], [], true, $wpisany);
+    }
+
+    /**
+     * Wynik wysyłki próbnej jednym zdaniem — **zgodnym z drogą, którą wiadomość poszła**
+     * (zlecenie Z57 U7). Jedno miejsce dla obu ekranów, bo to ta sama prawda.
+     */
+    private function zdanieProby(string $adres): string
+    {
+        return $this->transporty->rodzaj() === 'plik'
+            ? 'Wiadomość próbna zapisana do pliku w var/mail. Tryb deweloperski bez SMTP — nic nie wyszło w świat.'
+            : 'Wysłano na ' . $adres . '. Jeśli nie dotarła w ciągu kilku minut, sprawdź folder spamu.';
     }
 
     /** Ekran ustawień z otwartym oknem alertów: wpisana wartość, błąd przy polu, pole potwierdzenia. */
@@ -376,12 +419,18 @@ final class SettingsController
         $alertEmail = trim((string) $this->settings->get('alert_email', ''));
 
         return $this->view->render('settings.twig', [
+            // ⚠ Kafel na górze ekranu i wiersz karty niżej czytają JEDNĄ wartość — tę samą,
+            // którą pokazuje `/diagnostyka` (zlecenie Z57 U3).
+            'dwuetapowe_wymagane' => $this->config->adminTwoFactorRequired,
             'strefa' => $strefa,
             // Ten sam moment w obu formach — żeby było widać, co robi ustawienie.
             'teraz_utc' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('Y-m-d H:i:s'),
             // Bieżąca strefa zawsze na liście, nawet gdy ktoś wpisał ją w bazie ręcznie.
             'strefy' => array_values(array_unique([...self::STREFY, $strefa])),
-            'notice' => self::NOTICES[$notice] ?? null,
+            // ⚠ Klucz z `NOTICES` **albo gotowe zdanie**: wynik wiadomości próbnej zależy od drogi,
+            // którą wiadomość poszła (SMTP czy zrzut do pliku), więc nie da się go wpisać do
+            // tablicy stałych — a zdanie, które kłamie o drodze, jest gorsze niż jego brak.
+            'notice' => self::NOTICES[$notice] ?? ($notice === '' ? null : $notice),
             'error' => $error,
             // Stan poczty widać już na liście ustawień: „nieskonfigurowana" znaczy, że
             // zaproszenia i resety haseł nie docierają do nikogo.
@@ -415,7 +464,9 @@ final class SettingsController
             // Znaki: `ok` zielona, `szary` szara, `uwaga` bursztynowa, `dana` sama wartość.
             'grupy' => [
                 ['tytul' => 'Weryfikacja dwuetapowa', 'ikona' => 'tarcza', 'akcja' => null, 'wiersze' => [
-                    ['etykieta' => 'Administrator tenanta', 'wartosc' => 'wymagana', 'znak' => 'ok'],
+                    ['etykieta' => 'Administrator tenanta',
+                        'wartosc' => $this->config->adminTwoFactorRequired ? 'wymagana' : 'wyłączona',
+                        'znak' => $this->config->adminTwoFactorRequired ? 'ok' : 'uwaga'],
                     ['etykieta' => 'Przełożeni i kadry', 'wartosc' => 'do ustalenia (Etap 3)', 'znak' => 'szary'],
                 ]],
                 // ⚠ Jedyna karta trio z DZIAŁANIEM (Z49): adres alertowy da się ustawić z ekranu,
@@ -545,6 +596,12 @@ final class SettingsController
         if (!$this->poczta->skonfigurowana() && $this->transporty->rodzaj() !== 'plik') {
             return $this->renderMail('', TransportFactory::POWOD_BRAK_KONFIGURACJI, null);
         }
+        // ⚠ **Ten sam odstęp i to samo okienko, co przy skrzynce alertowej** (Z57 U7): oba
+        // przyciski wysyłają wiadomość próbną tej samej instalacji, więc dwa niezależne liczniki
+        // znaczyłyby dwie drogi do tego samego nadużycia.
+        if (!$this->settings->claimSlot(self::PROBA_SLOT, self::PROBA_ODSTEP)) {
+            return $this->renderMail('', self::PROBA_ZA_CZESTO, null);
+        }
         try {
             // ⚠ Wpis w dzienniku robi TEN SAM dekorator, co w kolejce (Z43 §C): wiadomość próbna
             // ma zostawić wpis tej samej rodziny `mail.*`, z odbiorcą — a nie własną parę kodów
@@ -559,9 +616,7 @@ final class SettingsController
             return $this->renderMail('', null, ['ok' => false, 'tekst' => $e->getMessage()]);
         }
 
-        return $this->renderMail('', null, ['ok' => true, 'tekst' => $this->transporty->rodzaj() === 'plik'
-            ? 'Zapisana do pliku w var/mail (APP_ENV=dev, poczta nieskonfigurowana) — nie wyszła w świat.'
-            : 'Wysłana na ' . $adres . '. Jeśli nie dotarła w ciągu kilku minut, sprawdź folder spamu i logi serwera poczty.']);
+        return $this->renderMail('', null, ['ok' => true, 'tekst' => $this->zdanieProby($adres)]);
     }
 
     /**

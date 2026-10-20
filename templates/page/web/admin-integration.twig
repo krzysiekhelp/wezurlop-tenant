@@ -2,10 +2,12 @@
 
 {% block nazwa_ekranu %}Integracja{% endblock %}
 
-{% block okruchy %}
-    <span>Administracja</span>
-    <span class="crumbs__sep">/</span>
-{% endblock %}
+{#- ⚠ **Bez ścieżki w belce** (zlecenie Z57 U6). Ten ekran jest POZYCJĄ MENU, a nie podstroną,
+    więc w belce ma stać jeden tytuł — tak samo jak `/admin/konta`, `/admin/grupy` czy
+    `/admin/widocznosc`. Stało tu „Administracja /", czyli nazwa GRUPY MENU podana jako nadrzędny
+    ekran: taka ścieżka obiecuje, że po kliknięciu pierwszego członu gdzieś się trafi, a nie ma
+    gdzie. Ścieżkę mają podstrony tego ekranu (`/admin/podlaczenie`, ekrany potwierdzeń) i tam
+    zostaje bez zmian. -#}
 
 {% block content %}
 {% import 'partials/ikony.twig' as ikony %}

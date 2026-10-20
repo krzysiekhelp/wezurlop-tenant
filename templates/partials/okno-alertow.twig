@@ -56,7 +56,10 @@
 
         <div class="modal__foot">
             {#- Próba po lewej, bo jest sprawdzeniem, nie decyzją; decyzje stoją po prawej. -#}
-            <button type="submit" class="btn btn--ghost btn--akcja" name="proba" value="1">{{ ikony.samolocik() }}Wyślij próbę</button>
+            {#- ⚠ `data-zajety`: po kliknięciu przycisk gaśnie i mówi „Wysyłam…" (zlecenie Z57 U7).
+                Bez JavaScriptu działa jak dotąd, a odstęp między próbami pilnuje serwer. -#}
+            <button type="submit" class="btn btn--ghost btn--akcja" name="proba" value="1"
+                    data-zajety="Wysyłam…">{{ ikony.samolocik() }}Wyślij próbę</button>
             <div class="btn-row btn-row--jedna-linia">
                 {#- ⚠ „Anuluj" jest ODNOŚNIKIEM: bez JavaScriptu zamknięciem okna jest powrót
                     na ekran bez parametru `okno`, a ze skryptem `ui.js` zamyka okno na miejscu. -#}

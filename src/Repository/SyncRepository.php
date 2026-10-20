@@ -164,7 +164,11 @@ final class SyncRepository
     public function recentRuns(int $limit): array
     {
         $stmt = $this->db->pdo()->prepare(
-            'SELECT r.id, r.run_uuid, c.nip, c.name AS company, r.status, r.phase, r.connector_version, r.r2_version,
+            // ⚠ **Nazwa WYŚWIETLANA firmy, nie prawna z R2** (zlecenie Z57 U6). Tabela przebiegów
+            // mówi, czyja synchronizacja się wykonała — a firmę człowiek zna pod nazwą, którą
+            // sam ustawił na `/ustawienia` (Z29). Pełna nazwa prawna jest tu tylko dłuższa:
+            // tożsamość firmy w tym ekranie niesie NIP, nie nazwa.
+            'SELECT r.id, r.run_uuid, c.nip, ' . NazwaSpolki::SQL . ' AS company, r.status, r.phase, r.connector_version, r.r2_version,
                     r.connector_state, r.stats, r.started_at, r.finished_at,
                     TIMESTAMPDIFF(SECOND, r.started_at, COALESCE(r.finished_at, r.updated_at)) AS seconds,
                     (SELECT COUNT(*) FROM sync_conflict f WHERE f.sync_run_id = r.id) AS conflicts

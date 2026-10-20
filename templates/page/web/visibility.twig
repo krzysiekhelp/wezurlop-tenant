@@ -81,7 +81,13 @@
                 w belce jako jedyny `h1` (kryterium bramki `nazwa_ekranu_w_belce`). -#}
             <div class="card__tytuly">
                 <p class="card__opis card__opis--lead">Kto widzi czyje nieobecności w kalendarzu.</p>
-                <p class="card__opis">Przełożeni widzą swoich podwładnych zawsze — regułami dokłada się dostęp poza hierarchią.</p>
+                {#- ⚠ **Zdanie nie mówi już „zawsze"** (zlecenie Z57 U5). Po Z53 i Z55 nie jest to
+                    prawda w żadnym z dwóch znaczeń: zakres przełożonych da się zmienić na
+                    „bez szczegółów" albo odebrać ołówkiem w pierwszym wierszu, a administratorzy
+                    mają drugą regułę domyślną, o której to zdanie milczało. Ekran, który
+                    twierdzi „zawsze" przy regule dającej się zmienić w tym samym wierszu,
+                    podważa to, co pokazuje niżej. -#}
+                <p class="card__opis">Reguły domyślne obejmują przełożonych i administratorów — pozostałe dostępy dodajesz poniżej.</p>
             </div>
             <div class="card__akcje">
                 {#- ⚠ **„Dodaj dostęp" otwiera zakładkę OSOBA z niczym niezaznaczonym**

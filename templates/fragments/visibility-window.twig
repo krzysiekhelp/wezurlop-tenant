@@ -160,7 +160,7 @@
 
                 {% include 'fragments/visibility-list.twig' with {
                     'okno': okno, 'spolka': spolka, 'hx': hx, 'baza': baza, 'strona': strona,
-                    'stan': stan, 'stan_grup': stan_grup, 'krok': 1,
+                    'stan': stan, 'stan_grup': stan_grup, 'krok': 1, 'formy_osoby': formy_osoby,
                     'wybrane': [okno.kto_id], 'wielokrotny': false,
                     'wszyscy_przelozeni': okno.kto == 'supervisor' or okno.kto == 'supervisor_all',
                     'wszyscy_wybrani': okno.kto == 'supervisor_all',
@@ -233,7 +233,7 @@
                     nazwiskami stoi „Cała firma". -#}
                 {% include 'fragments/visibility-list.twig' with {
                     'okno': okno, 'spolka': spolka, 'hx': hx, 'baza': baza, 'strona': strona,
-                    'stan': stan, 'stan_grup': stan_grup, 'krok': 2,
+                    'stan': stan, 'stan_grup': stan_grup, 'krok': 2, 'formy_osoby': formy_osoby,
                     'wybrane': okno.grupy, 'wielokrotny': true, 'stopka': '',
                     'wszyscy_przelozeni': false, 'wszyscy_wybrani': false, 'przelozonych': 0,
                     'cala_firma': okno.czyje != 'groups',

@@ -96,7 +96,7 @@ final class ControllerFactory
             TeamController::class          => new TeamController($d->view),
             ProfileController::class       => new ProfileController($d->view),
             SettingsController::class      => new SettingsController($d->view, $d->settings, $d->companies, $d->events,
-                $d->mailSettings, $d->cron, $d->jobs, $d->transportFactory, $d->urls),
+                $d->mailSettings, $d->cron, $d->jobs, $d->transportFactory, $d->urls, $d->config),
             ContextController::class       => new ContextController($d->view, $d->employments, $d->authSession, $d->events, $d->errors, $d->urls, $d->kontekstSpolki, $d->accounts),
             SecurityController::class      => new SecurityController($d->view, $d->twoFactor, $d->permissions, $d->fingerprint, $d->errors, $d->urls),
             DeviceController::class        => new DeviceController($d->view, $d->devices, $d->session, $d->fingerprint, $d->errors, $d->urls),
