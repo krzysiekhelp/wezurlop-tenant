@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import signal
 import struct
 import sys
 import zlib
@@ -152,7 +153,10 @@ WYSOKOSCI_NAKLADEK = (855, 700, 600)
 # oba przeszły". Przeszły inne nakładki. Ta nie była mierzona.
 WYZWALACZE_NAKLADEK = (
     ("[data-modal-open]", None, None),        # identyfikator nakładki w atrybucie wyzwalacza
-    ("[data-dostep]", "dostep-panel", None),  # warstwa o stałym identyfikatorze
+    # ⚠ Wpis `("[data-dostep]", "dostep-panel", None)` skasowany 20.10.2026 (Z63 cz. A):
+    # osobnej warstwy dostępu nie ma od Z61 — panel osoby ma jeden zapis, a jego wyzwalacz
+    # to zwykłe `data-modal-open="osoba-panel"`, czyli pierwszy wpis tej listy. Atrybut
+    # `data-dostep` nie występuje w żadnym szablonie, więc ten wyzwalacz nie otwierał niczego.
     ("details > summary", None, "[data-pickbox]"),  # panel w `<details>`, identyfikator na warstwie
 )
 ARKUSZ = KORZEN / "public/assets/css/30-components.css"
@@ -230,6 +234,23 @@ def sciezki_web() -> list[str]:
 USTERKI: dict[str, str] = {}
 
 
+def zapisz_kod(raport: dict, okno: str, adres: str, kod: int) -> None:
+    """Kod odpowiedzi ekranu — **zapisany, zanim przebieg pójdzie dalej** (Z63 cz. A).
+
+    ⚠ Ta funkcja istnieje dlatego, że decyzja „co zrobić z kodem >= 400" była wcześniej jedną
+    linią `continue` w pętli i nie zapisywała niczego: ekran w **500 wyglądał w raporcie
+    dokładnie jak ekran, którego bramka nie odwiedziła**. Teraz decyzja ma jedno miejsce,
+    da się ją sprawdzić bez przeglądarki (tryb `kontrola`) i nie da się jej pominąć przez
+    przeoczenie w pętli.
+
+    5xx jest usterką bez wyjątków. 4xx trafia na tę samą listę, a rozdziela je wypis — część
+    odwiedzanych adresów odmawia **poprawnie** (410 na wygasłym zaproszeniu, 419 na wygasłym
+    formularzu, 404 na kodzie QR spoza parowania).
+    """
+    if kod >= 400:
+        raport["kody"].append({"okno": okno, "adres": adres, "kod": kod})
+
+
 def nowy_kontekst(b, usterka: str | None = None, **kwargs):
     """Kontekst przeglądarki, opcjonalnie z wstrzykniętą usterką (tryb `kontrola`)."""
     ctx = b.new_context(**kwargs)
@@ -267,6 +288,68 @@ _usterka("znacznik_dzis", """
     }
 """)
 
+# ⚠ **Trzy usterki dopisane 20.10.2026 (Z63 cz. A)** — do kryteriów, które tą turą zostały
+# przepięte na dzisiejsze klasy. Każda psuje DOKŁADNIE jedno twierdzenie, bo kryterium łamane
+# usterką, która psuje wszystko naraz, nie dowodzi, że zapala się z właściwego powodu.
+
+# Skale czasu: dwunaste pudełko siatki roku usunięte — „dwanaście, nie jedenaście".
+_usterka("skale_czasu", """
+    const siatki = document.querySelectorAll('.msiatka');
+    if (siatki.length === 12) { siatki[11].remove(); }
+""")
+
+# Prawda kalendarza: nagłówek ekranu mówi „Mój kalendarz" nad widokiem całej spółki — czyli
+# dokładnie zgłoszona usterka z 23.09, w której ekran przypisywał oglądającemu cudzy kalendarz.
+_usterka("prawda_kalendarza", """
+    const h1 = document.querySelector('h1');
+    if (h1 && h1.textContent.trim() === 'Kalendarz') { h1.textContent = 'Mój kalendarz'; }
+""")
+
+# Jedna wizualizacja, usterka pierwsza: obca krata dni POZA rodziną wspólną. Nazwa klasy jest
+# nowa (`kratka-obca`), bo o to właśnie idzie — kryterium nie ma pytać o listę znanych nazw.
+_usterka("jedna_wizualizacja_obca_krata", """
+    if (document.querySelector('.msiatka, .team-grid')
+        && !document.querySelector('.kratka-obca')) {
+      const d = document.createElement('div');
+      d.className = 'kratka-obca';
+      document.querySelector('main').appendChild(d);
+    }
+""")
+
+# Jedna wizualizacja, usterka druga: oba komponenty rodziny na jednym ekranie — stan, w którym
+# „jedna wizualizacja" przestaje być jedna, a poprawka wyglądu dociera tylko do jednego z nich.
+_usterka("jedna_wizualizacja_dwie_rodziny", """
+    if (document.querySelector('.msiatka') && !document.querySelector('.team-grid')) {
+      const d = document.createElement('div');
+      d.className = 'team-grid';
+      document.querySelector('.msiatka').parentElement.appendChild(d);
+    }
+""")
+
+# ⚠ Rodzaj ze słownika na pasku **cudzej** osoby — czyli dokładnie to, czego zakazuje zakres
+# `bez_szczegolow` (Z53). Podstawiamy etykietę w pierwszym cudzym wierszu osi czasu; własnego
+# wiersza („to Ty") nie ruszamy, bo tam rodzaj wolno pokazać — i to jest cała różnica, którą
+# te dwa kryteria mają widzieć.
+_usterka("rodzaj_u_cudzej_osoby", """
+    const siatka = document.querySelector('.team-grid');
+    if (!siatka) { return; }
+    let cudzy = false;
+    for (const el of Array.from(siatka.children)) {
+      if (el.classList.contains('team-grid__person')) {
+        cudzy = ((el.querySelector('small') || {}).textContent || '').trim() !== 'to Ty';
+        continue;
+      }
+      const pasek = el.querySelector ? el.querySelector('.team-grid__bar') : null;
+      if (cudzy && pasek) {
+        pasek.setAttribute('aria-label', 'urlop wypoczynkowy, 01.09 \u2013 02.09.2026');
+        break;
+      }
+    }
+""")
+# Ta sama usterka pod drugą nazwą — dla kryterium mierzącego widok ZESPOŁU. Treść jedna,
+# nazwy dwie, bo rejestr kontroli jest słownikiem „usterka → kryterium".
+USTERKI["rodzaj_u_cudzej_osoby_zespol"] = USTERKI["rodzaj_u_cudzej_osoby"]
+
 # Pasy tła w szczelinach: zerowy zasięg boczny i zerowa wysokość pasa górnego — dokładnie
 # stan sprzed poprawki Z25, w którym w szczelinie widać krawędź przejeżdżającego bloku.
 _usterka("pasy_szczelin", """
@@ -298,6 +381,51 @@ SEL_DZIS_NAGLOWEK = ".team-grid__head--dzis"
 # Selektor bierze `aria-label` grupy, a nie kolejność grup: skale i widoki to dwa `.kal-grupa`
 # obok siebie i rozróżnia je wyłącznie etykieta.
 SEL_WIDOK = '.kal-grupa[aria-label="Czyj kalendarz"] .kal-btn__etykieta'
+
+# ⚠ **Napis ogólny przy zakresie „bez szczegółów" jest DOKŁADNIE JEDEN** —
+# `KalendarzPracownika::NIEOBECNY`. Do 20.10.2026 bramka przyjmowała tu zbiór
+# {„urlop", „zwolnienie", „inna nieobecność"}, czyli regułę sprzed Z53: wtedy pasek cudzej
+# osoby mówił „urlop" albo „zwolnienie" — a „zwolnienie" przy nazwisku jest daną o zdrowiu
+# tak samo jak nazwa ze słownika, tylko mniej dokładną. Kryterium było więc **słabsze
+# od produktu** i przepuściłoby powrót do tamtego stanu.
+OGOLNY_NAPIS = "nieobecny"
+
+# ⚠ **Własny wiersz nie jest przeciekiem.** W widoku firmy i zespołu oglądający widzi też
+# SIEBIE, a rodzaj swojej własnej nieobecności wolno mu znać — to jego dana. Oba kryteria
+# („zasięg podglądu" i „poziomy") liczyły do tej pory wszystkie paski razem i czerwieniły się
+# na dwóch paskach konta pomiarowego (zmierzone 20.10.2026: 39 wierszy w firmie, 37 napisów
+# „nieobecny" u innych i dwa „urlop wypoczynkowy" — oba we WŁASNYM wierszu, zakresy
+# 01.01–07.01 i 26.01–31.01, zgodne z wykazem własnych nieobecności). Dlatego wiersz
+# oglądającego rozpoznajemy po podpisie „to Ty" i mierzymy OSOBNO.
+# ⚠ Wiersz oglądającego rozpoznajemy po **podpisie z serwera** („to Ty",
+# `KalendarzPracownika::podpisOsoby()`), a nie po porównaniu nazwy z menu konta. Porównanie
+# nazw próbowałem pierwsze i było błędne: belka pokazuje „Imię Nazwisko", wiersz „Nazwisko Imię",
+# a przy dwóch członach z myślnikiem nie ma reguły, która trafi zawsze. Podpis jest tym samym
+# napisem, którego pilnuje `prawda_kalendarza` — jedna nazwa stanu w dwóch kryteriach.
+PODPIS_WLASNEGO_WIERSZA = "to Ty"
+
+PASKI_PO_WIERSZACH = """() => {
+  const PODPIS_WLASNY = '""" + PODPIS_WLASNEGO_WIERSZA + """';
+  const siatka = document.querySelector('.team-grid');
+  const wynik = {wlasne: [], obce: [], wierszy: 0, rozpoznano_wlasny: false};
+  if (!siatka) { return wynik; }
+  let gdzie = null;
+  for (const el of Array.from(siatka.children)) {
+    if (el.classList.contains('team-grid__person')) {
+      wynik.wierszy++;
+      const podpis = (el.querySelector('small') || {}).textContent || '';
+      const swoj = podpis.trim() === PODPIS_WLASNY;
+      wynik.rozpoznano_wlasny = wynik.rozpoznano_wlasny || swoj;
+      gdzie = swoj ? 'wlasne' : 'obce';
+      continue;
+    }
+    const pasek = el.querySelector ? el.querySelector('.team-grid__bar') : null;
+    if (pasek !== null && gdzie !== null) {
+      wynik[gdzie].push((pasek.getAttribute('aria-label') || '').split(',')[0].trim());
+    }
+  }
+  return wynik;
+}"""
 
 MOBILNE = ["", "/kalendarz", "/wnioski", "/wniosek/nowy", "/konto", "/zespol", "/ustawienia",
            "/ustawienia/2fa", "/ustawienia/2fa/kody", "/ustawienia/urzadzenia", "/kontekst",
@@ -854,14 +982,25 @@ def sprawdz_obca_spolke(b) -> dict:
         # jedno zdanie w kryterium to kolejny egzemplarz napisu, który zapala bramkę przy zmianie
         # słownictwa). Warunek: odmowa **mówi o firmie** i nie wraca do słowa „spółka",
         # którego pilnuje osobno `bez_slowa_spolka`.
+        #
+        # ⚠ **Czytamy SAM KOMUNIKAT, nie całą stronę** (naprawa 20.10.2026, Z63 cz. A). Do tej
+        # pory warunek przeszukiwał całą odpowiedź — a w niej stoi znacznik spółki z nazwami firm,
+        # więc firma, której nazwa z umowy brzmi „… SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ",
+        # zapalała to kryterium na **poprawnej odmowie**. Zmierzone: odmowa 422, stan nietknięty,
+        # a kryterium czerwone. Komunikat ma jedno miejsce w całej aplikacji (`partials/
+        # komunikat.twig`) i własny znacznik `data-komunikat`, więc bierzemy go po nim.
+        _m = re.search(r'data-komunikat="blad"[^>]*>(.*?)</p>', wynik["tresc"], re.S)
+        komunikat = (_m.group(1) if _m else "").strip()
         komunikat_o_spolce = (
-            SLOWO_UZYTKOWNIKA in wynik["tresc"].lower()
-            and ZAKAZANE_SLOWO_UZYTKOWNIKA not in wynik["tresc"].lower()
+            komunikat != ""
+            and SLOWO_UZYTKOWNIKA in komunikat.lower()
+            and ZAKAZANE_SLOWO_UZYTKOWNIKA not in komunikat.lower()
         )
         return {
             # „Stan nietknięty" znaczy: to zatrudnienie nadal nie ma przełożonego.
             "ok": wynik["kod"] == 422 and komunikat_o_spolce and po == "",
             "kod": wynik["kod"],
+            "komunikat_odmowy": komunikat,
             "komunikat_o_spolce": komunikat_o_spolce,
             "przelozony_po_probie": po,
             "para": pierwsza["id"] + " <- " + druga + " (spolka " + obca["id"] + ")",
@@ -1471,59 +1610,33 @@ def wady_tytulu(m: dict) -> list[str]:
 
 
 def poziom_kalendarza(companyId: int, poziom: int | None, email: str = LOGIN3) -> dict:
-    """Poziom widoczności kalendarzy konta pomiarowego: odczyt albo ustawienie.
+    """Poziom wglądu w kalendarz firmy dla konta pomiarowego: odczyt albo ustawienie.
 
-    ⚠ Bramka ustawia poziom **przez przypisanie roli**, czyli przez ten sam model, którego używa
-    panel osoby — ale bez klikania w panelu. Jest to świadome: sprawdzamy WIDOK przy danym
-    poziomie, a nie ścieżkę nadawania (ta ma dowód w dzienniku zdarzeń, §5.4 zlecenia).
-    Poziom jest przywracany po pomiarze.
+    ⚠ **Przepięte 20.10.2026 (Z63 cz. A) na dzisiejszy model.** Do tej pory ta funkcja nadawała
+    poziom przez `role_assignment` (`calendar_viewer`, `calendar_viewer_full`) — a od Z53
+    (19.10.2026) **te role nie nadają niczego**: widoczność liczą reguły z `calendar_access_rule`,
+    a jedyne uprawnienie, o które jeszcze pyta `CalendarVisibility`, to uprawnienie administratora.
+    Kryterium `poziomy` mierzyło więc trzy poziomy, z których żaden nie wchodził w życie,
+    i świeciło czerwono na poprawnym kodzie (zmierzone: przy „poziomie 1" ekran mówił
+    „Nie masz nadanego podglądu kalendarza", przy poziomie 0 to samo).
+
+    ⚠ Zapis idzie **drogą aplikacji** (`CalendarAccessRepository`), w osobnym narzędziu
+    `dev/poziom-kalendarza.php` — PHP w jednej linii `php -r` nie dawał się ani przeczytać,
+    ani sprawdzić `phpcs`-em. Odpowiedniki poziomów: 0 brak reguły, 1 cała firma
+    `bez_szczegolow`, 2 cała firma `ze_szczegolami`.
 
     `poziom=None` znaczy „tylko odczytaj". Zwraca też nazwy rodzajów ze słownika — potrzebne,
     żeby sprawdzić, że przy poziomie 1 **ani jedna** nie pojawia się w treści odpowiedzi.
     """
     import subprocess
-    kod = (
-        'require "vendor/autoload.php";'
-        'Dotenv\\Dotenv::createImmutable(__DIR__)->load();'
-        '$e = $_ENV;'
-        '$pdo = new PDO("mysql:host={$e[\'DB_HOST\']};port={$e[\'DB_PORT\']};dbname={$e[\'DB_NAME\']};charset=utf8mb4",'
-        '  $e["DB_USER"], $e["DB_PASS"], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);'
-        '$st = $pdo->prepare("SELECT id FROM account WHERE email = :mail");'
-        '$st->execute(["mail" => $argv[1]]);'
-        '$konto = (int) $st->fetchColumn();'
-        '$spolka = (int) $argv[2];'
-        '$role = ["calendar_viewer", "calendar_viewer_full"];'
-        '$czytaj = static function () use ($pdo, $konto, $spolka): int {'
-        '  $st = $pdo->prepare("SELECT DISTINCT p.code FROM role_assignment ra'
-        '    JOIN role_permission rp ON rp.role_id = ra.role_id JOIN permission p ON p.id = rp.permission_id'
-        '    WHERE ra.account_id = :k AND ra.company_id = :c AND p.code LIKE \'calendar.%\'");'
-        '  $st->execute(["k" => $konto, "c" => $spolka]);'
-        '  $kody = $st->fetchAll(PDO::FETCH_COLUMN);'
-        '  if (!in_array("calendar.view_all", $kody, true)) { return 0; }'
-        '  return in_array("calendar.view_all_details", $kody, true) ? 2 : 1;'
-        '};'
-        '$przed = $czytaj();'
-        'if ($argv[3] !== "-") {'
-        '  $st = $pdo->prepare("DELETE ra FROM role_assignment ra JOIN role r ON r.id = ra.role_id'
-        '    WHERE ra.account_id = :k AND ra.company_id = :c AND r.code IN (\'calendar_viewer\', \'calendar_viewer_full\')");'
-        '  $st->execute(["k" => $konto, "c" => $spolka]);'
-        '  $poziom = (int) $argv[3];'
-        '  if ($poziom > 0) {'
-        '    $st = $pdo->prepare("INSERT INTO role_assignment (account_id, role_id, company_id)'
-        '      SELECT :k, r.id, :c FROM role r WHERE r.code = :rola");'
-        '    $st->execute(["k" => $konto, "c" => $spolka, "rola" => $role[$poziom - 1]]);'
-        '  }'
-        '}'
-        '$st = $pdo->query("SELECT DISTINCT name FROM leave_type WHERE is_absence = 1 ORDER BY name");'
-        'echo json_encode(["konto" => $konto, "przed" => $przed, "teraz" => $czytaj(),'
-        '  "slownik" => $st->fetchAll(PDO::FETCH_COLUMN)], JSON_UNESCAPED_UNICODE);'
-    )
-    wyn = subprocess.run(["php", "-r", kod, email, str(companyId), "-" if poziom is None else str(poziom)],
-                         cwd=KORZEN, capture_output=True, text=True, check=True)
+    wyn = subprocess.run(
+        ["php", "dev/poziom-kalendarza.php", email, str(companyId),
+         "-" if poziom is None else str(poziom)],
+        cwd=KORZEN, capture_output=True, text=True, check=True)
     return json.loads(wyn.stdout or "{}")
 
 
-def sprawdz_poziomy_kalendarza(b) -> dict:
+def sprawdz_poziomy_kalendarza(b, usterka: str | None = None) -> dict:
     """Kalendarz firmy: trzy poziomy widoczności, nadawane jawnie — **dowody przez łamanie**.
 
     ⚠ Cztery rzeczy naraz (§5 zlecenia `kalendarz-firmy-poziom-widocznosci`):
@@ -1553,7 +1666,7 @@ def sprawdz_poziomy_kalendarza(b) -> dict:
     poziom_przed = stan.get("przed", 0)
     slownik = [n for n in stan.get("slownik", []) if len(n) > 6]
 
-    ctx = b.new_context(viewport={"width": 1440, "height": 900}, ignore_https_errors=True)
+    ctx = nowy_kontekst(b, usterka, viewport={"width": 1440, "height": 900}, ignore_https_errors=True)
     pg = ctx.new_page()
     try:
         pg.goto(BAZA + "/logowanie", wait_until="networkidle")
@@ -1569,11 +1682,22 @@ def sprawdz_poziomy_kalendarza(b) -> dict:
             }""", str(ids["ja"]))
             pg.wait_for_url(lambda u: "/kontekst" not in u, timeout=15000)
 
-        def ekran(param: str = "") -> dict:
-            pg.goto(BAZA + "/kalendarz?widok=firma&miesiac=2026-09" + param, wait_until="networkidle")
+        def ekran(ktora: int | None = None) -> dict:
+            # ⚠ **Adres niesie `&spolka=`, czyli firmę, w której nadajemy poziom** (naprawa
+            # 20.10.2026, Z63 cz. A — ta sama pułapka, co w `skale_czasu` i `jedna_wizualizacja`).
+            # Konto pomiarowe ma etaty w DWÓCH firmach, a bez parametru ekran bierze firmę
+            # z kontekstu zatrudnienia — i był to kontekst DRUGIEJ firmy. Zmierzone: po nadaniu
+            # poziomu 1 w firmie z `ids["spolka"]` ekran mówił „Nie masz nadanego podglądu
+            # kalendarza firmy", bo pytaliśmy o firmę, w której nic nie nadano. Kryterium
+            # świeciło czerwono na poprawnym kodzie i na poprawnie nadanym dostępie.
+            pg.goto(BAZA + "/kalendarz?widok=firma&miesiac=2026-09&spolka=%d"
+                    % (ktora if ktora is not None else spolka), wait_until="networkidle")
             if "/kalendarz" not in pg.url:
                 raise RuntimeError("kalendarz oddał przekierowanie na " + pg.url)
-            return pg.evaluate("""(selWidok) => ({
+            # ⚠ `PASKI_PO_WIERSZACH` wstrzykujemy jako funkcję `POMIAR_WIERSZY`, żeby podział
+            # na własny i cudzy wiersz miał **jedno** miejsce w całej bramce.
+            return pg.evaluate("""(selWidok) => { const POMIAR_WIERSZY = """ + PASKI_PO_WIERSZACH
+                               + """; return ({
               przelacznik: Array.from(document.querySelectorAll(selWidok))
                 .map(e => e.textContent.trim()),
               wierszy: document.querySelectorAll('.team-grid__person').length,
@@ -1589,13 +1713,18 @@ def sprawdz_poziomy_kalendarza(b) -> dict:
               paski: Array.from(new Set(Array.from(document.querySelectorAll('.team-grid__bar'))
                 .map(e => (e.getAttribute('aria-label') || '').split(',')[0].trim())
                 .filter(t => t !== ''))),
+              // ⚠ **Paski CUDZYCH wierszy osobno** (Z63 cz. A): własnej nieobecności rodzaj
+              // wolno oglądającemu znać, więc wrzucona do jednego worka lista zapalała
+              // kryterium na jego własnym wierszu. Reguła dotyczy tylko cudzych.
+              paski_obce: Array.from(new Set(POMIAR_WIERSZY().obce.filter(t => t !== ''))),
+              paski_wlasne: Array.from(new Set(POMIAR_WIERSZY().wlasne.filter(t => t !== ''))),
               // Napis WIDOCZNY na pasku — osobno, żeby było jasne, że to dwie różne dane.
               napisy: Array.from(new Set(Array.from(document.querySelectorAll('.team-grid__bar'))
                 .map(e => e.textContent.trim()))),
               w_kontrolce: document.querySelectorAll("input[name='osoby[]']").length,
               zdania: Array.from(document.querySelectorAll('.notice[role=status]'))
                 .map(e => e.textContent.trim().slice(0, 30)),
-            })""")
+            }); }""", SEL_WIDOK)
 
         # 1. Poziom 0 — nic ponad swoje.
         poziom_kalendarza(spolka, 0)
@@ -1604,15 +1733,47 @@ def sprawdz_poziomy_kalendarza(b) -> dict:
         # 2. Poziom 1 — zasięg spółki, ale bez nazw rodzajów. Sprawdzamy TREŚĆ odpowiedzi.
         poziom_kalendarza(spolka, 1)
         jeden = ekran()
-        tresc = pg.evaluate("""async () => {
-          const r = await fetch('/kalendarz?widok=firma&miesiac=2026-09', {credentials: 'same-origin',
+        # ⚠ **Skan BAJTÓW odpowiedzi, z wyjęciem WŁASNEGO wiersza** (Z63 cz. A). Bajty, bo pole
+        # ukryte stylem to nie brak pola. Własny wiersz wyjęty, bo rodzaj swojej nieobecności
+        # oglądający zna z wykazu obok — zmierzone 20.10.2026: w odpowiedzi stały dwa
+        # „urlop wypoczynkowy" i oba były jego własne. Wyjmujemy je z KOPII dokumentu
+        # (`DOMParser`), nie z żywej strony, i nie przez `innerHTML` na dokumencie.
+        tresc = pg.evaluate(
+            r"""async (js) => {
+          const r = await fetch('/kalendarz?widok=firma&miesiac=2026-09&spolka=' + js.spolka,
+            {credentials: 'same-origin',
             headers: {'HX-Request': 'true'}});
-          return {kod: r.status, tekst: await r.text()};
-        }""", SEL_WIDOK)
+          const caly = await r.text();
+          const d = new DOMParser().parseFromString(caly, 'text/html');
+          const siatka = d.querySelector('.team-grid');
+          let wyjeto = 0;
+          if (siatka !== null) {
+            let swoj = false;
+            for (const el of Array.from(siatka.children)) {
+              if (el.classList.contains('team-grid__person')) {
+                swoj = ((el.querySelector('small') || {}).textContent || '').trim() === js.podpis;
+              }
+              if (swoj) { el.remove(); wyjeto++; }
+            }
+          }
+          return {kod: r.status, tekst: d.body ? d.body.innerHTML : caly,
+                  tekst_caly: caly, wyjeto_komorek: wyjeto};
+        }""", {"podpis": PODPIS_WLASNEGO_WIERSZA, "spolka": spolka})
         przeciek = [n for n in slownik if n in tresc["tekst"]]
+        # Dla porównania: to samo bez wyjęcia własnego wiersza — żeby w raporcie było widać,
+        # że różnicę robi wyłącznie wiersz oglądającego, a nie złagodzone kryterium.
+        przeciek_z_wlasnym = [n for n in slownik if n in tresc["tekst_caly"]]
 
-        # 3. Granica spółki: podmieniony `?spolka=` nie przenosi do drugiej spółki.
-        obca = ekran("&spolka=%d" % int(ids["inna_spolka"]))
+        # 3. Granica spółki: podmieniony `?spolka=` nie daje widoku firmy, w której nie ma reguły.
+        # ⚠ **Identyfikator FIRMY, nie zatrudnienia** (naprawa 20.10.2026, Z63 cz. A). Stało tu
+        # `ids["inna_spolka"]`, a to jest identyfikator ZATRUDNIENIA z innej firmy (tak go liczy
+        # `zatrudnienia_pracownika()`), czyli w `&spolka=` wartość spoza białej listy. Mierzyliśmy
+        # więc ścieżkę zapasową dla bzdury, a nie granicę firmy — i porównywaliśmy jej wynik
+        # z liczbą wierszy firmy, w której dostęp JEST. Teraz pytamy dwiema osobnymi sondami:
+        # o drugą firmę tego konta (etat jest, reguły nie ma) i o numer, którego nie ma wcale.
+        druga_firma = next((int(s["id"]) for s in spolki_pracownika() if int(s["id"]) != spolka), None)
+        obca = ekran(druga_firma) if druga_firma is not None else None
+        bzdura = ekran(999999)
 
         # 4. Limit nie zapisał się jako wyłączenia — po samych odwiedzinach wiersza nie ma.
         filtr_po = filtr_kalendarza(spolka, None)
@@ -1620,7 +1781,7 @@ def sprawdz_poziomy_kalendarza(b) -> dict:
         # 5. Poziom 2 — nazwy rodzajów wracają (kontrprób do punktu 2).
         poziom_kalendarza(spolka, 2)
         dwa = ekran()
-        pelne = [n for n in dwa["paski"] if n not in ("urlop", "zwolnienie", "inna nieobecność")]
+        pelne = [n for n in dwa["paski_obce"] if n != OGOLNY_NAPIS]
 
         return {
             "ok": (
@@ -1641,17 +1802,34 @@ def sprawdz_poziomy_kalendarza(b) -> dict:
                 and not any("Nie masz nadanego podglądu" in z for z in jeden["zdania"])
                 and jeden["wierszy"] > zero["wierszy"]
                 and przeciek == [] and tresc["kod"] == 200
-                and set(jeden["paski"]) <= {"urlop", "zwolnienie", "inna nieobecność"}
-                and obca["wierszy"] == jeden["wierszy"]
+                # ⚠ Jeden napis ogólny dla cudzych pasków (`OGOLNY_NAPIS`, patrz komentarz
+                # tej stałej) — nie zbiór „urlop / zwolnienie / inna nieobecność", bo tamte
+                # też mówiły o zdrowiu. Lista cudzych pasków nie może być pusta.
+                and jeden["paski_obce"] != [] and set(jeden["paski_obce"]) == {OGOLNY_NAPIS}
+                # ⚠ Druga firma tego konta: etat tam jest, reguły nie ma — więc widok firmy
+                # ma zostać ODMÓWIONY (zero wierszy i zdanie o braku podglądu), a nie pokazać
+                # kalendarz firmy, dla której nikt nic nie nadał.
+                and obca is not None and obca["wierszy"] == 0
+                and any("Nie masz nadanego podglądu" in z for z in obca["zdania"])
+                # ⚠ Numer spoza białej listy nie jest błędem (CLAUDE.md §11): wraca do firmy
+                # dozwolonej. „Dozwolona" znaczy tu jedną z dwóch zmierzonych odpowiedzi —
+                # firmę z regułą (tyle wierszy, co przy poziomie 1) albo odmowę (zero).
+                and bzdura["wierszy"] in (0, jeden["wierszy"])
                 and (filtr_po is None or filtr_po == "")
                 and pelne != []
             ),
             "poziom_0": zero,
-            "poziom_1": {k: jeden[k] for k in ("przelacznik", "wierszy", "paski", "napisy", "w_kontrolce", "zdania")},
+            "poziom_1": {k: jeden[k] for k in ("przelacznik", "wierszy", "paski_obce", "paski_wlasne",
+                                               "napisy", "w_kontrolce", "zdania")},
             "siatka_stara_poziom_0": zero["siatka_stara"],
             "lista_wlasna_poziom_0": zero["lista"],
             "przeciek_slownika_przy_poziomie_1": przeciek,
-            "obca_spolka_wierszy": obca["wierszy"],
+            "przeciek_gdy_liczyc_wlasny_wiersz": przeciek_z_wlasnym,
+            "komorek_wlasnego_wiersza_wyjetych": tresc["wyjeto_komorek"],
+            "druga_firma_konta": {"id": druga_firma,
+                                  "wierszy": None if obca is None else obca["wierszy"],
+                                  "zdania": [] if obca is None else obca["zdania"]},
+            "spolka_spoza_listy_wierszy": bzdura["wierszy"],
             "filtr_po_odwiedzinach": filtr_po or "brak wiersza",
             "poziom_2_pelne_nazwy": pelne[:4],
             "slownika_sprawdzono": len(slownik),
@@ -1797,13 +1975,20 @@ def filtr_kalendarza(company_id: int, zapisz: str | None = None, email: str = LO
     return wyn.stdout or None
 
 
-def sprawdz_zasieg_podgladu(b) -> dict:
+def sprawdz_zasieg_podgladu(b, usterka: str | None = None) -> dict:
     """Kalendarz zespołu: identyfikator SPOZA gałęzi i z INNEJ spółki nie ma prawa nic dodać.
 
     ⚠ To najważniejsze sprawdzenie tego ekranu i jedyne, które mierzy coś innego niż wygląd.
     „Wybór osób to filtr, nie uprawnienie" jest deklaracją do chwili, w której ktoś poda cudzy
     identyfikator w adresie. Zmierzone na wstrzykniętej usterce (usunięty `przefiltruj()`):
     jedno żądanie pokazało **27 osób całej spółki** zamiast czterech z gałęzi.
+
+    ⚠ **Założenie wypowiedziane wprost**: mierzymy przy DOMYŚLNYM zakresie przełożonych
+    (`ZakresWidocznosci::DOMYSLNY_PRZELOZONYCH` = `bez_szczegolow`), czyli przy braku reguły
+    „przełożeni" w tej firmie. Gdyby tenant nadał przełożonym `ze_szczegolami`, nazwa rodzaju
+    na cudzym pasku byłaby POPRAWNA, a to kryterium zapaliłoby się na poprawnym ekranie —
+    i wtedy trzeba je zapytać o regułę firmy, a nie o napis. Dziś takiej reguły nie ma
+    i sprawdzenie tego nie zgaduje: liczy napisy, które widzi.
 
     ⚠ Sprawdzenie samo przygotowuje sobie gałąź (ścieżką aplikacji, jako administrator)
     i **samo ją wycofuje** — dane robocze po przebiegu wyglądają tak jak przed nim.
@@ -1847,7 +2032,7 @@ def sprawdz_zasieg_podgladu(b) -> dict:
                 return {"ok": False, "powod": "nie udalo sie przygotowac galezi", "kod": w["kod"]}
         przygotowane = True
 
-        ctx = b.new_context(viewport={"width": 1440, "height": 900}, ignore_https_errors=True)
+        ctx = nowy_kontekst(b, usterka, viewport={"width": 1440, "height": 900}, ignore_https_errors=True)
         pg = ctx.new_page()
         try:
             pg.goto(BAZA + "/logowanie", wait_until="networkidle")
@@ -1961,6 +2146,8 @@ def sprawdz_zasieg_podgladu(b) -> dict:
             # rodzaj ogólny na pasku, szerokości siatki, lista osób. Jedna rzecz, jedno
             # kryterium — dwa liczniki tej samej rzeczy rozjechałyby się na pierwszej zmianie.
             paski: list[str] = []
+            paski_wlasne: list[str] = []
+            wiersze_paskow: dict = {"wlasne": [], "obce": [], "wierszy": 0, "rozpoznano_wlasny": False}
             if ids.get("miesiac"):
                 pg.goto(BAZA + "/kalendarz?widok=zespol&miesiac=%s&osoby=%d,%d,%d"
                         % (ids["miesiac"], ja, dziecko, wnuk) + OGON_SP, wait_until="networkidle")
@@ -1969,10 +2156,9 @@ def sprawdz_zasieg_podgladu(b) -> dict:
                 # a nazwa rodzaju przeniosła się do treści dostępnej. Reguła jest bez zmian:
                 # rodzaj ma być OGÓLNY, nigdy kodem ze słownika. Zmieniło się miejsce, w którym
                 # ta dana mieszka, więc zmienia się pomiar — nie kryterium.
-                paski = pg.evaluate("""() => Array.from(document.querySelectorAll('.team-grid__bar'))
-                    .map(e => (e.getAttribute('aria-label') || '').split(',')[0].trim())
-                    .filter(t => t !== '')""")
-            ogolne = {"urlop", "zwolnienie", "inna nieobecność", "nieobecność"}
+                wiersze_paskow = pg.evaluate(PASKI_PO_WIERSZACH)
+                paski = [x for x in wiersze_paskow["obce"] if x != ""]
+                paski_wlasne = [x for x in wiersze_paskow["wlasne"] if x != ""]
             przelacznik = pg.evaluate(
                 "() => Array.from(document.querySelectorAll('" + SEL_WIDOK + "'))"
                 ".map(e => e.textContent.trim())")
@@ -1987,9 +2173,14 @@ def sprawdz_zasieg_podgladu(b) -> dict:
                 # o zawężeniu: przy pełnym widoku nie ma czego tłumaczyć, a przy zawężonym
                 # zdanie jest obowiązkowe (pusto z filtra i pusto z braku danych nie mogą
                 # wyglądać tak samo).
+                # ⚠ Paski CUDZYCH osób muszą mieć jeden napis ogólny (`OGOLNY_NAPIS`), a lista
+                # nie może być pusta — zero pasków przeszłoby każdy warunek o ich treści.
+                # Własny wiersz jest wyłączony świadomie i mierzony osobno (patrz komentarz
+                # przy `PASKI_PO_WIERSZACH`).
                 "ok": (len(domyslne) == w_kontrolce and w_kontrolce >= 3 and domyslny_komunikat == 0
                        and len(dozwoleni) == 3 and spoza == [] and inna == []
-                       and len(mieszane) == 1 and paski != [] and all(t in ogolne for t in paski)
+                       and len(mieszane) == 1 and paski != []
+                       and set(paski) == {OGOLNY_NAPIS}
                        and "Zespół" in przelacznik and szerokosci_ok
                        and fragment["kod"] == 200 and fragment["osoby"] == [] and not fragment["powloka"]),
                 "fragment_spoza_galezi": fragment,
@@ -2004,7 +2195,9 @@ def sprawdz_zasieg_podgladu(b) -> dict:
                 "spoza_galezi": {"id": ids["obcy"], "wierszy": len(spoza)},
                 "inna_spolka": {"id": ids["inna_spolka"], "wierszy": len(inna)},
                 "mieszane": {"wierszy": len(mieszane)},
-                "rodzaje_na_paskach": sorted(set(paski)),
+                "rodzaje_na_paskach_cudzych": sorted(set(paski)),
+                "rodzaje_na_paskach_wlasnych": sorted(set(paski_wlasne)),
+                "wlasny_wiersz_rozpoznany": wiersze_paskow["rozpoznano_wlasny"],
                 "przelacznik": przelacznik,
             }
         finally:
@@ -2104,12 +2297,28 @@ def sprawdz_rozdzial_rol(b) -> dict:
 
         def pozycja() -> dict:
             pg.goto(BAZA + "/diagnostyka", wait_until="networkidle")
+            # ⚠ **Selektor przepięty na dzisiejszy kształt** (Z63 cz. A): `/diagnostyka` nie jest
+            # tabelą od przebudowy ekranu — pozycje to `.diag-wiersz` z `.diag-stan--ok|uwaga|blad`,
+            # a stan stoi w KLASIE, nie w pierwszej komórce. Stare szukanie `tr` zwracało `null`,
+            # więc kryterium było czerwone, choć oba nadania odrzucało poprawnie, a pozycja
+            # na ekranie stała na miejscu (zmierzone 20.10.2026: `c_diagnostyka_przed: None`).
             return pg.evaluate("""() => {
-              const tr = Array.from(document.querySelectorAll('tr'))
-                .find(t => t.textContent.indexOf('Rozdział ról') >= 0);
-              if (!tr) { return null; }
-              const k = Array.from(tr.children).map(td => td.textContent.trim());
-              return {stan: k[0], nazwa: k[1], wartosc: k[2]};
+              const w = Array.from(document.querySelectorAll('.diag-wiersz')).find(e => {
+                const n = e.querySelector('.diag-wiersz__nazwa');
+                return n && n.textContent.indexOf('Rozdział ról') >= 0;
+              });
+              if (!w) { return null; }
+              const znak = w.querySelector('.diag-stan');
+              const klasa = znak ? znak.className : '';
+              const m = klasa.match(/diag-stan--([a-z]+)/);
+              const nazwa = w.querySelector('.diag-wiersz__nazwa');
+              const wartosc = w.querySelector('.diag-wiersz__wartosc');
+              return {
+                // Nazwa stanu zostaje taka, jaką mówi kryterium: „OK" albo kod z klasy.
+                stan: m === null ? 'nieznany' : (m[1] === 'ok' ? 'OK' : m[1]),
+                nazwa: nazwa ? nazwa.textContent.trim() : '',
+                wartosc: wartosc ? wartosc.textContent.trim() : '',
+              };
             }""")
 
         przed = pozycja()
@@ -2144,7 +2353,7 @@ def sprawdz_rozdzial_rol(b) -> dict:
         ctx.close()
 
 
-def sprawdz_prawde_kalendarza(b) -> dict:
+def sprawdz_prawde_kalendarza(b, usterka: str | None = None) -> dict:
     """Kalendarz firmy kontem BEZ ZATRUDNIENIA — **czy ekran mówi prawdę** (zlecenie 23.09 §1–§3, §4a).
 
     ⚠ Tylko konto administracyjne pokazuje te usterki, bo wszystkie wynikają z jednego stanu:
@@ -2184,7 +2393,7 @@ def sprawdz_prawde_kalendarza(b) -> dict:
     poziom_c = poziom_kalendarza(c, None, LOGIN).get("przed", 0)
     filtr_a = filtr_kalendarza(a, None, LOGIN)
 
-    ctx = b.new_context(viewport={"width": 1440, "height": 855}, ignore_https_errors=True)
+    ctx = nowy_kontekst(b, usterka, viewport={"width": 1440, "height": 855}, ignore_https_errors=True)
     try:
         poziom_kalendarza(a, 2, LOGIN)
         poziom_kalendarza(c, 2, LOGIN)
@@ -3495,7 +3704,12 @@ def sprawdz_wybor_spolki(b) -> dict:
                              "adres_po": pg.url.replace(BAZA, "") if ctx is not None else None,
                              "tresc_sie_zmienila": po["tresc"] != przed["tresc"]},
             "trwalosc": {"po_zmianie_ekranu": po_ekranie, "po_zalogowaniu": po_logowaniu},
-            "utracona": {"probka": dane_probki, "wybrana": pr_wybrana["nazwa"],
+            # ⚠ **Hasło próbki NIE wchodzi do raportu** (Z63 cz. A). Jest losowe i konto żyje
+            # jeden przebieg, ale raport z bramki jedzie do drugiej sesji i do pliku — a hasło
+            # w pliku jest hasłem w pliku (CLAUDE.md §14). Zostaje w pamięci przebiegu, bo
+            # bramka musi się nim zalogować.
+            "utracona": {"probka": {k: v for k, v in (dane_probki or {}).items() if k != "haslo"},
+                         "wybrana": pr_wybrana["nazwa"],
                          "po_odebraniu": pr_po["nazwa"], "uwaga": pr_po["uwaga"],
                          "spolki_po_odebraniu": odebrane.get("spolki_po")},
         }
@@ -3841,7 +4055,7 @@ POMIAR_SKALI = r"""() => {
 }"""
 
 
-def sprawdz_skale_czasu(b) -> dict:
+def sprawdz_skale_czasu(b, usterka: str | None = None) -> dict:
     """**Trzy nowe skale czasu w „Tylko ja"** (zlecenie `2026-10-11-skale-czasu…` §1 i §3a).
 
     ⚠ **Trzy stany ekranu, nie jeden.** Krzysztof wybrał wszystkie trzy skale naraz, więc
@@ -3892,7 +4106,7 @@ def sprawdz_skale_czasu(b) -> dict:
     z_bazy = {k: nieobecnosci_pracownika(jaId, *v) for k, v in zakresy.items()}
     ctx = None
     try:
-        ctx = b.new_context(viewport={"width": 1440, "height": 1000}, ignore_https_errors=True)
+        ctx = nowy_kontekst(b, usterka, viewport={"width": 1440, "height": 1000}, ignore_https_errors=True)
         pg = ctx.new_page()
         pg.goto(BAZA + "/logowanie", wait_until="networkidle")
         pg.fill("#login-email", LOGIN3)
@@ -3925,7 +4139,7 @@ def sprawdz_skale_czasu(b) -> dict:
             przestawiony = True
             try:
                 poziom_kalendarza(spolka_adm, 2, LOGIN)
-                ctx_adm = b.new_context(viewport={"width": 1440, "height": 1000}, ignore_https_errors=True)
+                ctx_adm = nowy_kontekst(b, usterka, viewport={"width": 1440, "height": 1000}, ignore_https_errors=True)
                 adm = ctx_adm.new_page()
                 adm.goto(BAZA + "/logowanie", wait_until="networkidle")
                 adm.fill("#login-email", LOGIN)
@@ -4611,7 +4825,7 @@ def sprawdz_znacznik_dzis(b, usterka: str | None = None) -> dict:
                 pass
 
 
-def sprawdz_jedna_wizualizacje(b) -> dict:
+def sprawdz_jedna_wizualizacje(b, usterka: str | None = None) -> dict:
     """**Jedna wizualizacja kalendarza dla wszystkich kont** (zgłoszenie Krzysztofa 07.10.2026).
 
     „Wizualizacja kalendarza ma być trzymana w jednym miejscu, aby zmiana szła na wszystkich
@@ -4650,8 +4864,16 @@ def sprawdz_jedna_wizualizacje(b) -> dict:
     STAN = """() => ({
       os_czasu: document.querySelectorAll('.team-grid').length,
       siatka: document.querySelectorAll('.msiatka').length,
-      siatka_stara: document.querySelectorAll(
-        '.calendar-grid, .day-cell, .calendar-weekdays, .month-grid, .rok__dzien, .kwartal__kratka').length,
+      // ⚠ **Obca krata liczona STRUKTURALNIE, nie z listy zniesionych nazw** (Z63 cz. A).
+      // Do 20.10.2026 stała tu lista klas (`.calendar-grid`, `.day-cell`, `.calendar-weekdays`,
+      // `.month-grid`, `.rok__dzien`, `.kwartal__kratka`) — żadnej z nich nie ma już ani
+      // w szablonach, ani w arkuszu, więc warunek „zero klas zniesionych" **nie mógł zapalić
+      // się nigdy** i był ozdobą, nie bramką. Pytanie ze zgłoszenia Krzysztofa zostaje to samo:
+      // czy obok komponentu wspólnego nie stoi druga, własna krata dni. Liczymy więc pudełka
+      // dnia leżące POZA rodziną wspólną — niezależnie od tego, jak ktoś je nazwie.
+      obce_kraty: [...document.querySelectorAll('[class*="kratka"], [class*="day-cell"],'
+        + ' [class*="day-entry"], [class*="calendar"], [class*="month-grid"]')]
+        .filter(e => !e.closest('.msiatka, .team-grid')).length,
       wierszy: document.querySelectorAll('.team-grid__person').length,
       paskow: document.querySelectorAll('.team-grid__bar').length,
       wpisow: document.querySelectorAll('.wpisy__poz').length,
@@ -4673,7 +4895,7 @@ def sprawdz_jedna_wizualizacje(b) -> dict:
     try:
         wynik: dict = {}
         # Pracownik — konto, które przed zmianą widziało WYŁĄCZNIE starą siatkę.
-        ctx = b.new_context(viewport={"width": 1440, "height": 1000}, ignore_https_errors=True)
+        ctx = nowy_kontekst(b, usterka, viewport={"width": 1440, "height": 1000}, ignore_https_errors=True)
         pg = ctx.new_page()
         pg.goto(BAZA + "/logowanie", wait_until="networkidle")
         pg.fill("#login-email", LOGIN3)
@@ -4713,7 +4935,7 @@ def sprawdz_jedna_wizualizacje(b) -> dict:
         for sp in spolki:
             stan = poziom_kalendarza(int(sp["id"]), 2, LOGIN)
             poziomy.append((int(sp["id"]), int(stan["przed"])))
-        ctx = b.new_context(viewport={"width": 1440, "height": 1000}, ignore_https_errors=True)
+        ctx = nowy_kontekst(b, usterka, viewport={"width": 1440, "height": 1000}, ignore_https_errors=True)
         pg = ctx.new_page()
         pg.goto(BAZA + "/logowanie", wait_until="networkidle")
         pg.fill("#login-email", LOGIN)
@@ -4726,8 +4948,13 @@ def sprawdz_jedna_wizualizacje(b) -> dict:
         # ⚠ Każdy ekran rysuje DOKŁADNIE JEDNĄ wizualizację z rodziny wspólnej i zero klas
         # zniesionych. Liczymy oba warunki, nie jeden: sama obecność siatki nie wyklucza, że obok
         # wróciła druga, stara.
+        # ⚠ Trzy warunki, nie jeden: na każdym ekranie jest komponent z rodziny wspólnej,
+        # **tylko jeden z dwóch** (siatka albo oś czasu, nigdy oba naraz — to jest „jedna
+        # wizualizacja" w dosłownym sensie) i zero obcych krat dnia poza rodziną.
         jedna_wizualizacja = all(
-            (w["siatka"] + w["os_czasu"]) >= 1 and w["siatka_stara"] == 0
+            (w["siatka"] + w["os_czasu"]) >= 1
+            and (w["siatka"] == 0) != (w["os_czasu"] == 0)
+            and w["obce_kraty"] == 0
             for w in wynik.values()
         ) and wynik["pracownik_ja"]["siatka"] == 1 and wynik["pracownik_ja"]["os_czasu"] == 0 \
           and wynik["admin_firma"]["os_czasu"] == 1 and wynik["admin_firma"]["siatka"] == 0
@@ -5460,11 +5687,15 @@ POMIAR_EKRANU_GRUPY = """() => {
           : Object.assign({tekst: ost.textContent.trim().slice(0, 40)}, __osiagalnosc(ost)),
       };
     }),
+    // ⚠ Selektory przepięte na dzisiejszy toast (Z63 cz. A): komunikat wyniku to `.toast`
+    // w pojemniku `#toasty` (Z47), a jego treść `.toast__tresc`. `[data-toast]`
+    // i `.toast__tekst` nie istnieją w żadnym szablonie ani arkuszu — ten pomiar zwracał
+    // więc `null` zawsze i na pytanie „co napisał toast" nie odpowiadał nigdy.
     toast: (() => {
-      const t = document.querySelector('[data-toast]');
+      const t = document.querySelector('.toasty .toast');
       if (!t) { return null; }
-      const b = t.querySelector('button');
-      return {tekst: (t.querySelector('.toast__tekst') || {}).textContent.trim(),
+      const b = t.querySelector('button:not(.toast__zamknij)');
+      return {tekst: ((t.querySelector('.toast__tresc') || {}).textContent || '').trim(),
               cofnij: !!b, osiagalnosc: b ? __osiagalnosc(b) : null};
     })(),
     // Plakietki przy nazwiskach: lewa kolumna mówi o POZOSTAŁYCH grupach, prawa o wszystkich.
@@ -6434,6 +6665,18 @@ def powody_nakladki(n: dict) -> list[str]:
 # nie złamał i nie wiadomo, czy potrafi zapalić się z właściwego powodu (tura Z22).
 KONTROLE: dict[str, object] = {
     "znacznik_dzis": sprawdz_znacznik_dzis,
+    # ⚠ Trzy kryteria przepięte w Z63 cz. A — każde z własną usterką. `jedna_wizualizacja`
+    # ma dwie, bo ma dwa nowe twierdzenia: „zero obcych krat" i „tylko jedna rodzina na ekran".
+    "skale_czasu": sprawdz_skale_czasu,
+    "prawda_kalendarza": sprawdz_prawde_kalendarza,
+    "jedna_wizualizacja_obca_krata": sprawdz_jedna_wizualizacje,
+    "jedna_wizualizacja_dwie_rodziny": sprawdz_jedna_wizualizacje,
+    # ⚠ Jedna usterka, DWA kryteria: ta sama reguła („cudzy pasek mówi tylko »nieobecny«")
+    # obowiązuje w widoku firmy (`poziomy`) i w widoku zespołu (`zasieg`), a każde z nich
+    # mierzy ją na swoim ekranie i na swoim dostępie. Dwa wpisy, nie jeden, bo złamanie
+    # jednego nie dowodzi niczego o drugim.
+    "rodzaj_u_cudzej_osoby": sprawdz_poziomy_kalendarza,
+    "rodzaj_u_cudzej_osoby_zespol": sprawdz_zasieg_podgladu,
     "pasy_szczelin": sprawdz_pasy_szczelin,
     # ⚠ Jedno kryterium, DWIE usterki: zwężony pas tła (Z25) i wyłączony `ResizeObserver` (Z26).
     # Druga jest konieczna, bo pierwsza łamie kryterium na geometrii pasa, a nie na tym, czy
@@ -6442,9 +6685,75 @@ KONTROLE: dict[str, object] = {
 }
 
 
+# ⚠ **Kryteria po nazwie** — żeby jedno dało się puścić osobno (Z63 cz. A). Powód jest
+# dowodowy, nie wygodowy: przepięcie kryterium wymaga zobaczenia go czerwonego i zielonego,
+# a pełny przebieg trwa kilkadziesiąt minut i nadaje w bazie role oraz poziomy. Nazwy są te
+# same, co klucze w raporcie — inaczej byłby to drugi słownik tych samych rzeczy.
+KRYTERIA: dict[str, object] = {
+    "bez_dostepu": sprawdz_bez_dostepu,
+    "cykl": sprawdz_odrzucenie_cyklu,
+    "obca_spolka": sprawdz_obca_spolke,
+    "ostrzezenie": sprawdz_ostrzezenie_wyjscia,
+    "zasieg": sprawdz_zasieg_podgladu,
+    "wymiana": sprawdz_wymiane_fragmentu,
+    "poziomy": sprawdz_poziomy_kalendarza,
+    "prawda_kalendarza": sprawdz_prawde_kalendarza,
+    "panel_wyboru": sprawdz_panel_wyboru,
+    "rozdzial_rol": sprawdz_rozdzial_rol,
+    "kasowanie_klucza": sprawdz_kasowanie_klucza,
+    "nazwa_wyswietlana": sprawdz_nazwe_wyswietlana,
+    "wybor_spolki": sprawdz_wybor_spolki,
+    "paski_nieobecnosci": sprawdz_paski_nieobecnosci,
+    "skale_czasu": sprawdz_skale_czasu,
+    "znacznik_dzis": sprawdz_znacznik_dzis,
+    "pasy_szczelin": sprawdz_pasy_szczelin,
+    "jedna_wizualizacja": sprawdz_jedna_wizualizacje,
+    "kontekst_spolki": sprawdz_kontekst_spolki,
+    "dziennik_i_zdania": sprawdz_dziennik_i_zdania,
+    "grupy": sprawdz_grupy,
+    "liczniki_nieobecnosci": sprawdz_liczniki_nieobecnosci,
+}
+
+
+def tryb_kryterium(nazwy: list[str]) -> int:
+    """Puszcza wymienione kryteria i tylko je; kod wyjścia 1, gdy którekolwiek nie przeszło."""
+    nieznane = [n for n in nazwy if n not in KRYTERIA]
+    if nazwy == [] or nieznane:
+        print("Użycie: bramka-ekranowa.py kryterium <nazwa> [...]")
+        if nieznane:
+            print("Nieznane: " + ", ".join(nieznane))
+        print("Znane: " + ", ".join(sorted(KRYTERIA)))
+        return 1
+    zle = False
+    with sync_playwright() as pw:
+        b = pw.chromium.launch(args=[f"--host-resolver-rules=MAP {HOST} 127.0.0.1"])
+        for nazwa in nazwy:
+            wynik = KRYTERIA[nazwa](b)  # type: ignore[operator]
+            print(json.dumps({nazwa: wynik}, ensure_ascii=False, indent=1))
+            print(f"KRYTERIUM {nazwa}: {'zielone' if wynik.get('ok') else 'CZERWONE'}")
+            zle = zle or not wynik.get("ok")
+        b.close()
+    return 1 if zle else 0
+
+
 def tryb_kontrola() -> int:
     """Uruchamia każde kryterium z jego wstrzykniętą usterką i żąda wyniku `ok: False`."""
     zle = False
+    # ⚠ **Kontrola kodów odpowiedzi idzie BEZ przeglądarki** i to jest świadome: usterką była
+    # sama decyzja („pomiń i nic nie zapisuj"), a nie żaden widok. Sprawdzenie w przeglądarce
+    # wymagałoby zepsucia ekranu na żywej instancji na czas przebiegu — a tego nie robimy
+    # (instancja jest używana). Dowód end-to-end i tak istnieje: `/ustawienia` zwracało 500
+    # przez cztery i pół godziny 20.10.2026 i stara bramka nie powiedziała ani słowa.
+    probny: dict = {"kody": []}
+    zapisz_kod(probny, "próba", "/", 200)
+    zapisz_kod(probny, "próba", "/zaproszenie", 410)
+    zapisz_kod(probny, "próba", "/ustawienia", 500)
+    zapisane = [(k["adres"], k["kod"]) for k in probny["kody"]]
+    serwerowe = [k for k in probny["kody"] if k["kod"] >= 500]
+    kody_ok = zapisane == [("/zaproszenie", 410), ("/ustawienia", 500)] and len(serwerowe) == 1
+    print(f"KONTROLA kody_odpowiedzi: {'zapisane (dobrze)' if kody_ok else 'NIE ZAPISANE'} — {zapisane}")
+    if not kody_ok:
+        zle = True
     with sync_playwright() as pw:
         b = pw.chromium.launch(args=[f"--host-resolver-rules=MAP {HOST} 127.0.0.1"])
         for nazwa, funkcja in KONTROLE.items():
@@ -6463,11 +6772,37 @@ def tryb_kontrola() -> int:
     return 1 if zle else 0
 
 
+def _przerwanie(_sygnal, _ramka) -> None:
+    """Pierwszy `Ctrl-C` (SIGINT) przerywa pomiar, **kolejne są ignorowane**.
+
+    ⚠ Dopisane 20.10.2026 (Z63 cz. A), po tym, jak przerwany przebieg zostawił w bazie rolę
+    `calendar_viewer_full` nadaną na czas pomiaru. Każde kryterium przywraca swój stan
+    w `finally`, a `KeyboardInterrupt` te bloki wykonuje — ale przywrócenie idzie przez
+    **podproces PHP**, więc drugi sygnał w trakcie sprzątania zabija je w połowie. Po pierwszym
+    sygnale odwieszamy więc obsługę: pomiar i tak się kończy, a sprzątanie dostaje tyle czasu,
+    ile potrzebuje. Niecierpliwe drugie `Ctrl-C` nie jest powodem, żeby zostawić w bazie
+    nadany dostęp.
+    """
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    raise KeyboardInterrupt
+
+
 def main() -> int:
+    signal.signal(signal.SIGINT, _przerwanie)
     prog = prog_z_arkusza()
     tryb = sys.argv[1] if len(sys.argv) > 1 else "oba"
     if tryb == "kontrola":
         return tryb_kontrola()
+    if tryb == "kryterium":
+        return tryb_kryterium(sys.argv[2:])
+    # ⚠ **Tryb `kody`: sam przebieg po ekranach, bez kryteriów** (Z63 cz. A). Powód nie jest
+    # oszczędnością czasu, tylko dowodliwością: sprawdzenie „zero 5xx" trzeba umieć złamać
+    # i naprawić, a każde kryterium nadaje role i poziomy w bazie, więc pełny przebieg nie
+    # jest czymś, co się puszcza dwa razy pod rząd dla jednego twierdzenia. Ten tryb nie
+    # rusza w bazie niczego.
+    tylko_ekrany = tryb == "kody"
+    if tylko_ekrany:
+        tryb = "oba"
     okna = []
     admin = (LOGIN, HASLO)
     # ⚠ Ekrany pracownika chodzą na KONCIE PRACOWNIKA. Administrator tenanta nie ma zatrudnienia,
@@ -6498,7 +6833,7 @@ def main() -> int:
             okna.append(("1440-mysz-pracownik", 1440, 900, False, "", PRACOWNIK_WEB, pracownik))
 
     raport: dict = {"prog_z_arkusza": prog, "naruszenia": [], "prog_naruszony": [],
-                    "ekranow": 0, "bledy": [], "csp": [], "bez_dostepu": None, "nakladki": [],
+                    "ekranow": 0, "bledy": [], "csp": [], "kody": [], "bez_dostepu": None, "nakladki": [],
                     "wciecia": [], "wciecia_zle": [], "ukryte": [], "siatka": [], "toasty": [], "cykl": None,
                     "obca_spolka": None, "ostrzezenie": None, "zasieg": None, "wymiana": None, "poziomy": None,
                     "prawda_kalendarza": None, "panel_wyboru": None, "rozdzial_rol": None,
@@ -6551,6 +6886,17 @@ def main() -> int:
                 koszyk.clear()
                 odp = pg.goto(BAZA + prefiks + s if prefiks else BAZA + s,
                               wait_until="domcontentloaded")
+                # ⚠ **Kod odpowiedzi jest WYNIKIEM POMIARU, nie powodem ciszy** (Z63 cz. A).
+                # Do 20.10.2026 ekran z kodem >= 400 był tu po prostu pomijany: nie wchodził
+                # ani do liczby zmierzonych ekranów, ani do usterek — czyli ekran w **500
+                # wyglądał w raporcie dokładnie jak ekran, którego bramka nie odwiedziła**.
+                # Zmierzony koszt tej ciszy: `/ustawienia` i `/ustawienia/poczta` zwracały 500
+                # od Z60 przez cztery i pół godziny i znalazł to człowiek, nie bramka.
+                # 5xx to usterka bez wyjątków; 4xx trafia na listę do przeczytania, bo część
+                # odwiedzanych adresów odmawia **poprawnie** (410 na wygasłym zaproszeniu,
+                # 419 na wygasłym formularzu, 404 na kodzie QR spoza parowania).
+                if odp is not None:
+                    zapisz_kod(raport, etyk, (prefiks + s) or "/m", odp.status)
                 if odp is None or odp.status >= 400:
                     continue
                 try:
@@ -6601,33 +6947,43 @@ def main() -> int:
                     raport["csp"].append({"okno": etyk, "adres": adres, "csp": csp})
                 raport["bledy"].extend(f"{adres} {w}" for w in koszyk)
             ctx.close()
-        raport["nakladki"] = sprawdz_nakladki(b, sciezki_web())
-        raport["bez_dostepu"] = sprawdz_bez_dostepu(b)
-        raport["cykl"] = sprawdz_odrzucenie_cyklu(b)
-        raport["obca_spolka"] = sprawdz_obca_spolke(b)
-        raport["ostrzezenie"] = sprawdz_ostrzezenie_wyjscia(b)
-        raport["zasieg"] = sprawdz_zasieg_podgladu(b)
-        raport["wymiana"] = sprawdz_wymiane_fragmentu(b)
-        raport["poziomy"] = sprawdz_poziomy_kalendarza(b)
-        raport["prawda_kalendarza"] = sprawdz_prawde_kalendarza(b)
-        raport["panel_wyboru"] = sprawdz_panel_wyboru(b)
-        raport["rozdzial_rol"] = sprawdz_rozdzial_rol(b)
-        raport["kasowanie_klucza"] = sprawdz_kasowanie_klucza(b)
-        raport["nazwa_wyswietlana"] = sprawdz_nazwe_wyswietlana(b)
-        raport["wybor_spolki"] = sprawdz_wybor_spolki(b)
-        raport["paski_nieobecnosci"] = sprawdz_paski_nieobecnosci(b)
-        raport["skale_czasu"] = sprawdz_skale_czasu(b)
-        raport["znacznik_dzis"] = sprawdz_znacznik_dzis(b)
-        raport["pasy_szczelin"] = sprawdz_pasy_szczelin(b)
-        raport["jedna_wizualizacja"] = sprawdz_jedna_wizualizacje(b)
-        raport["kontekst_spolki"] = sprawdz_kontekst_spolki(b)
-        raport["dziennik_i_zdania"] = sprawdz_dziennik_i_zdania(b)
-        raport["grupy"] = sprawdz_grupy(b)
-        raport["liczniki_nieobecnosci"] = sprawdz_liczniki_nieobecnosci(b)
+        if not tylko_ekrany:
+            raport["nakladki"] = sprawdz_nakladki(b, sciezki_web())
+            raport["bez_dostepu"] = sprawdz_bez_dostepu(b)
+            raport["cykl"] = sprawdz_odrzucenie_cyklu(b)
+            raport["obca_spolka"] = sprawdz_obca_spolke(b)
+            raport["ostrzezenie"] = sprawdz_ostrzezenie_wyjscia(b)
+            raport["zasieg"] = sprawdz_zasieg_podgladu(b)
+            raport["wymiana"] = sprawdz_wymiane_fragmentu(b)
+            raport["poziomy"] = sprawdz_poziomy_kalendarza(b)
+            raport["prawda_kalendarza"] = sprawdz_prawde_kalendarza(b)
+            raport["panel_wyboru"] = sprawdz_panel_wyboru(b)
+            raport["rozdzial_rol"] = sprawdz_rozdzial_rol(b)
+            raport["kasowanie_klucza"] = sprawdz_kasowanie_klucza(b)
+            raport["nazwa_wyswietlana"] = sprawdz_nazwe_wyswietlana(b)
+            raport["wybor_spolki"] = sprawdz_wybor_spolki(b)
+            raport["paski_nieobecnosci"] = sprawdz_paski_nieobecnosci(b)
+            raport["skale_czasu"] = sprawdz_skale_czasu(b)
+            raport["znacznik_dzis"] = sprawdz_znacznik_dzis(b)
+            raport["pasy_szczelin"] = sprawdz_pasy_szczelin(b)
+            raport["jedna_wizualizacja"] = sprawdz_jedna_wizualizacje(b)
+            raport["kontekst_spolki"] = sprawdz_kontekst_spolki(b)
+            raport["dziennik_i_zdania"] = sprawdz_dziennik_i_zdania(b)
+            raport["grupy"] = sprawdz_grupy(b)
+            raport["liczniki_nieobecnosci"] = sprawdz_liczniki_nieobecnosci(b)
         b.close()
 
     print(json.dumps(raport, ensure_ascii=False, indent=1))
     print()
+    # ⚠ W trybie `kody` kryteria NIE BYŁY MIERZONE i wypis mówi to wprost, zamiast podstawiać
+    # im wynik „ok": sprawdzenie, które nie poszło, nie jest sprawdzeniem zielonym. Dwa
+    # kryteria czytane wzorcem `raport[...] or {}` dostają sentinel z tą właśnie informacją.
+    if tylko_ekrany:
+        print("⚠ TRYB `kody`: zmierzone wyłącznie ekrany (kody odpowiedzi, przewijanie, konsola,")
+        print("  CSP, wcięcia, pojemnik komunikatów). KRYTERIÓW NIE MIERZONO — pełny przebieg")
+        print("  idzie bez argumentu albo z `oba`.")
+        for _k in ("bez_dostepu", "liczniki_nieobecnosci"):
+            raport[_k] = {"ok": True, "nie_mierzone": "tryb kody"}
     zle = False
     if raport["prog_naruszony"]:
         zle = True
@@ -6666,6 +7022,23 @@ def main() -> int:
         print("  ⚠ Jeden wzór na jedną liczbę: **wycofana nieobecność nie jest nieobecnością**")
         print("  (`removed_at IS NULL`), a wycofane nazywa się OSOBNO — i tyle samo razy, ile")
         print('  plakietek „wycofana” ma tabela pod licznikiem.')
+
+    # ⚠ **5xx to usterka bez wyjątków** (Z63 cz. A). 4xx wypisujemy osobno i NIE psuje
+    # przebiegu: część odwiedzanych adresów odmawia poprawnie i taka odmowa jest cechą ekranu,
+    # nie usterką. Rozdział idzie po stronie serwera, bo tylko 5xx znaczy „kod się wywrócił".
+    serwer = [k for k in raport["kody"] if k["kod"] >= 500]
+    odmowy = [k for k in raport["kody"] if k["kod"] < 500]
+    if serwer:
+        zle = True
+        print(f"EKRAN ODPOWIEDZIAŁ BŁĘDEM SERWERA ({len(serwer)}):")
+        for k in serwer:
+            print(f"  {k['adres']} ({k['okno']}): {k['kod']}")
+        print("  ⚠ Identyfikator zdarzenia i wyjątek są w storage/logs/app-RRRR-MM-DD.log —")
+        print("  ekran w 500 nie pokazuje przyczyny użytkownikowi (CLAUDE.md §14).")
+    if odmowy:
+        print(f"ODMOWY 4xx na odwiedzonych adresach ({len(odmowy)}) — do przeczytania, nie usterka:")
+        for k in odmowy:
+            print(f"  {k['adres']} ({k['okno']}): {k['kod']}")
 
     bd = raport["bez_dostepu"] or {}
     if not bd.get("ok"):
@@ -6843,8 +7216,9 @@ def main() -> int:
         print("  widoków, z pułapem: znacznik zniknięty też jest błędem), `jedna_nazwa` (`--today`")
         print("  zero wystąpień w całych katalogach szablonów i arkuszy), `w_naglowku` (numer dnia")
         print("  dzisiejszego wyróżniony w nagłówku i RÓŻNI się od pozostałych nagłówków),")
-        print("  `kratka_ksztalt` (proporcja w pasmie wokół dnia z Miesiąca — OBIE granice)")
-        print("  i `rok_bez_przewijania` (widok roku bez pionowego przewijania przy 1920 i 1440).")
+        print("  i `kratka_ksztalt` (proporcja w pasmie wokół dnia z Miesiąca — OBIE granice).")
+        print("  ⚠ `rok_bez_przewijania` NIE ISTNIEJE — skasowane (tura Z22, podpowiedź została")
+        print("  do 20.10.2026): przewijanie widoku roku jest wybrane świadomie.")
     if raport["skale_czasu"] is not None and not raport["skale_czasu"]["ok"]:
         zle = True
         print("SKALE CZASU W „TYLKO JA” — JEDNA Z TRZECH NIE TRZYMA:")
@@ -6944,6 +7318,11 @@ def main() -> int:
     if zle:
         print(f"\nBRAMKA: NARUSZENIA — {raport['ekranow']} ekranów, próg z arkusza {prog} px")
         return 1
+    if tylko_ekrany:
+        print(f"BRAMKA (tryb kody): OK — {raport['ekranow']} ekranów, zero 5xx, "
+              f"{len(raport['kody'])} odpowiedzi 4xx, zero przewijania w kontenerach "
+              "i na stronie, zero błędów konsoli i naruszeń CSP. Kryteriów nie mierzono.")
+        return 0
     print(f"BRAMKA: OK — {raport['ekranow']} ekranów, próg z arkusza {prog} px, "
           f"{len(raport['wciecia'])} tabel z wcięciem {WCIECIE_W_KARCIE} px, "
           f"zero ukrytych elementów z pudełkiem, pojemnik komunikatów pusty i przezroczysty "

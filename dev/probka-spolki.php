@@ -14,8 +14,13 @@ declare(strict_types=1);
  * uprawnienia też niczego nie zmienia na liście. Dlatego bramka pisze **na swoich obiektach**
  * (§3 zlecenia): własna osoba, własne konto, własne uprawnienia, wszystko kasowane po pomiarze.
  *
- * ⚠ Uprawnienia nadaje `CalendarVisibility::ustaw()`, czyli ta sama droga co ekran „Dostęp" —
+ * ⚠ Wgląd nadaje `CalendarAccessRepository`, czyli ta sama droga co ekran `/admin/widocznosc` —
  * nie `INSERT` do `role_assignment`. Próbka, która zapisuje własnym SQL-em, mierzy siebie.
+ *
+ * ⚠ **Przepisane 20.10.2026 (Z63 cz. A).** Do tej pory stało tu `CalendarVisibility::ustaw()`
+ * i `spolkiZPoziomem()` — obu metod nie ma od Z53 (19.10.2026), więc próbka kończyła się
+ * `TypeError` na konstruktorze, a kryterium `wybor_spolki` nie mierzyło NICZEGO i zwracało
+ * tylko treść tego błędu. Dzisiejszy model to reguła „na konto", `cała firma`, z zakresem.
  *
  * Tryby:
  *   utworz           — osoba + konto z hasłem + poziom podglądu w DWÓCH spółkach
@@ -32,10 +37,10 @@ require dirname(__DIR__) . '/vendor/autoload.php';
 
 use Wezurlop\Db\Connection;
 use Wezurlop\Repository\AccountRepository;
-use Wezurlop\Repository\EventLogRepository;
+use Wezurlop\Repository\CalendarAccessRepository;
 use Wezurlop\Repository\PermissionRepository;
 use Wezurlop\Security\Password;
-use Wezurlop\Service\CalendarVisibility;
+use Wezurlop\Service\ZakresWidocznosci;
 
 const NAZWISKO = '__probka_spolki';
 // ⚠ Domena `.invalid` jest zarezerwowana i nie istnieje w DNS — adres próbki nie ma jak
@@ -59,9 +64,29 @@ $db = new Connection([
 ]);
 $pdo = $db->pdo();
 $permissions = new PermissionRepository($db);
-$events = new EventLogRepository($db);
 $konta = new AccountRepository($db);
-$widocznosc = new CalendarVisibility($permissions, $db, $events);
+$reguly = new CalendarAccessRepository($db);
+
+/** Reguły wglądu „na to konto" w tej firmie — tylko one znaczą nadany podgląd. */
+$regulyKonta = static function (int $konto, int $spolka) use ($reguly): array {
+    return array_values(array_filter(
+        $reguly->reguly($spolka),
+        static fn (array $r): bool => $r['subject_kind'] === ZakresWidocznosci::KTO_KONTO
+            && (int) $r['subject_account_id'] === $konto
+    ));
+};
+/** Nadanie wglądu w całą firmę (bez szczegółów rodzaju — podgląd, nie kadry). */
+$nadaj = static function (int $konto, int $spolka) use ($reguly): void {
+    $reguly->dodaj(
+        $spolka,
+        ZakresWidocznosci::KTO_KONTO,
+        $konto,
+        ZakresWidocznosci::CZYJE_FIRMA,
+        [],
+        ZakresWidocznosci::BEZ_SZCZEGOLOW,
+        null,
+    );
+};
 
 $osobaId = static function () use ($pdo): ?int {
     $st = $pdo->prepare('SELECT id FROM person WHERE last_name = :n ORDER BY id LIMIT 1');
@@ -84,8 +109,14 @@ $kontoId = static function (?int $person) use ($pdo): ?int {
 $sprzataj = static function () use ($pdo, $osobaId, $kontoId): array {
     $osoba = $osobaId();
     $konto = $kontoId($osoba);
-    $ile = ['role' => 0, 'sesje' => 0, 'konto' => 0, 'etaty' => 0, 'osoba' => 0];
+    $ile = ['reguly' => 0, 'role' => 0, 'sesje' => 0, 'konto' => 0, 'etaty' => 0, 'osoba' => 0];
     if ($konto !== null) {
+        // ⚠ Reguły wglądu kasujemy PIERWSZE i jawnie: wiersz `calendar_access_rule` wskazuje
+        // konto numerem, więc po usunięciu konta zostałby regułą „na nieistniejące konto" —
+        // niewidoczną na żadnym ekranie i liczoną przy następnym pomiarze.
+        $st = $pdo->prepare('DELETE FROM calendar_access_rule WHERE subject_kind = :kto AND subject_account_id = :a');
+        $st->execute(['kto' => ZakresWidocznosci::KTO_KONTO, 'a' => $konto]);
+        $ile['reguly'] = $st->rowCount();
         $st = $pdo->prepare('DELETE FROM role_assignment WHERE account_id = :a');
         $st->execute(['a' => $konto]);
         $ile['role'] = $st->rowCount();
@@ -122,12 +153,16 @@ if ($tryb === 'odbierz') {
         fwrite(STDERR, "Użycie: probka-spolki.php odbierz <companyId> (po `utworz`)\n");
         exit(1);
     }
-    // Poziom 0 = brak podglądu, czyli spółka wypada z listy `spolkiZPoziomem()`.
-    $widocznosc->ustaw($konto, $spolka, 0, null, 'pomiar bramki — odebranie dostępu');
+    // Brak reguły = brak podglądu, czyli spółka wypada z listy `spolkiZRegula()`.
+    $usunietych = 0;
+    foreach ($regulyKonta($konto, $spolka) as $r) {
+        $usunietych += $reguly->usun((int) $r['id'], $spolka) ? 1 : 0;
+    }
     echo json_encode([
         'konto' => $konto,
         'odebrana' => $spolka,
-        'spolki_po' => array_column($widocznosc->spolkiZPoziomem($konto), 'id'),
+        'usunietych_regul' => $usunietych,
+        'spolki_po' => array_column($reguly->spolkiZRegula($konto), 'id'),
     ], JSON_UNESCAPED_UNICODE), "\n";
     exit(0);
 }
@@ -166,12 +201,12 @@ $haslo = new Password(dirname(__DIR__) . '/var/cache/password-dummy.hash');
 $konta->setPassword($konto, $haslo->hash($HASLO));
 foreach ($spolki as $id) {
     // ⚠ Dwa nadania, bo to dwie różne rzeczy: `employee` daje **wejście do programu**
-    // (`app.use`), a poziom widoczności — **podgląd kalendarza spółki**. Zmierzone: konto
-    // z samym poziomem dostaje 403 na każdym ekranie, czyli nie da się na nim nic zobaczyć.
+    // (`app.use`), a reguła wglądu — **podgląd kalendarza spółki**. Zmierzone: konto
+    // z samym wglądem dostaje 403 na każdym ekranie, czyli nie da się na nim nic zobaczyć.
     // Rolę nadajemy przez `PermissionRepository::assignRole()`, tę samą, której używa
     // `AccessService`; licznika licencji w próbce nie ruszamy, bo nie jego mierzymy.
     $permissions->assignRole($konto, PermissionRepository::ROLA_PRACOWNIK, (int) $id, null);
-    $widocznosc->ustaw($konto, (int) $id, 1, null, 'pomiar bramki — nadanie dostępu');
+    $nadaj($konto, (int) $id);
 }
 
 echo json_encode([
@@ -183,5 +218,5 @@ echo json_encode([
     'spolka_etatu' => (int) $spolki[0],
     'spolka_podgladu' => (int) $spolki[1],
     'spolki' => array_map('intval', $spolki),
-    'spolki_z_poziomem' => array_column($widocznosc->spolkiZPoziomem($konto), 'id'),
+    'spolki_z_poziomem' => array_column($reguly->spolkiZRegula($konto), 'id'),
 ], JSON_UNESCAPED_UNICODE), "\n";

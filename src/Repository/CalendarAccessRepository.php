@@ -494,8 +494,15 @@ final class CalendarAccessRepository
      */
     public function spolkiZRegula(int $accountId): array
     {
+        // ⚠ **Nazwa WYŚWIETLANA, nie nazwa z R2** (naprawa 20.10.2026, Z63 cz. A). To zapytanie
+        // karmi znacznik spółki w belce (`KontekstSpolki::spolki()`), a zwracało `c.name`, czyli
+        // „SERWAL SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ" tam, gdzie administrator nadał nazwę
+        // krótką. Jedno wyrażenie na całą aplikację stoi w `NazwaSpolki` — tu była jego brakująca
+        // kopia, ostatnia w `src/`. ⚠ `ORDER BY` idzie po **tym samym** wyrażeniu: samo
+        // podstawienie nazwy w `SELECT` zostawiłoby listę posortowaną po nazwie z umowy, czyli
+        // w kolejności, której człowiek na ekranie nie widzi.
         $stmt = $this->db->pdo()->prepare(
-            'SELECT DISTINCT c.id, c.name
+            'SELECT DISTINCT c.id, ' . NazwaSpolki::SQL . ' AS nazwa
                FROM calendar_access_rule r
                JOIN company c ON c.id = r.company_id
               WHERE (r.subject_kind = :kto_konto AND r.subject_account_id = :konto)
@@ -506,7 +513,7 @@ final class CalendarAccessRepository
                          JOIN person p ON p.id = e.person_id
                          JOIN account a ON a.person_id = p.id
                         WHERE a.id = :konto_b AND e.is_active = 1 AND e.company_id = r.company_id))
-              ORDER BY c.name'
+              ORDER BY nazwa'
         );
         $stmt->execute([
             'kto_konto' => ZakresWidocznosci::KTO_KONTO,
@@ -516,7 +523,7 @@ final class CalendarAccessRepository
         ]);
 
         return array_map(
-            static fn (array $r): array => ['id' => (int) $r['id'], 'nazwa' => (string) $r['name']],
+            static fn (array $r): array => ['id' => (int) $r['id'], 'nazwa' => (string) $r['nazwa']],
             $stmt->fetchAll(),
         );
     }

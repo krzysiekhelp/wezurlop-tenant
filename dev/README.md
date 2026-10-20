@@ -55,7 +55,23 @@ cd /home/dev/tenant
 python3 dev/bramka-ekranowa.py            # oba okna: 374 px z dotykiem i 1920 px z myszą
 python3 dev/bramka-ekranowa.py waska      # tylko 374 px (lustro /m)
 python3 dev/bramka-ekranowa.py szeroka    # tylko 1920 px (oba warianty)
+python3 dev/bramka-ekranowa.py kody       # TYLKO przebieg po ekranach, bez kryteriów
+python3 dev/bramka-ekranowa.py kontrola   # kontrola negatywna: każde kryterium z rejestru
+                                          # dostaje swoją usterkę i MUSI się złamać
 ```
+
+⚠ **Tryb `kody`** (dopisany 20.10.2026) mierzy wyłącznie to, co widać na samym przebiegu po
+adresach: **kod odpowiedzi**, przewijanie w kontenerach i na stronie, błędy konsoli, naruszenia
+CSP, wcięcia tabel i pojemnik komunikatów. Nie nadaje w bazie żadnej roli ani poziomu, więc
+można go puszczać wielokrotnie — i o to chodzi: twierdzenie „zero 5xx" ma dać się złamać
+i naprawić w minutach. Wypis mówi wprost, że kryteriów nie mierzono; kryterium niemierzone
+nie jest kryterium zielonym.
+
+⚠ **Kod odpowiedzi >= 500 to usterka bez wyjątków.** Do 20.10.2026 ekran z kodem >= 400 był
+po cichu pomijany — i dlatego `/ustawienia` w 500 wyglądało w raporcie jak ekran nieodwiedzony
+(usterka z Z60 żyła cztery i pół godziny, znalazł ją człowiek). Odpowiedzi 4xx wypisują się
+osobno i nie psują przebiegu: część odwiedzanych adresów odmawia poprawnie (410 na wygasłym
+zaproszeniu, 419 na wygasłym formularzu, 404 na kodzie QR spoza parowania).
 
 Kod wyjścia **0** = czysto, **1** = naruszenia. Wypis to JSON plus czytelne podsumowanie.
 
