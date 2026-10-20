@@ -2784,9 +2784,6 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 .team-grid__cell--span-30 { grid-column: span 30; }
 .team-grid__cell--span-31 { grid-column: span 31; }
 
-
-}
-
 /* ——— wskaźnik zgrubny: kontrolki pod palec (docs/system-wizualny.md §11.3) ——————————
    ⚠ MUSI być na końcu tego arkusza, nie w `10-base.css`. Zapytanie medialne nie podnosi
    swoistości, a ten plik wczytuje się później — więc `.input` stąd wygrywał z identycznym
