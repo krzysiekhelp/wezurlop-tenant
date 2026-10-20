@@ -36,6 +36,10 @@
     rozwija je `<details>`, zaznaczanie to pola wyboru, a zapis to formularz — znika szukanie,
     „Zaznacz wszystkie" i przeliczanie napisu przed zapisem (zlecenie Z58 §3). -#}
 {% if konta ?? false %}<script src="{{ asset('js/modules/firmy-pole.js') }}" defer></script>{% endif %}
+{#- ⚠ Przycisk zaproszenia w panelu osoby (zlecenie Z64). Bez tego pliku wiersz działa:
+    przycisk jest czynny zawsze, a serwer zapisuje adres i wysyła zaproszenie albo odmawia
+    z komunikatem przy polu — znika samo wyłączanie przycisku i wymiana napisu. -#}
+{% if konta ?? false %}<script src="{{ asset('js/modules/zaproszenie.js') }}" defer></script>{% endif %}
 {#- ⚠ Ekran widoczności kalendarza: jedyne zadanie to wzajemne odznaczanie „Całej firmy"
     i wskazanych osób w kroku 2 okna. Bez tego pliku ekran działa w całości — cel to pola
     wyboru w formularzu, a sprzeczne zaznaczenie rozstrzyga serwer na rzecz całej firmy. -#}

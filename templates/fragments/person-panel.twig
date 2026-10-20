@@ -265,18 +265,39 @@
             {#- Zaproszenie na górze karty, bo w stanach „brak konta" i „zaproszony" jest
                 czynnością główną — i jedyną, która coś posuwa. -#}
             {% if o.account_status is null or o.account_status == 'niezaproszone' %}
+                {#- ⚠ **Zaproszenie wymaga adresu** (zlecenie Z64, zgłoszenie Krzysztofa): bez
+                    adresu przycisk nie ma czego wysłać, a serwer i tak odmówi. „Zapisany adres"
+                    to ten, który pokazuje pole w karcie „Dane konta" — konto `niezaproszone`
+                    trzyma go w `account.email`, osoba bez konta w `person.email_private`. -#}
+                {% set adres_zapisany = (o.account_email ?? o.email_kontaktowy ?? '')|trim != '' %}
                 <li class="op-akcja">
                     <span class="op-akcja__znak">{{ ikony.koperta() }}</span>
                     <span class="op-akcja__tresc">
                         <span class="op-akcja__tytul">Wyślij zaproszenie</span>
-                        <span class="op-akcja__opis">osoba ustawi hasło z linku w wiadomości</span>
+                        {#- ⚠ Trzy zdania na trzy stany, wszystkie **w atrybutach**, bo wymienia
+                            je moduł JS bez budowania HTML-a (`textContent`, CLAUDE.md §6).
+                            Serwer renderuje to zdanie, które pasuje do stanu zapisanego —
+                            więc bez JavaScriptu wiersz też mówi prawdę. -#}
+                        <span class="op-akcja__opis" data-zapros-opis
+                              data-opis-bez-adresu="Najpierw wpisz adres e-mail w karcie Dane konta."
+                              data-opis-z-adresem="osoba ustawi hasło z linku w wiadomości"
+                              data-opis-z-zapisem="zapisze adres i wyśle zaproszenie"
+                        >{{ adres_zapisany ? 'osoba ustawi hasło z linku w wiadomości' : 'Najpierw wpisz adres e-mail w karcie Dane konta.' }}</span>
                     </span>
-                    <form method="post" action="{{ url('/admin/konta/zapros') }}"
-                          hx-post="{{ url('/admin/konta/zapros') }}" hx-target="#wynik-tresc" hx-swap="innerHTML">
-                        {% include 'partials/csrf.twig' %}
-                        <input type="hidden" name="osoby[]" value="{{ o.person_id }}">
-                        <button type="submit" class="btn btn--primary btn--sm op-akcja__btn">Wyślij</button>
-                    </form>
+                    {#- ⚠ **Jeden przycisk w formularzu panelu**, nie drugi formularz obok.
+                        `form="osoba-dane"` znaczy, że jedno kliknięcie wysyła adres, telefon
+                        i dostęp do firm RAZEM z żądaniem zaproszenia — czyli nie istnieje stan
+                        „adres wpisany, nie zapisany, a zaproszenie poszło na stary". Bez
+                        JavaScriptu przycisk jest czynny zawsze i serwer rozstrzyga: zapis plus
+                        zaproszenie albo odmowa z komunikatem przy karcie „Dane konta".
+                        ⚠ `disabled` ustawia WYŁĄCZNIE moduł JS (`modules/zaproszenie.js`) —
+                        wyłączony w szablonie zabrałby drogę przeglądarce bez skryptów.
+                        ⚠ `data-zajety`: ochrona przed podwójnym kliknięciem, ten sam mechanizm
+                        co przy wiadomości próbnej (Z57 U7). -#}
+                    <button type="submit" form="osoba-dane" name="wyslij_zaproszenie" value="1"
+                            class="btn btn--primary btn--sm op-akcja__btn" data-zapros
+                            data-napis-wyslij="Wyślij" data-napis-zapisz-i-wyslij="Zapisz i wyślij"
+                            data-zajety="Wysyłam…">Wyślij</button>
                 </li>
             {% elseif o.account_status == 'invited' %}
                 <li class="op-akcja">

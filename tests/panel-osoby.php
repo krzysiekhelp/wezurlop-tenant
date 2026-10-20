@@ -52,8 +52,33 @@ use Wezurlop\Support\WorkTime;
         $zFirmami = str_contains($html, 'class="pf"');
 
         // ——— JEDEN zapis (Z61 §1) ———
-        $check($nazwa . ': dokładnie jeden przycisk zapisu',
-            substr_count($html, 'type="submit" form="osoba-dane"') === 1);
+        // ⚠ **Przepięte 20.10.2026 (Z64).** Stało tu „dokładnie jeden przycisk z `form=
+        // "osoba-dane"`" i to już nie jest ta sama reguła: przycisk „Zapisz i wyślij" w wierszu
+        // zaproszenia jest DRUGIM przyciskiem tego samego formularza, świadomie — ma zapisać
+        // dokładnie to samo, co „Zapisz zmiany", jednym żądaniem, żeby nie istniał stan „adres
+        // wpisany, nie zapisany, a zaproszenie poszło na stary". Reguła Z61 brzmi „jeden ZAPIS
+        // w panelu", nie „jeden przycisk": zapis dalej jest jeden i dalej idzie jednym żądaniem.
+        // Dlatego liczymy osobno przycisk zapisu (`data-zapisz`) i przyciski formularza.
+        // ⚠ Rozpoznajemy wiersz zaproszenia po POLU ŻĄDANIA, nie po `data-zapros`: zdanie obok
+        // przycisku ma atrybut `data-zapros-opis`, więc `str_contains($html, 'data-zapros')`
+        // było prawdziwe także wtedy, gdy przycisk tracił swój znacznik — i łamanie kryterium
+        // nie świeciło na czerwono (zmierzone przy pisaniu tego sprawdzenia).
+        $zZaproszeniem = str_contains($html, 'name="wyslij_zaproszenie"');
+        $check($nazwa . ': dokładnie jeden przycisk „Zapisz zmiany"',
+            substr_count($html, 'data-zapisz') === 1);
+        $check($nazwa . ': przyciski formularza panelu to zapis plus ewentualne zaproszenie',
+            substr_count($html, 'type="submit" form="osoba-dane"') === ($zZaproszeniem ? 2 : 1));
+        // Umowa z modułem JS: przycisk zaproszenia ma swój znacznik i oba napisy w atrybutach.
+        $check($nazwa . ': przycisk zaproszenia ma znacznik i napisy dla modułu',
+            // ⚠ Wzorzec z `(?![\w-])`, nie `'data-zapros '`: atrybut stoi na końcu wiersza,
+            // więc po nim jest znak nowej linii, a nie spacja — i sprawdzenie liczyło zero.
+            !$zZaproszeniem || (preg_match_all('/data-zapros(?![\w-])/', $html) === 1
+                && str_contains($html, 'data-napis-zapisz-i-wyslij="Zapisz i wyślij"')
+                && str_contains($html, 'data-opis-bez-adresu="Najpierw wpisz adres e-mail')));
+        // ⚠ Zaproszenie NIE MA własnego formularza: osobny `POST /admin/konta/zapros` z panelu
+        // był właśnie tą drugą drogą, która wysyłała zaproszenie na adres sprzed zapisu.
+        $check($nazwa . ': zaproszenie nie ma w panelu własnego formularza',
+            !str_contains($html, 'action="/admin/konta/zapros"'));
         $check($nazwa . ': karta firm nie ma własnego przycisku zapisu',
             !str_contains($html, 'Zapisz dostęp'));
         if ($zFirmami) {
@@ -62,7 +87,10 @@ use Wezurlop\Support\WorkTime;
             // znaczy firmę, która nie pojedzie w żądaniu, czyli cichą utratę dostępu.
             $check($nazwa . ': każde pole firmy należy do formularza panelu',
                 substr_count($html, 'name="spolki[]" value="3" form="osoba-dane"') === 1
-                && $pol === substr_count($html, 'form="osoba-dane"') - 2, (string) $pol);
+                // ⚠ Odjęte: ukryte pole `firmy_w_formularzu`, przycisk zapisu i — gdy wiersz
+                // zaproszenia jest na ekranie — przycisk „Zapisz i wyślij".
+                && $pol === substr_count($html, 'form="osoba-dane"') - ($zZaproszeniem ? 3 : 2),
+                (string) $pol);
             $check($nazwa . ': znacznik „kontrolka była na ekranie"',
                 str_contains($html, 'name="firmy_w_formularzu" value="1" form="osoba-dane"'));
             $check($nazwa . ': stopka pola firm bez przycisku', !str_contains($html, 'pf__stopka">' . "\n" . '                <button'));

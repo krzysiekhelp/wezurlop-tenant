@@ -78,6 +78,9 @@ final class AdminAccountController
      */
     private const KOMUNIKATY_PANELU = [
         'zapisane' => 'Zapisane. Dane konta i dostęp do firm idą jednym zapisem.',
+        // ⚠ Osobny komunikat dla „Zapisz i wyślij" (Z64): bez niego ścieżka bez JavaScriptu
+        // mówiłaby „Zapisane" o żądaniu, które zapisało **i** zostawiło zaproszenie w kolejce.
+        'zaproszono' => 'Zapisane. Zaproszenie przyjęte do wysyłki.',
     ];
 
     /**
@@ -314,7 +317,7 @@ final class AdminAccountController
             $odmowa = $this->konta->blockRefusal((int) $dane['o']['account_id'], $admin->accountId());
             if ($odmowa !== null) {
                 return $this->panelZBledem($personId, $companyId, $admin,
-                    self::KOMUNIKATY_ODMOW[$odmowa] ?? $odmowa, [], 'ogolny');
+                    self::KOMUNIKATY_ODMOW[$odmowa] ?? $odmowa, [], 'ogolny', $request->isHtmx());
             }
         }
 
@@ -360,7 +363,7 @@ final class AdminAccountController
             : $this->konta->block($row['account_id'], $admin->accountId(), $ipHash, $admin->displayName);
         if ($powod !== null) {
             return $this->panelZBledem($personId, $companyId, $admin,
-                self::KOMUNIKATY_ODMOW[$powod] ?? $powod, [], 'ogolny');
+                self::KOMUNIKATY_ODMOW[$powod] ?? $powod, [], 'ogolny', $request->isHtmx());
         }
 
         $dane = $this->panelData($personId, $companyId, $admin);
@@ -487,7 +490,13 @@ final class AdminAccountController
         }
         // ⚠ Komunikat po zapisie bez JavaScriptu — tą samą drogą, co na pozostałych ekranach
         // (`?ok=` z białej listy, nigdy tekst z adresu).
-        $dane['notice'] = self::KOMUNIKATY_PANELU[$request->queryString('ok', 16)] ?? null;
+        $ok = $request->queryString('ok', 16);
+        $dane['notice'] = self::KOMUNIKATY_PANELU[$ok] ?? null;
+        // ⚠ **Termin wysyłki także bez JavaScriptu** (Z64): ze skryptem panel przychodzi
+        // z odpowiedzi zapisu i mówi „wyjdzie w ciągu około 5 minut", bez skryptu wracał
+        // przekierowaniem i to zdanie gubił — czyli ta sama czynność kończyła się dwoma
+        // różnymi komunikatami. „Przyjęto do wysyłki" bez terminu jest pustym zdaniem (Z29).
+        $dane['notice_termin'] = $ok === 'zaproszono' ? 'Zaproszenie' : null;
 
         // Fragment do szuflady, pełny ekran bez JavaScriptu — ta sama treść w obu przypadkach.
         // ⚠ `w_szufladzie` rozstrzyga, czy „Zamknij" ma co zamykać. Bez tego na ekranie
@@ -520,11 +529,17 @@ final class AdminAccountController
         }
         $przedZaproszeniem = $row['account_id'] === null
             || $row['account_status'] === AccountRepository::STAN_NIEZAPROSZONE;
+        // ⚠ **„Zapisz i wyślij" to JEDNO żądanie** (zlecenie Z64): przycisk zaproszenia stoi
+        // w formularzu panelu i dokłada do niego tę flagę, więc adres i zaproszenie idą razem.
+        // Powód jest w kolejności: dopóki były to dwa żądania, istniał stan „adres wpisany,
+        // nie zapisany, a zaproszenie poszło na stary" — albo odwrotnie.
+        $chceZaprosic = $request->postString('wyslij_zaproszenie', 4) === '1';
 
         $email = AuthService::normalizeEmail($request->postString('email', 254));
         if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
             return $this->panelZBledem($personId, $companyId, $admin, 'Nieprawidłowy adres e-mail.',
-                ['email' => $request->postString('email', 254), 'telefon' => $request->postString('telefon', 32)]);
+                ['email' => $request->postString('email', 254), 'telefon' => $request->postString('telefon', 32)],
+                'dane', $request->isHtmx());
         }
         // ⚠ Telefon: biała lista znaków, nie czarna. Cyfry, spacje, `+`, `-` i nawiasy —
         // wszystko inne odrzucamy, zamiast „czyścić" i zapisywać coś, czego nikt nie wpisał.
@@ -532,7 +547,7 @@ final class AdminAccountController
         if ($telefon !== '' && preg_match('/^[0-9+()\s-]{6,32}$/', $telefon) !== 1) {
             return $this->panelZBledem($personId, $companyId, $admin,
                 'Numer telefonu może zawierać tylko cyfry, spacje, plus, myślnik i nawiasy.',
-                ['email' => $email, 'telefon' => $telefon]);
+                ['email' => $email, 'telefon' => $telefon], 'dane', $request->isHtmx());
         }
 
         // ⚠ Adres jest edytowalny, DOPÓKI KONTO NIE JEST AKTYWNE (rozstrzygnięcie 22.09.2026).
@@ -545,12 +560,12 @@ final class AdminAccountController
             return $this->panelZBledem($personId, $companyId, $admin,
                 'Konto jest aktywne — adres jest jego loginem i zmienia się osobną ścieżką, '
                 . 'której dziś nie ma.',
-                ['telefon' => $telefon]);
+                ['telefon' => $telefon], 'dane', $request->isHtmx());
         }
         $odmowa = $this->odmowaAdresu($email, $personId, $companyId);
         if ($odmowa !== null) {
             return $this->panelZBledem($personId, $companyId, $admin, $odmowa,
-                ['email' => $email, 'telefon' => $telefon]);
+                ['email' => $email, 'telefon' => $telefon], 'dane', $request->isHtmx());
         }
         if ($zmianaLoginu) {
             $powod = $this->invitations->changeEmail(
@@ -558,9 +573,31 @@ final class AdminAccountController
             );
             if ($powod !== null) {
                 return $this->panelZBledem($personId, $companyId, $admin, ucfirst($powod) . '.',
-                    ['email' => $email, 'telefon' => $telefon]);
+                    ['email' => $email, 'telefon' => $telefon], 'dane', $request->isHtmx());
             }
         }
+        // ⚠ **Odmowa zaproszenia rozstrzyga się TUTAJ — przed zapisem czegokolwiek** (Z64):
+        // „błąd walidacji = nic nie zapisane, nic nie wysłane". Gdyby ta sama odmowa przyszła
+        // po zapisie, adres byłby zapisany, zaproszenie nie, a komunikat mówiłby o jednym
+        // z dwóch skutków. Adres, którego dotyczy zaproszenie, to ten, który zaraz zapiszemy:
+        // wpisany w tym żądaniu albo już zapisany w koncie, nigdy puste miejsce.
+        if ($chceZaprosic) {
+            $adresZaproszenia = $email !== '' ? $email : (string) ($row['email'] ?? '');
+            if (!$przedZaproszeniem) {
+                // Konto zaproszone albo aktywne ma własne drogi („Wyślij ponownie", reset
+                // hasła); stąd nie zaprasza się go po raz drugi (CLAUDE.md §10).
+                return $this->panelZBledem($personId, $companyId, $admin,
+                    'To konto już istnieje — zaproszenie wysyła się tylko raz, a ponowienie '
+                    . 'ma własny przycisk.',
+                    ['email' => $email, 'telefon' => $telefon], 'ogolny', $request->isHtmx());
+            }
+            if ($adresZaproszenia === '') {
+                return $this->panelZBledem($personId, $companyId, $admin,
+                    'Zaproszenie wymaga adresu e-mail — wpisz adres w tym polu.',
+                    ['email' => $email, 'telefon' => $telefon], 'dane', $request->isHtmx());
+            }
+        }
+
         // ⚠ Dostęp zapisujemy **po walidacji danych konta, przed ich zapisem** (Z61 §1):
         // zły adres nie ma prawa zmienić dostępu, a odmowa licencji nie ma prawa wywrócić
         // zapisu telefonu — każda część wraca z komunikatem przy swojej karcie.
@@ -574,7 +611,7 @@ final class AdminAccountController
         } catch (AdresZajetyException) {
             return $this->panelZBledem($personId, $companyId, $admin,
                 $this->odmowaAdresu($email, $personId, $companyId) ?? AdresKontaktowy::ODMOWA_BEZ_NAZWISKA,
-                ['email' => $email, 'telefon' => $telefon]);
+                ['email' => $email, 'telefon' => $telefon], 'dane', $request->isHtmx());
         }
         $this->events->record(
             'person.contact_changed',
@@ -588,13 +625,45 @@ final class AdminAccountController
             ['adres' => $adresDoZapisu !== null, 'telefon' => $telefon !== ''],
         );
 
+        // ⚠ **Kolejka maila JAKO OSTATNIA** (Z64): walidacja › zapis › zadanie. Zaproszenie
+        // wychodzi na adres, który jest już w bazie, a nie na ten, który „zaraz zapiszemy" —
+        // gdyby zapis padł, nie poleciałby link do konta, którego nie ma.
+        // ⚠ Wysyłki tu nie ma: `inviteExisting()` zakłada konto, wydaje token i **zostawia
+        // zadanie w kolejce** (CLAUDE.md §0 — poczta nigdy w żądaniu użytkownika).
+        $odmowaZaproszenia = null;
+        $zaproszono = false;
+        if ($chceZaprosic) {
+            $wynikZaproszenia = $this->invitations->inviteExisting(
+                $personId,
+                (string) $adresDoZapisu,
+                $admin->accountId(),
+            );
+            $odmowaZaproszenia = $wynikZaproszenia['powod'];
+            $zaproszono = $odmowaZaproszenia === null;
+        }
+
         $dane = $this->panelData($personId, $companyId, $admin);
         $dane['notice'] = $komunikatDostepu === null ? 'Zapisane.' : 'Zapisane. ' . $komunikatDostepu;
+        if ($zaproszono) {
+            // ⚠ Zdanie wiodące, kropka, krótkie dopowiedzenie (Z47) — i termin z faktycznej
+            // częstotliwości crona, nie „w ciągu kilku minut" (Z29).
+            $dane['notice'] = 'Zapisane. Zaproszenie przyjęte do wysyłki.'
+                . ($komunikatDostepu === null ? '' : ' ' . $komunikatDostepu);
+            $dane['notice_termin'] = 'Zaproszenie';
+        }
         $dane['error_dostepu'] = $odmowyDostepu;
+        if ($odmowaZaproszenia !== null) {
+            // Zapis się udał, zaproszenie nie — i ekran mówi dokładnie to, zamiast jednego
+            // zdania o „częściowym" skutku.
+            $dane['error'] = 'Dane zapisane, ale zaproszenia nie wysłano: ' . $odmowaZaproszenia . '.';
+        }
 
-        return $request->isHtmx()
-            ? $this->view->render('fragments/person-panel.twig', $dane + ['w_szufladzie' => true])
-            : Response::redirectFor($request, $this->urls->to('/admin/konta/osoba/' . $personId) . '?ok=zapisane');
+        if ($request->isHtmx()) {
+            return $this->view->render('fragments/person-panel.twig', $dane + ['w_szufladzie' => true]);
+        }
+        $ok = $zaproszono ? 'zaproszono' : 'zapisane';
+
+        return Response::redirectFor($request, $this->urls->to('/admin/konta/osoba/' . $personId) . '?ok=' . $ok);
     }
 
     /**
@@ -663,7 +732,8 @@ final class AdminAccountController
         }
         $powod = $this->invitations->resend($row['account_id'], $admin->accountId(), $admin->displayName);
         if ($powod !== null) {
-            return $this->panelZBledem($personId, $companyId, $admin, ucfirst($powod) . '.', [], 'ogolny');
+            return $this->panelZBledem($personId, $companyId, $admin, ucfirst($powod) . '.', [], 'ogolny',
+                $request->isHtmx());
         }
         $dane = $this->panelData($personId, $companyId, $admin);
         if ($dane === null) {
@@ -831,16 +901,24 @@ final class AdminAccountController
         CurrentUser $admin,
         string $blad,
         array $wpisane = [],
-        string $gdzie = 'dane'
+        string $gdzie = 'dane',
+        bool $htmx = true
     ): Response {
         $dane = $this->panelData($personId, $companyId, $admin);
         if ($dane === null) {
-            return $this->errors->errorPage(404, null, true);
+            return $this->errors->errorPage(404, null, $htmx);
         }
         $dane[$gdzie === 'dane' ? 'error_danych' : 'error'] = $blad;
         $dane['wpisane'] = $wpisane;
 
-        return $this->view->render('fragments/person-panel.twig', $dane + ['w_szufladzie' => true]);
+        // ⚠ **Bez JavaScriptu odmowa musi być EKRANEM, nie samym fragmentem** (naprawa 20.10.2026
+        // przy Z64). Ta metoda renderowała zawsze fragment panelu, więc żądanie bez htmx
+        // (przeglądarka bez skryptów albo ekran zapasowy `/admin/konta/osoba/{id}`) dostawało
+        // w odpowiedzi goły kawałek HTML-a: komunikat tam był, ale bez powłoki, bez belki
+        // i bez arkusza. Ścieżka zapasowa, która wygląda na awarię, nie jest ścieżką zapasową.
+        return $htmx
+            ? $this->view->render('fragments/person-panel.twig', $dane + ['w_szufladzie' => true])
+            : $this->view->render('page/web/person-panel.twig', $dane + ['w_szufladzie' => false]);
     }
 
 
