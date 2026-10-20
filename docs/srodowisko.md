@@ -66,6 +66,22 @@ vendor/bin/phinx rollback -c config/phinx.php -t 0     # do zera
 vendor/bin/phinx seed:run -c config/phinx.php          # tylko APP_ENV=dev, tylko pusta baza
 ```
 
+⚠ **`rollback -t <wersja>` cofa DO tej wersji, czyli WSZYSTKO po niej — nie jeden krok.**
+Zmierzone 20.10.2026 (Z67): cofnięcie z `-t` ustawionym na wersję *przed* własną migracją
+zdjęło także `CalendarAdminsDefaultRule`, czyli skasowało reguły `admins_all` i odebrało
+administratorom wgląd w kalendarz. Żeby cofnąć **tylko ostatnią** migrację, podaje się wersję
+tę, która ma zostać (`-t 20261020120001`), albo używa się `rollback` bez `-t`. Przy odbiorze
+migracji (`migrate` → `rollback` → `migrate`) sprawdzaj po cofnięciu **nie tylko swoją zmianę**,
+ale i to, czy nie zniknęło coś z migracji sąsiedniej.
+
+⚠ **Czas w `phinxlog` jest LOKALNY, a w naszych tabelach UTC** — ta sama operacja ma w logu
+migracji inną godzinę niż w danych, które założyła. Zmierzone 20.10.2026: migracja
+`20261020120001` ma w `phinxlog` `start_time = 10:02:07`, a wiersz, który wstawiła, ma
+`created_at = 08:02:07`. Nic tu nie jest zepsute — `phinxlog` zapisuje czas PHP-em
+(strefa `Europe/Warsaw`), a nasze tabele biorą czas z bazy (`time_zone = '+00:00'`, patrz wyżej).
+Pamiętaj o tym, zanim zaczniesz szukać dwugodzinnej dziury przy diagnozie u klienta; różnica
+równa przesunięciu strefy to ta właśnie sytuacja, a nie zdarzenie z przeszłości.
+
 Seed tworzy dwie fikcyjne firmy, administratora tenanta (bez zatrudnienia), osobę z dwoma
 zatrudnieniami i osobę z jednym; hasła są losowe i wypisywane jeden raz.
 

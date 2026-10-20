@@ -35,6 +35,16 @@ co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej ju
 >   `.team-grid__head--free` jeszcze inny odcień (#FCFCFD). Po tej zmianie legenda zgadza się
 >   z siatką, a rozmija z osią czasu — czyli ta sama rzecz („dzień wolny") ma w produkcie trzy
 >   odcienie. Nie zmieniam osi bez zlecenia; liczby w raporcie Z66.
+> - ⚠ **Próba wyrównania osi ZMIERZONA I WSTRZYMANA (Z67, 20.10.2026).** Decyzja Krzysztofa
+>   brzmiała „wyrównaj kolumnę do `--c-neutral-soft`" i została wykonana w kodzie, zmierzona
+>   i **cofnięta**, bo łamie kryterium `paski_nieobecnosci`: pasek zasiłku chorobowego ma na
+>   ciemniejszej kolumnie **1,041 kontrastu przy podłodze 1,05** (urlop 1,062 i rodzaje kadrowe
+>   1,075 przechodzą). Wygaszenie weekendu wraca przy tym z 1,063 do 1,122, czyli oddaje zysk
+>   z 1.14. Znacznik „dziś" wytrzymuje bez zmian (7,3–7,9 — nie zależy od tła kratki).
+>   ⚠ Najtańsze wyjście, gdy decyzja ma zostać: przyciemnić wypełnienie zasiłku o **dwa punkty
+>   na kanał** (`rgb(253,235,210)` → `rgb(251,233,208)`), co daje 1,06 na dniu wolnym, 1,189 do
+>   wiersza i 4,99 kontrastu tekstu — wszystkie progi z zapasem. To jednak zmiana palety rodzajów
+>   ze wzoru Krzysztofa, więc czeka na jego słowo, a nie na moje.
 > - ⚠ Próbka zostaje **prostokątem z obrysem**, nie pigułką: dzień wolny nie jest
 >   nieobecnością, a kształt próbki to jedyne miejsce, w którym legenda o tym mówi.
 
