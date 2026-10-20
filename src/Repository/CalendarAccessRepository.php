@@ -43,7 +43,10 @@ final class CalendarAccessRepository
     public function regulyWidza(int $companyId, int $accountId, ?int $employmentId): array
     {
         $stmt = $this->db->pdo()->prepare(
-            'SELECT r.id, r.scope, r.target_kind, r.subject_kind
+            // ⚠ `subject_group_id` jest tu po to, żeby panel osoby mógł powiedzieć, PRZEZ KTÓRĄ
+            // grupę ta osoba widzi (zlecenie Z58, karta „Widoczność kalendarza"). Reguła wybrana
+            // zapytaniem nie mówi sama, które z pięciu dopasowań ją wpuściło.
+            'SELECT r.id, r.scope, r.target_kind, r.subject_kind, r.subject_group_id
                FROM calendar_access_rule r
               WHERE r.company_id = :company
                 AND ( (r.subject_kind = :kto_konto AND r.subject_account_id = :konto)
@@ -962,6 +965,34 @@ final class CalendarAccessRepository
      * Gdyby ekran liczył inaczej niż egzekwowanie, wiersz mówiłby „3 konta" tam, gdzie widzą
      * cztery osoby.
      */
+    /**
+     * Nazwy grup po numerach — **do opisu źródeł dostępu w panelu osoby** (zlecenie Z58).
+     *
+     * ⚠ Zawężone do firmy, bo grupa należy do firmy: numer z innej firmy ma zniknąć, a nie
+     * oddać nazwę (CLAUDE.md §10 — warunek w zapytaniu, nie `if` po odczycie).
+     *
+     * @param list<int> $ids
+     * @return array<int, string>
+     */
+    public function nazwyGrupPoId(int $companyId, array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+        $stmt = $this->db->pdo()->prepare(
+            'SELECT g.id, g.name FROM company_group g
+              WHERE g.company_id = :company AND g.id IN (' . self::inSql($ids, 'g') . ')
+              ORDER BY g.name'
+        );
+        $stmt->execute(self::inParams($ids, 'g') + ['company' => $companyId]);
+        $out = [];
+        foreach ($stmt->fetchAll() as $r) {
+            $out[(int) $r['id']] = (string) $r['name'];
+        }
+
+        return $out;
+    }
+
     public function ileAdministratorow(int $companyId): int
     {
         $stmt = $this->db->pdo()->prepare(

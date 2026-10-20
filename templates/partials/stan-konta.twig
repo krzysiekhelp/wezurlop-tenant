@@ -1,0 +1,27 @@
+{#- **Plakietka stanu konta z kropką** — jedno miejsce na pięć stanów (zlecenie Z58).
+
+    ⚠ Do 20.10.2026 ten sam warunek stał w dwóch szablonach: w wierszu listy osób i w panelu
+    osoby. Stan konta jest daną audytową („czy ta osoba się zaloguje"), a dwie kopie warunku
+    rozjeżdżają się przy pierwszym nowym stanie — tak właśnie weszło `niezaproszone`.
+
+    ⚠ **„Aktywne" jest ZIELONE i jest to świadomy wyjątek** od reguły „zieleń to działanie,
+    nie stan" (zlecenie Z30 §9, prototyp zatwierdzony przez Krzysztofa): pięć szarych plakietek
+    w kolumnie, której szuka się wzrokiem, nie różnicowało niczego — a administrator czyta ją
+    właśnie po to, żeby zobaczyć, kto ma działające konto.
+
+    Zmienne: `status` (`account.status` albo `null`). Renderowany `with_context = false`. -#}
+{% if status == 'do_odblokowania' %}
+    <span class="chip chip--warn"><span class="chip__kropka"></span>do odblokowania</span>
+{% elseif status == 'blocked' %}
+    <span class="chip chip--danger"><span class="chip__kropka"></span>zablokowane</span>
+{% elseif status == 'niezaproszone' %}
+    {#- Konto istnieje, żeby dostęp miał na czym stanąć, ale nie da się nim zalogować
+        ani odzyskać hasła. Zajmuje licencję jak każde inne (§4.3). -#}
+    <span class="chip"><span class="chip__kropka"></span>niezaproszone</span>
+{% elseif status == 'invited' %}
+    <span class="chip chip--dzis"><span class="chip__kropka"></span>zaproszony</span>
+{% elseif status == 'active' %}
+    <span class="chip chip--accent"><span class="chip__kropka"></span>aktywne</span>
+{% else %}
+    <span class="chip"><span class="chip__kropka"></span>brak konta</span>
+{% endif %}

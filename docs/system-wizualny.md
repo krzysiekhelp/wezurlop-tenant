@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.37, 20.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.38, 20.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,60 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.37 → 1.18.38: panel osoby w `/admin/konta` — pięć kart zamiast pięciu sekcji**
+> (zlecenie Z58, 20.10.2026; prototyp zatwierdzony przez Krzysztofa).
+> - **Szuflada zostaje** (600 px, prawa krawędź) i **klasy `drawer__*` też**: na nich stoi
+>   zmierzony układ przewijania (nagłówek i stopka nieruchome, treść przewijana, `min-height: 0`
+>   na każdym ogniwie). Nowy wygląd dokłada rodzina `op-*`, a nie drugi mechanizm.
+> - **Nagłówek**: kółko 44 px z inicjałami (największy wariant w aplikacji), imię i nazwisko
+>   `--t-h2`, pod nim „‹firma› · z kadr" i **plakietka stanu konta z kropką** — ta sama, co
+>   w kolumnie listy. ⚠ Plakietka stanu wyjechała do wspólnego `partials/stan-konta.twig`:
+>   ten sam warunek stał w dwóch szablonach, a stan konta jest daną audytową.
+> - **Treść na szarym tle (`--c-bg`), każda sekcja osobną białą kartą** z nagłówkiem: znak 32 px
+>   na tle akcentu, tytuł 15 px/600 i **jedno zdanie o tym, czego karta dotyczy**. ⚠ Akapit
+>   „Te dane przychodzą z programu kadrowego…" zniknął: w treści karty czytał się jak ostrzeżenie
+>   o awarii, a jako podtytuł mówi to samo trzema słowami („zmienia się w programie kadrowym (R2)").
+> - **Dane z kadr: blok na każdą firmę, rozdzielone kreską.** Osoba z dwoma etatami ma dwa
+>   wymiary, dwie daty i dwa limity — jedna wspólna siatka zlewała je w listę ośmiu wartości
+>   bez przypisania do firmy.
+> - **Dostęp do firm: POLE WYBORU zamiast plakietek i warstwy.** Zamknięte 42 px, z ikoną
+>   budynku, wybranymi firmami po przecinku („dwie, potem i N innych", przy wszystkich
+>   „Wszystkie firmy", przy żadnej szare „brak dostępu") i licznikiem „N z M".
+>   ⚠ **Rozwija się `<details>`, nie skryptem**: lista otwiera się W MIEJSCU, przesuwa resztę
+>   karty w dół i nie ma prawa wyjść poza panel — zmierzone po zmianie: 0 px poza panelem,
+>   lista 220 px z przewijaniem, okno nieprzewijalne. Dawna kontrolka była warstwą `.dropdown`
+>   pozycjonowaną skryptem nad tabelą: w panelu szerokim na 600 px nie miała gdzie się zmieścić,
+>   a **bez JavaScriptu nie otwierała się wcale**.
+>   ⚠ Wyszukiwarka i „Zaznacz wszystkie" przychodzą z HTML-a `hidden` i odsłania je
+>   `modules/firmy-pole.js` — bez niego byłyby atrapami. Zaznaczanie i zapis działają bez skryptu.
+>   ⚠ Zdanie „Rola i firma idą w parze — w bazie to jeden wiersz" zniknęło: opisywało model
+>   bazy, a nie decyzję administratora.
+> - **Widoczność kalendarza: karta POGLĄDOWA** (nowa). Lista źródeł wglądu — ikona rodzaju celu,
+>   cel („Swoi podwładni", „Cała firma", „Grupy: …", nazwiska), pod nim **skąd** („z hierarchii ·
+>   reguła domyślna „Każdy przełożony" · 4 osoby", „reguła osobista · 53 osoby", „przez grupę …",
+>   „z uprawnień administratora · reguła domyślna „Administratorzy"") i plakietka zakresu jak
+>   na liście reguł. Pod listą zdanie o pierwszeństwie szerszego zakresu; przy braku źródeł
+>   „Widzi tylko siebie."; przy osobie bez konta „Widoczność dotyczy konta — ta osoba go jeszcze
+>   nie ma.". ⚠ **Liczy to ta sama funkcja, która egzekwuje dostęp** — panel pokazujący coś
+>   innego niż kalendarz byłby gorszy niż panel milczący. ⚠ Bez form osobowych („jako przełożona"):
+>   rodzaju gramatycznego osoby nie znamy i nie zgadujemy go z imienia — nazwa reguły mówi to samo.
+>   Stary odnośnik „Uprawnienia › Widoczność kalendarza" zniknął, bo zastępuje go ta karta.
+> - **Konto: lista akcji w ramce**, wiersz = ikona 32 px, tytuł, opis i przycisk po prawej.
+>   ⚠ **Wszystkie przyciski akcji równej szerokości** (96 px, na telefonie 84 px, napis
+>   wyśrodkowany): kolumna przycisków o szerokości napisu czytała się jak cztery różne rodzaje
+>   czynności. ⚠ **Akcje bez sensu dla stanu są NIEWIDOCZNE, nie wyłączone** — odwrotnie niż
+>   dotąd: „Zakończ sesje" przy osobie bez konta nie jest drogą czasowo niedostępną, tylko
+>   czynnością, która w tym stanie nie istnieje. Wyłączony przycisk zostaje tam, gdzie droga
+>   ISTNIEJE i będzie wolna (ponowienie zaproszenia, blokada ostatniego administratora).
+> - **Stopka: tylko „Zapisz zmiany"**, nieaktywne dopóki nic się nie zmieni. „Zamknij" zniknęło —
+>   panel zamyka × w nagłówku, tak jak wszystkie okna; drugi przycisk zamykający był trzecim
+>   wyjściem z tego samego panelu.
+> - **Telefon**: karty i siatki schodzą do jednej kolumny, przyciski zostają równe (84 px).
+>   Zmierzone przy 375 px: pięć kart, zero przewijania w bok na stronie i w każdej karcie.
+> - ⚠ **Dopisek do U6 z Z57** (polecenie zarządcy): na `/admin/integracja` nazwę WYŚWIETLANĄ
+>   firmy pokazują teraz także nagłówek zatrzymanego strumienia, podpowiedź plakietki zakresu
+>   klucza i okno zakresu — NIP obok zostaje jako tożsamość z R2.
 
 > **Zmiana 1.18.36 → 1.18.37: osiem usterek z odbioru — okno reguły, dziennik, kafel 2FA,
 > stopka listy, odstęp ikon, wiadomość próbna** (zlecenie Z57, 20.10.2026).

@@ -143,21 +143,5 @@
         w kolumnie, której się szuka wzrokiem, nie różnicowało niczego — a administrator czyta tę
         kolumnę właśnie po to, żeby zobaczyć, kto ma działające konto. Reszta ekranów zostaje
         przy regule „zieleń to działanie, nie stan". -#}
-    <td>
-        {% if o.account_status == 'do_odblokowania' %}
-            <span class="chip chip--warn"><span class="chip__kropka"></span>do odblokowania</span>
-        {% elseif o.account_status == 'blocked' %}
-            <span class="chip chip--danger"><span class="chip__kropka"></span>zablokowane</span>
-        {% elseif o.account_status == 'niezaproszone' %}
-            {#- ⚠ Stan `niezaproszone`: konto istnieje, żeby dostęp miał na czym stanąć, ale nie da
-                się nim zalogować ani odzyskać hasła. Zajmuje licencję jak każde inne (§4.3). -#}
-            <span class="chip"><span class="chip__kropka"></span>niezaproszone</span>
-        {% elseif o.account_status == 'invited' %}
-            <span class="chip chip--dzis"><span class="chip__kropka"></span>zaproszony</span>
-        {% elseif o.account_status == 'active' %}
-            <span class="chip chip--accent"><span class="chip__kropka"></span>aktywne</span>
-        {% else %}
-            <span class="chip"><span class="chip__kropka"></span>brak konta</span>
-        {% endif %}
-    </td>
+    <td>{{ include('partials/stan-konta.twig', {'status': o.account_status}, with_context = false) }}</td>
 </tr>

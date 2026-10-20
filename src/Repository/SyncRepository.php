@@ -188,10 +188,18 @@ final class SyncRepository
     public function streams(): array
     {
         $rows = $this->db->pdo()->query(
-            'SELECT c.id, c.name, c.nip, c.identity_fingerprint, c.identity_fingerprint_pending,
+            // ⚠ **Nazwa WYŚWIETLANA, NIP obok jako tożsamość z R2** (zlecenie Z57 U6, dopisek
+            // zarządcy do Z58). Nazwa prawna zostawała tu w trzech miejscach ekranu integracji:
+            // w nagłówku zatrzymanego strumienia, w podpowiedzi plakietki zakresu klucza
+            // i w oknie zakresu — a firmę człowiek zna pod nazwą, którą sam ustawił (Z29).
+            // Sortowanie idzie po tej samej nazwie, którą widać, bo inaczej lista wygląda
+            // na nieposortowaną.
+            'SELECT c.id, ' . NazwaSpolki::SQL . ' AS name, c.nip,
+                    c.identity_fingerprint, c.identity_fingerprint_pending,
                     s.review_required, s.last_review_at, s.connector,
                     (SELECT MAX(r.started_at) FROM sync_run r WHERE r.company_id = c.id) AS last_run_at
-             FROM company c LEFT JOIN sync_stream s ON s.company_id = c.id ORDER BY c.name'
+             FROM company c LEFT JOIN sync_stream s ON s.company_id = c.id
+             ORDER BY ' . NazwaSpolki::SQL . ', c.id'
         )->fetchAll();
 
         return array_map(static fn (array $r): array => [

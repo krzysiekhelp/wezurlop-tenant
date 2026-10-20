@@ -6218,3 +6218,257 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   .wid-podglad__dni { gap: var(--s-1); }
   .wid-podglad__dzien { padding: var(--s-1) 3px; }
 }
+
+/* ═══════════ Panel osoby — nowa zawartość (zlecenie Z58, 20.10.2026) ═══════════════════════
+   ⚠ Rodzina `op-*` („osoba panel") dokłada się do `drawer__*`, a NIE zastępuje go: na klasach
+   szuflady stoi zmierzony układ przewijania (nagłówek i stopka nieruchome, treść przewijana,
+   `min-height: 0` na każdym ogniwie). Drugi mechanizm znaczyłby drugie miejsce, w którym
+   ta sama rzecz może się zepsuć.
+   ⚠ Reguły stoją na KOŃCU arkusza, bo o pierwszeństwie decyduje kolejność w pliku
+   (§1 systemu wizualnego) — rodzina dopisana wcześniej przegrywałaby z `.card` i `.chip`. */
+
+/* ——— nagłówek panelu ———————————————————————————————————————————————————————— */
+.op-glowa { align-items: center; gap: var(--s-3); background: var(--c-surface); }
+/* Kółko 44 px — największy wariant inicjałów w aplikacji: to nagłówek, nie wiersz listy. */
+.inicjaly--op { --inicjaly-bok: 44px; font-size: 15px; }
+.op-glowa__kto { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
+.op-glowa__nazwa { font-size: var(--t-h2); font-weight: var(--w-semibold); color: var(--c-text); }
+.op-glowa__meta { display: flex; align-items: center; gap: var(--s-2); flex-wrap: wrap; }
+/* ⚠ Nazwa firmy z kadr jest DANĄ, a nie podpisem: kurczy się wielokropkiem, a plakietka stanu
+   konta zostaje w całości — stan konta jest tu drugą daną, nie ozdobą nazwy. */
+.op-glowa__firmy {
+  font-size: var(--t-small);
+  color: var(--c-text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* ——— treść: szare tło, karty na nim ————————————————————————————————————————— */
+.op-tresc { padding: var(--s-4); gap: var(--s-3); background: var(--c-bg); }
+.op-karta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: var(--s-4);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
+  background: var(--c-surface);
+}
+.op-karta__glowa { display: flex; align-items: flex-start; gap: var(--s-3); }
+/* Znak 32 px na tle akcentu — ta sama konstrukcja, co `card__znak`, tylko mniejsza. */
+.op-karta__znak {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius);
+  background: var(--c-accent-soft);
+  color: var(--c-accent-text);
+}
+.op-karta__znak .ico { width: 17px; height: 17px; }
+.op-karta__tytuly { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1 1 auto; }
+.op-karta__tytul { font-size: 15px; font-weight: var(--w-semibold); color: var(--c-text); }
+.op-karta__opis { font-size: var(--t-caption); color: var(--c-text-3); }
+/* „tylko do odczytu" z kłódką — dopisek nagłówka, nie plakietka stanu. */
+.op-karta__prawo {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  font-size: var(--t-caption);
+  color: var(--c-text-3);
+}
+.op-karta__prawo .ico { width: 14px; height: 14px; }
+.op-karta__notka { font-size: var(--t-caption); color: var(--c-text-3); }
+
+/* ——— karta 1: dane z kadr ——————————————————————————————————————————————————— */
+/* ⚠ Blok na każdą firmę, rozdzielone kreską: osoba z dwoma etatami ma dwa wymiary, dwie daty
+   i dwa limity — jedna wspólna siatka zlewała je w listę ośmiu wartości bez przypisania. */
+.op-etat + .op-etat { padding-top: var(--s-3); border-top: 1px solid var(--c-line-soft); }
+.op-etat--zakonczony { color: var(--c-text-3); }
+.op-pary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-3); }
+.op-para { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.op-para__nazwa { font-size: var(--t-caption); color: var(--c-text-3); }
+.op-para__wartosc { font-size: var(--t-body); color: var(--c-text); }
+.op-para__druga { display: block; font-size: var(--t-caption); color: var(--c-text-3); }
+
+/* ——— karta 2: dane konta ———————————————————————————————————————————————————— */
+.op-dwa-pola { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-3); }
+
+/* ——— karta 3: rola administratora (gdy nie ma czego wybierać) ————————————————— */
+.op-rola {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius);
+  background: var(--c-surface-mute);
+  font-size: var(--t-body);
+  color: var(--c-text);
+}
+.op-rola .ico { width: 16px; height: 16px; color: var(--c-text-3); }
+
+/* ——— karta 4: źródła wglądu ——————————————————————————————————————————————— */
+.op-zrodla {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+.op-zrodlo { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-2) var(--s-3); }
+.op-zrodlo + .op-zrodlo { border-top: 1px solid var(--c-line-soft); }
+.op-zrodlo__znak { display: flex; flex: none; color: var(--c-text-3); }
+.op-zrodlo__znak .ico { width: 16px; height: 16px; }
+.op-zrodlo__tresc { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1 1 auto; }
+.op-zrodlo__cel {
+  font-size: var(--t-body);
+  font-weight: var(--w-medium);
+  color: var(--c-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.op-zrodlo__skad { font-size: var(--t-caption); color: var(--c-text-3); }
+
+/* ——— karta 5: akcje konta ————————————————————————————————————————————————— */
+.op-akcje {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+.op-akcja { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-2) var(--s-3); }
+.op-akcja + .op-akcja { border-top: 1px solid var(--c-line-soft); }
+.op-akcja__znak { display: flex; flex: none; color: var(--c-text-3); }
+.op-akcja__znak .ico { width: 16px; height: 16px; }
+.op-akcja__tresc { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1 1 auto; }
+.op-akcja__tytul { font-size: var(--t-body); font-weight: var(--w-medium); color: var(--c-text); }
+.op-akcja__opis { font-size: var(--t-caption); color: var(--c-text-3); }
+/* ⚠ **Wszystkie przyciski akcji równej szerokości** (§5 zlecenia): kolumna przycisków
+   o szerokości napisu („Zakończ", „Resetuj", „Pokaż ›", „Zablokuj") czytała się jak cztery
+   różne rodzaje czynności. Napis wyśrodkowany, bo przycisk jest szerszy od niego. */
+.op-akcja__btn { flex: none; width: 96px; justify-content: center; }
+/* Blokada bierze barwę ostrzeżenia NA NAPISIE, nie na całym przycisku: to jedna z pięciu
+   czynności w tej samej kolumnie, a nie główne działanie karty. */
+.op-akcja__btn--niebezpieczna { color: var(--c-danger-text); }
+
+/* ——— stopka panelu ———————————————————————————————————————————————————————— */
+/* Jedno działanie, więc stopka nie ma czego rozkładać — przycisk zostaje po prawej. */
+.op-stopka { background: var(--c-surface); }
+
+/* ——— pole wyboru firm (`partials/pole-firm.twig`) ————————————————————————————— */
+/* ⚠ `<details>` zamiast warstwy: rozwinięcie przesuwa resztę karty w dół i nie ma prawa wyjść
+   poza panel — a to robi natywnie, bez JavaScriptu. */
+.pf__pole { border: 1px solid var(--c-line-strong); border-radius: var(--radius); background: var(--c-surface); }
+.pf__pole[open] { border-color: var(--c-accent); }
+.pf__zamkniete {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-height: 42px;
+  padding: 0 var(--s-3);
+  cursor: pointer;
+  /* ⚠ Własny znacznik zamiast domyślnego trójkąta `<summary>`: trójkąt przeglądarki stoi po
+     lewej i nie da się go ustawić po prawej, a strzałka po prawej jest wzorcem każdej innej
+     kontrolki w tej aplikacji. */
+  list-style: none;
+}
+.pf__zamkniete::-webkit-details-marker { display: none; }
+.pf__znak { display: flex; flex: none; color: var(--c-text-3); }
+.pf__znak .ico { width: 16px; height: 16px; }
+.pf__nazwy {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--t-body);
+  color: var(--c-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Brak dostępu jest STANEM, nie wartością — stąd barwa treści trzeciorzędnej. */
+.pf__nazwy--brak { color: var(--c-text-3); }
+.pf__licznik { flex: none; font-size: var(--t-caption); color: var(--c-text-3); }
+.pf__strzalka { display: flex; flex: none; color: var(--c-text-4); }
+.pf__strzalka .ico { width: 16px; height: 16px; }
+.pf__pole[open] .pf__strzalka { transform: rotate(180deg); }
+.pf__otwarte { display: flex; flex-direction: column; border-top: 1px solid var(--c-line); }
+.pf__szukanie {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-3);
+  border-bottom: 1px solid var(--c-line-soft);
+  color: var(--c-text-3);
+}
+.pf__szukanie .ico { width: 15px; height: 15px; flex: none; }
+.pf__szukanie-pole { flex: 1 1 auto; min-width: 0; border: 0; background: none; font: inherit; color: var(--c-text); }
+.pf__szukanie-pole:focus { outline: none; }
+/* ⚠ 220 px i przewijanie: lista firm bywa krótka, ale nie zawsze — bez ograniczenia rozwinięcie
+   wypychałoby stopkę panelu poza ekran, czyli dokładnie to, przed czym `<details>` tu chroni. */
+.pf__lista { max-height: 220px; overflow-y: auto; }
+.pf__poz { display: flex; align-items: center; gap: var(--s-2); padding: var(--s-2) var(--s-3); cursor: pointer; }
+.pf__poz + .pf__poz { border-top: 1px solid var(--c-line-soft); }
+@media (hover: hover) { .pf__poz:hover { background: var(--c-surface-hover); } }
+.pf__poz input { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); }
+/* Okrągły znacznik jak w oknie widoczności — zaznaczenie rozstrzyga `:has(:checked)`, czyli
+   stan POLA, a nie klasa z serwera. */
+.pf__ptak {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--c-line-strong);
+  border-radius: 50%;
+  background: var(--c-surface);
+  color: transparent;
+}
+.pf__ptak .ico { width: 12px; height: 12px; }
+.pf__poz:has(:checked) .pf__ptak { border-color: var(--c-accent); background: var(--c-accent); color: var(--c-surface); }
+.pf__nazwa { flex: 1 1 auto; min-width: 0; font-size: var(--t-body); color: var(--c-text); }
+.pf__tag { flex: none; font-size: var(--t-caption); color: var(--c-text-3); }
+.pf__poz--off { cursor: not-allowed; }
+.pf__poz--off .pf__nazwa, .pf__poz--off .pf__tag { color: var(--c-text-4); }
+.pf__poz--wszystkie { border-bottom: 1px solid var(--c-line); }
+.pf__pusto { padding: var(--s-3); font-size: var(--t-caption); color: var(--c-text-3); }
+.pf__stopka {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding: var(--s-2) var(--s-3);
+  border-top: 1px solid var(--c-line);
+  background: var(--c-surface-mute);
+}
+.pf__licencja { font-size: var(--t-caption); color: var(--c-text-3); }
+/* ⚠ Przekroczony limit licencji mówi to NAPISEM i barwą, a odmowę wystawia serwer
+   (`AccessService`) — tekst w stopce jest podpowiedzią przed kliknięciem, nie bramką. */
+.pf__licencja--ponad { color: var(--c-danger-text); font-weight: var(--w-medium); }
+
+/* ⚠ Bez `:has()`: zaznaczenie pokazujemy wtedy klasą dokładaną przez JavaScript — a gdy i jego
+   nie ma, zostaje natywne pole wyboru, bo nie ma czego ukrywać. */
+@supports not selector(:has(*)) {
+  .pf__poz input { position: static; width: auto; height: auto; margin: 0; clip-path: none; }
+  .pf__ptak { display: none; }
+}
+
+/* ——— telefon: karty i pola pod sobą ——————————————————————————————————————— */
+@media (max-width: 720px) {
+  /* ⚠ Panel na całą szerokość — szuflada 600 px na telefonie zostawiała 15 px tła, czyli
+     wyglądała na przyciętą, a nie na panel. */
+  .op-pary, .op-dwa-pola { grid-template-columns: minmax(0, 1fr); }
+  /* ⚠ Przyciski akcji zostają RÓWNE, tylko węższe: zawinięcie ich pod opis dałoby pięć wierszy
+     o różnej wysokości i kolumnę, której nie da się przejrzeć wzrokiem. Bez przewijania w bok,
+     bo szerokość liczy się od treści panelu. */
+  .op-akcja__btn { width: 84px; }
+}

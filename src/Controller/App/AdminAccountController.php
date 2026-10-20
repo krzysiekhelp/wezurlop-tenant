@@ -23,12 +23,15 @@ use Wezurlop\Service\AccountService;
 use Wezurlop\Service\AuthService;
 use Wezurlop\Service\DeviceService;
 use Wezurlop\Service\InvitationService;
+use Wezurlop\Service\CalendarVisibility;
+use Wezurlop\Service\ZakresWidocznosci;
 use Wezurlop\Service\KontekstSpolki;
 use Wezurlop\Service\TwoFactorService;
 use Wezurlop\Support\AdresKontaktowy;
 use Wezurlop\Support\Komunikat;
 use Wezurlop\Support\UrlGenerator;
 use Wezurlop\Support\ErrorHandler;
+use Wezurlop\Support\Odmiana;
 use Wezurlop\Support\View;
 
 /**
@@ -55,8 +58,22 @@ final class AdminAccountController
         private readonly KontekstSpolki $kontekstSpolki,
         private readonly ErrorHandler $errors,
         private readonly UrlGenerator $urls,
+        // ⚠ **Ta sama klasa, która rozstrzyga dostęp do kalendarzy** (zlecenie Z58, karta 4
+        // panelu). Panel pokazuje jej odpowiedź, a nie własny rachunek: panel mówiący coś
+        // innego niż kalendarz byłby gorszy niż panel milczący.
+        private readonly CalendarVisibility $widocznosc,
     ) {
     }
+
+    /**
+     * Komunikaty panelu osoby po udanym zapisie — **biała lista kluczy** (CLAUDE.md §11):
+     * do adresu trafia klucz, nigdy treść.
+     *
+     * @var array<string, string>
+     */
+    private const KOMUNIKATY_PANELU = [
+        'dostep' => 'Dostęp do firm zapisany. Rola pracownika obowiązuje w zaznaczonych firmach.',
+    ];
 
     /**
      * ⚠ Komunikat mówi **co zrobić**, nie tylko czego nie wolno. Powody z serwisu są krótkie
@@ -417,6 +434,9 @@ final class AdminAccountController
         if ($dane === null) {
             return $this->errors->errorPage(404, null, $request->isHtmx());
         }
+        // ⚠ Komunikat po zapisie bez JavaScriptu — tą samą drogą, co na pozostałych ekranach
+        // (`?ok=` z białej listy, nigdy tekst z adresu).
+        $dane['notice'] = self::KOMUNIKATY_PANELU[$request->queryString('ok', 16)] ?? null;
 
         // Fragment do szuflady, pełny ekran bez JavaScriptu — ta sama treść w obu przypadkach.
         // ⚠ `w_szufladzie` rozstrzyga, czy „Zamknij" ma co zamykać. Bez tego na ekranie
@@ -596,6 +616,33 @@ final class AdminAccountController
             ? null
             : $this->jobs->ostatnieZadanieDla(AccountMailService::JOB_INVITATION, $osoba['account_id']);
 
+        $zatrudnienia = $this->people->panelEmployments($personId, (int) date('Y'));
+        // ⚠ Reguły widoczności wiszą na ZATRUDNIENIU w konkretnej firmie (hierarchia i grupy
+        // też), więc panel pyta o etat z firmy w belce. Konto bez etatu w tej firmie dalej
+        // może mieć wgląd — z reguły osobistej albo z uprawnień administratora — i wtedy
+        // pytamy z `null`, dokładnie jak kalendarz.
+        // ⚠ **Firma z BELKI, nie z zawężenia listy.** `scope()` zwraca `null` dla konta
+        // z rolą tenantową i znaczy wtedy „bez zawężenia" — czyli dla administratora tenanta
+        // nie ma żadnej firmy, a karta widoczności musi dotyczyć konkretnej: reguły wiszą
+        // na firmie. Bierzemy tę samą, którą pokazuje znacznik w belce, i z tego samego
+        // źródła (`KontekstSpolki::dlaEkranu()`), z którego bierze ją ekran widoczności.
+        $zBelki = $this->kontekstSpolki->dlaEkranu($admin->accountId(), $admin->activeEmployment(), null);
+        $spolkaWidocznosci = $zBelki['spolka'] === null ? null : (int) $zBelki['spolka']['id'];
+        $etatWidocznosci = null;
+        foreach ($zatrudnienia as $z) {
+            if ($z['company_id'] === $spolkaWidocznosci && $z['aktywne']) {
+                $etatWidocznosci = $z['id'];
+                break;
+            }
+        }
+        $widocznosc = [
+            'spolka' => $zBelki['spolka'] === null ? '' : (string) $zBelki['spolka']['nazwa'],
+            'adres'  => $this->urls->to('/admin/widocznosc'),
+            'zrodla' => $osoba['account_id'] === null || $spolkaWidocznosci === null
+                ? []
+                : $this->widocznosc->zrodlaWidza($osoba['account_id'], $spolkaWidocznosci, $etatWidocznosci),
+        ];
+
         return [
             'o'          => $osoba,
             'wiersz'     => $row,
@@ -607,14 +654,27 @@ final class AdminAccountController
             // Stan „kiedy to wyjdzie" z faktycznej częstotliwości crona, nie wpisany w tekst.
             'termin' => $this->termin->stan(),
             'odmowa_blokady' => $odmowaBlokady === null ? null : (self::KOMUNIKATY_ODMOW[$odmowaBlokady] ?? $odmowaBlokady),
-            'zatrudnienia' => $this->people->panelEmployments($personId, (int) date('Y')),
-            'dostepy'    => $this->people->accessRows($personId),
-            // ⚠ **Kontrolka „Podgląd kalendarzy" ZNIKŁA stąd 19.10.2026** (zlecenie Z53 §3).
-            // Stał tu trójstanowy przełącznik poziomu per para (konto, firma) — i był drugim
-            // miejscem rozdającym wgląd w nieobecności, obok hierarchii. Od Z53 rozdaje go
-            // jeden ekran (`/admin/widocznosc`), bo „kto widzi kogo" jest **relacją**, a panel
-            // jednej osoby pokazuje połowę każdej relacji.
-            'adres_widocznosci' => $this->urls->to('/admin/widocznosc'),
+            'zatrudnienia' => $zatrudnienia,
+            // ⚠ Lista par „rola + firma" (`accessRows()`) **zniknęła z panelu w Z58**: karta
+            // „Dostęp do firm" pokazuje teraz POLE WYBORU, czyli ten sam zbiór w postaci, którą
+            // da się zmienić. Dwie reprezentacje tego samego (plakietki + kontrolka) znaczyły
+            // dwa miejsca do rozjechania się — a zdanie „Rola i firma idą w parze, w bazie to
+            // jeden wiersz" opisywało model bazy, nie decyzję administratora.
+            // ⚠ **Pole wyboru firm renderuje się RAZEM z panelem** (zlecenie Z58 §3): lista
+            // rozwija się w miejscu, pod polem, więc nie ma czego dociągać po kliknięciu —
+            // a dociąganie znaczyłoby, że bez JavaScriptu nie da się jej w ogóle otworzyć.
+            'firmy'      => $this->people->companiesForAccess($personId),
+            'licencja'   => $this->access->licenceUsage(),
+            // Karta „Widoczność kalendarza" — tylko podgląd, z funkcji egzekwującej dostęp.
+            'widocznosc' => $widocznosc,
+            // ⚠ **Kontrolka „Podgląd kalendarzy" ZNIKŁA stąd 19.10.2026** (zlecenie Z53 §3), bo
+            // „kto widzi kogo" jest **relacją**, a panel jednej osoby pokazuje połowę każdej
+            // relacji. Od Z58 stoi tu karta POGLĄDOWA (`widocznosc` wyżej): mówi, skąd ta osoba
+            // ma wgląd, i prowadzi na ekran, który o tym rozstrzyga.
+            'nazwy_zakresow' => ZakresWidocznosci::nazwy(),
+            // Formy słowa „inna/inne/innych" dla napisu w polu wyboru firm — słownik odmian
+            // zostaje w `Support\Odmiana`, w przeglądarce zostaje sam wybór formy po liczbie.
+            'formy_innych' => implode('|', [Odmiana::inne(1), Odmiana::inne(2), Odmiana::inne(5)]),
             'rok'        => (int) date('Y'),
             'current_id' => $admin->accountId(),
             'notice'     => null,
@@ -737,6 +797,28 @@ final class AdminAccountController
         $odmowy = [];
         foreach ($wynik['odmowy'] as $powod) {
             $odmowy[$powod] = self::KODY_ODMOW[$powod] ?? 'odmowa';
+        }
+
+        // ⚠ **Skąd przyszedł zapis, mówi POLE ŻĄDANIA, nie nagłówek i nie zgadywanie** (zlecenie
+        // Z58 §3). Ta sama trasa obsługuje dwie kontrolki: pole firm w panelu osoby i kontrolkę
+        // w wierszu listy — i każda potrzebuje w odpowiedzi czegoś innego (panelu albo wiersza).
+        // Bez tego panel dostawał w odpowiedzi wiersz tabeli i wstawiał go sobie w środek.
+        if ($request->post('panel') !== null) {
+            if (!$request->isHtmx()) {
+                // Bez JavaScriptu: zwykły POST/Redirect/GET na pełny ekran panelu (CLAUDE.md §3).
+                return Response::redirectFor($request,
+                    $this->urls->to('/admin/konta/osoba/' . $personId) . '?ok=dostep');
+            }
+            $dane = $this->panelData($personId, $companyId, $admin);
+            if ($dane === null) {
+                return $this->errors->errorPage(404, null, true);
+            }
+            $dane['notice'] = self::KOMUNIKATY_PANELU['dostep'];
+            $odp = $this->view->render('fragments/person-panel.twig', $dane + ['w_szufladzie' => true]);
+
+            return $odmowy === []
+                ? $odp
+                : $odp->withHeader('X-Wezurlop-Odmowa', implode(',', array_values($odmowy)));
         }
 
         $odp = $this->rowFragment($personId, $companyId, $admin);

@@ -358,13 +358,17 @@ final class PersonRepository
      * Limit jest w MINUTACH (`leave_balance.entitlement_min`) i tak zostaje — na dni przelicza
      * warstwa widoku, bo długość dnia pracy bierze się z etatu, nie z bazy.
      *
-     * @return list<array{company: string, nip: string, fte_numerator: int, fte_denominator: int,
-     *     hired_at: ?string, terminated_at: ?string, aktywne: bool, limit_min: ?int, limit_rok: int}>
+     * @return list<array{id: int, company_id: int, company: string, nip: string,
+     *     fte_numerator: int, fte_denominator: int, hired_at: ?string, terminated_at: ?string,
+     *     aktywne: bool, limit_min: ?int, limit_rok: int}>
      */
     public function panelEmployments(int $personId, int $rok): array
     {
         $stmt = $this->db->pdo()->prepare(
-            'SELECT ' . NazwaSpolki::SQL . ' AS company, c.nip,
+            // ⚠ `e.id` i `e.company_id` są tu po to, żeby panel mógł zapytać o widoczność
+            // kalendarza DLA TEGO ETATU w firmie z belki (zlecenie Z58, karta 4) — reguły
+            // wiszą na zatrudnieniu, nie na osobie.
+            'SELECT e.id, e.company_id, ' . NazwaSpolki::SQL . ' AS company, c.nip,
                     e.fte_numerator, e.fte_denominator, e.hired_at, e.terminated_at, e.is_active,
                     (SELECT SUM(lb.entitlement_min) FROM leave_balance lb
                       WHERE lb.employment_id = e.id AND lb.year = :rok AND lb.kind = :kind) AS limit_min
@@ -377,6 +381,8 @@ final class PersonRepository
         $stmt->execute(['person' => $personId, 'rok' => $rok, 'kind' => 'wypoczynkowy']);
 
         return array_map(static fn (array $r): array => [
+            'id'              => (int) $r['id'],
+            'company_id'      => (int) $r['company_id'],
             'company'         => (string) $r['company'],
             'nip'             => (string) $r['nip'],
             'fte_numerator'   => (int) $r['fte_numerator'],

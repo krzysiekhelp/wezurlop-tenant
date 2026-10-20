@@ -1,0 +1,104 @@
+{#- **Pole wyboru firm z dostępem** — zamknięte wygląda jak kontrolka, otwarte rozwija listę
+    W MIEJSCU (zlecenie Z58 §3).
+
+    ⚠ **`<details>`, a nie nakładka sterowana skryptem.** Rozwinięcie w miejscu ma przesuwać
+    resztę karty w dół i nie ma prawa wyjść poza panel — a `<details>` robi dokładnie to
+    **bez jednej linii JavaScriptu**. Dawna kontrolka była warstwą `.dropdown` pozycjonowaną
+    skryptem nad tabelą: w panelu szerokim na 600 px nie miała gdzie się zmieścić, a bez
+    skryptu nie otwierała się wcale.
+
+    ⚠ **Wyszukiwarka i „Zaznacz wszystkie" są UKRYTE w HTML i odsłania je JavaScript**
+    (`modules/firmy-pole.js`) — bo bez niego nie mają co robić. Przycisk, który nic nie robi,
+    uczy, że przyciski nic nie robią; pole szukania, które nie szuka, jest atrapą. Sama lista,
+    zaznaczanie i zapis działają bez skryptu.
+
+    ⚠ **`disabled` przy firmie bez etatu to podpowiedź, nie zabezpieczenie**: każdą firmę
+    sprawdza od nowa `AccessService` i odrzuca dostęp bez etatu oraz ponad limit licencji
+    (CLAUDE.md §10).
+
+    ⚠ **Zapis jest JAWNY, jednym żądaniem** — tak jak dotąd. Zapisywanie po kliknięciu pola
+    wyboru dałoby cztery zapisy, cztery wpisy w dzienniku i cztery sprawdzenia limitu licencji
+    przy zmianie czterech firm.
+
+    Zmienne: `o`, `firmy`, `licencja`. -#}
+{% import 'partials/ikony.twig' as ikony %}
+{% set wybrane = firmy|filter(s => s.ma_dostep) %}
+{% set nazwy = wybrane|map(s => s.name)|slice(0, 2)|join(', ') %}
+<form class="pf" method="post"
+      action="{{ url('/admin/konta/osoba/' ~ o.person_id ~ '/dostep') }}"
+      hx-post="{{ url('/admin/konta/osoba/' ~ o.person_id ~ '/dostep') }}"
+      hx-target="#osoba-tresc" hx-swap="innerHTML"
+      data-licencja-uzyte="{{ licencja.uzyte }}"
+      data-licencja-limit="{{ licencja.limit ?? '' }}"
+      data-dostepy-teraz="{{ wybrane|length }}"
+      {#- ⚠ Formy słowa podaje SERWER (`Support\Odmiana`), bo napis zamkniętego pola przelicza
+          też przeglądarka po zmianie zaznaczenia. W JS zostaje sam wybór formy po liczbie —
+          słownik polskich odmian ma jedno miejsce (ta sama zasada, co w stopce listy z Z57 U4). -#}
+      data-formy-innych="{{ formy_innych }}"
+      data-firm-razem="{{ firmy|length }}">
+    {% include 'partials/csrf.twig' %}
+    {#- ⚠ **Znacznik „to z panelu"**: ta sama trasa obsługuje kontrolkę w wierszu listy i to pole.
+        Serwer odpowiada panelem albo wierszem — i rozstrzyga o tym POLE ŻĄDANIA, nie nagłówek
+        `HX-Request` (który nie jest zabezpieczeniem i nie mówi, skąd przyszło żądanie). -#}
+    <input type="hidden" name="panel" value="1">
+    <details class="pf__pole" data-pole-firm>
+        {#- ⚠ Podsumowanie niesie CAŁY stan: które firmy, ile z ilu. Strzałka obraca się samym
+            CSS-em (`[open]`), bez skryptu. -#}
+        <summary class="pf__zamkniete">
+            <span class="pf__znak">{{ ikony.firma() }}</span>
+            <span class="pf__nazwy{{ wybrane|length == 0 ? ' pf__nazwy--brak' : '' }}">
+                {%- if wybrane|length == 0 %}brak dostępu
+                {%- elseif wybrane|length == firmy|length %}Wszystkie firmy
+                {%- elseif wybrane|length > 2 %}{{ nazwy }} i {{ wybrane|length - 2 }} {{ odmiana_innych(wybrane|length - 2) }}
+                {%- else %}{{ nazwy }}{% endif -%}
+            </span>
+            <span class="pf__licznik">{{ wybrane|length }} z {{ firmy|length }}</span>
+            <span class="pf__strzalka" aria-hidden="true">{{ ikony.strzalka_w_dol() }}</span>
+        </summary>
+
+        <div class="pf__otwarte">
+            {#- Pole szukania: ukryte bez JavaScriptu (patrz nagłówek pliku). -#}
+            <label class="pf__szukanie" hidden data-pole-firm-szukanie>
+                <span class="visually-hidden">Szukaj firmy</span>
+                {{ ikony.lupa() }}
+                <input class="pf__szukanie-pole" type="search" autocomplete="off" placeholder="szukaj firmy…">
+            </label>
+            <div class="pf__lista">
+                {#- ⚠ „Zaznacz wszystkie" obejmuje firmy ISTNIEJĄCE DZIŚ i nie udaje niczego więcej:
+                    przypisanie na cały tenant (`company_id = 0`) z rolą pracownika nie daje
+                    niczego (ustalenie z Z55), więc dopisku „także przyszłe" tu nie ma. -#}
+                <label class="pf__poz pf__poz--wszystkie" hidden data-pole-firm-wszystkie>
+                    <input type="checkbox">
+                    <span class="pf__ptak">{{ ikony.ptaszek() }}</span>
+                    <span class="pf__nazwa">Zaznacz wszystkie</span>
+                </label>
+                {% for s in firmy %}
+                    <label class="pf__poz{{ s.ma_etat ? '' : ' pf__poz--off' }}"
+                           data-pole-firm-poz data-nazwa="{{ s.name|lower }}"
+                           {%- if not s.ma_etat %} title="Osoba nie ma etatu w tej firmie"{% endif %}>
+                        <input type="checkbox" name="spolki[]" value="{{ s.company_id }}"
+                               {{ s.ma_dostep ? 'checked' : '' }}{{ s.ma_etat ? '' : ' disabled' }}>
+                        <span class="pf__ptak">{{ ikony.ptaszek() }}</span>
+                        <span class="pf__nazwa">{{ s.name }}</span>
+                        <span class="pf__tag">{{ s.ma_etat ? 'zatrudniona' : 'bez etatu' }}</span>
+                    </label>
+                {% else %}
+                    <p class="empty-state">Tenant nie ma jeszcze żadnej aktywnej firmy.</p>
+                {% endfor %}
+                <p class="pf__pusto" hidden data-pole-firm-pusto>Żadna firma nie pasuje do szukanego tekstu.</p>
+            </div>
+            <div class="pf__stopka">
+                {#- Skutek licencyjny PRZED zapisem; stan wyjściowy renderuje serwer, żeby bez
+                    JavaScriptu też stała tu prawdziwa informacja. -#}
+                <span class="pf__licencja" data-licencja-tekst>
+                    {% if licencja.limit is null %}
+                        Zajęte dostępy: {{ licencja.uzyte }} (licencja bez limitu).
+                    {% else %}
+                        Zajęte dostępy: {{ licencja.uzyte }} z {{ licencja.limit }}.
+                    {% endif %}
+                </span>
+                <button type="submit" class="btn btn--primary btn--sm">Zapisz dostęp</button>
+            </div>
+        </div>
+    </details>
+</form>

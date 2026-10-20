@@ -2,6 +2,10 @@
 
 {% block nazwa_ekranu %}Osoby i konta{% endblock %}
 
+{#- ⚠ Pole wyboru firm w panelu osoby potrzebuje `modules/firmy-pole.js` (szukanie, „Zaznacz
+    wszystkie", przeliczanie napisu). Bez niego pole dalej działa — rozwija je `<details>`. -#}
+{% set konta_js = true %}
+
 {#- ⚠ Ekran jest listą OSÓB z kolumną „konto", nie listą kont: konto bywa go brak i to jest
     normalny stan, a nie usterka. Zawężenie idzie przez `employment` (PersonRepository), bo przy
     dawnym zawężeniu przez `role_assignment` osoba zatrudniona w firmie X, której konto nie ma tam

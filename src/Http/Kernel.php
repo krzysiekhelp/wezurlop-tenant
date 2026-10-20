@@ -562,6 +562,9 @@ final class Kernel
                 'odmiana_osob' => Odmiana::osoby(...),
                 'odmiana_osob_d' => Odmiana::osobyDopelniacz(...),
                 'odmiana_nieobecnosci' => Odmiana::nieobecnosci(...),
+                // ⚠ „i 2 inne", „i 7 innych" — forma idzie za rodzajem żeńskim rzeczownika
+                // domyślnego (osoba/firma), a sam rzeczownik stoi w zdaniu wyżej (Z58, pole firm).
+                'odmiana_innych' => Odmiana::inne(...),
                 // ⚠ „23 dni robocze", nie „23 dni roboczych" — trzecia forma polskiego
                 // liczebnika. Lista wpisów w Miesiącu podaje dni bez nagłówka kolumny,
                 // więc słowo musi być odmienione w zdaniu.

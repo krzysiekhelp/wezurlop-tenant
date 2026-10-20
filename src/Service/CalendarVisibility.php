@@ -7,6 +7,7 @@ namespace Wezurlop\Service;
 use Wezurlop\Repository\CalendarAccessRepository;
 use Wezurlop\Repository\PermissionRepository;
 use Wezurlop\Repository\PracownikRepository;
+use Wezurlop\Support\Odmiana;
 
 /**
  * **Jedna funkcja rozstrzyga, co widz widzi u oglądanej osoby** — dla TRÓJKI
@@ -169,6 +170,144 @@ final class CalendarVisibility
     }
 
     /**
+     * **Skąd ta osoba ma wgląd w kalendarze tej firmy** — lista źródeł, gotowa do wyświetlenia
+     * (zlecenie Z58, karta „Widoczność kalendarza" w panelu osoby).
+     *
+     * ⚠ **Liczy to TA SAMA funkcja, która egzekwuje dostęp** (`regulyZDomyslna()` plus
+     * `obejmujeWidza()`), a nie druga, podobna. Panel pokazujący coś innego niż kalendarz
+     * byłby gorszy niż panel milczący: administrator odbierałby dostęp, którego tam nie ma,
+     * i zostawiał ten, którego nie widzi.
+     *
+     * ⚠ Panel jest **tylko do odczytu** — zmiana idzie jednym ekranem `/admin/widocznosc`,
+     * bo „kto widzi kogo" jest relacją, a panel jednej osoby pokazuje połowę każdej relacji
+     * (ta sama decyzja, co przy usunięciu przełącznika w Z53 §3).
+     *
+     * ⚠ Reguła celująca w „podwładnych" NIE jest tu pomijana, w odróżnieniu od `zasiegZRegul()`:
+     * tam chodziło o to, KOGO widać (gałąź jest już w zasięgu z hierarchii), a tu o to, SKĄD
+     * wgląd się bierze — i „z hierarchii" jest odpowiedzią, której administrator szuka najczęściej.
+     *
+     * @return list<array{rodzaj: string, ikona: string, cel: string, skad: string, zakres: string, osob: int}>
+     */
+    public function zrodlaWidza(int $accountId, int $companyId, ?int $widzEmploymentId): array
+    {
+        $jestAdminem = $this->jestAdminem($accountId, $companyId);
+        // ⚠ **Przełożonym jest ten, kto ma dziś gałąź** — i tu flaga MUSI być policzona, choć
+        // w `zasiegZRegul()` stoi na sztywno `true`. Tam cel „podwładni" i tak jest pomijany
+        // (gałąź wchodzi do zasięgu z hierarchii), więc flaga nie ma na co zaważyć; tutaj
+        // rozstrzyga o całym wierszu. Bez tego panel KAŻDEJ osoby pokazywał „Swoi podwładni ·
+        // 0 osób" jako źródło wglądu — czyli wgląd, którego nie ma (zmierzone na żywo).
+        $galaz = $widzEmploymentId === null
+            ? 0
+            : ($this->zasieg->podwladnych($companyId, [$widzEmploymentId])[$widzEmploymentId] ?? 0);
+        $reguly = [];
+        foreach ($this->regulyZDomyslna($companyId, $accountId, $widzEmploymentId) as $r) {
+            if (ZakresWidocznosci::obejmujeWidza($r, $galaz > 0, $jestAdminem)) {
+                $reguly[] = $r;
+            }
+        }
+        if ($reguly === []) {
+            return [];
+        }
+        // Nazwy i liczby jednym odczytem na komplet, nie jednym na wiersz.
+        $grupy = $osoby = [];
+        foreach ($reguly as $r) {
+            if ($r['target_kind'] === ZakresWidocznosci::CZYJE_GRUPY) {
+                $grupy = array_merge($grupy, $r['grupy']);
+            }
+            if ($r['target_kind'] === ZakresWidocznosci::CZYJE_OSOBY) {
+                $osoby = array_merge($osoby, $r['grupy']);
+            }
+            if (($r['subject_kind'] ?? '') === ZakresWidocznosci::KTO_GRUPA) {
+                $grupy[] = (int) ($r['subject_group_id'] ?? 0);
+            }
+        }
+        $nazwyGrup = $this->reguly->nazwyGrupPoId($companyId, array_values(array_unique(array_filter($grupy))));
+        $nazwyOsob = $this->reguly->osobyRegul($companyId, array_values(array_unique($osoby)));
+        $wFirmie = count($this->pracownicy->zatrudnieniaSpolki($companyId));
+
+        $wynik = [];
+        foreach ($reguly as $r) {
+            $wynik[] = $this->zrodlo($r, $companyId, $nazwyGrup, $nazwyOsob, $galaz, $wFirmie);
+        }
+
+        return $wynik;
+    }
+
+    /**
+     * Jedno źródło dostępu jako wiersz do wyświetlenia.
+     *
+     * @param array<string, mixed> $r
+     * @param array<int, string> $nazwyGrup
+     * @param array<int, array{nazwa: string, czynne: bool}> $nazwyOsob
+     * @return array{rodzaj: string, ikona: string, cel: string, skad: string, zakres: string, osob: int}
+     */
+    private function zrodlo(array $r, int $companyId, array $nazwyGrup, array $nazwyOsob, int $galaz, int $wFirmie): array
+    {
+        $cel = (string) $r['target_kind'];
+        $kto = (string) ($r['subject_kind'] ?? '');
+        // ⚠ Liczba osób liczy się per rodzaj celu, bo każdy rodzaj liczy się inaczej —
+        // i zawsze z tego samego źródła, z którego liczy ją kalendarz.
+        $osob = match ($cel) {
+            ZakresWidocznosci::CZYJE_FIRMA => $wFirmie,
+            ZakresWidocznosci::CZYJE_PODWLADNI => $galaz,
+            ZakresWidocznosci::CZYJE_GRUPY => count($this->reguly->zatrudnieniaGrup($companyId, $r['grupy'])),
+            default => count($this->reguly->czynneZatrudnienia($companyId, $r['grupy'])),
+        };
+        $nazwy = [];
+        foreach ($r['grupy'] as $id) {
+            $nazwy[] = $cel === ZakresWidocznosci::CZYJE_GRUPY
+                ? ($nazwyGrup[(int) $id] ?? '— (usunięta)')
+                : ($nazwyOsob[(int) $id]['nazwa'] ?? '— (usunięta)');
+        }
+
+        return [
+            'rodzaj' => $cel,
+            'ikona'  => match ($cel) {
+                ZakresWidocznosci::CZYJE_PODWLADNI => 'drzewo',
+                ZakresWidocznosci::CZYJE_FIRMA => 'firma',
+                ZakresWidocznosci::CZYJE_GRUPY => 'etykieta',
+                default => 'konto',
+            },
+            'cel'    => match ($cel) {
+                ZakresWidocznosci::CZYJE_PODWLADNI => 'Swoi podwładni',
+                ZakresWidocznosci::CZYJE_FIRMA => 'Cała firma',
+                ZakresWidocznosci::CZYJE_GRUPY => 'Grupy: ' . self::wyliczenie($nazwy),
+                default => self::wyliczenie($nazwy),
+            },
+            // ⚠ Bez form osobowych („jako przełożona"): rodzaju gramatycznego osoby nie znamy
+            // i nie zamierzamy go zgadywać z imienia. Nazwa reguły mówi to samo i jest prawdą
+            // niezależnie od tego, kto nią jest objęty.
+            'skad'   => match ($kto) {
+                ZakresWidocznosci::KTO_PRZELOZENI => 'z hierarchii · reguła domyślna „Każdy przełożony"',
+                ZakresWidocznosci::KTO_ADMINI => 'z uprawnień administratora · reguła domyślna „Administratorzy"',
+                ZakresWidocznosci::KTO_PRZELOZONY => 'reguła dla tego przełożonego',
+                ZakresWidocznosci::KTO_GRUPA => 'przez grupę '
+                    . ($nazwyGrup[(int) ($r['subject_group_id'] ?? 0)] ?? '— (usunięta)'),
+                default => 'reguła osobista',
+            },
+            'zakres' => (string) $r['scope'],
+            'osob'   => $osob,
+        ];
+    }
+
+    /**
+     * Najwyżej trzy nazwy, potem „i N innych" — ta sama miara, co w zdaniach dziennika.
+     *
+     * @param list<string> $nazwy
+     */
+    private static function wyliczenie(array $nazwy): string
+    {
+        if ($nazwy === []) {
+            return 'wskazane osoby';
+        }
+        $widoczne = array_slice($nazwy, 0, 3);
+        $reszta = count($nazwy) - count($widoczne);
+
+        return implode(', ', $widoczne)
+            . ($reszta > 0 ? ' i ' . $reszta . ' ' . Odmiana::inne($reszta) : '');
+    }
+
+    /**
      * Czy to konto jest administratorem **w tej firmie** — uprawnienie z roli firmowej albo
      * tenantowej. ⚠ Jedno miejsce na tę odpowiedź: ekran liczy nią wiersz „Administratorzy",
      * a kalendarz rozstrzyga nią dostęp.
@@ -210,7 +349,13 @@ final class CalendarVisibility
         // ⚠ Flaga przełożonego jest tu `true` i nie ma jak zaważyć: reguła „Wszyscy przełożeni"
         // zawsze celuje w podwładnych, a ten cel pomijamy niżej z osobnego powodu.
         $jestAdminem = $this->jestAdminem($accountId, $companyId);
-        foreach ($this->reguly->regulyWidza($companyId, $accountId, $widzEmploymentId) as $r) {
+        // ⚠ **`regulyZDomyslna()`, nie `regulyWidza()`** (zlecenie Z58). Rozjazd zmierzony przy
+        // budowie karty „Widoczność kalendarza": `zakresy()` liczyło zakres z regułami stałymi
+        // DOMYŚLNYMI (brak wiersza = reguła nierozstrzygnięta), a te dwie funkcje tylko z wierszy
+        // w tabeli. Skutek: w firmie bez wiersza `admins_all` administrator miał zakres
+        // „ze szczegółami" do ludzi, których nie dostawał do zasięgu — czyli szczegół do nikogo.
+        // Firmy założone po Z55 nie mają tych wierszy wcale, bo zakłada je migracja.
+        foreach ($this->regulyZDomyslna($companyId, $accountId, $widzEmploymentId) as $r) {
             if (!ZakresWidocznosci::obejmujeWidza($r, true, $jestAdminem)) {
                 continue;
             }
@@ -257,7 +402,8 @@ final class CalendarVisibility
     public function widziCalaFirme(int $accountId, int $companyId, ?int $widzEmploymentId): bool
     {
         $jestAdminem = $this->jestAdminem($accountId, $companyId);
-        foreach ($this->reguly->regulyWidza($companyId, $accountId, $widzEmploymentId) as $r) {
+        // ⚠ Ta sama droga co w `zakresy()` i `zasiegZRegul()` — patrz komentarz wyżej.
+        foreach ($this->regulyZDomyslna($companyId, $accountId, $widzEmploymentId) as $r) {
             if ($r['target_kind'] === ZakresWidocznosci::CZYJE_FIRMA
                 && ZakresWidocznosci::obejmujeWidza($r, true, $jestAdminem)) {
                 return true;
