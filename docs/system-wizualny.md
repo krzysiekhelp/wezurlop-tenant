@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.42, 20.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.43, 20.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,34 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.42 → 1.18.43: wiersz zaproszenia w panelu osoby ma trzy stany**
+> (zlecenie Z64, zgłoszenie Krzysztofa z 20.10.2026).
+> - **Trzy stany jednego wiersza** („Konto" → „Wyślij zaproszenie"), bo trzy są różne sytuacje:
+>   bez adresu — przycisk **wyłączony** i zdanie „Najpierw wpisz adres e-mail w karcie Dane
+>   konta."; po wpisaniu poprawnego adresu — **„Zapisz i wyślij"** i zdanie „zapisze adres
+>   i wyśle zaproszenie"; adres zapisany i nic nie zmienione — zwykłe **„Wyślij"**.
+> - ⚠ **Wyłączony przycisk, nie ukryty** (§3.1): droga istnieje i będzie wolna, gdy adres się
+>   pojawi. Powód stoi w **widocznym zdaniu** obok, nie w `title` — `title` nie istnieje na
+>   telefonie i nie wchodzi na zrzut ekranu.
+> - **Szerokość przycisku jest stała**: zmierzone 96 px w każdym z trzech stanów, więc wiersz
+>   nie drga przy zmianie napisu.
+> - ⚠ **`disabled` ustawia wyłącznie skrypt.** Serwer renderuje przycisk CZYNNY, bo bez
+>   JavaScriptu to on rozstrzyga: zapisuje adres i wysyła zaproszenie albo odmawia komunikatem
+>   przy karcie „Dane konta". Wyłączony w szablonie zabrałby tę drogę przeglądarce bez skryptów.
+> - **Jeden przycisk w formularzu panelu**, nie drugi formularz obok — zaproszenie jedzie tym
+>   samym żądaniem, co „Zapisz zmiany" (reguła Z61 „jeden zapis w panelu" zostaje bez zmian:
+>   zapis jest jeden, korzystają z niego dwie czynności).
+> - **Komunikat po wysłaniu jest jeden w obu ścieżkach**: „Zapisane. Zaproszenie przyjęte
+>   do wysyłki." plus termin z faktycznej częstotliwości crona (zmierzone: „wyjdzie w ciągu
+>   około 5 minut") — ze skryptem w odpowiedzi zapisu, bez skryptu po przekierowaniu
+>   na `?ok=zaproszono`.
+> - ⚠ **Odmowa bez JavaScriptu jest EKRANEM, nie fragmentem** — `panelZBledem()` renderowało
+>   zawsze fragment panelu, więc żądanie bez htmx dostawało goły HTML bez powłoki i arkusza
+>   (zmierzone: 7,5 kB wobec 17,5 kB ekranu). Naprawione w tym samym zleceniu.
+> - **Pole wyboru przy osobie bez adresu na liście zostaje czynne**: wiersz ma pole adresu
+>   z podpowiedzią „dodaj adres e-mail", więc powód pominięcia jest widoczny na miejscu,
+>   a okno wyniku partii nazywa pominiętych i powód („brak adresu e-mail").
 
 > **Zmiana 1.18.41 → 1.18.42: temat zaproszenia zaczyna się od nazwy pracodawcy**
 > (zlecenie Z62, decyzja Krzysztofa z 20.10.2026).
