@@ -28,6 +28,11 @@ if (PHP_SAPI !== 'cli') {
 require dirname(__DIR__) . '/vendor/autoload.php';
 
 use Wezurlop\Db\Connection;
+use Wezurlop\Repository\AccountRepository;
+use Wezurlop\Repository\InvitationRepository;
+use Wezurlop\Repository\PasswordResetTokenRepository;
+use Wezurlop\Security\OneTimeToken;
+use Wezurlop\Service\AccountMailService;
 
 const NAZWISKO_BEZ = '__probka_zapro_bez';
 const NAZWISKO_Z = '__probka_zapro_z';
@@ -71,6 +76,11 @@ $sprzataj = static function () use ($pdo, $osoby): array {
             $z->execute(['typ' => 'mail.%', 'igla' => '%"account_id": ' . $konto . '%']);
             $ile['zadania'] += $z->rowCount();
             $z = $pdo->prepare('DELETE FROM invitation WHERE account_id = :k');
+            $z->execute(['k' => $konto]);
+            $ile['tokeny'] += $z->rowCount();
+            // ⚠ Token resetu też jest tokenem: zostawiony znaczyłby czynny link do konta,
+            // którego już nie ma (a przy wznowieniu numeracji — do cudzego).
+            $z = $pdo->prepare('DELETE FROM password_reset_token WHERE account_id = :k');
             $z->execute(['k' => $konto]);
             $ile['tokeny'] += $z->rowCount();
             $z = $pdo->prepare('DELETE FROM role_assignment WHERE account_id = :k');
@@ -127,6 +137,42 @@ $stan = static function () use ($pdo, $osoby): array {
 };
 
 $tryb = $argv[1] ?? 'utworz';
+
+if ($tryb === 'token') {
+    // ⚠ **Czynny link bez wysyłania poczty** (pomiar Z63 część C): ekrany `/zaproszenie`
+    // i `/haslo/nowe` wyglądają inaczej z czynnym tokenem niż bez niego — bez niego oddają 410
+    // i tego właśnie dotąd nie zmierzyliśmy. Token wydajemy TĄ SAMĄ drogą, co aplikacja
+    // (`OneTimeToken` + repozytorium), bo próbka, która liczy skrót własnym sposobem, mierzy
+    // siebie. Poczta nie wychodzi: zadania w kolejce nie zakładamy wcale.
+    $osoba = (int) ($argv[2] ?? 0);
+    if ($osoba === 0) {
+        fwrite(STDERR, "Użycie: probka-zaproszenia.php token <osoba>\n");
+        exit(1);
+    }
+    $konta = new AccountRepository($db);
+    $st = $pdo->prepare('SELECT id FROM account WHERE person_id = :p');
+    $st->execute(['p' => $osoba]);
+    $konto = (int) $st->fetchColumn();
+    if ($konto === 0) {
+        $st = $pdo->prepare('SELECT email_private FROM person WHERE id = :p');
+        $st->execute(['p' => $osoba]);
+        $konto = $konta->createInvited($osoba, (string) $st->fetchColumn());
+    }
+    $pdo->prepare("UPDATE account SET status = 'invited' WHERE id = :k")->execute(['k' => $konto]);
+    $zaproszenie = OneTimeToken::generate();
+    (new InvitationRepository($db))->create(
+        $konto, $zaproszenie['hash'], AccountMailService::INVITATION_VALID_MINUTES, null);
+    $reset = OneTimeToken::generate();
+    (new PasswordResetTokenRepository($db))->create(
+        $konto, $reset['hash'], AccountMailService::RESET_VALID_MINUTES, null);
+    echo json_encode([
+        'osoba' => $osoba,
+        'konto' => $konto,
+        'zaproszenie_token' => $zaproszenie['token'],
+        'reset_token' => $reset['token'],
+    ], JSON_UNESCAPED_UNICODE), "\n";
+    exit(0);
+}
 
 if ($tryb === 'sprzataj') {
     echo json_encode(['sprzatniete' => $sprzataj()], JSON_UNESCAPED_UNICODE), "\n";
