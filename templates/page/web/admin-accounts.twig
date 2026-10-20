@@ -308,7 +308,13 @@
                 </thead>
                 <tbody>
                 {% for o in osoby %}
-                    <tr class="osoba-wiersz">
+                    {#- ⚠ **Wiersz BEZ klasy `osoba-wiersz`** — i to jest poprawka usterki, nie
+                        porządki. `.osoba-wiersz` to pudełko WEWNĄTRZ komórki (kółko z inicjałami
+                        + nazwisko) i ma `display: flex`; postawione na `<tr>` zamieniało wiersz
+                        tabeli we flex, więc sześć komórek ściskało się do 375 px pod kolumną
+                        OSOBA, a nagłówki E-MAIL i ROLA stały nad pustką (zmierzone przez zarządcę
+                        przy 1920 px). Klasa układu komórki nie ma prawa stać na wierszu tabeli. -#}
+                    <tr>
                         <td class="cell--osoba" title="{{ o.name }}">
                             {#- ⚠ **Ten sam kształt komórki, co na liście pracowników**: kółko
                                 z inicjałami, nazwisko-odnośnik na panel osoby, plakietka „Ty".

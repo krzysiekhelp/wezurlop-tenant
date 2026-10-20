@@ -30,6 +30,17 @@ final class RuleChecker
         '/\?v=/'                          => 'wersja zasobu wpisana w szablonie — adres zasobu powstaje wyłącznie przez asset() (Support/AssetVersions)',
         // Adres zasobu z palca omija helper razem z wersją.
         '#["\'][^"\']*/assets/#'         => 'ścieżka do /assets/ wpisana w szablonie — użyj asset()',
+        // ⚠ **Klasa układu KOMÓRKI na `<tr>`** (poprawka Z59 z 20.10.2026). `.osoba-wiersz` to
+        // pudełko wewnątrz komórki (kółko z inicjałami + nazwisko) i ma `display: flex`;
+        // postawione na wierszu tabeli zamieniło `<tr>` we flex, więc sześć komórek ścisnęło się
+        // do szerokości jednej kolumny, a nagłówki E-MAIL i ROLA stały nad pustką (zmierzone
+        // przy 1920 px). ⚠ Usterki nie widać ani w kodzie, ani na telefonie — tam reguły blokowe
+        // i tak przestawiają wiersz — więc kryterium musi stać w bramce, nie w pamięci.
+        // ⚠ Reguła jest wąska i taka ma zostać: `<tr>` wolno nieść wyłącznie klasy `table__*`,
+        // bo tylko one opisują WIERSZ; każda inna rodzina opisuje pudełko w środku komórki.
+        '/<tr[^>]*\sclass="[^"]*(?<![\w-])(?!table__)[a-z][a-z0-9_-]*/i'
+            => 'klasa inna niż `table__*` na <tr> — klasa układu komórki postawiona na wierszu '
+                . 'tabeli zamienia go we flex/grid i ściska kolumny (poprawka Z59)',
     ];
 
     /**
