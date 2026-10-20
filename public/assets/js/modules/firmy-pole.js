@@ -16,8 +16,12 @@
    zostaje sam wybór formy po liczbie. Polska odmiana ma jedno miejsce, nie dwa.
 
    ⚠ Zero innerHTML: napisy przez `textContent`, stan przez klasy i właściwość `checked`
-   (CLAUDE.md §6). Skutek licencyjny liczy ten sam wzór, co kontrolka na liście — obie biorą
-   liczby wyjściowe z atrybutów `data-*`, żadna ich nie wymyśla. */
+   (CLAUDE.md §6). Liczby wyjściowe skutku licencyjnego przychodzą z atrybutów `data-*` —
+   ten plik ich nie wymyśla.
+
+   ⚠ Od Z61 pole NIE JEST formularzem: pola wyboru należą do formularza panelu przez atrybut
+   `form="osoba-dane"`, a zapisuje je „Zapisz zmiany" w stopce panelu, jednym żądaniem razem
+   z danymi konta. Dla tego pliku zmienia się tylko tyle, że korzeniem jest `<div class="pf">`. */
 (function () {
   'use strict';
 
@@ -150,8 +154,40 @@
     });
   }
 
+  /* ⚠ **Wejście „na kartę firm"** (zlecenie Z61 §2): kolumna „Dostęp do firm" na liście otwiera
+     panel osoby i ma pokazać TĘ kartę, a nie zostawić jej zwiniętej gdzieś w środku panelu.
+     Znacznik stawia odnośnik w wierszu (`data-karta="firmy"`), a nie ten plik — tak samo jak
+     przy oknach: szablon mówi, co otworzyć, skrypt tylko to robi.
+     ⚠ Bez JavaScriptu odnośnik prowadzi na pełny ekran panelu, gdzie karta i tak jest widoczna
+     bez rozwijania — kotwica `#karta-firm` w adresie dopisuje tylko przewinięcie. */
+  var zadanaKarta = false;
+  document.addEventListener('click', function (event) {
+    var cel = event.target instanceof Element ? event.target.closest('[data-karta="firmy"]') : null;
+    if (cel) {
+      zadanaKarta = true;
+    }
+  });
+
+  function pokazKarteFirm(korzen) {
+    if (!zadanaKarta) {
+      return;
+    }
+    zadanaKarta = false;
+    var pole = (korzen && korzen.querySelector ? korzen : document).querySelector('[data-pole-firm]');
+    if (!pole) {
+      return;
+    }
+    pole.open = true;
+    if (typeof pole.scrollIntoView === 'function') {
+      pole.scrollIntoView({block: 'nearest'});
+    }
+  }
+
   document.addEventListener('DOMContentLoaded', function () { przygotuj(document); });
-  document.addEventListener('htmx:afterSwap', function (event) { przygotuj(event.target || document); });
+  document.addEventListener('htmx:afterSwap', function (event) {
+    przygotuj(event.target || document);
+    pokazKarteFirm(event.target || document);
+  });
 
   document.addEventListener('change', function (event) {
     var cel = event.target;

@@ -91,49 +91,49 @@
                     {% endif %}>Zapisz</button>
         </span>
     </td>
-    {#- ⚠ Jeden kształt w kolumnie także tutaj: kontrolka stoi w KAŻDYM wierszu, a tam, gdzie
-        nie da się jej użyć, jest wyłączona z podanym powodem. Zmierzone przed poprawką: `<span>`
-        o wysokości 17–18 px sąsiadował z przyciskiem 32 px, więc kolumna zmieniała rytm co kilka
-        wierszy. ⚠ Komórka nie ucina wielokropkiem — obcięłaby własny panel kontrolki. -#}
+    {#- ⚠ **Kolumna „Dostęp do firm" POKAZUJE, a nie edytuje** (zlecenie Z61 §2). Do 20.10.2026
+        stała tu rozwijana warstwa `.dropdown` z własnym formularzem i własnym zapisem — drugi
+        interfejs do tej samej operacji, obok pola firm w panelu osoby. Wybrałem drugi wariant
+        z dwóch dopuszczonych: wiersz niesie SKRÓT („N z M firm") i otwiera panel osoby, w którym
+        dostęp zapisuje się jednym przyciskiem razem z danymi konta.
+        Powód jest zmierzony, nie estetyczny: panel ma 600 px i pole firm z listą 220 px, a ta
+        kolumna ma 24% szerokości tabeli — rozwinięta w wierszu lista albo rozpychałaby wiersz
+        na pół ekranu, albo musiałaby być drugą, węższą kontrolką o tym samym znaczeniu.
+        ⚠ Odnośnik, nie przycisk: bez JavaScriptu prowadzi na pełny ekran panelu, a ze skryptem
+        otwiera szufladę — ta sama droga, co nazwisko w pierwszej kolumnie. -#}
     <td class="cell--kontrolka">
         {% if o.caly_tenant %}
-            {#- ⚠ Administrator: kontrolka WYŁĄCZONA, nie tekst (dopisek §1.4). Powód, dla którego
-                nie dostaje działających pól wyboru, zostaje: jego zakres to `company_id = 0`, czyli
-                cały tenant WRAZ ze spółkami, które dopiero powstaną, a odznaczenie jednej z nich
-                nie ma reprezentacji w modelu. Wyłączona kontrolka mówi obie rzeczy naraz:
-                tu jest dostęp i tego nie edytujesz stąd. -#}
-            <button type="button" class="access access--btn" disabled aria-haspopup="true" aria-expanded="false"
-                    title="Administrator tenanta — wszystkie firmy, także przyszłe">
+            {#- Administrator tenanta: jego zakres to `company_id = 0`, czyli wszystkie firmy
+                WRAZ z tymi, które dopiero powstaną — nie ma tu czego wybierać ani otwierać. -#}
+            <span class="access access--btn access--napis" title="Administrator tenanta — wszystkie firmy, także przyszłe">
                 <span class="access__licznik">wszystkie firmy</span>
-                <svg class="ico ico--sm access__strzalka" viewBox="0 0 20 20" aria-hidden="true"><path d="M6 8l4 4 4-4"/></svg>
-            </button>
-        {% elseif o.etat_spolki == 0 %}
-            {#- Zero aktywnych zatrudnień: nie ma do czego nadawać dostępu. Jeśli mimo to dostęp
-                istnieje (dane starsze od reguły), to jest odchylenie — i dostaje kolor. -#}
-            {% set bezEtatu = o.dostepy > 0 ? o.dostepy ~ ' bez etatu' : 'bez etatu' %}
-            <button type="button" class="access access--btn" disabled aria-haspopup="true" aria-expanded="false"
-                    title="{{ o.dostepy > 0 ? 'Dostęp: ' ~ o.dostep_nazwy|join(' · ') ~ '. Bez aktywnego etatu — dostęp nic nie daje.' : 'Brak aktywnego zatrudnienia — nie ma do czego nadać dostępu.' }}">
-                <span class="access__licznik{{ o.dostepy > 0 ? ' access--odchylenie' : ' access--poczatek' }}">{{ bezEtatu }}</span>
-                <svg class="ico ico--sm access__strzalka" viewBox="0 0 20 20" aria-hidden="true"><path d="M6 8l4 4 4-4"/></svg>
-            </button>
+            </span>
         {% else %}
-            {#- Kolor dostaje wyłącznie odchylenie. Stan początkowy — osoba bez konta i bez
-                dostępu — jest szary, bo to punkt wyjścia, nie awaria. -#}
-            {% set stan = o.dostepy < o.etat_spolki and o.account_id is not null ? 'access--odchylenie'
-                : (o.account_id is null ? 'access--poczatek' : '') %}
-            {% set podpis = o.dostepy ~ ' z ' ~ o.etat_spolki ~ (o.etat_spolki == 1 ? ' firmy' : ' firm') %}
-            {% set tytul = (o.dostepy > 0 ? 'Dostęp: ' ~ o.dostep_nazwy|join(' · ') : 'Bez dostępu')
-                ~ '. Etat: ' ~ o.etat_nazwy|join(' · ') %}
-            {#- ⚠ Kontrolka działa TAKŻE w wierszu bez konta (§4): pierwsze zaznaczenie spółki
-                zakłada konto w stanie `niezaproszone`. Rozgałęzienie „bez konta" zniknęło —
-                zostało jedno wejście dla wszystkich wierszy poza administratorem. -#}
-            <button type="button" class="access access--btn" aria-haspopup="true" aria-expanded="false"
-                    data-dostep="{{ o.person_id }}" title="{{ tytul }}"
-                    hx-get="{{ url('/admin/konta/osoba/' ~ o.person_id ~ '/dostep') }}"
-                    hx-target="#dostep-panel" hx-swap="innerHTML">
-                <span class="access__licznik {{ stan }}">{{ podpis }}</span>
-                <svg class="ico ico--sm access__strzalka" viewBox="0 0 20 20" aria-hidden="true"><path d="M6 8l4 4 4-4"/></svg>
-            </button>
+            {% if o.etat_spolki == 0 %}
+                {#- Zero aktywnych zatrudnień: nie ma do czego nadawać dostępu. Jeśli mimo to
+                    dostęp istnieje (dane starsze od reguły), to jest odchylenie — i dostaje kolor. -#}
+                {% set podpis = o.dostepy > 0 ? o.dostepy ~ ' bez etatu' : 'bez etatu' %}
+                {% set stan = o.dostepy > 0 ? ' access--odchylenie' : ' access--poczatek' %}
+                {% set tytul = o.dostepy > 0
+                    ? 'Dostęp: ' ~ o.dostep_nazwy|join(' · ') ~ '. Bez aktywnego etatu — dostęp nic nie daje.'
+                    : 'Brak aktywnego zatrudnienia — nie ma do czego nadać dostępu.' %}
+            {% else %}
+                {#- Kolor dostaje wyłącznie odchylenie. Stan początkowy — osoba bez konta
+                    i bez dostępu — jest szary, bo to punkt wyjścia, nie awaria. -#}
+                {% set podpis = o.dostepy ~ ' z ' ~ o.etat_spolki ~ (o.etat_spolki == 1 ? ' firmy' : ' firm') %}
+                {% set stan = o.dostepy < o.etat_spolki and o.account_id is not null ? ' access--odchylenie'
+                    : (o.account_id is null ? ' access--poczatek' : '') %}
+                {% set tytul = (o.dostepy > 0 ? 'Dostęp: ' ~ o.dostep_nazwy|join(' · ') : 'Bez dostępu')
+                    ~ '. Etat: ' ~ o.etat_nazwy|join(' · ') ~ '. Kliknij, żeby zmienić w panelu osoby.' %}
+            {% endif %}
+            <a class="access access--btn" href="{{ url('/admin/konta/osoba/' ~ o.person_id ~ '#karta-firm') }}"
+               title="{{ tytul }}"
+               data-modal-open="osoba-panel" data-karta="firmy"
+               hx-get="{{ url('/admin/konta/osoba/' ~ o.person_id) }}"
+               hx-target="#osoba-tresc" hx-swap="innerHTML">
+                <span class="access__licznik{{ stan }}">{{ podpis }}</span>
+                <span class="access__strzalka" aria-hidden="true">›</span>
+            </a>
         {% endif %}
     </td>
     {#- ⚠ **Każdy stan ma plakietkę z kropką, a „aktywne" jest ZIELONE** (zlecenie Z30 §9,

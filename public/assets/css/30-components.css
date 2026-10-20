@@ -286,61 +286,21 @@
 .access--btn:disabled .access__strzalka { opacity: .45; }
 .access--btn[aria-expanded="true"] { border-color: var(--c-accent); }
 .access__licznik { flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* ⚠ **Ten sam kształt dla stanu, którego nie da się otworzyć** (Z61 §2): administrator tenanta
+   dostaje kontrolkę bez strzałki i bez kursora — wygląda jak pozostałe wiersze kolumny, ale nie
+   obiecuje kliknięcia. Wyłączony przycisk obiecywałby, że „kiedyś się da". */
+.access--napis { cursor: default; background: var(--c-surface-mute); color: var(--c-text-3); }
+/* Odnośnik w kolumnie dostępu zachowuje się jak kontrolka, nie jak odnośnik w treści. */
+a.access--btn { text-decoration: none; }
+a.access--btn .access__strzalka { font-size: 14px; line-height: 1; }
 .access__strzalka { flex: none; color: var(--c-text-3); }
 .access--btn[aria-expanded="true"] .access__strzalka { transform: rotate(180deg); color: var(--c-accent); }
 
 /* Panel kontrolki. ⚠ `position: fixed` i warstwa POZA kartą: `.card` ma `overflow: hidden`,
    więc panel otwarty w ostatnim wierszu zostałby przycięty na krawędzi karty. Pozycję ustawia JS
    względem klikniętego przycisku. */
-.dropdown {
-  position: fixed;
-  z-index: 40;
-  width: 300px;
-  max-width: calc(100vw - 2 * var(--s-4));
-  background: var(--c-surface);
-  border: 1px solid var(--c-line-strong);
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-pop);
-}
-.dropdown[hidden] { display: none; }
-.dropdown__form { display: flex; flex-direction: column; }
-.dropdown__head {
-  display: flex;
-  flex-direction: column;
-  gap: var(--s-1);
-  padding: var(--s-3) var(--s-4);
-  border-bottom: 1px solid var(--c-line-soft);
-}
-.dropdown__title { font-size: var(--t-small); font-weight: var(--w-medium); color: var(--c-text); }
-.dropdown__sub { font-size: var(--t-caption); color: var(--c-text-3); }
-.dropdown__list { padding: var(--s-2) 0; max-height: 40vh; overflow-y: auto; }
 /* Cały wiersz jest celem kliknięcia, nie sam kwadracik — tak jak `.checklist__item`. */
-.dropdown__item {
-  display: flex;
-  align-items: center;
-  gap: var(--s-3);
-  min-height: var(--control-h);
-  padding: 0 var(--s-4);
-  font-size: var(--t-small);
-  color: var(--c-text);
-  cursor: pointer;
-}
-.dropdown__item input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--c-accent); flex: none; }
 /* Spółka bez etatu: wygaszona i NIE do kliknięcia — kursor mówi to samo, co `disabled`. */
-.dropdown__item--off { color: var(--c-text-3); cursor: not-allowed; }
-.dropdown__name { flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dropdown__tag { flex: none; font-size: var(--t-caption); color: var(--c-text-3); }
-.dropdown__foot {
-  display: flex;
-  flex-direction: column;
-  gap: var(--s-3);
-  padding: var(--s-3) var(--s-4);
-  border-top: 1px solid var(--c-line-soft);
-  background: var(--c-surface-mute);
-  border-radius: 0 0 var(--radius-card) var(--radius-card);
-}
-.dropdown__licencja { font-size: var(--t-caption); color: var(--c-text-3); }
-.dropdown__akcje { justify-content: flex-end; }
 
 /* ——— pasek zaznaczania i wybór wierszy (zlecenie konta-budowa-2 §1) ————————— */
 
@@ -4014,28 +3974,15 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 /* ⚠ **Lista rozwijana dostępu** (Z30 §8). Szersza (340 px) i z mocniejszym cieniem, bo to warstwa
    nad tabelą, a nie element w niej: przy 300 px nazwa firmy z plakietką „z etatem" nie mieściła
    się w jednym wierszu. Promień karty, nie kontrolki — panel jest kartą, która wyskakuje. */
-.dropdown { width: 340px; border-radius: var(--radius-card); box-shadow: var(--shadow-pop); }
 /* ⚠ `flex-direction: row` wprost: reguła bazowa wyżej układa głowę W KOLUMNIE, a samo
    `display: flex` jej nie cofa — pierwsza wersja dała znak nad nazwiskiem, wyśrodkowany. */
-.dropdown__head { display: flex; flex-direction: row; align-items: center; gap: var(--s-3); }
-.dropdown__kto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.dropdown__title { font-size: var(--t-body); font-weight: var(--w-semibold); }
-.dropdown__item { padding: var(--s-2) var(--s-4); }
-.dropdown__item input[type="checkbox"] { width: 18px; height: 18px; }
 /* Zaznaczona firma ma tło akcji — to jest stan „dostęp nadany", czyli wynik tej listy. */
-.dropdown__item:has(input:checked) { background: var(--c-accent-soft); }
 @media (hover: hover) {
-  .dropdown__item:not(.dropdown__item--off):hover { background: var(--c-surface-hover); }
 }
 /* Pozycja bez etatu: nazwa ciszej, kursor mówi „nie tutaj", powód w podpowiedzi (szablon). */
-.dropdown__item--off .dropdown__name { color: var(--c-text-4); }
 /* ⚠ Plakietka etatu nie dziedziczy wyściółki pozycji: `.chip` ma własną i własną wysokość. */
-.dropdown__tag { flex: none; }
 /* Stopka w JEDNYM rzędzie: po lewej skutek licencyjny, po prawej dwa przyciski. */
 /* Ta sama poprawka co w głowie: stopka ma iść rzędem, nie kolumną. */
-.dropdown__foot { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
-.dropdown__licencja { flex: 1 1 auto; min-width: 0; }
-.dropdown__akcje { flex: none; margin-left: auto; }
 
 @media (hover: hover) {
   .settings-list__row:is(a, button):hover { color: var(--c-text); text-decoration: none; }

@@ -187,8 +187,7 @@ $webOnly = [
     // w spamie), a bez tej drogi literówka w adresie blokowała osobę na zawsze.
     ['POST', '/admin/konta/osoba/{id:\d+}/zapros-ponownie', [AdminAccountController::class, 'resendInvitation'], 'permission' => 'admin.users', 'zakres' => 'spolka'],
     ['POST', '/admin/konta/osoba/{id:\d+}/blokada',      [AdminAccountController::class, 'toggleBlock'],   'permission' => 'admin.users', 'zakres' => 'spolka'],
-    ['GET',  '/admin/konta/osoba/{id:\d+}/dostep',       [AdminAccountController::class, 'accessPanel'],   'permission' => 'admin.users', 'zakres' => 'spolka'],
-    ['POST', '/admin/konta/osoba/{id:\d+}/dostep',       [AdminAccountController::class, 'saveAccess'],    'permission' => 'admin.users', 'zakres' => 'spolka'],
+    // usunięte w Z61: dostęp do firm zapisuje się razem z danymi konta (`/zapisz`) 
     // ⚠ Nazwa OGÓLNA („uprawnienia"), choć dziś sekcja ma dokładnie jedną pozycję — poziom
     // widoczności kalendarza. Powód: w Etapie 3 tą samą drogą (para konto–spółka, panel osoby,
     // wpis w dzienniku) dojdą role przełożonego i kadrowej, więc druga pozycja ma się dołożyć

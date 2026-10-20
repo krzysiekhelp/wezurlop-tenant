@@ -385,11 +385,6 @@
         <div id="osoba-tresc" class="drawer__shell"></div>
     </dialog>
 
-    {#- ⚠ Panel kontrolki dostępu stoi POZA kartą. Powód jest twardy: `.card` ma
-        `overflow: hidden` (zaokrąglone narożniki), więc panel otwarty w ostatnim wierszu
-        zostałby przycięty na krawędzi karty. Pozycję ustawia JS względem klikniętego przycisku
-        — dokładnie tak, jak w makiecie, gdzie panel też jest osobną warstwą nad układem. -#}
-    <div class="dropdown" id="dostep-panel" role="dialog" aria-label="Dostęp do firm" hidden></div>
 
     {#- Okno wyniku wysyłki. Treść wstawia htmx po odpowiedzi serwera; okno otwiera JS przy
         podmianie (`htmx:afterSwap`), a nie klik — bo klik ma wysłać formularz, nie otworzyć okno.

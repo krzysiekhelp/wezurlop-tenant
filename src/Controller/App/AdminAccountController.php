@@ -77,7 +77,7 @@ final class AdminAccountController
      * @var array<string, string>
      */
     private const KOMUNIKATY_PANELU = [
-        'dostep' => 'Dostęp do firm zapisany. Rola pracownika obowiązuje w zaznaczonych firmach.',
+        'zapisane' => 'Zapisane. Dane konta i dostęp do firm idą jednym zapisem.',
     ];
 
     /**
@@ -313,7 +313,8 @@ final class AdminAccountController
         if (!$odblokowanie) {
             $odmowa = $this->konta->blockRefusal((int) $dane['o']['account_id'], $admin->accountId());
             if ($odmowa !== null) {
-                return $this->panelZBledem($personId, $companyId, $admin, self::KOMUNIKATY_ODMOW[$odmowa] ?? $odmowa);
+                return $this->panelZBledem($personId, $companyId, $admin,
+                    self::KOMUNIKATY_ODMOW[$odmowa] ?? $odmowa, [], 'ogolny');
             }
         }
 
@@ -358,7 +359,8 @@ final class AdminAccountController
             ? $this->konta->unblock($row['account_id'], $admin->accountId(), $ipHash, $admin->displayName)
             : $this->konta->block($row['account_id'], $admin->accountId(), $ipHash, $admin->displayName);
         if ($powod !== null) {
-            return $this->panelZBledem($personId, $companyId, $admin, self::KOMUNIKATY_ODMOW[$powod] ?? $powod);
+            return $this->panelZBledem($personId, $companyId, $admin,
+                self::KOMUNIKATY_ODMOW[$powod] ?? $powod, [], 'ogolny');
         }
 
         $dane = $this->panelData($personId, $companyId, $admin);
@@ -559,6 +561,11 @@ final class AdminAccountController
                     ['email' => $email, 'telefon' => $telefon]);
             }
         }
+        // ⚠ Dostęp zapisujemy **po walidacji danych konta, przed ich zapisem** (Z61 §1):
+        // zły adres nie ma prawa zmienić dostępu, a odmowa licencji nie ma prawa wywrócić
+        // zapisu telefonu — każda część wraca z komunikatem przy swojej karcie.
+        [$komunikatDostepu, $odmowyDostepu] = $this->zapiszDostepZPanelu($request, $personId, $admin, $row);
+
         $adresDoZapisu = $przedZaproszeniem ? ($email === '' ? null : $email) : ($zmianaLoginu ? $email : $row['email']);
         try {
             if (!$this->people->updateContact($personId, $adresDoZapisu, $telefon === '' ? null : $telefon, $companyId)) {
@@ -582,11 +589,48 @@ final class AdminAccountController
         );
 
         $dane = $this->panelData($personId, $companyId, $admin);
-        $dane['notice'] = 'Zapisane.';
+        $dane['notice'] = $komunikatDostepu === null ? 'Zapisane.' : 'Zapisane. ' . $komunikatDostepu;
+        $dane['error_dostepu'] = $odmowyDostepu;
 
         return $request->isHtmx()
             ? $this->view->render('fragments/person-panel.twig', $dane + ['w_szufladzie' => true])
-            : Response::redirectFor($request, $this->urls->to('/admin/konta'));
+            : Response::redirectFor($request, $this->urls->to('/admin/konta/osoba/' . $personId) . '?ok=zapisane');
+    }
+
+    /**
+     * **Dostęp do firm zapisywany RAZEM z danymi konta** (zlecenie Z61 §1).
+     *
+     * ⚠ Kolejność jest treścią, nie szczegółem. Najpierw sprawdzamy dane konta — to jedyna
+     * część, którą da się odrzucić **bez zapisu czegokolwiek** (format adresu, duplikat, zakaz
+     * zmiany loginu aktywnego konta). Dopiero potem idzie dostęp, w transakcji `AccessService`,
+     * a na końcu zapis danych konta. Dzięki temu nie istnieje stan „adres zapisany, dostęp nie
+     * dlatego, że adres był zły": przy złym adresie nic się nie zapisuje, a dostęp wchodzi
+     * albo wraca z własną odmową przy swojej karcie.
+     *
+     * ⚠ **Pole firm nieobecne w żądaniu znaczy „nie dotykaj dostępu"**, a nie „odbierz
+     * wszystkie". Panel konta administracyjnego i panel osoby bez konta nie renderują tego
+     * pola wcale, a formularz bez pól wyboru wygląda w żądaniu dokładnie tak samo jak formularz,
+     * w którym wszystko odznaczono. Dlatego decyduje **ukryte pole `firmy_w_formularzu`**,
+     * które renderuje się razem z kontrolką — a nie obecność samych zaznaczeń.
+     *
+     * @return array{0: ?string, 1: ?string} komunikat o zapisie i treść odmowy (albo null)
+     */
+    private function zapiszDostepZPanelu(Request $request, int $personId, CurrentUser $admin, array $row): array
+    {
+        if ($request->post('firmy_w_formularzu') === null || $row['caly_tenant']) {
+            return [null, null];
+        }
+        $wynik = $this->access->saveCompanyAccess($personId, self::selectedCompanies($request), $admin->accountId());
+        $odmowy = [];
+        foreach ($wynik['odmowy'] as $powod) {
+            $odmowy[$powod] = self::ODMOWY_DOSTEPU[$powod] ?? 'Część zmian dostępu odrzucono.';
+        }
+        $zmiana = $wynik['nadane'] !== [] || $wynik['odebrane'] !== [];
+        $komunikat = $zmiana
+            ? 'Dostęp do firm: nadane ' . count($wynik['nadane']) . ', odebrane ' . count($wynik['odebrane']) . '.'
+            : null;
+
+        return [$komunikat, $odmowy === [] ? null : implode(' ', array_values($odmowy))];
     }
 
     /**
@@ -619,7 +663,7 @@ final class AdminAccountController
         }
         $powod = $this->invitations->resend($row['account_id'], $admin->accountId(), $admin->displayName);
         if ($powod !== null) {
-            return $this->panelZBledem($personId, $companyId, $admin, ucfirst($powod) . '.');
+            return $this->panelZBledem($personId, $companyId, $admin, ucfirst($powod) . '.', [], 'ogolny');
         }
         $dane = $this->panelData($personId, $companyId, $admin);
         if ($dane === null) {
@@ -727,6 +771,10 @@ final class AdminAccountController
             'rok'        => (int) date('Y'),
             'current_id' => $admin->accountId(),
             'notice'     => null,
+            // ⚠ Trzy slot-y komunikatu: ogólny (karta „Konto"), przy danych konta i przy dostępie
+            // do firm — każda karta odpowiada za swoją odmowę (Z61 §1).
+            'error_danych' => null,
+            'error_dostepu' => null,
             // Nazwa tego, co przyjęto do wysyłki, albo null gdy komunikat nie dotyczy poczty
             // (`strict_variables` — brakująca zmienna to błąd, nie cicha pustka).
             'notice_termin' => null,
@@ -766,122 +814,36 @@ final class AdminAccountController
         return AdresKontaktowy::odmowa($this->people->ktoMaAdres($email, $personId, $companyId));
     }
 
-    private function panelZBledem(int $personId, ?int $companyId, CurrentUser $admin, string $blad, array $wpisane = []): Response
-    {
+    /**
+     * Panel z komunikatem błędu — **przy tej karcie, której błąd dotyczy** (zlecenie Z61 §1).
+     *
+     * ⚠ Trzy slot-y, bo trzy różne karty mogą odmówić: dane konta (format adresu, duplikat,
+     * zamrożony login), dostęp do firm (licencja, brak etatu) i karta „Konto" (blokada,
+     * ponowienie zaproszenia). Jeden wspólny komunikat u góry panelu kazał zgadywać, które
+     * pole poprawić — a przy dwóch częściach zapisu w jednym żądaniu to zgadywanie podwaja się.
+     *
+     * @param 'dane'|'ogolny' $gdzie
+     * @param array<string, string> $wpisane
+     */
+    private function panelZBledem(
+        int $personId,
+        ?int $companyId,
+        CurrentUser $admin,
+        string $blad,
+        array $wpisane = [],
+        string $gdzie = 'dane'
+    ): Response {
         $dane = $this->panelData($personId, $companyId, $admin);
         if ($dane === null) {
             return $this->errors->errorPage(404, null, true);
         }
-        $dane['error'] = $blad;
+        $dane[$gdzie === 'dane' ? 'error_danych' : 'error'] = $blad;
         $dane['wpisane'] = $wpisane;
 
         return $this->view->render('fragments/person-panel.twig', $dane + ['w_szufladzie' => true]);
     }
 
-    /**
-     * Rozwinięta kontrolka dostępu — lista wszystkich spółek tenanta (§3 zlecenia).
-     *
-     * ⚠ Treść dociągana po otwarciu, nie renderowana w każdym wierszu z góry. Dwa powody:
-     * strona listy przestaje rosnąć o 25 × liczba spółek, a panel pokazuje **stan z bazy**
-     * w chwili otwarcia, nie z chwili wygenerowania strony.
-     *
-     * @param array<string, string> $params
-     */
-    public function accessPanel(Request $request, array $params): Response
-    {
-        $admin = $request->attribute(Authenticate::USER);
-        assert($admin instanceof CurrentUser);
-        $companyId = $this->scope($admin);
-        $personId = filter_var($params['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
-        if ($personId === false) {
-            return $this->errors->errorPage(404, null, $request->isHtmx());
-        }
-        $row = $this->people->rowForAdmin($personId, $companyId);
-        if ($row === null) {
-            return $this->errors->errorPage(404, null, $request->isHtmx());
-        }
 
-        return $this->view->render('fragments/access-panel.twig', [
-            'o'        => $row,
-            'spolki'   => $this->people->companiesForAccess($personId),
-            'licencja' => $this->access->licenceUsage(),
-        ]);
-    }
-
-    /**
-     * Zapis dostępu z kontrolki — jawny, jednym żądaniem dla całej zmiany (§3 zlecenia).
-     *
-     * ⚠ Nie zapisujemy po kliknięciu pola wyboru: klikanie po kolei czterech spółek to cztery
-     * zapisy, cztery wpisy w dzienniku i cztery sprawdzenia limitu, z których trzy środkowe
-     * nic nie znaczą.
-     *
-     * ⚠ Wyłączone pole wyboru w HTML jest podpowiedzią, nie zabezpieczeniem — każdą spółkę
-     * sprawdza od nowa `AccessService` i odrzuca dostęp bez etatu oraz ponad limit licencji.
-     *
-     * @param array<string, string> $params
-     */
-    public function saveAccess(Request $request, array $params): Response
-    {
-        $admin = $request->attribute(Authenticate::USER);
-        assert($admin instanceof CurrentUser);
-        $companyId = $this->scope($admin);
-        $personId = filter_var($params['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
-        if ($personId === false) {
-            return $this->errors->errorPage(404, null, $request->isHtmx());
-        }
-        $row = $this->people->rowForAdmin($personId, $companyId);
-        if ($row === null) {
-            return $this->errors->errorPage(404, null, $request->isHtmx());
-        }
-        if ($row['caly_tenant']) {
-            // Administrator tenanta obejmuje wszystkie spółki, także przyszłe — odznaczenie
-            // jednej nie ma reprezentacji w modelu, więc nie udajemy, że ma.
-            return Response::html('', 409);
-        }
-
-        // ⚠ Konto może jeszcze nie istnieć — i to jest normalna ścieżka od §4: pierwsze zaznaczenie
-        // spółki zakłada konto w stanie `niezaproszone`. Decyzję o tym, o licencji i o etacie
-        // podejmuje `AccessService` w JEDNEJ transakcji; kontroler podaje osobę i zestaw spółek.
-        $wynik = $this->access->saveCompanyAccess($personId, self::selectedCompanies($request), $admin->accountId());
-        $odmowy = [];
-        foreach ($wynik['odmowy'] as $powod) {
-            $odmowy[$powod] = self::KODY_ODMOW[$powod] ?? 'odmowa';
-        }
-
-        // ⚠ **Skąd przyszedł zapis, mówi POLE ŻĄDANIA, nie nagłówek i nie zgadywanie** (zlecenie
-        // Z58 §3). Ta sama trasa obsługuje dwie kontrolki: pole firm w panelu osoby i kontrolkę
-        // w wierszu listy — i każda potrzebuje w odpowiedzi czegoś innego (panelu albo wiersza).
-        // Bez tego panel dostawał w odpowiedzi wiersz tabeli i wstawiał go sobie w środek.
-        if ($request->post('panel') !== null) {
-            if (!$request->isHtmx()) {
-                // Bez JavaScriptu: zwykły POST/Redirect/GET na pełny ekran panelu (CLAUDE.md §3).
-                return Response::redirectFor($request,
-                    $this->urls->to('/admin/konta/osoba/' . $personId) . '?ok=dostep');
-            }
-            $dane = $this->panelData($personId, $companyId, $admin);
-            if ($dane === null) {
-                return $this->errors->errorPage(404, null, true);
-            }
-            $dane['notice'] = self::KOMUNIKATY_PANELU['dostep'];
-            $odp = $this->view->render('fragments/person-panel.twig', $dane + ['w_szufladzie' => true]);
-
-            return $odmowy === []
-                ? $odp
-                : $odp->withHeader('X-Wezurlop-Odmowa', implode(',', array_values($odmowy)));
-        }
-
-        $odp = $this->rowFragment($personId, $companyId, $admin);
-
-        // ⚠ Odmowa nie może przejść niezauważona: wiersz pokazuje stan z bazy, ale sam
-        // niezmieniony wiersz wygląda jak „nic się nie stało". Nagłówek niesie KOD, nie tekst
-        // i nie nazwę spółki. Dwa powody: nazwa spółki to dane użytkownika (§8 zlecenia — wpisuje
-        // ją administrator), a dane użytkownika w nagłówku to droga do wstrzyknięcia nagłówka;
-        // po drugie zmierzone — polskie znaki w nagłówku HTTP wychodzą jako kropki.
-        // Tekst komunikatu mieszka w JS, tam gdzie reszta komunikatów (`flash.js`).
-        return $odmowy === []
-            ? $odp
-            : $odp->withHeader('X-Wezurlop-Odmowa', implode(',', array_values($odmowy)));
-    }
 
     /**
      * Identyfikatory spółek z kontrolki — białą listą typów.
@@ -911,11 +873,24 @@ final class AdminAccountController
      *
      * @var array<string, string>
      */
-    private const KODY_ODMOW = [
-        AccessService::POWOD_BRAK_ZATRUDNIENIA => 'brak_etatu',
-        AccessService::POWOD_BRAK_LICENCJI     => 'brak_licencji',
-        AccessService::POWOD_KONTO_ADMINA      => 'konto_admina',
+    /**
+     * Odmowy zapisu dostępu **zdaniami** — do panelu osoby (zlecenie Z61 §1).
+     *
+     * ⚠ **Zdania, nie kody.** Do Z61 te same odmowy jechały jako KODY w nagłówku HTTP
+     * (`X-Wezurlop-Odmowa`), bo odbierał je JavaScript rozwijanej kontrolki w wierszu listy —
+     * nagłówek nie niesie polskich znaków. Kontrolka zniknęła razem z nagłówkiem i z mapą kodów:
+     * odmowa wraca teraz w treści panelu, przy karcie, której dotyczy. Brzmienie jak dawniej
+     * w `flash.js`, tylko „spółka" → „firma" — jedno słowo w całym interfejsie.
+     *
+     * @var array<string, string>
+     */
+    private const ODMOWY_DOSTEPU = [
+        AccessService::POWOD_BRAK_ZATRUDNIENIA => 'Część firm pominięto: osoba nie ma tam aktywnego zatrudnienia.',
+        AccessService::POWOD_BRAK_LICENCJI     => 'Część firm pominięto: brak wolnych licencji.',
+        AccessService::POWOD_KONTO_ADMINA      => 'Pominięto: to konto jest administratorem tenanta, '
+            . 'a administrator nie może mieć dostępu pracowniczego.',
     ];
+
 
     /**
      * Wysyłka partii zaproszeń (zlecenie `konta-budowa-2` §1).

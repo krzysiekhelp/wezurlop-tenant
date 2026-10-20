@@ -16,18 +16,21 @@
     sprawdza od nowa `AccessService` i odrzuca dostęp bez etatu oraz ponad limit licencji
     (CLAUDE.md §10).
 
-    ⚠ **Zapis jest JAWNY, jednym żądaniem** — tak jak dotąd. Zapisywanie po kliknięciu pola
-    wyboru dałoby cztery zapisy, cztery wpisy w dzienniku i cztery sprawdzenia limitu licencji
-    przy zmianie czterech firm.
+    ⚠ **Zapis idzie JEDNYM przyciskiem razem z danymi konta** (zlecenie Z61 §1): pola wyboru
+    należą do formularza panelu przez atrybut `form="osoba-dane"`, więc jadą tym samym żądaniem
+    co adres i telefon — i **bez JavaScriptu też**, bo `form=` jest atrybutem HTML, nie skryptem.
+    Dawny przycisk „Zapisz dostęp" w tej karcie znaczył drugi zapis, drugą transakcję i dwa
+    przyciski zapisu w jednym panelu.
+
+    ⚠ **Ukryte pole `firmy_w_formularzu`** mówi serwerowi, że kontrolka BYŁA na ekranie. Bez niego
+    żądanie z panelu bez tej karty (konto administracyjne, osoba bez konta) wyglądałoby identycznie
+    jak żądanie, w którym odznaczono wszystkie firmy — czyli zapis danych konta odbierałby dostęp.
 
     Zmienne: `o`, `firmy`, `licencja`. -#}
 {% import 'partials/ikony.twig' as ikony %}
 {% set wybrane = firmy|filter(s => s.ma_dostep) %}
 {% set nazwy = wybrane|map(s => s.name)|slice(0, 2)|join(', ') %}
-<form class="pf" method="post"
-      action="{{ url('/admin/konta/osoba/' ~ o.person_id ~ '/dostep') }}"
-      hx-post="{{ url('/admin/konta/osoba/' ~ o.person_id ~ '/dostep') }}"
-      hx-target="#osoba-tresc" hx-swap="innerHTML"
+<div class="pf"
       data-licencja-uzyte="{{ licencja.uzyte }}"
       data-licencja-limit="{{ licencja.limit ?? '' }}"
       data-dostepy-teraz="{{ wybrane|length }}"
@@ -36,11 +39,8 @@
           słownik polskich odmian ma jedno miejsce (ta sama zasada, co w stopce listy z Z57 U4). -#}
       data-formy-innych="{{ formy_innych }}"
       data-firm-razem="{{ firmy|length }}">
-    {% include 'partials/csrf.twig' %}
-    {#- ⚠ **Znacznik „to z panelu"**: ta sama trasa obsługuje kontrolkę w wierszu listy i to pole.
-        Serwer odpowiada panelem albo wierszem — i rozstrzyga o tym POLE ŻĄDANIA, nie nagłówek
-        `HX-Request` (który nie jest zabezpieczeniem i nie mówi, skąd przyszło żądanie). -#}
-    <input type="hidden" name="panel" value="1">
+    {#- Token CSRF niesie formularz panelu — te pola tylko do niego należą. -#}
+    <input type="hidden" name="firmy_w_formularzu" value="1" form="osoba-dane">
     <details class="pf__pole" data-pole-firm>
         {#- ⚠ Podsumowanie niesie CAŁY stan: które firmy, ile z ilu. Strzałka obraca się samym
             CSS-em (`[open]`), bez skryptu. -#}
@@ -76,7 +76,7 @@
                     <label class="pf__poz{{ s.ma_etat ? '' : ' pf__poz--off' }}"
                            data-pole-firm-poz data-nazwa="{{ s.name|lower }}"
                            {%- if not s.ma_etat %} title="Osoba nie ma etatu w tej firmie"{% endif %}>
-                        <input type="checkbox" name="spolki[]" value="{{ s.company_id }}"
+                        <input type="checkbox" name="spolki[]" value="{{ s.company_id }}" form="osoba-dane"
                                {{ s.ma_dostep ? 'checked' : '' }}{{ s.ma_etat ? '' : ' disabled' }}>
                         <span class="pf__ptak">{{ ikony.ptaszek() }}</span>
                         <span class="pf__nazwa">{{ s.name }}</span>
@@ -89,7 +89,9 @@
             </div>
             <div class="pf__stopka">
                 {#- Skutek licencyjny PRZED zapisem; stan wyjściowy renderuje serwer, żeby bez
-                    JavaScriptu też stała tu prawdziwa informacja. -#}
+                    JavaScriptu też stała tu prawdziwa informacja.
+                    ⚠ Przycisku zapisu TU NIE MA (Z61 §1): zapisuje „Zapisz zmiany" w stopce panelu,
+                    jednym żądaniem razem z danymi konta. -#}
                 <span class="pf__licencja" data-licencja-tekst>
                     {% if licencja.limit is null %}
                         Zajęte dostępy: {{ licencja.uzyte }} (licencja bez limitu).
@@ -97,8 +99,7 @@
                         Zajęte dostępy: {{ licencja.uzyte }} z {{ licencja.limit }}.
                     {% endif %}
                 </span>
-                <button type="submit" class="btn btn--primary btn--sm">Zapisz dostęp</button>
             </div>
         </div>
     </details>
-</form>
+</div>

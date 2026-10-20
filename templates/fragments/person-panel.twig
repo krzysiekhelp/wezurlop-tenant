@@ -125,6 +125,7 @@
                 <p class="op-karta__opis">wpisuje administrator</p>
             </div>
         </div>
+        {% include 'partials/komunikat.twig' with {'tekst': error_danych, 'rodzaj': 'blad'} only %}
         <div class="op-dwa-pola">
             <label class="field">
                 <span class="field__label">Adres e-mail</span>
@@ -154,8 +155,11 @@
         </div>
     </form>
 
-    {#- ══════════ 3. Dostęp do firm ══════════ -#}
-    <section class="op-karta">
+    {#- ══════════ 3. Dostęp do firm ══════════
+        ⚠ `id` jest celem kotwicy z listy osób (`…/osoba/{id}#karta-firm`, zlecenie Z61 §2):
+        bez JavaScriptu kolumna „Dostęp do firm" prowadzi na pełny ekran panelu i ma pokazać
+        tę kartę, a nie górę strony. -#}
+    <section class="op-karta" id="karta-firm">
         <div class="op-karta__glowa">
             <span class="op-karta__znak">{{ ikony.firma() }}</span>
             {#- ⚠ **Przy roli na cały tenant karta nazywa się „Rola", nie „Dostęp do firm"**
@@ -180,6 +184,8 @@
         {% elseif o.account_id is null %}
             <p class="empty-state">Dostęp nadaje się kontu — ta osoba jeszcze go nie ma.</p>
         {% else %}
+            {#- Odmowa zapisu dostępu stoi PRZY TEJ karcie, a nie u góry panelu (Z61 §1). -#}
+            {% include 'partials/komunikat.twig' with {'tekst': error_dostepu, 'rodzaj': 'blad'} only %}
             {% include 'partials/pole-firm.twig' with {
                 'o': o, 'firmy': firmy, 'licencja': licencja, 'formy_innych': formy_innych
             } only %}

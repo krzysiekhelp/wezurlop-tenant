@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.40, 20.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.41, 20.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,40 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.40 → 1.18.41: jeden zapis w panelu osoby, kolumna dostępu tylko pokazuje**
+> (zlecenie Z61, 20.10.2026).
+> - **Stopka panelu zapisuje OBIE części jednym przyciskiem i jednym żądaniem**: dane konta
+>   (adres, telefon) i dostęp do firm. Przycisk „Zapisz dostęp" z karty firm zniknął — dwa
+>   przyciski zapisu w jednym panelu kazały zgadywać, który zapisuje co.
+>   ⚠ **Bez JavaScriptu też jednym żądaniem**: pola wyboru firm należą do formularza panelu
+>   przez atrybut `form="osoba-dane"`, a to atrybut HTML, nie skrypt. Zmierzone: jeden `POST`
+>   na `/zapisz` z JS i bez.
+>   ⚠ **Kolejność jest treścią**: najpierw walidacja danych konta (jedyna część, którą da się
+>   odrzucić bez zapisu czegokolwiek), potem dostęp w transakcji, na końcu zapis danych konta.
+>   Zmierzone: przy złym numerze telefonu stan przed i po jest identyczny — ani telefon,
+>   ani dostęp się nie zapisały.
+>   ⚠ **Ukryty znacznik `firmy_w_formularzu`** renderuje się razem z kartą firm i mówi serwerowi,
+>   że kontrolka była na ekranie. Bez niego zapis z panelu BEZ tej karty (konto administracyjne,
+>   osoba bez konta) wyglądałby w żądaniu identycznie jak odznaczenie wszystkich firm — czyli
+>   zapis telefonu odbierałby dostęp.
+> - **Komunikat stoi przy swojej karcie**: błąd danych konta w karcie „Dane konta", odmowa
+>   dostępu (licencja, brak etatu) w karcie firm, odmowa blokady w karcie „Konto". Jeden wspólny
+>   komunikat u góry panelu kazał zgadywać, które pole poprawić — a przy dwóch częściach zapisu
+>   w jednym żądaniu to zgadywanie się podwaja.
+> - **Stopka aktywna po zmianie w KTÓREJKOLWIEK karcie**: `zapisz.js` czyta `form.elements`,
+>   nie potomków formularza — pola firm stoją fizycznie poza nim. Liczy też pola wyboru
+>   (`checked` vs `defaultChecked`). Zmierzone: przycisk nieaktywny na starcie, aktywny po
+>   przestawieniu firmy.
+> - **Kolumna „Dostęp do firm" na liście POKAZUJE, nie edytuje**: skrót „N z M firm" otwiera panel
+>   osoby na karcie firm (ze skryptem szuflada i rozwinięta karta, bez skryptu pełny ekran
+>   z kotwicą `#karta-firm`). ⚠ Wybrany drugi z dwóch dopuszczonych wariantów: pole firm ma listę
+>   220 px i stopkę licencji, a kolumna 24% szerokości tabeli — rozwinięte w wierszu albo
+>   rozpychałoby wiersz na pół ekranu, albo byłoby drugą, węższą kontrolką o tym samym znaczeniu.
+> - **Usunięte razem z kontrolką**: `fragments/access-panel.twig`, `modules/dropdown-dostep.js`,
+>   obie trasy `/admin/konta/osoba/{id}/dostep`, nagłówek `X-Wezurlop-Odmowa` z mapą kodów
+>   i cała rodzina CSS `.dropdown*` (60 linii). Administrator tenanta ma w tej kolumnie napis
+>   „wszystkie firmy" bez strzałki — wygląda jak pozostałe wiersze, ale nie obiecuje kliknięcia.
 
 > **Zmiana 1.18.39 → 1.18.40: jeden wygląd WSZYSTKICH wiadomości** (zlecenie Z60, 20.10.2026).
 > - ⚠ **Stan przed zmianą, policzony:** jedenaście rodzajów wiadomości, z czego **trzy** miały

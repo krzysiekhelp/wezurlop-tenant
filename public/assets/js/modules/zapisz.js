@@ -25,17 +25,36 @@
     return przycisk.closest('form') || przycisk.closest('.pick__adres');
   }
 
+  /* ⚠ **`form.elements`, nie `querySelectorAll`** (zlecenie Z61 §1). Pola wyboru firm w panelu
+     osoby stoją FIZYCZNIE POZA formularzem i należą do niego przez atrybut `form="osoba-dane"` —
+     zapytanie o potomków formularza ich nie widzi, a `elements` tak. Bez tego „Zapisz zmiany"
+     zostawało nieaktywne po zmianie dostępu do firm, czyli przycisk kłamał o stanie. */
   function pola(obszar) {
     if (!obszar) {
       return [];
     }
-    return Array.prototype.slice
-      .call(obszar.querySelectorAll('input[type="text"], input[type="email"], input[type="tel"]'))
-      .filter(function (p) { return !p.disabled; });
+    var zbior = obszar.elements
+      ? Array.prototype.slice.call(obszar.elements)
+      : Array.prototype.slice.call(obszar.querySelectorAll('input, select, textarea'));
+
+    return zbior.filter(function (p) {
+      if (p.disabled || p.type === 'hidden' || p.type === 'submit' || p.type === 'button') {
+        return false;
+      }
+      return p.type === 'checkbox' || p.type === 'radio'
+        || p.type === 'text' || p.type === 'email' || p.type === 'tel';
+    });
   }
 
+  /* ⚠ Stan wczytany czytamy z `defaultValue` i `defaultChecked`, czyli z ATRYBUTÓW w HTML,
+     a nie z własnej zmiennej: po podmianie fragmentu przez htmx nowy HTML przynosi nowy stan
+     wyjściowy, więc porównanie liczy się od nowa samo. */
   function zmienione(obszar) {
-    return pola(obszar).some(function (p) { return p.value !== p.defaultValue; });
+    return pola(obszar).some(function (p) {
+      return (p.type === 'checkbox' || p.type === 'radio')
+        ? p.checked !== p.defaultChecked
+        : p.value !== p.defaultValue;
+    });
   }
 
   function odswiez(przycisk) {
