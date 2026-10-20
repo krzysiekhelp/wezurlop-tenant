@@ -31,7 +31,11 @@ final class ResetController
     public function request(Request $request, array $params): Response
     {
         return $this->view->render('page/auth/reset-request.twig', [
-            'sent' => $request->query('wyslano') === '1',
+            'sent'   => $request->query('wyslano') === '1',
+            // Slot na spokojny komunikat po wygasłym tokenie (Z56 §1) — tu zawsze pusty.
+            'notice' => null,
+            'notice_rodzaj' => 'info',
+            'email'  => '',
         ]);
     }
 
@@ -91,6 +95,8 @@ final class ResetController
     {
         return $this->view->render('page/auth/reset-password.twig', [
             'token'      => $token,
+            'notice'     => null,
+            'notice_rodzaj' => 'info',
             'error'      => $error,
             'min_length' => Password::MIN_LENGTH,
         ], $status)->withHeader('Cache-Control', 'no-store');

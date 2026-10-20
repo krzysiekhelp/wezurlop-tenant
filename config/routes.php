@@ -37,6 +37,7 @@ use Wezurlop\Controller\Auth\ExternalLoginController;
 use Wezurlop\Controller\Auth\InvitationController;
 use Wezurlop\Controller\Auth\LoginController;
 use Wezurlop\Controller\Auth\ResetController;
+use Wezurlop\Controller\Auth\TokenController;
 use Wezurlop\Controller\Auth\TwoFactorController;
 
 // Plik zwraca funkcję: część tras istnieje tylko w trybie deweloperskim (np. /styleguide) —
@@ -54,6 +55,10 @@ $shared = [
     ['GET',  '/zaproszenie',                             [InvitationController::class, 'form'],        'auth' => 'none'],
     ['POST', '/zaproszenie',                             [InvitationController::class, 'save'],        'auth' => 'none'],
     ['GET',  '/formularz-wygasl',                        [SystemPageController::class, 'formExpired'], 'auth' => 'none'],
+    // ⚠ Świeży token dla karty, która stała otwarta (zlecenie Z56 §2). GET, bo niczego nie
+    // zmienia: oddaje tę samą wartość, którą ta sesja ma w każdym formularzu. Limit na adres
+    // jest w kontrolerze, a `no-store` w odpowiedzi.
+    ['GET',  '/token-formularza',                        [TokenController::class, 'token'],            'auth' => 'none'],
 
     // po haśle (także przed 2FA)
     ['GET',  '/logowanie/kod',                           [TwoFactorController::class, 'form'],         'auth' => 'partial', 'exempt' => ['2fa', 'context']],

@@ -20,6 +20,9 @@ use Wezurlop\Repository\TenantSettingRepository;
  *   wpis w dzienniku i alert przez kolejkę, najwyżej raz na godzinę.
  * - Reset hasła: twardy limit żądań (3 na konto, 10 na adres / 15 min) — ochrona skrzynki
  *   przed zalewem; licznik logowania go nie dotyczy.
+ * - Świeży token formularza (`/token-formularza`, zlecenie Z56 §2): twardy limit na adres.
+ *   Opóźnianie nie ma tu sensu — żądanie nie jest próbą uwierzytelnienia i nie ma „konta",
+ *   do którego dałoby się je przypisać.
  */
 final class RateLimiter
 {
@@ -27,6 +30,8 @@ final class RateLimiter
     public const KIND_TOTP = 'totp';
     public const KIND_BACKUP_CODE = 'backup_code';
     public const KIND_RESET = 'reset';
+    /** ⚠ Nie ma progu w DELAY_THRESHOLDS: ten rodzaj nigdy nie przechodzi przez delaySeconds(). */
+    public const KIND_TOKEN = 'token';
 
     public const JOB_SECURITY_ALERT = 'mail.security_alert';
 
@@ -42,6 +47,16 @@ final class RateLimiter
     ];
 
     private const RESET_LIMITS = [3, 10];
+
+    /**
+     * Żądania o świeży token z jednego adresu w oknie 15 minut.
+     *
+     * ⚠ Hojnie, bo adres bywa wspólny: za firmowym NAT-em albo za Cloudflare siedzi cała
+     * załoga, a przekroczenie limitu nie blokuje logowania — tylko odświeżanie tokenu,
+     * po którym zostaje siatka serwerowa (`OdnowienieFormularza`). Limit jest po to, żeby
+     * pętla w pętli nie produkowała sesji i wierszy bez końca.
+     */
+    private const TOKEN_LIMIT_PER_IP = 120;
 
     public function __construct(
         private readonly LoginAttemptRepository $attempts,
@@ -76,6 +91,22 @@ final class RateLimiter
         return $this->attempts->ipRequests($ipHash, self::KIND_RESET, self::WINDOW_MINUTES) >= $perIp
             || ($accountId !== null
                 && $this->attempts->accountRequests($accountId, self::KIND_RESET, self::WINDOW_MINUTES) >= $perAccount);
+    }
+
+    /** Twardy limit żądań o świeży token formularza — wyłącznie na adres. */
+    public function isTokenLimited(string $ipHash): bool
+    {
+        return $this->attempts->ipRequests($ipHash, self::KIND_TOKEN, self::WINDOW_MINUTES)
+            >= self::TOKEN_LIMIT_PER_IP;
+    }
+
+    /**
+     * ⚠ Zapisywane jako próba UDANA: to nie jest nieudane uwierzytelnienie, więc nie ma prawa
+     * podkręcać opóźnienia logowania ani licznika całej instalacji (password spraying).
+     */
+    public function recordTokenRequest(string $ipHash): void
+    {
+        $this->attempts->record(null, $ipHash, self::KIND_TOKEN, true);
     }
 
     public function record(?int $accountId, string $ipHash, string $kind, bool $succeeded): void

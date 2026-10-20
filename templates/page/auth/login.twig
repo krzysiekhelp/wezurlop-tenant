@@ -9,8 +9,12 @@
     <h1>Zaloguj się</h1>
     <p>Użyj konta w wezurlop albo konta Google lub Apple.</p>
 
+    {#- ⚠ Rodzaj komunikatu podaje serwer (`notice_rodzaj`), bo ten slot niesie dwie różne
+        rzeczy: potwierdzenie („Wylogowano.") i spokojne wyjaśnienie, że karta stała otwarta
+        (zlecenie Z56 §1). Jeden kolor dla obu znaczyłby „udało się" tam, gdzie nic się
+        nie wydarzyło. -#}
     {% if notice is not null %}
-        {% include 'partials/komunikat.twig' with {'tekst': notice, 'rodzaj': 'sukces'} only %}
+        {% include 'partials/komunikat.twig' with {'tekst': notice, 'rodzaj': notice_rodzaj} only %}
     {% endif %}
     {% if error is not null %}
         {% include 'partials/komunikat.twig' with {'tekst': error, 'rodzaj': 'blad'} only %}
@@ -45,4 +49,5 @@
         <a class="btn btn--google btn--block" href="{{ url('/logowanie/zewnetrzne/google') }}">{{ ikona.google() }} Kontynuuj z Google</a>
         <a class="btn btn--apple btn--block" href="{{ url('/logowanie/zewnetrzne/apple') }}">{{ ikona.apple() }} Kontynuuj z Apple</a>
     </div>
+    {% include 'partials/odnowienie-tokenu.twig' %}
 {% endblock %}

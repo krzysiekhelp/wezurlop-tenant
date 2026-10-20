@@ -4,6 +4,11 @@
 <script src="{{ asset('js/modules/flash.js') }}" defer></script>
 <script src="{{ asset('js/modules/ui.js') }}" defer></script>
 <script src="{{ asset('js/modules/bridge.js') }}" defer></script>
+{#- ⚠ Odświeżenie tokenu formularza — tylko layouty sprzed zalogowania (`token: true`), i tam
+    działa dopiero, gdy ekran postawi znacznik `partials/odnowienie-tokenu.twig`. Dwa warunki,
+    bo to layout decyduje, czy plik się wczyta, a EKRAN — czy jest czego odświeżać: wewnątrz
+    aplikacji to samo byłoby odnawianiem sesji zalogowanej w tle (zlecenie Z56 §2). -#}
+{% if token ?? false %}<script src="{{ asset('js/modules/token.js') }}" defer></script>{% endif %}
 {% if variant == 'mobile' %}
 <script src="{{ asset('js/app-mobile.js') }}" defer></script>
 {% else %}

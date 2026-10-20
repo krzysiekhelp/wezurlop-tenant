@@ -6,6 +6,9 @@
     <p class="eyebrow">Reset hasła</p>
     <h1>Nie pamiętasz hasła?</h1>
     <p>Podaj adres e-mail konta. Wyślemy link do ustawienia nowego hasła.</p>
+    {% if notice is not null %}
+        {% include 'partials/komunikat.twig' with {'tekst': notice, 'rodzaj': notice_rodzaj} only %}
+    {% endif %}
     {% if sent %}
         {% include 'partials/komunikat.twig' with {'tekst': 'Jeśli konto istnieje, wysłaliśmy link do ustawienia hasła. Jest ważny 30 minut.', 'rodzaj': 'sukces'} only %}
     {% endif %}
@@ -13,9 +16,10 @@
         {% include 'partials/csrf.twig' %}
         <div class="field">
             <label for="reset-email">Adres e-mail konta</label>
-            <input class="input" id="reset-email" name="email" type="email" maxlength="254" autocomplete="username" required>
+            <input class="input" id="reset-email" name="email" type="email" value="{{ email }}" maxlength="254" autocomplete="username" required>
         </div>
         <button type="submit" class="btn btn--primary">Wyślij link</button>
     </form>
     <p><a href="{{ url('/logowanie') }}">Powrót do logowania</a></p>
+    {% include 'partials/odnowienie-tokenu.twig' %}
 {% endblock %}

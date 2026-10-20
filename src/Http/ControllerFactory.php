@@ -30,6 +30,7 @@ use Wezurlop\Controller\Auth\ExternalLoginController;
 use Wezurlop\Controller\Auth\InvitationController;
 use Wezurlop\Controller\Auth\LoginController;
 use Wezurlop\Controller\Auth\ResetController;
+use Wezurlop\Controller\Auth\TokenController;
 use Wezurlop\Controller\Auth\TwoFactorController;
 
 /**
@@ -64,6 +65,7 @@ final class ControllerFactory
         TwoFactorController::class,
         ResetController::class,
         InvitationController::class,
+        TokenController::class,
     ];
 
     public function __construct(private readonly ControllerDependencies $d)
@@ -129,6 +131,7 @@ final class ControllerFactory
             TwoFactorController::class     => new TwoFactorController($d->view, $d->twoFactor, $d->authSession, $d->accounts, $d->fingerprint, $d->events, $d->urls),
             ResetController::class         => new ResetController($d->view, $d->passwordReset, $d->linkHasla, $d->fingerprint, $d->urls),
             InvitationController::class    => new InvitationController($d->view, $d->invitations, $d->linkHasla, $d->fingerprint, $d->urls),
+            TokenController::class         => new TokenController($d->csrf, $d->limiter, $d->fingerprint),
             default => throw new InvalidArgumentException('Nieznany kontroler: ' . $class),
         };
     }

@@ -140,6 +140,9 @@ final class LoginController
     {
         return $this->view->render('page/auth/login.twig', [
             'notice' => $notice,
+            // Powody z `REASONS` to potwierdzenia czynności („Wylogowano.") — zielone.
+            // Spokojne wyjaśnienie po wygasłym tokenie renderuje `Http\OdnowienieFormularza`.
+            'notice_rodzaj' => 'sukces',
             'error'  => $error,
             'email'  => $email,
         ], $status);

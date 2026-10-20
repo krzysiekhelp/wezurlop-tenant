@@ -604,6 +604,43 @@ ANONYMOUS  --hasło ok-->  PARTIAL  --kod 2FA ok-->  FULL  --wybór firmy-->  FU
   najwyżej raz na godzinę, żeby atak nie zamienił się w zalew poczty.
 - Po udanym logowaniu: `event_log` (`auth.login_success`), po nieudanym (`auth.login_failed`).
 
+#### Karta otwarta przez noc — wygasły token CSRF nie kończy się stroną błędu
+
+⚠ **Zgłoszenie Krzysztofa (20.10.2026, zlecenie Z56):** strona logowania otwarta długo, po
+wpisaniu danych komunikat „formularz wygasł". Mechanizm: sesja anonimowa wygasa po czasie
+bezczynności (`SessionLifetime`), razem z nią znika token, a `POST` trafiał na stronę 419 —
+czyli człowiek dostawał błąd za to, że nie zdążył się zalogować.
+
+Rozwiązaniem **nie jest** odnawianie sesji w tle cyklicznym pingiem (sesje bez końca, ruch
+z porzuconych kart i od botów — decyzja zarządcy). Są dwie warstwy, w tej kolejności:
+
+1. **Siatka po stronie serwera, działa bez JavaScriptu** (`Http\OdnowienieFormularza`,
+   wołana z middleware CSRF). Żądanie z nieznanym tokenem do jednego z **czterech formularzy
+   sprzed zalogowania** — `POST /logowanie`, `/haslo/reset`, `/haslo/nowe`, `/zaproszenie`
+   (także pod przedrostkiem `/m`) — dostaje ten sam formularz od nowa: świeży token, wpisany
+   wcześniej adres albo token linku, puste hasło i spokojne zdanie „Strona była otwarta długo
+   — zaloguj się jeszcze raz." Pozostałe `419` zostają bez zmian.
+   - ⚠ **Odmowa zostaje odmową.** Żądanie **nie wchodzi do kontrolera**: nie loguje, nie wysyła
+     poczty, nie zapisuje hasła. Zmienia się wyłącznie odpowiedź.
+   - ⚠ **Hasła nie przenosimy i nie próbujemy go użyć.** Przeniesione hasło byłoby dokładnie
+     tym, przed czym broni token: żądaniem z obcej strony dokończonym „po poprawieniu".
+   - ⚠ **Nieudana próba logowania liczy się tak samo jak dziś** (`login_attempt`, licznik
+     adresu). Inaczej wygasły token byłby drogą obejścia limitu. Konta nie przypisujemy:
+     hasła nie sprawdzaliśmy, a szukanie konta po adresie z żądania bez tokenu pozwalałoby
+     podkręcać komuś opóźnienie bez jednej próby hasła.
+   - ⚠ Przenoszone pola to **biała lista** (`email`, `token`), nie „wszystko oprócz hasła".
+2. **Odświeżenie tokenu przy powrocie do karty** (`public/assets/js/modules/token.js`,
+   znacznik `partials/odnowienie-tokenu.twig`, endpoint `GET /token-formularza`). Po powrocie
+   do karty (`visibilitychange`) albo po wejściu w pole formularza, i tylko gdy od wczytania
+   strony minął próg, idzie **jedno** żądanie o świeży token i podmiana wartości pola `_csrf`.
+   Zero `setInterval`, zero odnawiania w kółko; próg to **połowa czasu bezczynności sesji**
+   z konfiguracji (`prog_tokenu()`), nie liczba wpisana w kod ani w JavaScript.
+   - Endpoint: tylko `GET`, `Cache-Control: no-store`, bez danych osobowych, limit żądań
+     na adres (`RateLimiter::KIND_TOKEN`, 120 / 15 min). Obca strona odpowiedzi **nie
+     przeczyta** (brak CORS, a `{"token": …}` nie jest programem JavaScript), więc token
+     w treści nie jest wyciekiem.
+   - ⚠ To **wygoda, nie warunek działania**: bez JavaScriptu i bez sieci zostaje warstwa 1.
+
 ### Wybór kontekstu (firmy)
 
 Po pełnym uwierzytelnieniu `EmploymentContext` liczy aktywne zatrudnienia konta:

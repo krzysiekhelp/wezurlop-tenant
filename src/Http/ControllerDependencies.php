@@ -25,6 +25,8 @@ use Wezurlop\Repository\SyncRepository;
 use Wezurlop\Repository\TenantSettingRepository;
 use Wezurlop\Security\AuthSession;
 use Wezurlop\Security\ClientFingerprint;
+use Wezurlop\Security\CsrfToken;
+use Wezurlop\Security\RateLimiter;
 use Wezurlop\Http\LinkHaslaView;
 use Wezurlop\Service\AccessService;
 use Wezurlop\Service\AccountService;
@@ -107,6 +109,10 @@ final class ControllerDependencies
         public readonly \Wezurlop\Repository\CalendarAccessRepository $regulyKalendarza,
         public readonly \Wezurlop\Service\WidocznoscService $widocznoscService,
         public readonly \Wezurlop\Service\KontekstSpolki $kontekstSpolki,
+        // Świeży token formularza i jego limit na adres (zlecenie Z56 §2) — jedyny kontroler,
+        // który sięga po token wprost; pozostałe dostają go w szablonie przez `csrf_token()`.
+        public readonly CsrfToken $csrf,
+        public readonly RateLimiter $limiter,
     ) {
     }
 }

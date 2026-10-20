@@ -264,6 +264,8 @@ final class Kernel
                 $services->events,
             ),
             $kontekstSpolki,
+            $csrf,
+            $services->limiter,
         ));
         // ⚠ Znacznik spółki w belce: **jedno** rozstrzygnięcie na żądanie, liczone leniwie
         // (ekran logowania i strona błędu nie pytają o nic).
@@ -311,7 +313,8 @@ final class Kernel
                 $config->session['absolute_timeout'],
                 $loginUrl,
             ),
-            new Csrf($csrf, $errors, $urls->to('/formularz-wygasl'), $urls),
+            new Csrf($csrf, $errors, $urls->to('/formularz-wygasl'), $urls,
+                new OdnowienieFormularza($view, $services->limiter, $fingerprint)),
             new Authenticate(
                 $authSession,
                 $services->accounts,
@@ -529,6 +532,11 @@ final class Kernel
             $urls,
             [
                 'csrf_token'   => $csrf->token(...),
+                // ⚠ Po ilu sekundach od wczytania strony warto poprosić o świeży token
+                // (zlecenie Z56 §2) — **z konfiguracji sesji**, nie z liczby w szablonie
+                // ani w JS. Inaczej skrócenie czasu bezczynności u klienta rozjechałoby się
+                // z progiem w przeglądarce i formularz znów wygasałby bez ostrzeżenia.
+                'prog_tokenu'  => static fn (): int => OdnowienieFormularza::progSekund($config->session['idle_timeout']),
                 'current_user' => $viewContext->currentUser(...),
                 'can'          => $viewContext->can(...),
                 'active'       => $viewContext->active(...),

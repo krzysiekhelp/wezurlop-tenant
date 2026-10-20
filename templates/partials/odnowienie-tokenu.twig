@@ -1,0 +1,16 @@
+{#- Znacznik dla `modules/token.js`: świeży token CSRF po powrocie do karty (zlecenie Z56 §2).
+
+    ⚠ **To jest wygoda, nie warunek działania.** Bez JavaScriptu (i bez sieci) nic się nie
+    psuje: formularz wysłany ze starym tokenem wraca od nowa, ze świeżym tokenem i wpisanym
+    adresem — to robi serwer (`Http\OdnowienieFormularza`). Ten plik tylko sprawia, że człowiek
+    częściej nie zobaczy nawet tego komunikatu.
+
+    ⚠ **Nic cyklicznego.** Żądanie idzie po POWROCIE do karty albo po wejściu w pole — i tylko
+    gdy od wczytania strony minął próg. Odnawianie sesji w kółko dałoby sesje bez końca i ruch
+    z kart porzuconych na tydzień (decyzja zarządcy w zleceniu).
+
+    ⚠ Próg z konfiguracji (`prog_tokenu()` = połowa czasu bezczynności), nie liczba w szablonie.
+
+    ⚠ Znacznik stoi TYLKO na ekranach sprzed zalogowania, które obejmuje siatka serwerowa.
+    Dołożenie go gdziekolwiek indziej robiłoby z tego odnawianie sesji zalogowanej. -#}
+<div hidden data-token-url="{{ url('/token-formularza') }}" data-token-prog="{{ prog_tokenu() }}"></div>

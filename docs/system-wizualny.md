@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.35, 20.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.36, 20.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,23 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.35 → 1.18.36: ekrany sprzed zalogowania — spokojne zdanie zamiast strony
+> „formularz wygasł"** (zlecenie Z56, 20.10.2026).
+> - **Cztery ekrany** (logowanie, prośba o reset, nowe hasło z linku, zaproszenie) mają teraz
+>   slot komunikatu **z rodzajem podanym przez serwer** (`notice_rodzaj`). Powód: ten sam slot
+>   niesie dwie różne rzeczy — potwierdzenie czynności („Wylogowano.", zielone) i spokojne
+>   wyjaśnienie, że karta stała otwarta („Strona była otwarta długo — zaloguj się jeszcze raz.",
+>   `info`). Jeden kolor dla obu znaczyłby „udało się" tam, gdzie nic się nie wydarzyło.
+> - ⚠ **Nie czerwono i nie „błąd".** Nic się nie zepsuło i człowiek nie zrobił nic źle — pomylona
+>   jest tylko długość przerwy. Zmierzone po zmianie: w odpowiedzi nie ma `notice--danger`,
+>   kod 200 (nie strona 419), adres zostaje w polu, hasło nie wraca.
+> - **Formularz wraca z wpisanym adresem** (albo z tokenem linku przy ustawianiu hasła) i ze
+>   świeżym tokenem. Pole hasła jest puste — i to jest decyzja o bezpieczeństwie, nie o wygodzie.
+> - **Nowy, niewidoczny znacznik** `partials/odnowienie-tokenu.twig` (`<div hidden data-token-*>`)
+>   wyłącznie na tych czterech ekranach; `modules/token.js` czyta z niego adres endpointu i próg.
+>   ⚠ Znacznik jest **jedynym** wyzwalaczem tego modułu: dołożony gdziekolwiek indziej robiłby
+>   z tego odnawianie sesji zalogowanej w tle.
 
 > **Zmiana 1.18.34 → 1.18.35: `/admin/widocznosc` — drugi wiersz stały „Administratorzy",
 > token CSRF schodzi z adresu** (zlecenie Z55, 20.10.2026).

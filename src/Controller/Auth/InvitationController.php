@@ -73,6 +73,8 @@ final class InvitationController
     {
         return $this->view->render('page/auth/invitation.twig', [
             'token'      => $token,
+            'notice'     => null,
+            'notice_rodzaj' => 'info',
             'error'      => $error,
             'min_length' => Password::MIN_LENGTH,
         ], $status)->withHeader('Cache-Control', 'no-store');

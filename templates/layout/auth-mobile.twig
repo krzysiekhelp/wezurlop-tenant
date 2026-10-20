@@ -12,6 +12,6 @@
     {% block content %}{% endblock %}
 </main>
 {% include 'partials/toasty.twig' %}
-{% include 'partials/scripts.twig' with {'htmx': false} %}
+{% include 'partials/scripts.twig' with {'htmx': false, 'token': true} %}
 </body>
 </html>
