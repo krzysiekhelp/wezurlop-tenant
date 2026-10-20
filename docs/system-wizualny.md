@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.41, 20.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.42, 20.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,37 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.41 → 1.18.42: temat zaproszenia zaczyna się od nazwy pracodawcy**
+> (zlecenie Z62, decyzja Krzysztofa z 20.10.2026).
+> - ⚠ **To przywrócenie reguły, którą odwołało Z60** — z datą i powodem, bo odwołanie też stoi
+>   w tym dokumencie (wpis 1.18.39 → 1.18.40). Powód przywrócenia: zaproszenie jest **jedyną
+>   wiadomością, którą człowiek czyta PRZED pierwszym logowaniem**. Nazwy naszego produktu wtedy
+>   nie zna, więc „wezurlop · Zaproszenie…" wygląda w skrzynce na reklamę albo phishing; nazwę
+>   swojego pracodawcy zna. Pozostałe dziesięć rodzajów wiadomości zostaje przy prefiksie,
+>   bo tamte czyta ktoś, kto aplikację już widział.
+> - **Wzór tematu**: „<nazwa firmy> · Zaproszenie do aplikacji urlopowej — ustaw hasło".
+>   Nazwa to **nazwa wyświetlana** (`NazwaSpolki`, ta z aplikacji), nie pełna nazwa z R2 —
+>   w temacie widać około czterdziestu znaków, więc „ALFA" mówi tam więcej niż
+>   „ALFA sp. z o.o. w restrukturyzacji". ⚠ **W treści i w stopce zostaje pełna nazwa z umowy**:
+>   dwie różne nazwy w jednej wiadomości i to jest celowe (temat rozpoznaje, treść przedstawia).
+> - **Firma, której dotyczy zaproszenie**: ta z **etatem i dostępem**; przy kilku — pierwsza
+>   alfabetycznie po nazwie wyświetlanej, bez wyliczania pozostałych. Zapytanie jest to samo,
+>   którego używa przełącznik spółki (`EmploymentRepository::accessibleForAccount()`) — drugie
+>   z tym samym warunkiem rozjechałoby się przy pierwszej zmianie reguły dostępu.
+> - **Konto administracyjne bez etatu**: „wezurlop · Zaproszenie do aplikacji — ustaw hasło".
+>   ⚠ Taki adresat **nie ma pracodawcy w R2**, a zgadnięcie firmy („pewnie ta jedna") podpisałoby
+>   wiadomość cudzym nazwiskiem.
+> - ⚠ **Wyjątek jest jawny, nie obejściem**: szablon `zaproszenie` stoi w
+>   `MailRenderer::PELNY_TEMAT` i tylko dla niego render nie dokłada prefiksu; temat buduje
+>   jedna metoda (`AccountMailService::tematZaproszenia()`), z której korzystają też podgląd
+>   i test. Układ wiadomości, nagłówek i stopka — bez zmian.
+> - **Zmierzone** na prawdziwej drodze (`deliver()` z transportem zbierającym, dwie osoby próbne
+>   skasowane po pomiarze): konto z etatem i dostępem w obu firmach tenanta dostało temat
+>   zaczynający się od nazwy wyświetlanej **pierwszej alfabetycznie** (59 znaków, ogon
+>   „ · Zaproszenie do aplikacji urlopowej — ustaw hasło"), a w treści pełną nazwę z R2; konto
+>   bez etatu — „wezurlop · Zaproszenie do aplikacji — ustaw hasło". Test `tests/poczta.php`:
+>   200 sprawdzeń (było 171), kryteria łamane po jednym (4, 4 i 5 czerwonych).
 
 > **Zmiana 1.18.40 → 1.18.41: jeden zapis w panelu osoby, kolumna dostępu tylko pokazuje**
 > (zlecenie Z61, 20.10.2026).
@@ -68,9 +99,11 @@ co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej ju
 >   w poczcie nie działa, więc wartości muszą być wpisane — ale nie rozsypane po szablonach.
 >   Test pilnuje, że nie rozjechały się z tokenami.
 > - **Tematy w jednym wzorze**: prefiks „wezurlop · " dokłada `MailRenderer`, nie nadawcy.
->   ⚠ To **odwołuje** rozstrzygnięcie, które zabraniało nazwy produktu na początku tematu
+>   ⚠ To **odwoływało** rozstrzygnięcie, które zabraniało nazwy produktu na początku tematu
 >   zaproszenia („pracownik ma poznać wiadomość od pracodawcy") — zarządca wymienił zaproszenie
 >   wprost w nowym wzorze, a nazwa pracodawcy stoi w treści i w stopce każdej wiadomości.
+>   ⚠⚠ **Odwołanie samo odwołane 20.10.2026** decyzją Krzysztofa (Z62): zaproszenie wróciło do
+>   tematu z nazwą pracodawcy, pozostałe wiadomości zostały przy prefiksie — patrz 1.18.42.
 > - **Wiadomość próbna mówi, co sprawdza i którą drogą poszła** („Serwer poczty działa",
 >   host i port w danych; przy zrzucie do pliku — „zrzut do pliku w var/mail"). ⚠ Bez loginu
 >   i hasła SMTP: host i port są konfiguracją instalacji, hasło jest sekretem (CLAUDE.md §14).
@@ -2937,7 +2970,12 @@ CSP bez `unsafe-inline`; w skrzynce odbiorcy nie ma czego chronić CSP, a jest c
 - ⚠ **barwy poczty mieszkają w `Service\Mail\BarwyPoczty`**, a nie w szablonach: wartości
   przepisane z `00-tokens.css` raz, nazwy kluczy opisują rolę. Rozsypane po szablonach rozjadą
   się przy pierwszej zmianie palety — a rozjazdu nikt nie zobaczy,
-- ⚠ **temat w jednym wzorze**: „wezurlop · …", prefiks dokłada `MailRenderer`,
+- ⚠ **temat w jednym wzorze**: „wezurlop · …", prefiks dokłada `MailRenderer`, nie nadawcy.
+  ⚠ **Jeden jawny wyjątek — zaproszenie** (Z62, 20.10.2026): „<nazwa wyświetlana firmy> ·
+  Zaproszenie do aplikacji urlopowej — ustaw hasło", a dla konta administracyjnego bez etatu
+  „wezurlop · Zaproszenie do aplikacji — ustaw hasło". Powód: to jedyna wiadomość czytana przed
+  pierwszym logowaniem, więc odbiorca rozpoznaje pracodawcę, a nie dostawcę. Szablon stoi
+  w `MailRenderer::PELNY_TEMAT`, temat buduje `AccountMailService::tematZaproszenia()`,
 - ⚠ **nazwa firmy klienta w treści i w stopce** — i to **pełna nazwa z R2**, nie nasza nazwa
   wyświetlana: w wiadomości urzędowej liczy się nazwa z umowy. Bez nazwy pracodawcy zaproszenie
   wygląda jak phishing i tak zostanie potraktowane,

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Wezurlop\Dev\Poczta;
 
+use Wezurlop\Service\AccountMailService;
+
 /**
  * **Przykładowe dane każdego rodzaju wiadomości** — jedno miejsce dla podglądu i dla testu
  * (zlecenie Z60).
@@ -13,7 +15,11 @@ namespace Wezurlop\Dev\Poczta;
  * więc jeden i obie drogi pytają o niego tutaj.
  *
  * ⚠ **Dane FIKCYJNE** (CLAUDE.md §18): nazwiska zastępcze, adresy w domenie `przyklad.invalid`,
- * nazwa firmy „ALFA sp. z o.o.". Nic nie pochodzi z bazy.
+ * nazwa firmy „ALFA sp. z o.o." (wyświetlana: „ALFA"). Nic nie pochodzi z bazy.
+ *
+ * ⚠ Temat zaproszenia nie jest tu wpisany z ręki — bierze go `AccountMailService::tematZaproszenia()`
+ * (zlecenie Z62). Przepisany z pamięci dałby podgląd i test zgodne ze sobą, a niezgodne z pocztą,
+ * która naprawdę wychodzi.
  *
  * ⚠ Katalog nie jedzie do paczki klienta (`dev/`, patrz `dev/package-allowlist.txt`).
  */
@@ -22,14 +28,19 @@ final class PrzykladyWiadomosci
     /**
      * Rodzaje wiadomości: nazwa => [szablon, temat bez prefiksu, zmienne].
      *
+     * ⚠ Temat zaproszenia jest wyjątkiem i jest **pełny** (`MailRenderer::PELNY_TEMAT`).
+     *
      * @return array<string, array{0: string, 1: string, 2: array<string, mixed>}>
      */
     public static function wszystkie(): array
     {
         $firma = 'ALFA sp. z o.o.';
+        // ⚠ Nazwa wyświetlana jest KRÓTSZA od nazwy z R2 i tak ma być: w temacie stoi ta krótka
+        // (widać ją na liście wiadomości), w treści i w stopce — pełna nazwa z umowy.
+        $firmaWyswietlana = 'ALFA';
         /** Każdy rodzaj: nazwa pliku => [szablon, temat, dane]. */
         $rodzaje = [
-            'zaproszenie' => ['zaproszenie', 'Zaproszenie do aplikacji — ustaw hasło', [
+            'zaproszenie' => ['zaproszenie', AccountMailService::tematZaproszenia($firmaWyswietlana), [
                 'podglad' => 'Ustaw hasło i zaloguj się do systemu urlopowego.',
                 'imie_w_wolaczu' => 'Alicjo',
                 'firma' => $firma,
@@ -37,6 +48,19 @@ final class PrzykladyWiadomosci
                     'link' => 'https://urlopy.przyklad.invalid/zaproszenie?token=PRZYKLADOWY'],
                 'login' => 'alicja@przyklad.invalid',
                 'zapraszajacy' => 'Jan Próbny',
+                'waznosc_dni' => '7 dni',
+            ]],
+            // ⚠ Konto administracyjne bez etatu: drugi wariant TEGO SAMEGO szablonu (Z62).
+            // Osobny rodzaj w katalogu, bo różni się tematem — a temat jest jedyną częścią
+            // wiadomości, której nie widać w podglądzie treści.
+            'zaproszenie-administracyjne' => ['zaproszenie', AccountMailService::tematZaproszenia(null), [
+                'podglad' => 'Ustaw hasło i zaloguj się do systemu urlopowego.',
+                'imie_w_wolaczu' => null,
+                'firma' => null,
+                'akcja' => ['napis' => 'Ustaw hasło i zaloguj się',
+                    'link' => 'https://urlopy.przyklad.invalid/zaproszenie?token=PRZYKLADOWY'],
+                'login' => 'admin@przyklad.invalid',
+                'zapraszajacy' => null,
                 'waznosc_dni' => '7 dni',
             ]],
             'haslo-reset' => ['haslo-reset', 'Ustawienie nowego hasła', [

@@ -19,6 +19,7 @@ declare(strict_types=1);
 require dirname(__DIR__) . '/vendor/autoload.php';
 
 use Wezurlop\Dev\Poczta\PrzykladyWiadomosci;
+use Wezurlop\Service\AccountMailService;
 use Wezurlop\Service\Mail\BarwyPoczty;
 use Wezurlop\Service\Mail\MailRenderer;
 
@@ -41,9 +42,16 @@ use Wezurlop\Service\Mail\MailRenderer;
         $html = (string) $w->html;
         $tekst = $w->body;
 
-        // ——— temat w jednym wzorze ———
-        $check($nazwa . ': temat z prefiksem „wezurlop · "',
-            str_starts_with($w->subject, MailRenderer::PREFIKS), $w->subject);
+        // ——— temat w jednym wzorze, z jednym jawnym wyjątkiem (Z62) ———
+        if (in_array($szablon, MailRenderer::PELNY_TEMAT, true)) {
+            // ⚠ Szablon z `PELNY_TEMAT` dostaje temat gotowy — render nie ma prawa nic dołożyć.
+            // Kryterium jest **równością**, nie samym „zaczyna się od": prefiks dołożony w środku
+            // albo na końcu też byłby rozjazdem.
+            $check($nazwa . ': render nie rusza pełnego tematu', $w->subject === $temat, $w->subject);
+        } else {
+            $check($nazwa . ': temat z prefiksem „wezurlop · "',
+                str_starts_with($w->subject, MailRenderer::PREFIKS), $w->subject);
+        }
         $check($nazwa . ': temat bez dawnego „wezurlop: "', !str_contains($w->subject, 'wezurlop: '), $w->subject);
 
         // ——— obie wersje istnieją i nie są puste ———
@@ -93,6 +101,49 @@ use Wezurlop\Service\Mail\MailRenderer;
                 !str_contains($html, $zakazane) && !str_contains($tekst, $zakazane));
         }
     }
+
+    // ——— temat zaproszenia: nazwa pracodawcy na pierwszym miejscu (zlecenie Z62) ———
+    // ⚠ Pracownik czyta tę wiadomość PRZED pierwszym logowaniem i nazwy naszego produktu
+    // jeszcze nie zna. Dlatego kryterium jest dwustronne: temat MA się zaczynać od nazwy firmy
+    // i NIE MA się zaczynać od „wezurlop" — pierwszy warunek sam przeszedłby też wtedy, gdyby
+    // prefiks wrócił w środku napisu.
+    $tematZaproszenia = $renderer->wiadomosc(
+        $rodzaje['zaproszenie'][0],
+        'odbiorca@przyklad.invalid',
+        $rodzaje['zaproszenie'][1],
+        $rodzaje['zaproszenie'][2],
+    )->subject;
+    $check('zaproszenie: temat zaczyna się od nazwy firmy z przykładu',
+        str_starts_with($tematZaproszenia, 'ALFA · '), $tematZaproszenia);
+    $check('zaproszenie: temat NIE zaczyna się od „wezurlop"',
+        !str_starts_with($tematZaproszenia, 'wezurlop'), $tematZaproszenia);
+    $check('zaproszenie: temat w pełnym brzmieniu',
+        $tematZaproszenia === 'ALFA · Zaproszenie do aplikacji urlopowej — ustaw hasło', $tematZaproszenia);
+
+    // ⚠ Konto administracyjne nie ma pracodawcy w R2 — i wtedy, TYLKO wtedy, w temacie stoi
+    // nazwa produktu. Bez tego kryterium „nazwa firmy w temacie" przeszłoby pustą nazwą firmy.
+    $tematAdmin = $renderer->wiadomosc(
+        $rodzaje['zaproszenie-administracyjne'][0],
+        'admin@przyklad.invalid',
+        $rodzaje['zaproszenie-administracyjne'][1],
+        $rodzaje['zaproszenie-administracyjne'][2],
+    )->subject;
+    $check('zaproszenie konta administracyjnego: temat z prefiksem „wezurlop · "',
+        str_starts_with($tematAdmin, MailRenderer::PREFIKS), $tematAdmin);
+    $check('zaproszenie konta administracyjnego: temat w pełnym brzmieniu',
+        $tematAdmin === 'wezurlop · Zaproszenie do aplikacji — ustaw hasło', $tematAdmin);
+
+    // ⚠ Wzór tematu sprawdzany też wprost, bo to jedna funkcja decyduje o obu wariantach.
+    // Pusta i biała nazwa firmy MUSI wpaść w wariant produktu: nazwa „ · Zaproszenie…" byłaby
+    // wiadomością bez nadawcy, a nie wiadomością od pracodawcy.
+    foreach ([null, '', '   '] as $brak) {
+        $check('bez nazwy firmy (' . var_export($brak, true) . ') temat ma prefiks produktu',
+            AccountMailService::tematZaproszenia($brak) === 'wezurlop · Zaproszenie do aplikacji — ustaw hasło',
+            AccountMailService::tematZaproszenia($brak));
+    }
+    $check('nazwa firmy z marginesami przychodzi obcięta',
+        AccountMailService::tematZaproszenia('  BETA  ') === 'BETA · Zaproszenie do aplikacji urlopowej — ustaw hasło',
+        AccountMailService::tematZaproszenia('  BETA  '));
 
     // ——— barwy: jedno miejsce, wartości z tokenów ———
     // ⚠ Wartości są przepisane z `00-tokens.css` i tamten plik zostaje źródłem palety; test

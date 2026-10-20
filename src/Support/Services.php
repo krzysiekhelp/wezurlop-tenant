@@ -136,7 +136,7 @@ final class Services
         $resetTokens = new PasswordResetTokenRepository($this->db);
         $invitationTokens = new InvitationRepository($this->db);
         $this->accountMail = new AccountMailService($this->settings, $this->jobs, $this->accounts,
-            $resetTokens, $invitationTokens, $this->companies, $this->mailRenderer(), $config);
+            $resetTokens, $invitationTokens, $this->companies, $this->employments, $this->mailRenderer(), $config);
         $this->auth = new AuthService($this->accounts, $this->password, $this->limiter, $this->events);
         $this->passwordReset = new PasswordResetService(
             $this->accounts, $resetTokens, $this->accountMail, $this->limiter, $this->password, $this->events, $this->db,

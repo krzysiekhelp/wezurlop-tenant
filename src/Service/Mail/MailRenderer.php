@@ -29,21 +29,36 @@ use Wezurlop\Support\Strefa;
  */
 final class MailRenderer
 {
+    /** Separator tematu — jedna pisownia dla prefiksu produktu i dla nazwy firmy. */
+    public const ROZDZIELNIK = ' · ';
+
     /**
-     * **Jeden wzór tematu dla całej poczty** (zlecenie Z60): „wezurlop · Zaproszenie do
-     * aplikacji", „wezurlop · Wiadomość próbna", „wezurlop · Alert: …".
-     *
-     * ⚠ To **odwołuje** wcześniejsze rozstrzygnięcie, które zabraniało stawiać nazwę produktu
-     * na początku tematu zaproszenia („pracownik ma poznać wiadomość od pracodawcy, nie od
-     * dostawcy"). Zarządca wymienił zaproszenie wprost w nowym wzorze, a nazwa pracodawcy
-     * stoi w treści i w stopce każdej wiadomości. Rozstrzygnięcie zapisane tutaj, żeby nikt
-     * nie „naprawiał" tego z powrotem bez decyzji.
+     * **Jeden wzór tematu dla całej poczty** (zlecenie Z60): „wezurlop · Wiadomość próbna",
+     * „wezurlop · Alert: …", „wezurlop · Ustawienie nowego hasła".
      *
      * ⚠ Prefiks dokłada ta klasa, nie nadawcy: osiem miejsc składających temat z ręki
      * rozjechałoby się przy pierwszym nowym rodzaju wiadomości — i rozjechało się
      * („wezurlop: …" z dwukropkiem w siedmiu alertach).
      */
-    public const PREFIKS = 'wezurlop · ';
+    public const PREFIKS = 'wezurlop' . self::ROZDZIELNIK;
+
+    /**
+     * **Szablony, których temat przychodzi KOMPLETNY** — ta klasa nie dokłada im prefiksu.
+     *
+     * ⚠ Dziś jest tu jeden: `zaproszenie`. Decyzja Krzysztofa z 20.10.2026 (zlecenie Z62)
+     * **przywraca** regułę, którą Z60 odwołało: temat zaproszenia zaczyna się od nazwy
+     * pracodawcy („ALFA · Zaproszenie do aplikacji urlopowej — ustaw hasło"), bo pracownik
+     * ma rozpoznać wiadomość od swojej firmy, a nie od nieznanego mu dostawcy. Zaproszenie
+     * jest jedyną wiadomością, którą odbiorca dostaje PRZED pierwszym logowaniem — nazwy
+     * naszego produktu jeszcze nie zna, a nazwę pracodawcy zna.
+     *
+     * ⚠ To **wyjątek jawny, nie obejście**: temat buduje `AccountMailService::tematZaproszenia()`
+     * i tylko dlatego wolno go tu przepuścić bez zmiany. Konto administracyjne bez etatu nie ma
+     * pracodawcy w R2, więc tamta metoda sama stawia na początku `PREFIKS`.
+     *
+     * @var list<string>
+     */
+    public const PELNY_TEMAT = ['zaproszenie'];
 
     private ?Environment $html = null;
 
@@ -69,6 +84,9 @@ final class MailRenderer
      * jednej z nich wywala render — a to jest ta klasa wyjątków, które nadawca alertu zauważy
      * dopiero wtedy, gdy alert naprawdę będzie potrzebny.
      *
+     * ⚠ `$temat` przychodzi **bez prefiksu** — ta metoda dokłada go sama. Wyjątkiem są szablony
+     * z `PELNY_TEMAT`, których temat jest już kompletny (patrz komentarz tej stałej).
+     *
      * @param string $szablon nazwa bez rozszerzenia, np. `zaproszenie`
      * @param array<string, mixed> $dane te same zmienne dla obu wersji
      */
@@ -88,7 +106,7 @@ final class MailRenderer
 
         return new MailMessage(
             $do,
-            self::PREFIKS . $temat,
+            in_array($szablon, self::PELNY_TEMAT, true) ? $temat : self::PREFIKS . $temat,
             // ⚠ Kolejność wywołań nieprzypadkowa: tekst jest obowiązkowy, więc gdyby jego
             // szablonu brakowało, wiadomość nie powstanie wcale — zamiast wyjść bez wersji
             // tekstowej i wpaść odbiorcy do spamu.

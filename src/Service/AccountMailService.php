@@ -6,6 +6,7 @@ namespace Wezurlop\Service;
 
 use Wezurlop\Repository\AccountRepository;
 use Wezurlop\Repository\CompanyRepository;
+use Wezurlop\Repository\EmploymentRepository;
 use Wezurlop\Repository\InvitationRepository;
 use Wezurlop\Repository\JobRepository;
 use Wezurlop\Repository\PasswordResetTokenRepository;
@@ -40,6 +41,7 @@ final class AccountMailService
         private readonly PasswordResetTokenRepository $resetTokens,
         private readonly InvitationRepository $invitations,
         private readonly CompanyRepository $companies,
+        private readonly EmploymentRepository $employments,
         private readonly MailRenderer $renderer,
         private readonly Config $config,
     ) {
@@ -55,6 +57,54 @@ final class AccountMailService
     private function nazwaPracodawcy(int $accountId): ?string
     {
         return $this->companies->r2NameForAccount($accountId) ?? $this->companies->singleR2Name();
+    }
+
+    /**
+     * **Nazwa firmy do TEMATU zaproszenia** — nazwa wyświetlana, nie pełna nazwa z R2
+     * (zlecenie Z62, decyzja Krzysztofa z 20.10.2026).
+     *
+     * ⚠ Dwie różne nazwy w jednej wiadomości i to jest celowe: w temacie stoi nazwa, którą
+     * pracownik widzi w aplikacji i rozpozna na liście wiadomości (`NazwaSpolki`), a w treści
+     * i w stopce — pełna nazwa z umowy (`nazwaPracodawcy()`). Temat ma 40 znaków widocznych
+     * w skrzynce, więc „ALFA" mówi tam więcej niż „ALFA sp. z o.o. w restrukturyzacji".
+     *
+     * ⚠ Firma, której dotyczy zaproszenie, to firma z **etatem i dostępem** — a to jest już
+     * zapytane raz, w `accessibleForAccount()`. Drugie zapytanie z tym samym warunkiem
+     * rozjechałoby się przy pierwszej zmianie reguły dostępu; jedno miejsce na regułę znaczy
+     * też: żadnej jej kopii tutaj. Wynik jest uporządkowany po nazwie wyświetlanej, więc
+     * „pierwsza alfabetycznie" to po prostu pierwszy wiersz.
+     */
+    private function firmaDoTematu(int $accountId): ?string
+    {
+        $etaty = $this->employments->accessibleForAccount($accountId);
+
+        return $etaty === [] ? null : $etaty[0]['company_name'];
+    }
+
+    /**
+     * **Temat zaproszenia — pełny, bez prefiksu dokładanego przez `MailRenderer`** (Z62).
+     *
+     * ⚠ Reguła wróciła 20.10.2026 decyzją Krzysztofa po tym, jak Z60 ją odwołało: zaproszenie
+     * jest jedyną wiadomością, którą odbiorca czyta PRZED pierwszym logowaniem. Nazwy naszego
+     * produktu wtedy nie zna, więc „wezurlop · Zaproszenie…" wygląda w skrzynce jak reklama
+     * albo phishing; nazwę swojego pracodawcy zna. Pozostałe wiadomości zostają przy prefiksie,
+     * bo tamte czyta ktoś, kto aplikację już widział.
+     *
+     * ⚠ Statyczna i bez zależności, żeby wzór tematu dał się sprawdzić testem i pokazać
+     * w podglądzie — a nie żył w dwóch kopiach.
+     *
+     * @param string|null $firma nazwa wyświetlana firmy albo `null` dla konta bez etatu
+     */
+    public static function tematZaproszenia(?string $firma): string
+    {
+        // ⚠ Konto administracyjne bez etatu NIE MA pracodawcy w R2 (Z62), więc nie ma czyjej
+        // nazwy postawić — wtedy, i tylko wtedy, w temacie stoi nazwa produktu. Zgadnięcie
+        // firmy („pewnie ta jedna") podpisałoby wiadomość cudzym nazwiskiem.
+        if ($firma === null || trim($firma) === '') {
+            return MailRenderer::PREFIKS . 'Zaproszenie do aplikacji — ustaw hasło';
+        }
+
+        return trim($firma) . MailRenderer::ROZDZIELNIK . 'Zaproszenie do aplikacji urlopowej — ustaw hasło';
     }
 
     /** Imię w wołaczu albo `null` — najpierw przywracamy pisownię z WERSALIKÓW z R2. */
@@ -452,13 +502,11 @@ final class AccountMailService
             // Nowe zaproszenie unieważnia poprzednie niewykorzystane.
             $this->invitations->revokeAllForAccount($accountId);
             $this->invitations->create($accountId, $generated['hash'], self::INVITATION_VALID_MINUTES, $createdBy);
-            // ⚠ Temat mówi, CO ZROBIĆ, i nie zawiera ani tokenu, ani nazwy naszego produktu
-            // na pierwszym miejscu: pracownik ma poznać wiadomość od pracodawcy, nie od dostawcy.
-            // ⚠ **Temat ma wzór wspólny dla całej poczty** (Z60): prefiks „wezurlop · " dokłada
-            // `MailRenderer`, a tu zostaje to, CO ZROBIĆ. Wcześniejsze rozstrzygnięcie zabraniało
-            // nazwy produktu na początku tematu zaproszenia; zarządca odwołał je w Z60, wymieniając
-            // zaproszenie wprost we wzorze. Nazwa pracodawcy stoi w treści i w stopce.
-            $temat = 'Zaproszenie do aplikacji — ustaw hasło';
+            // ⚠ **Temat zaproszenia zaczyna się od nazwy pracodawcy** (Z62, decyzja Krzysztofa
+            // z 20.10.2026 — przywrócenie reguły odwołanej w Z60). Temat jest tu PEŁNY, bez
+            // prefiksu „wezurlop · ": szablon `zaproszenie` stoi w `MailRenderer::PELNY_TEMAT`,
+            // więc render go nie rusza. Token w temacie nie występuje i wystąpić nie może.
+            $temat = self::tematZaproszenia($this->firmaDoTematu($accountId));
             $zaprosil = $createdBy === null ? null : $this->accounts->findById($createdBy);
             $message = $this->renderer->wiadomosc('zaproszenie', $account['email'], $temat, [
                 'podglad' => 'Ustaw hasło i zaloguj się do systemu urlopowego.',
