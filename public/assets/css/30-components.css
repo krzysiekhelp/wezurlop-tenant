@@ -1905,9 +1905,17 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 .legend__mark--kadrowe { background: var(--c-pasek-kadrowe-tlo); }
 /* Próbka dostępu bez szczegółów — ten sam obrys co pasek, bo to on ją odróżnia. */
 .legend__mark--bez { background: var(--c-neutral-soft); border: 1px solid var(--c-line); }
-/* ⚠ Dzień wolny NIE jest paskiem — to tło kolumny, więc próbka zostaje prostokątem z obrysem.
-   Gdyby i ona była pigułką, legenda mówiłaby, że dzień wolny jest nieobecnością. */
-.legend__mark--free    { width: 14px; height: 14px; border-radius: 2px; background: var(--c-surface-hover); border: 1px solid var(--c-line); }
+/* ⚠ Dzień wolny NIE jest paskiem — to tło kratki albo kolumny, więc próbka zostaje prostokątem
+   z obrysem. Gdyby i ona była pigułką, legenda mówiłaby, że dzień wolny jest nieobecnością.
+   ⚠ **Token `--c-neutral-soft`, nie `--c-surface-hover`** (decyzja Krzysztofa, Z66 — pozycja 90
+   z `do-sprawdzenia.md`). Próbka miała dotąd token „wiersz tabeli pod kursorem" (#F7F8FA),
+   a kratka dnia wolnego w siatce ma #F0F2F5 — czyli legenda mówiła o innym kolorze niż ten,
+   który opisuje. Zmierzone przed zmianą na koncie z rozkładem czasu pracy, w obu powłokach
+   i na trzech skalach: legenda `rgb(247,248,250)`, kratka `rgb(240,242,245)`.
+   ⚠ Zostaje jedno rozejście do rozstrzygnięcia osobno: kolumna dnia wolnego w OSI CZASU
+   (`.team-grid__cell--free`) dalej ma `--c-surface-hover`. Zgłoszone w raporcie Z66,
+   nie zmieniam bez zlecenia. */
+.legend__mark--free    { width: 14px; height: 14px; border-radius: 2px; background: var(--c-neutral-soft); border: 1px solid var(--c-line); }
 
 /* ——— ekran kalendarza: trzy bloki i wiersz nawigacji ————————————————————————
    (zlecenie `2026-10-11-trzy-bloki-nawigacja-w-naglowku.md` §1 i §2, prototyp zatwierdzony

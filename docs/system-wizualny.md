@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.45, 20.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.47, 20.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,34 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.46 → 1.18.47: powłoka `/m/` jest pod aplikację mobilną, a nie pod telefon
+> w przeglądarce** (rozstrzygnięcie Krzysztofa 20.10.2026, pozycja 74 z `do-sprawdzenia.md`;
+> **sama decyzja — zero zmian w kodzie**).
+> - `/m/` to powłoka przygotowywana pod **webview aplikacji mobilnej** (Android, iPhone)
+>   w kolejnych etapach. Nie jest „wersją dla telefonu".
+> - Telefon w **zwykłej przeglądarce** dostaje responsywną wersję webową i **żadnego
+>   przekierowania na `/m/`** — ani z `User-Agent`, ani ze znacznika klienta.
+> - ⚠ **Obie powłoki muszą działać przy 375 px**, tak jak dziś mierzy bramka ekranowa. To jest
+>   praktyczny skutek decyzji: skoro telefon zostaje na powłoce web, wąskiego pomiaru nie wolno
+>   zawęzić do `/m/` ani uznać 375 px za problem wyłącznie powłoki mobilnej.
+
+> **Zmiana 1.18.45 → 1.18.46: próbka „dzień wolny" w legendzie ma token kratki, nie kursora**
+> (zlecenie Z66, decyzja Krzysztofa z 20.10.2026 — pozycja 90 z `do-sprawdzenia.md`).
+> - **Było**: `.legend__mark--free` brało `--c-surface-hover`, czyli token „wiersz tabeli pod
+>   kursorem" (#F7F8FA), a kratka dnia wolnego w siatce miesiąca i roku ma `--c-neutral-soft`
+>   (#F0F2F5). Legenda mówiła więc o innym kolorze niż ten, który opisuje.
+> - **Jest**: próbka bierze `--c-neutral-soft`. Zmierzone na koncie z rozkładem czasu pracy,
+>   w obu powłokach i na trzech skalach (Miesiąc, Rok, widok firmy): przed — legenda
+>   `rgb(247,248,250)` wobec kratki `rgb(240,242,245)`; po — **oba `rgb(240,242,245)`, sześć
+>   pomiarów na sześć zgodnych**.
+> - ⚠ **Zostaje jedno rozejście, zgłoszone osobno**: kolumna dnia wolnego w OSI CZASU
+>   (`.team-grid__cell--free`) dalej ma `--c-surface-hover` (#F7F8FA), a jej nagłówek
+>   `.team-grid__head--free` jeszcze inny odcień (#FCFCFD). Po tej zmianie legenda zgadza się
+>   z siatką, a rozmija z osią czasu — czyli ta sama rzecz („dzień wolny") ma w produkcie trzy
+>   odcienie. Nie zmieniam osi bez zlecenia; liczby w raporcie Z66.
+> - ⚠ Próbka zostaje **prostokątem z obrysem**, nie pigułką: dzień wolny nie jest
+>   nieobecnością, a kształt próbki to jedyne miejsce, w którym legenda o tym mówi.
 
 > **Zmiana 1.18.44 → 1.18.45: przy wąskim oknie nazwa ekranu wygrywa z szerokością znacznika**
 > (pomiar odbiorowy Z63 część B, 20.10.2026).

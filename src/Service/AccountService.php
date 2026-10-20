@@ -41,6 +41,22 @@ final class AccountService
     }
 
     public const POWOD_SIEBIE = 'nie można zablokować konta, na którym jesteś zalogowany';
+    /**
+     * ⚠ **Ta reguła broni PRZYSZŁEJ roli albo drogi API, nie dzisiejszego ekranu — i dlatego
+     * zostaje** (zmierzone 20.10.2026, Z63 część E, na bazie testowej).
+     *
+     * Uprawnienie `admin.users` ma dziś **wyłącznie rola `tenant_admin`**. Czyli każdy, kto
+     * w ogóle może zablokować konto, sam jest aktywnym administratorem — a wtedy aktywnych
+     * administratorów jest co najmniej dwóch (on i cel) albo celem jest on sam, i wtedy
+     * rozstrzyga `POWOD_SIEBIE`, bo stoi wyżej. **Z interfejsu nie da się więc dojść do tego
+     * powodu.** Zmierzone wprost: jeden aktywny administrator + wywołanie z konta bez roli
+     * administracyjnej → `blockRefusal()` i `block()` odmawiają tym powodem, a konto zostaje
+     * `active`.
+     *
+     * ⚠ Nie kasować jako „nieużywanej": zadziała w dniu, w którym `admin.users` dostanie druga
+     * rola (kadry, administrator firmowy) albo blokada pójdzie ścieżką API — czyli wtedy, gdy
+     * nikt nie będzie pamiętał, że tego warunku brakuje.
+     */
     public const POWOD_OSTATNI_ADMIN = 'to jedyne aktywne konto administratora tenanta';
     public const POWOD_NIE_MA = 'konta nie ma albo jest już w tym stanie';
 

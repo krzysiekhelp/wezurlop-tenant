@@ -305,6 +305,13 @@ _usterka("skale_czasu", """
     if (siatki.length === 12) { siatki[11].remove(); }
 """)
 
+# Kratka z rodzajem traci podpowiedź — zostaje kolorowy kwadrat bez znaczenia (pozycja 6 z długu).
+_usterka("kratka_bez_title", """
+    const k = document.querySelector('.msiatka__kratka--urlop, .msiatka__kratka--zasilek,'
+      + ' .msiatka__kratka--kadrowe');
+    if (k) { k.removeAttribute('title'); }
+""")
+
 # Prawda kalendarza: nagłówek ekranu mówi „Mój kalendarz" nad widokiem całej spółki — czyli
 # dokładnie zgłoszona usterka z 23.09, w której ekran przypisywał oglądającemu cudzy kalendarz.
 _usterka("prawda_kalendarza", """
@@ -3998,6 +4005,10 @@ POMIAR_SKALI = r"""() => {
   const kratki = Array.from(document.querySelectorAll('.msiatka__kratka'));
   const nieobecne = kratki.filter(
     e => /msiatka__kratka--(urlop|zasilek|kadrowe)/.test(e.className));
+  // ⚠ **Podpowiedź kratki z rodzajem** (pozycja 6 z `do-sprawdzenia.md`, dopisane w Z66):
+  // kratka niesie rodzaj WYPEŁNIENIEM, więc jedyne miejsce, w którym człowiek czyta „co to
+  // było i kiedy", to `title`. Pusty albo bez daty znaczy kolorowy kwadrat bez znaczenia.
+  const tytulyNieobecnych = nieobecne.map(e => (e.getAttribute('title') || '').trim());
 
   // ⚠ **Nagłówek dnia tygodnia nad swoją kolumną — geometrią, nie indeksem w pętli.** To jest
   // następca sprawdzenia „numer nad kolumną" ze starej siatki roku (`.rok__naglowek`), której
@@ -4045,6 +4056,7 @@ POMIAR_SKALI = r"""() => {
       pudelek: siatki.length,
       kratek: kratki.length,
       nieobecnych: nieobecne.length,
+      tytuly_nieobecnych: tytulyNieobecnych,
       nazwy: Array.from(document.querySelectorAll('.msiatka__nazwa')).map(e => e.textContent.trim()),
       sumy: Array.from(document.querySelectorAll('.msiatka__suma')).map(e => e.textContent.trim()),
       odchylenia,
@@ -4082,7 +4094,13 @@ def sprawdz_skale_czasu(b, usterka: str | None = None) -> dict:
       4. `lista_wyrownanie` — prawa krawędź ostatniej kolumny leży w granicach kilku pikseli
          od prawej krawędzi karty, a „Rodzaj" jest szersza od „Dni robocze",
       5. `kwartal_waski` — trzy siatki są **widoczne** (przecięciem z przycinającymi przodkami,
-         nie „są w HTML"), a strona **nie przewija się w poziomie** na wąskim ekranie.
+         nie „są w HTML"), a strona **nie przewija się w poziomie** na wąskim ekranie,
+      6. `kratki_z_podpowiedzia` — **każda kratka z rodzajem ma `title` z nazwą i DATĄ**
+         (pozycja 6 z `do-sprawdzenia.md`, dopisane w Z66). Kratka niesie rodzaj wypełnieniem,
+         więc `title` jest jedynym miejscem, w którym człowiek czyta „co to było i kiedy";
+         pusty albo bez daty znaczy kolorowy kwadrat bez znaczenia. Wzorzec pyta o datę
+         po separatorze, nie o samą obecność atrybutu — i mierzy w DWÓCH szablonach tej samej
+         kratki (skala roku i miesiąc), bo to dwa różne pliki.
     """
     haslo = HASLO3 or haslo_dev(LOGIN3)
     if not haslo:
@@ -4165,6 +4183,17 @@ def sprawdz_skale_czasu(b, usterka: str | None = None) -> dict:
                     except Exception:  # noqa: BLE001
                         pass
 
+        # ⚠ **Każda kratka z rodzajem ma `title` z nazwą i DATĄ** (pozycja 6 z długu, Z66).
+        # Mierzymy w skali roku i w miesiącu, bo to dwa różne szablony tej samej kratki.
+        # Wzorzec pyta o datę po separatorze — „urlop wypoczynkowy · 17.08.2026" — a nie o samą
+        # obecność atrybutu: `title="urlop wypoczynkowy"` mówi CO, ale nie KIEDY, a kratka stoi
+        # w siatce dwunastu miesięcy, gdzie „kiedy" jest całą resztą informacji.
+        tytuly = []
+        for _skala in ("rok", "bzdura"):
+            tytuly += pomiary[_skala]["siatka"]["tytuly_nieobecnych"]
+        kratki_z_podpowiedzia = tytuly != [] and all(
+            re.search(r" · \d{1,2}\.\d{2}", _t) is not None for _t in tytuly)
+
         # 5. wąski ekran — dwanaście siatek roku widocznych, zero przewijania strony w poziomie
         # ⚠ Mierzymy też POWŁOKĘ MOBILNĄ (`/m/`), nie tylko wąskie okno powłoki webowej: to dwa
         # różne układy i tylko jeden z nich ma dolną nawigację.
@@ -4244,12 +4273,16 @@ def sprawdz_skale_czasu(b, usterka: str | None = None) -> dict:
 
         return {
             "ok": stan_z_adresu and dane_nie_pustka and naglowek_nad_kolumna
-                  and lista_wyrownanie and rok_waski,
+                  and lista_wyrownanie and rok_waski and kratki_z_podpowiedzia,
             "stan_z_adresu": stan_z_adresu,
             "dane_nie_pustka": dane_nie_pustka,
             "naglowek_nad_kolumna": naglowek_nad_kolumna,
             "lista_wyrownanie": lista_wyrownanie,
             "rok_waski": rok_waski,
+            "kratki_z_podpowiedzia": kratki_z_podpowiedzia,
+            "podpowiedzi_kratek": {"sprawdzonych": len(tytuly), "przyklad": tytuly[0] if tytuly else None,
+                                   "bez_daty": [x for x in tytuly
+                                                if re.search(r" · \d{1,2}\.\d{2}", x) is None][:3]},
             "zatrudnienie": jaId,
             "z_bazy": z_bazy,
             "skale": {k: {"wybrana": p["skala_wybrana"],
@@ -6677,6 +6710,8 @@ KONTROLE: dict[str, object] = {
     # ⚠ Trzy kryteria przepięte w Z63 cz. A — każde z własną usterką. `jedna_wizualizacja`
     # ma dwie, bo ma dwa nowe twierdzenia: „zero obcych krat" i „tylko jedna rodzina na ekran".
     "skale_czasu": sprawdz_skale_czasu,
+    # ⚠ Druga usterka tego samego kryterium: kratka bez podpowiedzi (szóste twierdzenie, Z66).
+    "kratka_bez_title": sprawdz_skale_czasu,
     "prawda_kalendarza": sprawdz_prawde_kalendarza,
     "jedna_wizualizacja_obca_krata": sprawdz_jedna_wizualizacje,
     "jedna_wizualizacja_dwie_rodziny": sprawdz_jedna_wizualizacje,
