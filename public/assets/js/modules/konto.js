@@ -38,10 +38,15 @@
     var opisOk = hint ? hint.getAttribute('data-opis-ok') : null;
     var opisWyjsciowy = hint ? hint.textContent : '';
 
+    // ⚠ Pojemnik pola bierzemy raz: stan „numer wygląda poprawnie" maluje obwódkę na CAŁYM
+    // polu (prefiks + wnętrze), a nie na samym `input` — ten nie ma już własnej ramki (Z72).
+    var pojemnik = pole.closest('.pole-telefonu');
+
     function odswiez() {
       var ile = cyfry(pole.value).length;
       var pelny = ile === CYFR_TELEFONU;
       if (zapisz) { zapisz.disabled = !pelny; }
+      if (pojemnik) { pojemnik.classList.toggle('pole-telefonu--ok', pelny); }
       if (hint && opisOk) {
         hint.textContent = pelny ? opisOk : opisWyjsciowy;
         hint.classList.toggle('field__hint--ok', pelny);

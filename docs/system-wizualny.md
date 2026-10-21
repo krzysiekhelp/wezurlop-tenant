@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.19.2, 21.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.19.3, 21.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,37 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.19.2 → 1.19.3: nagłówek „Mojego konta" w jednym wierszu, telefon jako JEDNO pole**
+> (zlecenie Z72 — zgłoszenie Krzysztofa po Z69, zmierzone w Chrome przy 1568 px).
+> - **Nagłówek**: miał **408 px wysokości** (zmierzone na 1920, 1366 i 375), bo `.konto-glowa__body`
+>   nie nadpisywał `flex-direction: column` z `.card__body`. W układzie kolumnowym `flex-basis`
+>   dotyczy WYSOKOŚCI, więc `.konto-glowa__dane { flex: 1 1 240px }` rozciągał kartę do 240 px
+>   w pionie, a inicjały, nazwa i „Wyloguj" stały jedno pod drugim. Po dopisaniu
+>   `flex-direction: row`: **104 px** przy 1920 i 1366, jeden wiersz, „Wyloguj" przy prawej
+>   krawędzi. Na telefonie (≤ 560 px) wiersz zawija się jak dotąd — 251 px, bez przewijania strony.
+>   ⚠ Nauka: komponent dokładany do `.card__body` **dziedziczy jego kierunek** i musi go nadpisać,
+>   jeśli chce wiersza. Sprawdzone: żadna inna karta tego nie dotyczy — `.konto-glowa__body` jest
+>   jedynym miejscem łączącym `card__body` z własną klasą ciała.
+> - **Pole telefonu**: prefiks i wnętrze były dwiema kontrolkami obok siebie, każda z własną ramką
+>   i promieniem 8 px (zmierzone: pojemnik 410 px, prefiks 49×38, input 185×38 — czyli pole nie
+>   wypełniało okna). Teraz ramkę nosi POJEMNIK (`--c-line-strong`, promień 10 px,
+>   `overflow: hidden`), prefiks ma tło `--c-bg` i kreskę z prawej, a wnętrze `flex: 1`, 17 px,
+>   odstęp liter .04em i podpowiedź „600 100 200". Zmierzone po poprawce: 410×40, prefiks 52×38,
+>   wnętrze 356×38, obie części tej samej wysokości i bez własnych ramek.
+> - **Obwódka akcentu na CAŁYM polu**, nie na wnętrzu — przy fokusie i przy poprawnym numerze
+>   (`box-shadow 0 0 0 3px --c-accent-soft`, ramka `--c-accent-text`). Trzy stany zmierzone:
+>   w spoczynku `rgb(212,216,223)` bez obwódki, z fokusem i przy dziewięciu cyfrach
+>   `rgb(14,110,60)` z obwódką `rgb(232,244,236)`. ⚠ Wewnętrzny `outline` z `10-base.css`
+>   wyłączony **tylko w tym polu**: wskaźnik fokusu nie znika, przenosi się na pojemnik,
+>   który jest większy i lepiej widoczny.
+> - ⚠ **Przy okazji znaleziony brak z Z69**: `modules/konto.js` ustawiał klasę `field__hint--ok`,
+>   której arkusz NIE ZNAŁ — podpowiedź zmieniała tekst na „numer wygląda poprawnie", ale kolorem
+>   dalej mówiła „to opis pola". Klasa dopisana (barwa akcentu, półgruby krój).
+> - ⚠ **Pole w panelu osoby (`/admin/konta`) to NIE ten komponent** i zostaje bez zmian: tam stoi
+>   zwykły `.input` o długości 32 znaków, bez prefiksu, bo administrator wpisuje numer w dowolnym
+>   kształcie (także zagraniczny). Ujednolicenie oznaczałoby narzucenie mu reguły dziewięciu cyfr
+>   krajowych — to zmiana zachowania, nie wyglądu, więc czeka na decyzję.
 
 > **Zmiana 1.19.1 → 1.19.2: trzecie zdanie o zasięgu zespołu, i dowód reguły „Zespół"
 > w obie strony** (zlecenie Z71, 21.10.2026).

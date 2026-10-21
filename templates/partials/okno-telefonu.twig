@@ -33,9 +33,12 @@
                     „e" oraz minus. Numer telefonu to ciąg cyfr, nie liczba do liczenia. -#}
                 <span class="pole-telefonu">
                     <span class="pole-telefonu__prefiks" aria-hidden="true">+48</span>
+                    {#- ⚠ `placeholder` pokazuje FORMAT, nie przykładowy numer do przepisania:
+                        „600 100 200" mówi „trzy–trzy–trzy", a tyle właśnie robi formatowanie
+                        w `modules/konto.js`. -#}
                     <input class="input pole-telefonu__pole" type="tel" name="telefon" inputmode="numeric"
                            autocomplete="tel-national" maxlength="13" data-telefon
-                           aria-describedby="telefon-hint"
+                           placeholder="600 100 200" aria-describedby="telefon-hint"
                            value="{{ wpisany_telefon != '' ? wpisany_telefon : (osoba.telefon is null ? '' : osoba.telefon|replace({'+48 ': ''})) }}" autofocus>
                 </span>
                 {#- ⚠ Podpowiedź ma dwa stany, a drugi („numer wygląda poprawnie") dokłada JavaScript

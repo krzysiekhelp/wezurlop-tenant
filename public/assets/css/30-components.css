@@ -6692,6 +6692,14 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 /* Nagłówek konta: inicjały 56 px, nazwa, e-mail i plakietka typu, „Wyloguj" po prawej. */
 .konto-glowa__body {
   display: flex;
+  /* ⚠ **`row` JAWNIE, bo `.card__body` ustawia `column`** (zgłoszenie Z72, 21.10.2026).
+     Bez tej jednej linii nagłówek konta miał **408 px wysokości** (zmierzone na 1920, 1366
+     i 375 px): inicjały, nazwa i „Wyloguj" stały jedno pod drugim, a kolumna
+     `.konto-glowa__dane { flex: 1 1 240px }` rozciągała kartę do 240 px w PIONIE, bo w układzie
+     kolumnowym `flex-basis` dotyczy wysokości. Nic nie wyglądało na zepsute — po prostu wszystko
+     stało w złej osi. Nauka: komponent dokładany do `.card__body` dziedziczy jego kierunek
+     i musi go nadpisać, jeśli chce wiersza. */
+  flex-direction: row;
   align-items: center;
   gap: var(--s-4);
   flex-wrap: wrap;
@@ -6812,19 +6820,51 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 .modal__przelacznik { font-size: var(--t-caption); margin: var(--s-2) 0 0; }
 
 /* Pole telefonu z nieruchomym prefiksem. */
-.pole-telefonu { display: flex; align-items: stretch; }
+/* ⚠ **JEDNO pole, nie dwie kontrolki obok siebie** (zgłoszenie Z72, projekt Krzysztofa).
+   Pierwsza wersja (Z69) dawała prefiks z własną ramką i promieniem 8 px ze WSZYSTKICH stron
+   oraz input z drugą ramką — zmierzone: pojemnik 410 px, prefiks 49×38, input 185×38, czyli
+   dwie obwódki i pole, które nie wypełnia okna. Ramkę nosi teraz POJEMNIK, a `overflow: hidden`
+   przycina do niej tło prefiksu; wnętrza są bez ramek i bez promienia.
+   ⚠ `.input` ma własny obrys i promień (0,1,0), więc `border: 0` na `.pole-telefonu__pole`
+   jest konieczne — bez niego wygrywa reguła ogólna i ramka wraca. */
+.pole-telefonu {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--c-line-strong);
+  border-radius: var(--radius-card);
+  background: var(--c-surface);
+  overflow: hidden;
+}
+/* ⚠ Obwódka akcentu na CAŁYM polu, nie na samym wnętrzu: przy fokusie i przy poprawnym numerze.
+   Wewnętrzny `outline` z `10-base.css` wyłączamy TU i tylko tu — wskaźnik fokusu nie znika,
+   przenosi się na pojemnik, który jest większy i lepiej widoczny (§3.7 o obsłudze klawiaturą). */
+.pole-telefonu:focus-within,
+.pole-telefonu--ok {
+  border-color: var(--c-accent-text);
+  box-shadow: 0 0 0 3px var(--c-accent-soft);
+}
 .pole-telefonu__prefiks {
   display: grid;
   place-items: center;
   padding-inline: var(--s-3);
-  border: 1px solid var(--c-line);
-  border-right: 0;
-  border-radius: var(--radius) 0 0 var(--radius);
-  background: var(--c-surface-hover);
+  border-right: 1px solid var(--c-line);
+  background: var(--c-bg);
   color: var(--c-text-2);
+  font-size: 15px;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
-.pole-telefonu__pole { border-radius: 0 var(--radius) var(--radius) 0; min-width: 0; }
+.pole-telefonu__pole {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 17px;
+  letter-spacing: .04em;
+  font-variant-numeric: tabular-nums;
+}
+.pole-telefonu__pole:focus-visible { outline: none; }
 
 /* Pole kodu: JEDNA wartość, wygląd okienek. ⚠ Sześć osobnych pól odpadło, bo bez JavaScriptu
    nie dają się obsłużyć klawiaturą, a wklejenie kodu z menedżera haseł trafia tylko w pierwsze. */
@@ -6854,6 +6894,10 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   letter-spacing: 1px;
   text-align: center;
 }
+/* ⚠ **Klasa, którą JavaScript ustawiał od Z69, a arkusz jej NIE ZNAŁ** (znalezione przy Z72):
+   podpowiedź zmieniała tekst na „numer wygląda poprawnie", ale kolorem dalej mówiła „to opis
+   pola". Stan spełniony ma być widoczny bez czytania — stąd barwa akcentu i półgruby krój. */
+.field__hint--ok { color: var(--c-accent-text); font-weight: 500; }
 .lista-uwag { margin: 0 0 var(--s-4); padding-left: var(--s-5); display: flex; flex-direction: column; gap: var(--s-1); }
 .pole-wyboru { display: flex; align-items: flex-start; gap: var(--s-2); margin-top: var(--s-3); font-size: var(--t-small); }
 /* Formularz pomocniczy dla przycisku `form="…"` — nie zajmuje miejsca i nie ma czego pokazywać. */
