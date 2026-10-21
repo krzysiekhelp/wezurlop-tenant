@@ -569,10 +569,18 @@ final class CalendarController
                 ? ' z ' . $zasieg['spolka'] . ' w firmie ' . $spolka
                 : '';
             $ile = $zasieg['galaz'];
-            if (($zasieg['podwladnych'] ?? 0) === 0) {
+            $podwladnych = $zasieg['podwladnych'] ?? 0;
+            if ($podwladnych === 0) {
                 // Zespół bez gałęzi = osoby z nadanych reguł dostępu i nic więcej.
                 return 'Widzisz ' . $ile . ' ' . Odmiana::osoby($ile)
                     . ' z nadanych reguł dostępu' . $wFirmie . '.';
+            }
+            // ⚠ **Trzy zdania, nie dwa** (zmierzone w Z71): gdy zespół to DOKŁADNIE gałąź,
+            // dopisek „i osoby z reguł dostępu" mówi o kimś, kogo w siatce nie ma. Przełożony
+            // z trzema podwładnymi i bez żadnej reguły czytał „Widzisz swoją gałąź i osoby
+            // z reguł dostępu: 4 osoby" — i szukałby tej czwartej grupy osób na próżno.
+            if ($podwladnych + 1 === $ile) {
+                return 'Widzisz swoją gałąź: ' . $ile . ' ' . Odmiana::osoby($ile) . $wFirmie . '.';
             }
 
             return 'Widzisz swoją gałąź i osoby z reguł dostępu: ' . $ile . ' '

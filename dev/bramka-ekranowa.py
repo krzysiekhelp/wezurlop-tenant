@@ -350,6 +350,19 @@ _usterka("przelacznik_zespolu", """
     }
 """)
 
+# Przełącznik widoku, usterka DRUGA (Z71): pozycja „Zespół" ZNIKA, choć gałąź jest niepusta —
+# czyli odwrotność usterki pierwszej. Łamie stronę dodatnią kryterium: przełożony z trzema
+# podwładnymi traci jedyne wejście do widoku swojego zespołu.
+# ⚠ Dwie usterki na jedno kryterium, bo ma ono dwa twierdzenia o PRZECIWNYCH stanach: „nie ma
+# pozycji, gdy dublowałaby Firmę" i „jest, gdy jest kogo pokazać". Jedna usterka złamałaby
+# tylko połowę i druga połowa dalej byłaby nieudowodniona.
+_usterka("zespol_schowany", """
+    document.querySelectorAll('.kal-btn').forEach(a => {
+      const e = a.querySelector('.kal-btn__etykieta') || a;
+      if (e.textContent.trim() === 'Zespół') { a.remove(); }
+    });
+""")
+
 # Prawda kalendarza: nagłówek ekranu mówi „Mój kalendarz" nad widokiem całej spółki — czyli
 # dokładnie zgłoszona usterka z 23.09, w której ekran przypisywał oglądającemu cudzy kalendarz.
 _usterka("prawda_kalendarza", """
@@ -4848,6 +4861,37 @@ def sprawdz_pasy_szczelin(b, usterka: str | None = None) -> dict:
     return wynik
 
 
+# ⚠ **Jeden pomiar dla OBU stron kryterium `przelacznik_zespolu`** (Z70 + Z71): etykiety
+# przełącznika, liczba wierszy osi czasu i zdania pod kalendarzem. Dwie kopie tego kodu
+# rozjechałyby się przy pierwszej zmianie klasy — a wtedy jedna strona kryterium mierzyłaby
+# coś innego niż druga i nikt by tego nie zauważył, bo obie byłyby zielone.
+# ⚠ Nazwisk z wierszy NIE czytamy: to dane osobowe, a kryterium pyta o LICZBĘ wierszy.
+POMIAR_PRZELACZNIKA = r"""() => {
+  const etykieta = (e) => (e.querySelector('.kal-btn__etykieta') || e).textContent.trim();
+  const pozycje = [...document.querySelectorAll('.kal-btn')].map(etykieta)
+    .filter(t => ['Tylko ja', 'Zespół', 'Firma'].includes(t));
+  const wybrany = [...document.querySelectorAll('.kal-btn[aria-current="true"]')].map(etykieta);
+  const wierszy = document.querySelectorAll('.team-grid__person').length;
+  const zdania = [...document.querySelectorAll('.card__meta, .notice')]
+    .map(e => e.innerText.trim()).filter(t => t !== '');
+  return {pozycje, wybrany, wierszy, zdania};
+}"""
+
+
+def probka_zespolu(tryb: str) -> dict:
+    """Struktura próbna z gałęzią (`dev/probka-zespolu.php`) — tworzenie, sprzątanie, liczniki.
+
+    ⚠ Tryb `sprzataj` wołamy także PRZED pomiarem i w `finally`: po przerwanym przebiegu
+    (Ctrl+C, zabity proces) w bazie zostają wiersze próbki, a adres konta jest unikalny —
+    bez tego następne uruchomienie wywróciłoby się na duplikacie zamiast zmierzyć cokolwiek.
+    """
+    import subprocess
+    wyn = subprocess.run(["php", "dev/probka-zespolu.php", tryb],
+                         cwd=KORZEN, capture_output=True, text=True, check=True)
+
+    return json.loads(wyn.stdout or "{}")
+
+
 def sprawdz_przelacznik_zespolu(b, usterka: str | None = None) -> dict:
     """**Pozycja „Zespół" istnieje tylko wtedy, gdy pokazuje coś innego niż „Firma"**
     (zlecenie Z70, 21.10.2026 — zgłoszenie Krzysztofa „u administratora oba widoki pokazują
@@ -4869,9 +4913,27 @@ def sprawdz_przelacznik_zespolu(b, usterka: str | None = None) -> dict:
          gałąź": gałąź to hierarchia, a nie reguła dostępu, i mówienie inaczej przypisuje
          człowiekowi podwładnych, których nie ma.
 
-    ⚠ Mierzone na koncie administracyjnym, bo właśnie ono ma wgląd w całą firmę bez gałęzi.
-    Samą regułę we wszystkich kombinacjach (gałąź mniejsza, równa, brak firmy) sprawdza
-    `tests/przelacznik-widoku.php` — tam, gdzie nie trzeba przeglądarki ani konta z podwładnymi.
+    ⚠ **Strona DODATNIA mierzona na własnej strukturze próbnej** (zlecenie Z71): pozycja
+    „Zespół" MUSI być u kogoś, kto kogoś prowadzi, i musi pokazywać dokładnie jego gałąź.
+    Do tego dnia kryterium mierzyło tylko stronę ujemną, bo jedyny przełożony z niepustą gałęzią
+    w bazie roboczej to prawdziwa osoba — a hasła do jej konta nie wolno trzymać w pliku
+    deweloperskim (rozstrzygnięcie Krzysztofa z 21.10.2026). Dlatego `dev/probka-zespolu.php`
+    zakłada przełożonego z kontem i trzech podwładnych na czas pomiaru i kasuje ich po nim;
+    liczniki tabel sprawdzamy przed i po, więc „posprzątane" jest twierdzeniem, nie nadzieją.
+      5. `pozycja_przy_galezi` — konto z gałęzią MA pozycję „Zespół",
+      6. `zespol_to_galaz` — widok „Zespół" pokazuje dokładnie tyle wierszy, ile liczy gałąź
+         (przełożony i jego trzy osoby), ani mniej, ani więcej,
+      7. `zdanie_o_galezi` — zdanie mówi „Widzisz swoją gałąź…" i nie używa słowa „spółka",
+      8. `posprzatane` — liczniki osób, etatów, kont, krawędzi hierarchii i ról wracają
+         do stanu z przed pomiaru.
+
+    ⚠ „Zespół" i „Firma" NARAZ u tego konta nie wystąpią i nie jest to brak w pomiarze: żeby
+    mieć widok firmy, konto musi mieć wgląd w całą firmę — a wtedy zespół równa się firmie
+    i reguła z Z70 słusznie chowa pozycję. Obie pozycje obok siebie wymagają reguły WĘŻSZEJ
+    niż cała firma (np. na grupy), co jest osobnym stanem i osobnym pomiarem.
+
+    ⚠ Samą regułę we wszystkich kombinacjach (gałąź mniejsza, równa, brak firmy) sprawdza
+    `tests/przelacznik-widoku.php` — tam, gdzie nie trzeba ani przeglądarki, ani konta.
     """
     haslo = HASLO or haslo_dev(LOGIN)
     if not haslo:
@@ -4890,17 +4952,7 @@ def sprawdz_przelacznik_zespolu(b, usterka: str | None = None) -> dict:
         wyniki = {}
         for adres in ("/kalendarz", "/kalendarz?widok=zespol"):
             pg.goto(BAZA + adres, wait_until="networkidle")
-            wyniki[adres] = pg.evaluate(r"""() => {
-              const etykieta = (e) => (e.querySelector('.kal-btn__etykieta') || e).textContent.trim();
-              const pozycje = [...document.querySelectorAll('.kal-btn')].map(etykieta)
-                .filter(t => ['Tylko ja', 'Zespół', 'Firma'].includes(t));
-              const wybrany = [...document.querySelectorAll('.kal-btn[aria-current="true"]')].map(etykieta);
-              // Zdania o zasięgu stoją w `.card__meta`; bierzemy je wszystkie, bo kryterium
-              // pyta o TREŚĆ, a nie o pozycję zdania na ekranie.
-              const zdania = [...document.querySelectorAll('.card__meta, .notice')]
-                .map(e => e.innerText.trim()).filter(t => t !== '');
-              return {pozycje, wybrany, zdania};
-            }""")
+            wyniki[adres] = pg.evaluate(POMIAR_PRZELACZNIKA)
 
         glowny = wyniki["/kalendarz"]
         zAdresu = wyniki["/kalendarz?widok=zespol"]
@@ -4913,9 +4965,48 @@ def sprawdz_przelacznik_zespolu(b, usterka: str | None = None) -> dict:
         zdanie_bez_spolki = not any(ma_slowo_spolka(z) for z in wszystkie_zdania)
         zdanie_bez_galezi = not any("swoją gałąź" in z for z in wszystkie_zdania)
 
+        # ── Strona DODATNIA: własna gałąź próbna (Z71) ──────────────────────────────────
+        probka = None
+        dodatnia: dict = {"pozycja_przy_galezi": False, "zespol_to_galaz": False,
+                          "zdanie_o_galezi": False, "posprzatane": False}
+        try:
+            probka = probka_zespolu("utworz")
+            ctx2 = nowy_kontekst(b, usterka, viewport={"width": SZEROKOSC_LAPTOPA, "height": 900},
+                                 ignore_https_errors=True)
+            pg2 = ctx2.new_page()
+            pg2.goto(BAZA + "/logowanie", wait_until="networkidle")
+            pg2.fill("#login-email", probka["login"])
+            pg2.fill("#login-password", probka["haslo"])
+            pg2.click("button[type=submit]")
+            pg2.wait_for_load_state("networkidle")
+            pg2.goto(BAZA + "/kalendarz?widok=zespol", wait_until="networkidle")
+            m = pg2.evaluate(POMIAR_PRZELACZNIKA)
+            ctx2.close()
+            dodatnia["pozycja_przy_galezi"] = "Zespół" in m["pozycje"]
+            dodatnia["zespol_to_galaz"] = m["wierszy"] == probka["galaz"]
+            dodatnia["zdanie_o_galezi"] = (
+                any("swoją gałąź" in z for z in m["zdania"])
+                and not any(ma_slowo_spolka(z) for z in m["zdania"])
+            )
+            dodatnia["pozycje_probki"] = m["pozycje"]
+            dodatnia["wierszy_w_zespole"] = m["wierszy"]
+            dodatnia["galaz_probki"] = probka["galaz"]
+            dodatnia["zdania_probki"] = [z[:120] for z in m["zdania"]][:3]
+        finally:
+            # ⚠ Sprzątanie ZAWSZE, także po wyjątku i po przerwaniu — i od razu sprawdzone
+            # licznikami, nie „wywołaliśmy, więc pewnie zadziałało".
+            po = probka_zespolu("sprzataj")
+            if probka is not None:
+                dodatnia["posprzatane"] = po.get("liczniki") == probka.get("liczniki_przed")
+                dodatnia["liczniki_przed"] = probka.get("liczniki_przed")
+                dodatnia["liczniki_po"] = po.get("liczniki")
+
         return {
             "ok": bez_pozycji_zespolu and adres_nie_przywraca and zdanie_bez_spolki
-                  and zdanie_bez_galezi,
+                  and zdanie_bez_galezi and dodatnia["pozycja_przy_galezi"]
+                  and dodatnia["zespol_to_galaz"] and dodatnia["zdanie_o_galezi"]
+                  and dodatnia["posprzatane"],
+            "galaz_probna": dodatnia,
             "bez_pozycji_zespolu": bez_pozycji_zespolu,
             "adres_nie_przywraca": adres_nie_przywraca,
             "zdanie_bez_spolki": zdanie_bez_spolki,
@@ -6926,6 +7017,7 @@ def powody_nakladki(n: dict) -> list[str]:
 KONTROLE: dict[str, object] = {
     "znacznik_dzis": sprawdz_znacznik_dzis,
     "przelacznik_zespolu": sprawdz_przelacznik_zespolu,
+    "zespol_schowany": sprawdz_przelacznik_zespolu,
     # ⚠ Trzy kryteria przepięte w Z63 cz. A — każde z własną usterką. `jedna_wizualizacja`
     # ma dwie, bo ma dwa nowe twierdzenia: „zero obcych krat" i „tylko jedna rodzina na ekran".
     "skale_czasu": sprawdz_skale_czasu,

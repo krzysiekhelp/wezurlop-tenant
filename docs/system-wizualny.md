@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.19.1, 21.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.19.2, 21.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,33 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.19.1 → 1.19.2: trzecie zdanie o zasięgu zespołu, i dowód reguły „Zespół"
+> w obie strony** (zlecenie Z71, 21.10.2026).
+> - **Zdanie**: przełożony z trzema podwładnymi i bez żadnej reguły czytał „Widzisz swoją gałąź
+>   **i osoby z reguł dostępu**: 4 osoby" — dopisek mówił o kimś, kogo w siatce nie ma, i kazałby
+>   szukać czwartej grupy osób na próżno. Zdania są teraz trzy: bez podwładnych „Widzisz N osób
+>   z nadanych reguł dostępu…", zespół równy gałęzi „Widzisz swoją gałąź: N osób…", zespół
+>   szerszy od gałęzi „Widzisz swoją gałąź i osoby z reguł dostępu: N…".
+> - **Dowód dodatni**: kryterium `przelacznik_zespolu` mierzy teraz także stan, w którym pozycja
+>   „Zespół" MUSI być — na własnej strukturze próbnej (`dev/probka-zespolu.php`): przełożony
+>   z kontem i trzech podwładnych, zakładani na czas pomiaru i kasowani po nim. Zmierzone:
+>   pozycja obecna, widok pokazuje **dokładnie 4 wiersze** (gałąź = przełożony + trzy osoby),
+>   zdanie mówi „Widzisz swoją gałąź", liczniki sześciu tabel wracają do stanu z przed pomiaru.
+> - ⚠ **Dlaczego własna struktura, a nie istniejący przełożony**: jedyny przełożony z niepustą
+>   gałęzią w bazie roboczej to **prawdziwa osoba z prawdziwymi podwładnymi**, a trzymanie hasła
+>   do jej konta w pliku deweloperskim byłoby otwarciem dostępu do prawdziwych danych kadrowych
+>   (Krzysztof odmówił wprost, 21.10.2026). Hasło próbki jest losowe, jednorazowe i nie trafia
+>   ani do pliku kont, ani do raportu.
+> - ⚠ **Podwładni próbki nie mają kont** — i to jest decyzja, nie skrót: widok zespołu buduje się
+>   z ZATRUDNIEŃ, więc konta nie zmieniłyby żadnej mierzonej liczby, a zmieniłyby zajętość
+>   **miejsc licencyjnych** na instancji, która jest używana.
+> - ⚠ **Dwie usterki na jedno kryterium**, bo ma ono twierdzenia o przeciwnych stanach: jedna
+>   dokłada pozycję „Zespół" tam, gdzie dublowałaby „Firmę", druga ją usuwa przy niepustej
+>   gałęzi. Jedna złamałaby tylko połowę kryterium, a druga połowa byłaby nieudowodniona.
+> - ⚠ „Zespół" i „Firma" obok siebie u tego konta nie wystąpią i nie jest to brak pomiaru: widok
+>   firmy wymaga wglądu w całą firmę, a wtedy zespół równa się firmie i reguła z 1.19.1 słusznie
+>   chowa pozycję. Obie naraz wymagają reguły węższej niż cała firma — osobny stan, osobny pomiar.
 
 > **Zmiana 1.19.0 → 1.19.1: pozycja „Zespół" tylko wtedy, gdy pokazuje coś innego niż „Firma"**
 > (zlecenie Z70, zgłoszenie Krzysztofa z 21.10.2026: „u administratora oba widoki pokazują to samo").
