@@ -189,7 +189,11 @@ final class AccessService
     }
 
     public const POWOD_BRAK_LICENCJI = 'brak wolnych licencji';
-    public const POWOD_BRAK_ZATRUDNIENIA = 'brak aktywnego zatrudnienia w tej spółce';
+    // ⚠ „firmie", nie „spółce" — jedno słowo w całym interfejsie (rozstrzygnięcie Krzysztofa
+    // z 11.10.2026: „nie każda firma jest spółką"). Ten napis wychodzi na ekran przy odmowie
+    // nadania dostępu, a kryterium bramki przegapiło go do 21.10, bo szukało rdzenia „spółk",
+    // a w miejscowniku stoi „spółce".
+    public const POWOD_BRAK_ZATRUDNIENIA = 'brak aktywnego zatrudnienia w tej firmie';
     public const POWOD_BRAK_OSOBY = 'osoby już nie ma w kartotece';
     public const POWOD_KONTO_ADMINA = 'konto jest administratorem tenanta';
 

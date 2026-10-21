@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.19.0, 21.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.19.1, 21.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,39 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.19.0 → 1.19.1: pozycja „Zespół" tylko wtedy, gdy pokazuje coś innego niż „Firma"**
+> (zlecenie Z70, zgłoszenie Krzysztofa z 21.10.2026: „u administratora oba widoki pokazują to samo").
+> - **Było**: pozycję „Zespół" włączał warunek `galaz > 1`, a `galaz` od Z53 liczy **gałąź RAZEM
+>   z osobami z reguł**. Konto z regułą „cała firma" miało więc „gałąź" 39 osób, choć nie prowadzi
+>   nikogo — przełącznik oferował dwa przyciski pokazujące ten sam zbiór, a pod kalendarzem stało
+>   zdanie „Widzisz swoją gałąź: 39 osób z 39 **w spółce** Piaskarz": nieprawdziwe dwa razy
+>   (przypisywało podwładnych i używało zakazanego słowa).
+> - **Jest**: rozstrzyga `ZasiegPodgladu::zespolMaSens()` — pozycja istnieje, gdy zespół ma więcej
+>   niż jedną osobę **i** nie jest tym samym zbiorem co cała firma; gdy „Firmy" nie ma, „Zespół"
+>   zostaje najszerszym widokiem konta. ⚠ Ten drugi warunek jest konieczny, a nie ostrożnościowy:
+>   konto bez etatu z regułą na grupy ma „Zespół" jako JEDYNY widok (Z53 §2), więc warunek
+>   „tylko dla osoby z podwładnymi" odebrałby mu ekran.
+> - Jedna funkcja rozstrzyga i o przełączniku, i o widoku z adresu, więc nie ma stanu osiągalnego
+>   przez `?widok=zespol`, którego przełącznik nie oferuje. Przy jednym widoku przełącznika nie ma
+>   wcale (reguła bez zmian).
+> - **Zdania mówią o źródle**: bez podwładnych „Widzisz N osób **z nadanych reguł dostępu**…",
+>   z gałęzią „Widzisz swoją gałąź i osoby z reguł dostępu: N…". Dla konta z etatem, którego
+>   wgląd obejmuje całą firmę, doszedł czwarty powód odmowy widoku: „Twój wgląd obejmuje całą
+>   firmę, więc widok »Zespół« pokazałby te same osoby — pokazuję widok firmy" (dotąd mówiło
+>   „Nie masz podwładnych, więc pokazuję Twój kalendarz", co myliło przyczynę i skutek).
+> - ⚠ **Słowo „spółka" zniknęło z trzech napisów w PHP**, nie tylko z tego zdania: odmowa
+>   nadania dostępu („brak aktywnego zatrudnienia w tej **firmie**") i pomoc narzędzia
+>   konsolowego. Napisy w szablonach były czyste.
+> - ⚠ **Przyczyna, dla której kryterium `bez_slowa_spolka` tego nie widziało, była w kryterium,
+>   nie w zasięgu pomiaru**: szukało rdzenia `spółk`, a w zdaniu stało „w spółce" — w celowniku
+>   i miejscowniku `k` przechodzi w `c`. Komentarz obok twierdził, że rdzeń łapie „spółce".
+>   Rdzeń to teraz `spó[łl][kc]`, a po stronie Pythona jedna funkcja `ma_slowo_spolka()` z czterema
+>   rdzeniami (z ogonkami i bez). **Nauka ogólniejsza: deklarowany zakres wyrażenia trzeba
+>   sprawdzić przykładem KAŻDEJ wymienionej odmiany — komentarz nie jest testem.**
+> - Dowody: kryterium bramki `przelacznik_zespolu` (cztery twierdzenia: brak pozycji, adres jej
+>   nie przywraca, zdanie bez „spółki", zdanie bez „gałęzi") plus `tests/przelacznik-widoku.php`
+>   — siedem kombinacji reguły bez bazy i bez przeglądarki, w tym ta, która pękła w produkcie.
 
 > **Zmiana 1.18.48 → 1.19.0: „Moje konto" od nowa — dane, dostęp i bezpieczeństwo na jednym
 > ekranie** (zlecenie Z69, projekt zaakceptowany przez Krzysztofa 21.10.2026). ⚠ Numer wersji

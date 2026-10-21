@@ -271,6 +271,17 @@ final class CalendarController
             return 'brak_zatrudnienia';
         }
 
+        // ⚠ **Czwarty powód (Z70): „zespół pokazałby to samo, co firma".** Dotąd administrator
+        // wchodzący na `?widok=zespol` dostawał zdanie „Nie masz podwładnych, więc pokazuję Twój
+        // kalendarz" — nieprawdziwe w obie strony: nie pokazujemy mu własnego kalendarza (dostaje
+        // widok firmy), a przyczyną nie jest brak podwładnych, tylko to, że jego wgląd obejmuje
+        // całą firmę i zespół byłby tym samym zbiorem osób. Zdanie, które myli przyczynę,
+        // wysyła człowieka w złe miejsce — ta sama lekcja, co przy `brak_zatrudnienia`.
+        if ($zadany === KalendarzPracownika::WIDOK_ZESPOL
+            && $widok === KalendarzPracownika::WIDOK_FIRMA) {
+            return 'zespol_jak_firma';
+        }
+
         return match ($zadany) {
             KalendarzPracownika::WIDOK_ZESPOL => 'brak_podwladnych',
             KalendarzPracownika::WIDOK_FIRMA => 'brak_poziomu',
@@ -431,13 +442,17 @@ final class CalendarController
                 (int) $spolka['id'],
                 $widzEtat,
             ),
-            'ma_zespol' => $zasieg['galaz'] > 1,
+            // ⚠ **Pozycja „Zespół" tylko wtedy, gdy niesie coś, czego nie niesie „Firma"**
+            // (zlecenie Z70): rozstrzyga `ZasiegPodgladu::zespolMaSens()`, ta sama odpowiedź,
+            // którą serwis bierze przy rozstrzyganiu widoku z adresu. Dwa liczenia tego samego
+            // dałyby przełącznik oferujący pozycję, na którą nie da się wejść.
+            'ma_zespol' => $zasieg['ma_zespol'],
             'ma_firme' => $zasieg['moze_firme'],
             // ⚠ **Ile pozycji ma przełącznik widoku** — liczone tu, bo szablon ma wyświetlać,
             // a nie sumować warunki. Przy jednej pozycji przełącznika NIE MA (§3 zlecenia
             // z wieczora 06.10): kontrolka bez drugiego wyboru to przycisk bez działania.
             'pozycji_widoku' => ($zatrudnienie !== null ? 1 : 0)
-                + ($zasieg['galaz'] > 1 ? 1 : 0)
+                + ($zasieg['ma_zespol'] ? 1 : 0)
                 + ($zasieg['moze_firme'] ? 1 : 0),
             // ⚠ Każda skala buduje się **tylko wtedy, gdy jest wybrana** — inaczej jedno żądanie
             // pytałoby bazę o miesiąc i o cały rok naraz, a widać zawsze jedno.
@@ -543,9 +558,25 @@ final class CalendarController
         if ($widok === KalendarzPracownika::WIDOK_ZESPOL) {
             // ⚠ Zdanie o ZASIĘGU, nie o filtrze: „dalej nie sięgasz" ma inny powód niż
             // „filtr ukrył" i inny niż „pokazuję 30 z 53".
-            $wSpolce = $zasieg['spolka'] > 0 ? ' z ' . $zasieg['spolka'] . ' w spółce ' . $spolka : '';
+            //
+            // ⚠ **Mówi o ŹRÓDLE, nie o „swojej gałęzi" z automatu** (zlecenie Z70, 21.10.2026).
+            // Dotąd brzmiało „Widzisz swoją gałąź: 39 osób z 39 w spółce Piaskarz" także tam,
+            // gdzie gałęzi nie ma wcale — bo `galaz` od Z53 liczy gałąź RAZEM z osobami z reguł.
+            // U administratora bez etatu zdanie było więc nieprawdziwe dwa razy: przypisywało mu
+            // podwładnych i używało słowa „spółka" (rozstrzygnięcie z 11.10: „nie każda firma
+            // jest spółką"). Teraz rozstrzyga liczba podwładnych z hierarchii.
+            $wFirmie = $zasieg['spolka'] > 0
+                ? ' z ' . $zasieg['spolka'] . ' w firmie ' . $spolka
+                : '';
+            $ile = $zasieg['galaz'];
+            if (($zasieg['podwladnych'] ?? 0) === 0) {
+                // Zespół bez gałęzi = osoby z nadanych reguł dostępu i nic więcej.
+                return 'Widzisz ' . $ile . ' ' . Odmiana::osoby($ile)
+                    . ' z nadanych reguł dostępu' . $wFirmie . '.';
+            }
 
-            return 'Widzisz swoją gałąź: ' . $zasieg['galaz'] . ' ' . Odmiana::osoby($zasieg['galaz']) . $wSpolce . '.';
+            return 'Widzisz swoją gałąź i osoby z reguł dostępu: ' . $ile . ' '
+                . Odmiana::osoby($ile) . $wFirmie . '.';
         }
 
         return null;

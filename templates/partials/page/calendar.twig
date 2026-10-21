@@ -27,6 +27,10 @@
     <p class="notice" role="status">
         {%- if widok_odmowa == 'brak_podwladnych' -%}
             Nie masz podwładnych, więc pokazuję Twój kalendarz. Widok „Zespół” pojawia się u osób, pod którymi ktoś jest w hierarchii.
+        {%- elseif widok_odmowa == 'zespol_jak_firma' -%}
+            {#- ⚠ Zdanie dodane w Z70: ten stan to NIE brak uprawnień, a nadmiar — wgląd obejmuje
+                całą firmę, więc „Zespół" pokazałby ten sam zbiór osób pod inną nazwą. -#}
+            Twój wgląd obejmuje całą firmę, więc widok „Zespół” pokazałby te same osoby — pokazuję widok firmy.
         {%- else -%}
             Nie masz nadanego podglądu kalendarza firmy, więc pokazuję Twój kalendarz. Taki podgląd nadaje administrator tenanta.
         {%- endif -%}

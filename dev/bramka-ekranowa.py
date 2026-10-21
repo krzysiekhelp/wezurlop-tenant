@@ -320,6 +320,36 @@ _usterka("tlo_dnia_pod_paskiem", """
     document.querySelectorAll('.team-grid__dni').forEach(w => w.remove());
 """)
 
+# Przełącznik widoku: wraca pozycja „Zespół" u konta, które widzi całą firmę — czyli stan
+# sprzed Z70, w którym przełącznik oferował dwa przyciski pokazujące ten sam zbiór osób.
+# ⚠ Wstawiamy element tam, gdzie go rysuje szablon (`.kal-grupa`), a gdy grupy nie ma — bo przy
+# jednym widoku przełącznik w ogóle nie powstaje — tworzymy ją obok nawigacji. Inaczej usterka
+# nie miałaby się czego zaczepić na tym właśnie ekranie, którego dotyczy.
+_usterka("przelacznik_zespolu", """
+    const etykieta = (tekst) => {
+      const a = document.createElement('a');
+      a.className = 'kal-btn';
+      a.href = '/kalendarz?widok=zespol';
+      const s = document.createElement('span');
+      s.className = 'kal-btn__etykieta';
+      s.textContent = tekst;
+      a.appendChild(s);
+      return a;
+    };
+    let grupa = document.querySelector('.kal-grupa');
+    if (!grupa) {
+      const nav = document.querySelector('.kal-nav, .card__head, .page');
+      if (nav) {
+        grupa = document.createElement('div');
+        grupa.className = 'kal-grupa';
+        nav.appendChild(grupa);
+      }
+    }
+    if (grupa && ![...grupa.querySelectorAll('.kal-btn__etykieta')].some(e => e.textContent.trim() === 'Zespół')) {
+      grupa.appendChild(etykieta('Zespół'));
+    }
+""")
+
 # Prawda kalendarza: nagłówek ekranu mówi „Mój kalendarz" nad widokiem całej spółki — czyli
 # dokładnie zgłoszona usterka z 23.09, w której ekran przypisywał oglądającemu cudzy kalendarz.
 _usterka("prawda_kalendarza", """
@@ -1016,7 +1046,7 @@ def sprawdz_obca_spolke(b) -> dict:
         komunikat_o_spolce = (
             komunikat != ""
             and SLOWO_UZYTKOWNIKA in komunikat.lower()
-            and ZAKAZANE_SLOWO_UZYTKOWNIKA not in komunikat.lower()
+            and not ma_slowo_spolka(komunikat)
         )
         return {
             # „Stan nietknięty" znaczy: to zatrudnienie nadal nie ma przełożonego.
@@ -1343,7 +1373,16 @@ def zatrudnienia_pracownika() -> dict:
 # do „spółki" — zapala. ⚠ Czytanie oczekiwanego tekstu z szablonu (druga rozważana droga) odpada:
 # kryterium porównujące kod z samym sobą przepuściłoby każde słowo, także „Zupa".
 SLOWO_UZYTKOWNIKA = "firm"
-ZAKAZANE_SLOWO_UZYTKOWNIKA = "spółk"
+# ⚠ **Dwa rdzenie, nie jeden**: „spółk" nie łapie „spółce" (miejscownik, `k` → `c`). Ta sama
+# poprawka co w `POMIAR_SLOWA` — i z tego samego powodu: zdanie w widoku zespołu przechodziło.
+RDZENIE_ZAKAZANE = ("spółk", "spółc", "spolk", "spolc")
+
+
+def ma_slowo_spolka(tekst: str | None) -> bool:
+    """Czy napis zawiera zakazane słowo w DOWOLNEJ odmianie (także bez ogonków)."""
+    maly = (tekst or "").lower()
+
+    return any(r in maly for r in RDZENIE_ZAKAZANE)
 
 
 KONTRAST_TEKSTU_MIN = 4.5
@@ -1547,9 +1586,14 @@ def nazwy_firm() -> list[str]:
 # kolumny, trasy), więc nawrót słowa do napisu jest kwestią czasu — pierwszy nowy ekran wpisze
 # je z pamięci. Kryterium idzie przez **wszystkie ekrany, które bramka i tak odwiedza**.
 #
-# ⚠ Szukamy po RDZENIU (`spó[łl]k`), nie po haśle „spółka": odmiany („spółki", „spółce",
+# ⚠ Szukamy po RDZENIU (`spó[łl][kc]`), nie po haśle „spółka": odmiany („spółki", „spółce",
 # „spółek", „spółką") i złożenia („per spółka", „międzyspółkowy") inaczej przechodzą. Litera `l`
 # w klasie znaków łapie zapis bez ogonka.
+# ⚠ **`[kc]` dopisane 21.10.2026 i to był prawdziwy błąd, nie dopieszczenie**: do tego dnia rdzeń
+# brzmiał `spółk`, a komentarz obok twierdził, że łapie „spółce". Nie łapał — w celowniku
+# i miejscowniku `k` przechodzi w `c`. Kryterium świeciło zielono nad zdaniem „… w spółce
+# Piaskarz" w widoku zespołu (zgłoszenie Z70). Nauka ogólniejsza: deklarowanego zakresu
+# wyrażenia trzeba sprawdzić PRZYKŁADEM każdej wymienionej odmiany, bo komentarz nie jest testem.
 #
 # ⚠ Tekst widoczny czytamy z `innerText` (nie `innerHTML` — inaczej łapiemy nazwy klas i tras),
 # a atrybuty **osobno**: `title`, `aria-label`, `placeholder`, `alt`. Napis w dymku jest napisem.
@@ -1559,7 +1603,12 @@ POMIAR_SLOWA = r"""(nazwy) => {
   // w IDENTYFIKATORACH — klucze ładunku zdarzeń w dzienniku (`z_spolka`, `na_spolka`), nazwy
   // klas i tras — a te rozstrzygnięcie z 11.10 zostawia bez zmian. Zmierzone: wariant bez
   // ogonków dawał 22 trafienia na `/admin/dziennik`, wszystkie na kluczach ładunku.
-  const rdzen = /spółk/i;
+  // ⚠ **`[kc]`, nie samo `k`** — poprawka z 21.10.2026 (Z70). Komentarz wyżej TWIERDZIŁ, że rdzeń
+  // „spółk" łapie też „spółce", i to było nieprawdą: w celowniku i miejscowniku `k` przechodzi
+  // w `c` („w spółce"), więc kryterium było ślepe dokładnie na tę formę, którą najczęściej pisze
+  // się w zdaniu. Zmierzone: zdanie „Widzisz swoją gałąź: 39 osób z 39 w spółce Piaskarz" stało
+  // na `/kalendarz?widok=zespol` i przechodziło na zielono.
+  const rdzen = /spó[łl][kc]/i;
   // Nazwy firm z bazy wycinamy PRZED szukaniem — „BETA SPÓŁKA Z OGRANICZONĄ
   // ODPOWIEDZIALNOŚCIĄ" to dana z kadr, nie nasze słowo. Najdłuższe najpierw, żeby nazwa
   // zawierająca inną nie zostawiła ogona.
@@ -3653,7 +3702,7 @@ def sprawdz_wybor_spolki(b) -> dict:
             ekrany[a]["rozwijalny"] is False
             and "wszystkie" in (ekrany[a]["nazwa"] or "").lower()
             and SLOWO_UZYTKOWNIKA in (ekrany[a]["nazwa"] or "").lower()
-            and ZAKAZANE_SLOWO_UZYTKOWNIKA not in (ekrany[a]["nazwa"] or "").lower()
+            and not ma_slowo_spolka(ekrany[a]["nazwa"])
             for a in EKRANY_TENANTOWE
         ) and all(ekrany[a]["rozwijalny"] is True for a in EKRANY_SPOLKOWE)
 
@@ -4799,6 +4848,89 @@ def sprawdz_pasy_szczelin(b, usterka: str | None = None) -> dict:
     return wynik
 
 
+def sprawdz_przelacznik_zespolu(b, usterka: str | None = None) -> dict:
+    """**Pozycja „Zespół" istnieje tylko wtedy, gdy pokazuje coś innego niż „Firma"**
+    (zlecenie Z70, 21.10.2026 — zgłoszenie Krzysztofa „u administratora oba widoki pokazują
+    to samo").
+
+    ⚠ Kryterium mierzy REGUŁĘ, nie liczbę: nie „u tego konta mają być dwie pozycje", tylko
+    „pozycja, która dublowałaby inną, nie powstaje, a adres jej nie przywraca". Cztery
+    twierdzenia:
+      1. `bez_pozycji_zespolu` — konto z wglądem w całą firmę i bez gałęzi NIE ma pozycji
+         „Zespół" w przełączniku,
+      2. `adres_nie_przywraca` — `?widok=zespol` renderuje widok FIRMY, a nie zespołu: inaczej
+         ekran miałby stan osiągalny adresem, którego przełącznik nie oferuje (i dokładnie tam
+         stało nieprawdziwe zdanie o gałęzi),
+      3. `zdanie_bez_spolki` — zdanie o zasięgu nie używa słowa „spółka" w żadnej odmianie.
+         ⚠ To twierdzenie jest tu osobno, bo kryterium `bez_slowa_spolka` **przegapiło ten
+         napis**: szukało rdzenia „spółk", a w zdaniu stało „w spółce" (miejscownik, `k` → `c`).
+         Rdzeń poprawiony, a to twierdzenie pilnuje konkretnego zdania, które wtedy przeszło,
+      4. `zdanie_bez_galezi` — przy koncie bez podwładnych zdanie NIE mówi „Widzisz swoją
+         gałąź": gałąź to hierarchia, a nie reguła dostępu, i mówienie inaczej przypisuje
+         człowiekowi podwładnych, których nie ma.
+
+    ⚠ Mierzone na koncie administracyjnym, bo właśnie ono ma wgląd w całą firmę bez gałęzi.
+    Samą regułę we wszystkich kombinacjach (gałąź mniejsza, równa, brak firmy) sprawdza
+    `tests/przelacznik-widoku.php` — tam, gdzie nie trzeba przeglądarki ani konta z podwładnymi.
+    """
+    haslo = HASLO or haslo_dev(LOGIN)
+    if not haslo:
+        return {"ok": False, "powod": f"brak hasła konta {LOGIN} — pomiaru NIE wykonano"}
+    ctx = None
+    try:
+        ctx = nowy_kontekst(b, usterka, viewport={"width": SZEROKOSC_LAPTOPA, "height": 900},
+                            ignore_https_errors=True)
+        pg = ctx.new_page()
+        pg.goto(BAZA + "/logowanie", wait_until="networkidle")
+        pg.fill("#login-email", LOGIN)
+        pg.fill("#login-password", haslo)
+        pg.click("button[type=submit]")
+        pg.wait_for_load_state("networkidle")
+
+        wyniki = {}
+        for adres in ("/kalendarz", "/kalendarz?widok=zespol"):
+            pg.goto(BAZA + adres, wait_until="networkidle")
+            wyniki[adres] = pg.evaluate(r"""() => {
+              const etykieta = (e) => (e.querySelector('.kal-btn__etykieta') || e).textContent.trim();
+              const pozycje = [...document.querySelectorAll('.kal-btn')].map(etykieta)
+                .filter(t => ['Tylko ja', 'Zespół', 'Firma'].includes(t));
+              const wybrany = [...document.querySelectorAll('.kal-btn[aria-current="true"]')].map(etykieta);
+              // Zdania o zasięgu stoją w `.card__meta`; bierzemy je wszystkie, bo kryterium
+              // pyta o TREŚĆ, a nie o pozycję zdania na ekranie.
+              const zdania = [...document.querySelectorAll('.card__meta, .notice')]
+                .map(e => e.innerText.trim()).filter(t => t !== '');
+              return {pozycje, wybrany, zdania};
+            }""")
+
+        glowny = wyniki["/kalendarz"]
+        zAdresu = wyniki["/kalendarz?widok=zespol"]
+        wszystkie_zdania = glowny["zdania"] + zAdresu["zdania"]
+
+        bez_pozycji_zespolu = "Zespół" not in glowny["pozycje"] and "Zespół" not in zAdresu["pozycje"]
+        # ⚠ Brak pozycji „Zespół" to jedno, a drugie — że adres jej nie przywraca. Przy jednym
+        # widoku przełącznika nie ma wcale, więc o widoku rozstrzyga ZDANIE o zasięgu firmy.
+        adres_nie_przywraca = any("całej firmy" in z for z in zAdresu["zdania"])
+        zdanie_bez_spolki = not any(ma_slowo_spolka(z) for z in wszystkie_zdania)
+        zdanie_bez_galezi = not any("swoją gałąź" in z for z in wszystkie_zdania)
+
+        return {
+            "ok": bez_pozycji_zespolu and adres_nie_przywraca and zdanie_bez_spolki
+                  and zdanie_bez_galezi,
+            "bez_pozycji_zespolu": bez_pozycji_zespolu,
+            "adres_nie_przywraca": adres_nie_przywraca,
+            "zdanie_bez_spolki": zdanie_bez_spolki,
+            "zdanie_bez_galezi": zdanie_bez_galezi,
+            "pozycje": glowny["pozycje"],
+            "pozycje_z_adresu": zAdresu["pozycje"],
+            "zdania": [z[:120] for z in wszystkie_zdania][:6],
+        }
+    except Exception as e:  # noqa: BLE001 — wynik czerwony z powodem, nie wywrócony przebieg
+        return {"ok": False, "powod": f"{type(e).__name__}: {e}"}
+    finally:
+        if ctx is not None:
+            ctx.close()
+
+
 def sprawdz_znacznik_dzis(b, usterka: str | None = None) -> dict:
     """**Znacznik „dziś": jeden na widok, czytelny i ustępujący rodzajowi** (Z23 + tura Z22).
 
@@ -5349,7 +5481,7 @@ def sprawdz_kontekst_spolki(b) -> dict:
             len(m["naglowki"]) == 2
             # ⚠ Pierwszy nagłówek to sekcja „moich" firm — pilnujemy SŁOWA, nie zdania.
             and SLOWO_UZYTKOWNIKA in m["naglowki"][0].lower()
-            and all(ZAKAZANE_SLOWO_UZYTKOWNIKA not in n.lower() for n in m["naglowki"])
+            and all(not ma_slowo_spolka(n) for n in m["naglowki"])
             # Drugi nagłówek musi mówić, że tam się tylko patrzy — bez tego oba rodzaje
             # wyglądałyby jak jeden z dwoma podtytułami.
             and "podgląd" in m["naglowki"][1].lower()
@@ -5554,7 +5686,7 @@ def sprawdz_dziennik_i_zdania(b) -> dict:
             # ⚠ Znów SŁOWO, nie zdanie: komunikat musi powiedzieć, że nazwa należy do innej
             # FIRMY z programu kadrowego — brzmienie zdania wolno przeredagować bez bramki.
             "nazwą innej " + SLOWO_UZYTKOWNIKA in komunikat_kolizji.lower()
-            and ZAKAZANE_SLOWO_UZYTKOWNIKA not in komunikat_kolizji.lower()
+            and not ma_slowo_spolka(komunikat_kolizji)
             and po_kolizji == nadana
             and wyscig["powod"] == "kolizja_kadry"
             # ⚠ Czekanie jest dowodem BLOKADY: bez `FOR UPDATE` ten sam wyścig daje 0 s
@@ -6793,6 +6925,7 @@ def powody_nakladki(n: dict) -> list[str]:
 # nie złamał i nie wiadomo, czy potrafi zapalić się z właściwego powodu (tura Z22).
 KONTROLE: dict[str, object] = {
     "znacznik_dzis": sprawdz_znacznik_dzis,
+    "przelacznik_zespolu": sprawdz_przelacznik_zespolu,
     # ⚠ Trzy kryteria przepięte w Z63 cz. A — każde z własną usterką. `jedna_wizualizacja`
     # ma dwie, bo ma dwa nowe twierdzenia: „zero obcych krat" i „tylko jedna rodzina na ekran".
     "skale_czasu": sprawdz_skale_czasu,
@@ -6837,6 +6970,7 @@ KRYTERIA: dict[str, object] = {
     "paski_nieobecnosci": sprawdz_paski_nieobecnosci,
     "skale_czasu": sprawdz_skale_czasu,
     "znacznik_dzis": sprawdz_znacznik_dzis,
+    "przelacznik_zespolu": sprawdz_przelacznik_zespolu,
     "pasy_szczelin": sprawdz_pasy_szczelin,
     "jedna_wizualizacja": sprawdz_jedna_wizualizacje,
     "kontekst_spolki": sprawdz_kontekst_spolki,

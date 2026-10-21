@@ -42,7 +42,7 @@ final class InviteCommand
                 // który interfejs odrzuca: konto, które loguje się i widzi odmowę.
                 fwrite($this->out, "Użycie: bin/invite.php --email=... --imie=... --nazwisko=...\n"
                     . "Konto jest zawsze administratorem tenanta (osoba spoza kadr nie ma etatu,\n"
-                    . "a dostęp pracowniczy wymaga etatu w spółce). Pracownicy przychodzą z R2\n"
+                    . "a dostęp pracowniczy wymaga etatu w firmie). Pracownicy przychodzą z R2\n"
                     . "i zaprasza się ich z listy /admin/konta.\n");
 
                 return 2;

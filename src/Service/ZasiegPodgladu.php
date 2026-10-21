@@ -77,7 +77,7 @@ final class ZasiegPodgladu
         if ($zadany === KalendarzPracownika::WIDOK_FIRMA && $moznaSpolke) {
             $widok = KalendarzPracownika::WIDOK_FIRMA;
             $dozwolone = $wSpolce;
-        } elseif ($zadany === KalendarzPracownika::WIDOK_ZESPOL && count($zespol) > 1) {
+        } elseif ($zadany === KalendarzPracownika::WIDOK_ZESPOL && self::zespolMaSens($zespol, $wSpolce, $moznaSpolke)) {
             $widok = KalendarzPracownika::WIDOK_ZESPOL;
             $dozwolone = $zespol;
         } elseif ($galaz !== []) {
@@ -91,6 +91,9 @@ final class ZasiegPodgladu
                 $widok = KalendarzPracownika::WIDOK_FIRMA;
                 $dozwolone = $wSpolce;
             } elseif ($zespol !== []) {
+                // ⚠ Tu `zespolMaSens()` NIE obowiązuje: to konto nie ma ani etatu, ani wglądu
+                // w całą firmę, więc „Zespół" jest jego JEDYNYM widokiem — osoby z reguł na grupy
+                // (Z53). Odebranie go zostawiłoby pusty ekran bez żadnej pozycji przełącznika.
                 $widok = KalendarzPracownika::WIDOK_ZESPOL;
                 $dozwolone = $zespol;
             } else {
@@ -110,7 +113,49 @@ final class ZasiegPodgladu
             'galaz' => count($zespol),
             'spolka' => $moznaSpolke ? count($wSpolce) : 0,
             'moze_firme' => $moznaSpolke,
+            // ⚠ **Podwładni Z HIERARCHII, bez osób z reguł** (zlecenie Z70, 21.10.2026):
+            // `galaz` od Z53 liczy jedno i drugie razem, więc nie odpowiada już na pytanie
+            // „czy ta osoba kogoś prowadzi". Bez tej drugiej liczby administrator z regułą
+            // firmową „miał zespół" 39 osób i ekran pisał mu „Widzisz swoją gałąź", choć gałęzi
+            // nie ma wcale. Własne zatrudnienie nie jest podwładnym, stąd `- 1`.
+            'podwladnych' => $galaz === [] ? 0 : count($galaz) - 1,
+            // Czy pozycja „Zespół" ma się w ogóle pokazać (ta sama odpowiedź dla przełącznika
+            // i dla rozstrzygania widoku z adresu — jedno miejsce, nie dwa).
+            'ma_zespol' => self::zespolMaSens($zespol, $wSpolce, $moznaSpolke),
         ];
+    }
+
+    /**
+     * **Czy pozycja „Zespół" niesie coś, czego nie niesie „Firma"** (zlecenie Z70).
+     *
+     * ⚠ Dwa warunki, oba konieczne:
+     *   1. zespół musi mieć więcej niż jedną osobę — inaczej to „Tylko ja" pod inną nazwą,
+     *   2. **i nie może być tym samym zbiorem co cała firma.** To jest sedno zgłoszenia:
+     *      u administratora z regułą „cała firma" oba widoki pokazywały 39 tych samych osób,
+     *      a przełącznik udawał wybór, którego nie ma.
+     *
+     * ⚠ Porównanie po LICZEBNOŚCI jest tu wystarczające, nie przybliżone: zespół to gałąź plus
+     * osoby z reguł, a jedni i drudzy są zatrudnieni w TEJ spółce — więc zespół jest podzbiorem
+     * firmy i równa liczebność znaczy równe zbiory. Gdyby kiedyś do zespołu weszła osoba spoza
+     * spółki, to założenie pęka i trzeba porównywać zbiory.
+     *
+     * ⚠ Gdy „Firma" nie jest dostępna, warunek 2 nie ma sensu i nie obowiązuje — wtedy „Zespół"
+     * jest po prostu najszerszym widokiem, jaki to konto ma.
+     *
+     * ⚠ **Publiczna, bo to REGUŁA, nie szczegół**: czysta funkcja bez bazy, więc da się ją
+     * sprawdzić testem we wszystkich kombinacjach (`tests/przelacznik-widoku.php`). Reguła
+     * dostępu zamknięta w prywatnej metodzie jest regułą, której nikt nie zmierzy.
+     *
+     * @param list<int> $zespol
+     * @param list<int> $wSpolce
+     */
+    public static function zespolMaSens(array $zespol, array $wSpolce, bool $moznaSpolke): bool
+    {
+        if (count($zespol) <= 1) {
+            return false;
+        }
+
+        return !$moznaSpolke || count($zespol) < count($wSpolce);
     }
 
     /**
