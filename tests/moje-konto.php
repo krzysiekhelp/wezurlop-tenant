@@ -65,6 +65,31 @@ exit((new ConsoleKernel(dirname(__DIR__)))->run(
         $sprawdz('telefon: obcy numer NIE udaje polskiego',
             Telefon::doWyswietlenia('+44 20 7946 0958') === '+44 20 7946 0958');
 
+        // ── 1b. Jedna decyzja dla trzech ekranów (Z73) ──────────────────────────────────────
+        // ⚠ Od Z73 panel osoby i formularz nowego konta administracyjnego używają TEJ SAMEJ
+        // funkcji co „Moje konto". Do Z73 panel miał własną, luźniejszą białą listę znaków
+        // i zapisywał numer w dowolnym kształcie — w jednej kolumnie bazy stały dwa formaty.
+        // Te cztery sprawdzenia są umową między trzema ekranami, nie detalem jednego z nich.
+        [$numer, $odmowa] = Telefon::dlaZapisu('600 100 200');
+        $sprawdz('decyzja: poprawny numer → jedna postać i brak odmowy',
+            $numer === '+48600100200' && $odmowa === null, (string) $numer . '|' . (string) $odmowa);
+        [$numer, $odmowa] = Telefon::dlaZapisu('');
+        $sprawdz('decyzja: pusty numer → USUNIĘCIE, nie błąd', $numer === null && $odmowa === null);
+        [$numer, $odmowa] = Telefon::dlaZapisu('   ');
+        $sprawdz('decyzja: same spacje → usunięcie', $numer === null && $odmowa === null);
+        [$numer, $odmowa] = Telefon::dlaZapisu('+44 20 7946 0958');
+        $sprawdz('decyzja: numer zagraniczny → ODMOWA i nic do zapisu',
+            $numer === null && $odmowa === Telefon::ODMOWA, (string) $odmowa);
+        [$numer, $odmowa] = Telefon::dlaZapisu('60010020');
+        $sprawdz('decyzja: osiem cyfr → odmowa', $numer === null && $odmowa !== null);
+        // ⚠ Wartość do POLA: numer zastany oddajemy BEZ ZMIAN, bo pole ma pokazać to, co jest
+        // w bazie; poprawki wymaga dopiero zapis (rozstrzygnięcie Z73).
+        $sprawdz('pole: numer w docelowym kształcie bez prefiksu',
+            Telefon::doPola('+48600100200') === '600 100 200', Telefon::doPola('+48600100200'));
+        $sprawdz('pole: numer zastany bez zmian i bez obcinania',
+            Telefon::doPola('22 123 45 67 w. 12') === '22 123 45 67 w. 12');
+        $sprawdz('pole: brak numeru → pusto', Telefon::doPola(null) === '');
+
         $pdo = $s->db->pdo();
         $sufiks = bin2hex(random_bytes(3));
         $haslo = 'Pr' . bin2hex(random_bytes(12)) . '!x';

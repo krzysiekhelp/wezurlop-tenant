@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.19.3, 21.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.19.4, 21.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,30 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.19.3 → 1.19.4: pole telefonu to JEDEN komponent w trzech miejscach**
+> (zlecenie Z73, decyzja Krzysztofa po Z72).
+> - Panel osoby (`/admin/konta`) i formularz nowego konta administracyjnego dostały **to samo
+>   pole** co „Moje konto": prefiks `+48`, reguła dziewięciu cyfr, normalizacja w `Support\Telefon`.
+>   Do Z73 stał tam zwykły `.input` na 32 znaki z własną, luźniejszą białą listą znaków, więc
+>   w jednej kolumnie bazy mogły stać dwa kształty numeru. **Numerów zagranicznych świadomie nie
+>   obsługujemy.**
+> - **Znaczniki w jednym pliku** (`partials/pole-telefonu.twig`), a nie w trzech: dwie kopie
+>   zdążyły się już rozjechać między Z69 i Z72 i kosztowało to osobne zlecenie.
+> - **Jedna decyzja po stronie serwera** (`Telefon::dlaZapisu()`): pusty numer znaczy USUNIĘCIE,
+>   poprawny — jedną postać `+48XXXXXXXXX`, niepoprawny — odmowę z jednym zdaniem. Trzy kopie
+>   tej reguły w kontrolerach zniknęły.
+> - Zmierzone po zmianie (jedna ramka, prefiks i wnętrze tej samej wysokości):
+>   panel 740×40 / 487×40 / 275×40 przy 1920 / 1366 / 375 px, prefiks zawsze 52×38, wnętrze
+>   686 / 433 / 221 × 38; formularz nowego konta 1004×40.
+> - Zapis sprawdzony przez przeglądarkę, cztery przypadki: numer zagraniczny wysłany **z ręki**
+>   (bo pole go nie przyjmie — moduł zjada znaki spoza cyfr) → odmowa i baza bez zmian;
+>   osiem cyfr wpisanych w pole → odmowa; poprawny numer → w bazie `+48…`; wyczyszczone pole
+>   → usunięcie.
+> - ⚠ **Numery zapisane wcześniej w innym kształcie zostają nietknięte** (zmierzone: **dwa**
+>   wiersze w bazie roboczej, oba dałyby się znormalizować). Pole pokazuje taki numer bez zmian
+>   i bez obcinania, a poprawki wymaga dopiero ZAPIS — wtedy serwer odmawia i mówi, czego
+>   oczekuje. Migracji danych nie robimy bez decyzji.
 
 > **Zmiana 1.19.2 → 1.19.3: nagłówek „Mojego konta" w jednym wierszu, telefon jako JEDNO pole**
 > (zlecenie Z72 — zgłoszenie Krzysztofa po Z69, zmierzone w Chrome przy 1568 px).

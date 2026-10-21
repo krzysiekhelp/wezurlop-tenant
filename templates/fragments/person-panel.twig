@@ -145,15 +145,20 @@
                     {%- else %}login do aplikacji{% endif -%}
                 </span>
             </label>
-            <label class="field">
-                <span class="field__label">Telefon</span>
-                <input class="input" type="tel" name="telefon" maxlength="32" value="{{ wpisane.telefon ?? o.phone }}">
-                {#- ⚠ ŹRÓDŁO numeru: od Z69 (21.10.2026) `person.phone` zapisują DWA ekrany — ten
-                    i „Moje konto", gdzie pracownik ustawia numer sam (decyzja Krzysztofa). Podpis
-                    mówi o tym wprost, bo inaczej administrator nadpisywałby numer wpisany przez
-                    pracownika, nie wiedząc, że ten mógł go podać. Z kadr numer nadal nie przychodzi. -#}
-                <span class="field__hint">nie przychodzi z kadr; pracownik może ustawić go sam na „Moim koncie"</span>
-            </label>
+            {#- ⚠ **TO SAMO POLE, co na „Moim koncie"** (zlecenie Z73, decyzja Krzysztofa):
+                prefiks +48, reguła dziewięciu cyfr, normalizacja w `Support\Telefon`. Do Z73 stał
+                tu zwykły `.input` na 32 znaki bez prefiksu, więc w jednej kolumnie bazy mogły stać
+                dwa kształty numeru. ⚠ Numerów zagranicznych świadomie nie obsługujemy — numer
+                zapisany wcześniej w innym kształcie pole pokazuje bez zmian, a poprawki wymaga
+                dopiero ZAPIS.
+                ⚠ Podpis mówi, że pracownik może ustawić numer sam: inaczej administrator
+                nadpisywałby cudzy wpis, nie wiedząc o tym. Z kadr numer nadal nie przychodzi. -#}
+            {{ include('partials/pole-telefonu.twig', {
+                'wartosc': wpisane.telefon ?? telefon_pole,
+                'id_hint': 'telefon-hint-panel',
+                'etykieta': 'Telefon',
+                'hint': 'nie przychodzi z kadr; pracownik może ustawić go sam na „Moim koncie”',
+            }, with_context = false) }}
         </div>
     </form>
 

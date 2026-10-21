@@ -71,6 +71,9 @@ final class MojeKonto
                 'telefon'   => Telefon::doWyswietlenia($this->people->phone($personId)),
                 'konto_od'  => $konto === null ? null : ($konto['created_at'] ?? null),
             ],
+            // ⚠ Wartość POLA (bez prefiksu `+48`) — osobno od postaci do wyświetlenia wyżej,
+            // bo okno edycji i napis w karcie to dwie różne rzeczy (Z72/Z73).
+            'telefon_pole' => Telefon::doPola($this->people->phone($personId)),
             'typ' => $this->typKonta($user, $zatrudnienia),
             'dwa_etapy' => [
                 'wlaczone'       => $wlaczone,

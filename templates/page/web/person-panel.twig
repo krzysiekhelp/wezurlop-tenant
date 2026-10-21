@@ -5,6 +5,11 @@
 {#- ⚠ Pole wyboru firm w panelu osoby potrzebuje `modules/firmy-pole.js` (szukanie, „Zaznacz
     wszystkie", przeliczanie napisu). Bez niego pole dalej działa — rozwija je `<details>`. -#}
 {% set konta_js = true %}
+{#- ⚠ **`modules/konto.js` także TUTAJ** (zlecenie Z73): ten moduł obsługuje POLE telefonu
+    (format 3-3-3, podpowiedź „numer wygląda poprawnie"), a od Z73 to samo pole stoi w panelu
+    osoby i w formularzu nowego konta. Nazwa pliku mówi, skąd przyszedł, nie gdzie wolno go użyć.
+    Bez niego pole działa — o kształcie numeru rozstrzyga serwer (`Support\Telefon`). -#}
+{% set konto_js = true %}
 
 {% block okruchy %}
     <span>Administracja</span>

@@ -1,0 +1,38 @@
+{#- **Pole numeru telefonu** — jedna kontrolka z nieruchomym prefiksem `+48` (zlecenie Z72
+    na „Moim koncie", rozszerzone na panel osoby w Z73).
+
+    ⚠ **Jeden plik dla TRZECH miejsc**: okno „Moje konto", panel osoby i formularz nowego konta
+    administracyjnego w `/admin/konta`. Trzecia kopia tych znaczników rozjechałaby się przy
+    pierwszej poprawce wyglądu — a dwie pierwsze właśnie się rozjechały (panel miał zwykły
+    `.input` bez prefiksu), co kosztowało osobne zlecenie.
+
+    ⚠ **Prefiks to NAPIS obok pola, nie wartość w polu**: numer wpisany jako „+48 600 100 200"
+    i jako „600100200" ma trafić do bazy w jednym kształcie, a człowiek nie ma zgadywać, czy
+    prefiks dopisać. Normalizuje `Support\Telefon`, po stronie serwera.
+
+    ⚠ **Podpowiedź ma dwa stany, a drugi dokłada JavaScript** przy dziewięciu cyfrach
+    (`modules/konto.js`). Bez skryptu zostaje pierwsze zdanie — to jest wygoda, nie walidacja:
+    o kształcie rozstrzyga serwer (CLAUDE.md §6), który odmawia zapisu i mówi, czego oczekuje.
+
+    Zmienne:
+      `wartosc`   — co ma stać w polu (z `Telefon::doPola()`, czyli bez prefiksu),
+      `id_hint`   — identyfikator podpowiedzi (musi być unikalny na stronie, bo pól bywa kilka),
+      `etykieta`  — napis nad polem,
+      `hint`      — zdanie pod polem w stanie wyjściowym,
+      `autofokus` — czy ustawić kursor w polu (tylko w oknie, nigdy na pełnym formularzu).
+    Renderowany `with_context = false`, więc widzi wyłącznie to, co mu podano. -#}
+<label class="field">
+    <span class="field__label">{{ etykieta }}</span>
+    <span class="pole-telefonu">
+        <span class="pole-telefonu__prefiks" aria-hidden="true">+48</span>
+        {#- ⚠ `inputmode="numeric"` zamiast `type="number"`: pole liczbowe daje strzałki w górę
+            i w dół, zjada wiodące zera i na części przeglądarek przyjmuje „e" oraz minus.
+            Numer telefonu to ciąg cyfr, nie liczba do liczenia. -#}
+        <input class="input pole-telefonu__pole" type="tel" name="telefon" inputmode="numeric"
+               autocomplete="tel-national" maxlength="32" data-telefon
+               placeholder="600 100 200" aria-describedby="{{ id_hint }}"
+               value="{{ wartosc }}"{{ autofokus|default(false) ? ' autofocus' : '' }}>
+    </span>
+    <span class="field__hint" id="{{ id_hint }}" data-telefon-hint
+          data-opis-ok="numer wygląda poprawnie">{{ hint }}</span>
+</label>

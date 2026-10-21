@@ -61,6 +61,54 @@ final class Telefon
     }
 
     /**
+     * **Jedna decyzja dla wszystkich trzech ekranów: zapisać, usunąć czy odmówić** (Z73).
+     *
+     * ⚠ Powstała, bo ta sama para linijek („jeśli niepoprawny — odmów; zapisz znormalizowany")
+     * stała w trzech miejscach: w panelu osoby, w formularzu nowego konta administracyjnego
+     * i na „Moim koncie". Trzy kopie reguły to trzy okazje, żeby jedna z nich została przy
+     * starej — i dokładnie to się stało między Z69 a Z73: panel miał własną, luźniejszą białą
+     * listę znaków i zapisywał numery w dowolnym kształcie.
+     *
+     * ⚠ **Pusty numer to USUNIĘCIE, nie błąd** — i to jest rozstrzygnięcie, nie wygoda:
+     * pole bez wartości znaczy „nie mam numeru", a odmowa zapisu zmuszałaby do wpisania
+     * czegokolwiek, żeby wyjść z formularza.
+     *
+     * @return array{0: ?string, 1: ?string} [numer do zapisu albo null, komunikat odmowy albo null]
+     */
+    public static function dlaZapisu(string $wejscie): array
+    {
+        $wejscie = trim($wejscie);
+        if ($wejscie === '') {
+            return [null, null];
+        }
+
+        return self::poprawny($wejscie) ? [self::doZapisu($wejscie), null] : [null, self::ODMOWA];
+    }
+
+    /**
+     * Wartość do POLA FORMULARZA — bez prefiksu `+48`, bo prefiks jest nieruchomym napisem
+     * w kontrolce (zlecenie Z73, 21.10.2026: to samo pole w panelu osoby i na „Moim koncie").
+     *
+     * ⚠ Numer o innej długości oddajemy **bez zmian i bez obcinania**: w bazie stoją numery
+     * zapisane przed tą regułą (zmierzone 21.10.2026: dwa wiersze), a pole ma pokazać to, co
+     * jest, a nie udawać, że tego nie ma. Poprawki wymaga dopiero ZAPIS — wtedy serwer odmawia
+     * i mówi, jaki kształt przyjmuje. Formatowanie na siłę zrobiłoby z cudzego numeru napis
+     * wyglądający na polski, a obcięcie zmieniłoby daną bez wiedzy człowieka.
+     */
+    public static function doPola(?string $zapisany): string
+    {
+        if ($zapisany === null || trim($zapisany) === '') {
+            return '';
+        }
+        $cyfry = self::cyfry($zapisany);
+        if (strlen($cyfry) !== self::CYFR) {
+            return trim($zapisany);
+        }
+
+        return substr($cyfry, 0, 3) . ' ' . substr($cyfry, 3, 3) . ' ' . substr($cyfry, 6, 3);
+    }
+
+    /**
      * Postać do WYŚWIETLENIA: `+48 600 100 200`.
      *
      * ⚠ Numer o innej długości (zastany, wpisany kiedyś przez administratora w dowolnym

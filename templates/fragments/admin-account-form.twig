@@ -40,10 +40,14 @@
                 (CLAUDE.md §15). Idzie zaproszenie z jednorazowym linkiem. -#}
             <span class="field__hint">Na ten adres pójdzie zaproszenie. Hasło ustawia sobie właściciel konta{% if dwuetapowe_wymagane %}, a przy pierwszym logowaniu sparuje aplikację uwierzytelniającą{% endif %}.</span>
         </label>
-        <label class="field">
-            <span class="field__label">Telefon — opcjonalnie</span>
-            <input class="input" type="tel" name="telefon" maxlength="32" value="{{ wpisane.telefon ?? '' }}">
-        </label>
+        {#- ⚠ To samo pole, co w panelu osoby i na „Moim koncie" (Z73): jedna kontrolka, jedna
+            reguła, jedno miejsce do poprawienia. -#}
+        {{ include('partials/pole-telefonu.twig', {
+            'wartosc': wpisane.telefon ?? '',
+            'id_hint': 'telefon-hint-nowe',
+            'etykieta': 'Telefon — opcjonalnie',
+            'hint': '9 cyfr, bez zera na początku i bez +48',
+        }, with_context = false) }}
 
         <div class="field">
             <span class="field__label">Rola</span>

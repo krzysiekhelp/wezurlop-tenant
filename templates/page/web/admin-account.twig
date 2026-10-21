@@ -2,6 +2,10 @@
 
 {% block nazwa_ekranu %}Nowe konto administracyjne{% endblock %}
 
+{#- ⚠ `modules/konto.js` dla POLA telefonu (Z73): format 3-3-3 i podpowiedź „numer wygląda
+    poprawnie". Bez niego pole działa — o kształcie numeru rozstrzyga serwer. -#}
+{% set konto_js = true %}
+
 {% block okruchy %}
     <span>Administracja</span>
     <span class="crumbs__sep">/</span>

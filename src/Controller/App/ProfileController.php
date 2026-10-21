@@ -69,11 +69,15 @@ final class ProfileController
     {
         $user = $this->user($request);
         $wpisane = $request->postString('telefon', 32);
-        if (!Telefon::poprawny($wpisane)) {
-            return $this->strona($request, $user, 'telefon', Telefon::ODMOWA, 422, $wpisane);
+        // ⚠ Jedna decyzja dla wszystkich trzech ekranów (Z73) — tu pusty numer jest jednak
+        // odmową, nie usunięciem: do usuwania służy osobny przycisk „Usuń numer", więc puste
+        // pole w TYM formularzu znaczy „nie dokończyłem", a nie „chcę usunąć".
+        [$numer, $odmowa] = Telefon::dlaZapisu($wpisane);
+        if ($odmowa !== null || $numer === null) {
+            return $this->strona($request, $user, 'telefon', $odmowa ?? Telefon::ODMOWA, 422, $wpisane);
         }
 
-        return $this->zapiszTelefon($request, $user, Telefon::doZapisu($wpisane), 'telefon-zapisany');
+        return $this->zapiszTelefon($request, $user, $numer, 'telefon-zapisany');
     }
 
     /** @param array<string, string> $params */

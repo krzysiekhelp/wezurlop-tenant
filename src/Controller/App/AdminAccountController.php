@@ -33,6 +33,7 @@ use Wezurlop\Support\UrlGenerator;
 use Wezurlop\Support\Config;
 use Wezurlop\Support\ErrorHandler;
 use Wezurlop\Support\Odmiana;
+use Wezurlop\Support\Telefon;
 use Wezurlop\Support\View;
 
 /**
@@ -424,8 +425,11 @@ final class AdminAccountController
             'email'    => AuthService::normalizeEmail($request->postString('email', 254)),
             'telefon'  => trim($request->postString('telefon', 32)),
         ];
-        if ($wpisane['telefon'] !== '' && preg_match('/^[0-9+()\s-]{6,32}$/', $wpisane['telefon']) !== 1) {
-            return $this->formularzZBledem($request, 'Numer telefonu może zawierać tylko cyfry, spacje, plus, myślnik i nawiasy.', $wpisane);
+        // ⚠ Ta sama decyzja, co w panelu i na „Moim koncie" (Z73) — jedna funkcja rozstrzyga
+        // o kształcie numeru w całej aplikacji.
+        [$telefonNowego, $odmowaNowego] = Telefon::dlaZapisu($wpisane['telefon']);
+        if ($odmowaNowego !== null) {
+            return $this->formularzZBledem($request, $odmowaNowego, $wpisane);
         }
 
         try {
@@ -434,10 +438,10 @@ final class AdminAccountController
             // Komunikat pochodzi z usługi i mówi konkretnie, co jest nie tak (adres, imię, duplikat).
             return $this->formularzZBledem($request, $e->getMessage(), $wpisane);
         }
-        if ($wpisane['telefon'] !== '') {
+        if ($telefonNowego !== null) {
             $konto = $this->accounts->findById($accountId);
             if ($konto !== null) {
-                $this->people->updateContact($konto['person_id'], null, $wpisane['telefon'], null);
+                $this->people->updateContact($konto['person_id'], null, $telefonNowego, null);
             }
         }
 
@@ -541,12 +545,16 @@ final class AdminAccountController
                 ['email' => $request->postString('email', 254), 'telefon' => $request->postString('telefon', 32)],
                 'dane', $request->isHtmx());
         }
-        // ⚠ Telefon: biała lista znaków, nie czarna. Cyfry, spacje, `+`, `-` i nawiasy —
-        // wszystko inne odrzucamy, zamiast „czyścić" i zapisywać coś, czego nikt nie wpisał.
+        // ⚠ **Telefon przechodzi przez `Support\Telefon`, tak samo jak na „Moim koncie"**
+        // (zlecenie Z73, decyzja Krzysztofa). Dotąd stała tu własna biała lista znaków
+        // (cyfry, spacje, plus, myślnik, nawiasy, 6–32 znaki) — przepuszczała numery
+        // zagraniczne i wewnętrzne, więc w jednej kolumnie bazy stały dwa kształty. Numerów
+        // zagranicznych świadomie nie obsługujemy; pusty numer znaczy USUNIĘCIE.
         $telefon = trim($request->postString('telefon', 32));
-        if ($telefon !== '' && preg_match('/^[0-9+()\s-]{6,32}$/', $telefon) !== 1) {
-            return $this->panelZBledem($personId, $companyId, $admin,
-                'Numer telefonu może zawierać tylko cyfry, spacje, plus, myślnik i nawiasy.',
+        // Do bazy idzie JEDNA postać (`+48XXXXXXXXX`) albo `null` — nigdy to, co przyszło.
+        [$telefonDoZapisu, $odmowaTelefonu] = Telefon::dlaZapisu($telefon);
+        if ($odmowaTelefonu !== null) {
+            return $this->panelZBledem($personId, $companyId, $admin, $odmowaTelefonu,
                 ['email' => $email, 'telefon' => $telefon], 'dane', $request->isHtmx());
         }
 
@@ -605,7 +613,7 @@ final class AdminAccountController
 
         $adresDoZapisu = $przedZaproszeniem ? ($email === '' ? null : $email) : ($zmianaLoginu ? $email : $row['email']);
         try {
-            if (!$this->people->updateContact($personId, $adresDoZapisu, $telefon === '' ? null : $telefon, $companyId)) {
+            if (!$this->people->updateContact($personId, $adresDoZapisu, $telefonDoZapisu, $companyId)) {
                 return $this->errors->errorPage(404, null, $request->isHtmx());
             }
         } catch (AdresZajetyException) {
@@ -826,6 +834,15 @@ final class AdminAccountController
             // ⚠ **Pole wyboru firm renderuje się RAZEM z panelem** (zlecenie Z58 §3): lista
             // rozwija się w miejscu, pod polem, więc nie ma czego dociągać po kliknięciu —
             // a dociąganie znaczyłoby, że bez JavaScriptu nie da się jej w ogóle otworzyć.
+            // ⚠ Wartość POLA telefonu, nie surowa kolumna (Z73): prefiks `+48` jest napisem
+            // w kontrolce, więc do pola idzie sam numer. Numer zapisany kiedyś w innym kształcie
+            // `Telefon::doPola()` oddaje bez zmian — pole pokazuje to, co jest, a poprawki wymaga
+            // dopiero zapis.
+            // ⚠ **`$osoba`, nie `$row`** — i bez `?? null`. Pierwsza wersja (Z73) brała numer
+            // z `$row`, czyli z WIERSZA LISTY, który tej kolumny nie ma; `?? null` zamieniło
+            // pomyłkę w ciche puste pole i panel przestał pokazywać zapisany numer. Zmierzone:
+            // przy `+48600100200` w bazie pole było puste. Bez `??` brakujący klucz zgłosi się sam.
+            'telefon_pole' => Telefon::doPola($osoba['phone']),
             'firmy'      => $this->people->companiesForAccess($personId),
             'licencja'   => $this->access->licenceUsage(),
             // Karta „Widoczność kalendarza" — tylko podgląd, z funkcji egzekwującej dostęp.

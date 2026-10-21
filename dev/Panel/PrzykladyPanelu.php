@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Wezurlop\Dev\Panel;
 
+use Wezurlop\Support\Telefon;
 use Wezurlop\Service\ZakresWidocznosci as Z;
 use Wezurlop\Support\Odmiana;
 
@@ -93,6 +94,10 @@ final class PrzykladyPanelu
                 'powod_blokady' => $status === 'blocked' ? 'manual' : null,
                 'blokada_od' => $status === 'blocked' ? '2026-10-19 12:00:00' : null,
             ],
+            // ⚠ Wartość POLA telefonu — od Z73 panel renderuje wspólny komponent z „Moim
+            // kontem", więc katalog przykładów musi ją podać; bez niej szablon wywraca się
+            // na `strict_variables` (i tak właśnie ten test złapał brak klucza w kontrolerze).
+            'telefon_pole' => Telefon::doPola($p['telefon'] ?? null),
             'wiersz' => [
                 'etat_nazwy' => $bezEtatow ? [] : ['ALFA sp. z o.o.'],
                 'caly_tenant' => (bool) $p['caly_tenant'],
