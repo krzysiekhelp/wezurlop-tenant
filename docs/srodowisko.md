@@ -74,6 +74,17 @@ tę, która ma zostać (`-t 20261020120001`), albo używa się `rollback` bez `-
 migracji (`migrate` → `rollback` → `migrate`) sprawdzaj po cofnięciu **nie tylko swoją zmianę**,
 ale i to, czy nie zniknęło coś z migracji sąsiedniej.
 
+⚠ **Migracja, która zmienia DANE, a nie schemat, ma powiedzieć, czego `down()` nie odtworzy.**
+`20261021180001_normalize_person_phones` przepisuje `person.phone` na jedną postać
+(`+48XXXXXXXXX`) regułą z `Support\Telefon` — nie kopią tej reguły w SQL, bo dwie definicje
+poprawnego numeru rozjadą się przy pierwszej zmianie. Jej `down()` jest **świadomie puste**:
+cofnięcie nie odtworzy stylu zapisu („600 100 200" kontra „600-100-200"), ale żadna informacja
+o człowieku nie ginie, bo cyfry zostają te same. Alternatywa — tabela z kopią starych wartości —
+byłaby **drugim miejscem przechowującym numery telefonów** (dane osobowe, §14), którego po
+migracji nikt nie czyści. Numer, którego nie da się znormalizować, migracja **zostawia** i liczy;
+zgadywanie, co ktoś miał na myśli, zmieniałoby daną osobową na podstawie domysłu. Wyjście
+migracji i wpis w dzienniku niosą **same liczby** — nigdy numer.
+
 ⚠ **Czas w `phinxlog` jest LOKALNY, a w naszych tabelach UTC** — ta sama operacja ma w logu
 migracji inną godzinę niż w danych, które założyła. Zmierzone 20.10.2026: migracja
 `20261020120001` ma w `phinxlog` `start_time = 10:02:07`, a wiersz, który wstawiła, ma

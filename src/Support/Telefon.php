@@ -109,6 +109,48 @@ final class Telefon
     }
 
     /**
+     * **Co zrobić z zastanymi numerami** — czysta funkcja dla migracji ujednolicającej
+     * `person.phone` (zlecenie Z74, decyzja Krzysztofa po Z73).
+     *
+     * ⚠ Osobno od `dlaZapisu()`, bo pytanie jest inne: tam „co zapisać z tego, co wpisał
+     * człowiek", tutaj „które z już zapisanych wierszy da się przepisać, a które zostawić".
+     * Numer, który po oczyszczeniu NIE jest poprawnym numerem polskim, zostaje nietknięty —
+     * migracja nie ma prawa zgadywać, co ktoś miał na myśli, wpisując numer wewnętrzny albo
+     * zagraniczny.
+     *
+     * ⚠ Czysta i bez bazy, żeby dała się sprawdzić testem na danych fikcyjnych we wszystkich
+     * trzech przypadkach (do przepisania / już poprawny / nienormalizowalny) — migracja robi
+     * potem tylko `UPDATE` tym, co ta funkcja wskaże.
+     *
+     * @param array<int, ?string> $numery identyfikator wiersza → numer z bazy
+     * @return array{zmiany: array<int, string>, pominiete: list<int>, bez_zmian: list<int>}
+     */
+    public static function doPrzepisania(array $numery): array
+    {
+        $zmiany = [];
+        $pominiete = [];
+        $bezZmian = [];
+        foreach ($numery as $id => $numer) {
+            if ($numer === null || trim($numer) === '') {
+                continue;
+            }
+            $docelowy = self::doZapisu($numer);
+            if ($docelowy === null) {
+                $pominiete[] = $id;
+            } elseif ($docelowy === $numer) {
+                // ⚠ Ten przypadek jest powodem, dla którego migracja jest POWTARZALNA: numer
+                // już w docelowej postaci nie trafia do zmian, więc drugi przebieg rusza zero
+                // wierszy (warunek odbioru z Z74).
+                $bezZmian[] = $id;
+            } else {
+                $zmiany[$id] = $docelowy;
+            }
+        }
+
+        return ['zmiany' => $zmiany, 'pominiete' => $pominiete, 'bez_zmian' => $bezZmian];
+    }
+
+    /**
      * Postać do WYŚWIETLENIA: `+48 600 100 200`.
      *
      * ⚠ Numer o innej długości (zastany, wpisany kiedyś przez administratora w dowolnym

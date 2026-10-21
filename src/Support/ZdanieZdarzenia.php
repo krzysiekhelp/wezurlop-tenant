@@ -114,6 +114,9 @@ final class ZdanieZdarzenia
         'calendar_access.migrated'      => ['przeniosła dawne poziomy podglądu do reguł dostępu[ — reguł: {regul}][, bez firmy: {bez_firmy}]', 'kalendarz', self::BARWA_ZWYKLA],
         'person.email_set'              => ['ustawił(a) adres e-mail osobie {podmiot}', 'koperta', self::BARWA_ZWYKLA],
         'person.contact_changed'        => ['zmienił(a) dane kontaktowe osoby {podmiot}', 'olowek', self::BARWA_ZWYKLA],
+        // ⚠ Zdarzenie SYSTEMOWE (migracja), więc zdanie bez sprawcy osobowego i bez numerów:
+        // w dzienniku stoi sama liczba przepisanych wierszy (zlecenie Z74, CLAUDE.md §14).
+        'person.phones_normalized'      => ['ujednolicił(a) zapis numerów telefonów', 'olowek', self::BARWA_ZWYKLA],
 
         // ——— grupy ———
         'group.created'                 => ['utworzył(a) grupę {nazwa}', 'etykieta', self::BARWA_DODANIE],

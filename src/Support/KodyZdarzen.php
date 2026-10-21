@@ -60,6 +60,7 @@ final class KodyZdarzen
         'session.revoked_by_admin'      => 'Zakończenie sesji przez administratora',
         'person.email_set'              => 'Ustawienie adresu e-mail osoby',
         'person.contact_changed'        => 'Zmiana danych kontaktowych',
+        'person.phones_normalized'      => 'Ujednolicenie numerów telefonów',
         '2fa.enabled'                   => 'Włączenie 2FA',
         '2fa.disabled'                  => 'Wyłączenie 2FA',
         '2fa.disable_failed'            => 'Nieudane wyłączenie 2FA',
