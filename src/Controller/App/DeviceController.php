@@ -31,19 +31,26 @@ final class DeviceController
     ) {
     }
 
-    /** @param array<string, string> $params */
+    /**
+     * Lista urządzeń.
+     *
+     * ⚠ **Od Z69 ekranem urządzeń jest „Moje konto"**, więc zwykłe wejście tu przekierowuje —
+     * tak samo jak `/ustawienia/2fa`. Trasa zostaje, bo htmx odświeża nią samą listę
+     * (`hx-get` z karty „Bezpieczeństwo"), a 404 pod adresem z zakładek nikomu nie pomaga.
+     *
+     * @param array<string, string> $params
+     */
     public function index(Request $request, array $params): Response
     {
         $user = $this->user($request);
-        $data = [
-            'devices'  => $this->devices->listForAccount($user->accountId(), $this->session->id()),
-            'revoked'  => $request->query('zakonczono') === '1',
-        ];
-        if ($request->isHtmx()) {
-            return $this->view->render('fragments/devices.twig', $data);
+        if (!$request->isHtmx()) {
+            return Response::redirectFor($request, $this->urls->to('/konto'));
         }
 
-        return $this->view->render('devices.twig', $data)->withHeader('Cache-Control', 'no-store');
+        return $this->view->render('fragments/konto-urzadzenia.twig', [
+            'urzadzenia' => $this->devices->listForAccount($user->accountId(), $this->session->id()),
+            'zakonczono' => $request->query('zakonczono') === '1',
+        ]);
     }
 
     /** @param array<string, string> $params */
@@ -77,13 +84,22 @@ final class DeviceController
     private function afterChange(Request $request, CurrentUser $user): Response
     {
         if ($request->isHtmx()) {
-            return $this->view->render('fragments/devices.twig', [
-                'devices' => $this->devices->listForAccount($user->accountId(), $this->session->id()),
-                'revoked' => true,
+            return $this->view->render('fragments/konto-urzadzenia.twig', [
+                'urzadzenia' => $this->devices->listForAccount($user->accountId(), $this->session->id()),
+                'zakonczono' => true,
             ]);
         }
 
-        return Response::redirectFor($request, $this->urls->to('/ustawienia/urzadzenia') . '?zakonczono=1');
+        // ⚠ Potwierdzenie przez `?ok=`, a nie `?zakonczono=1`: „Moje konto" ma jeden słownik
+        // zdań potwierdzeń (`ProfileController::POTWIERDZENIA`), więc liczba komunikatów nie
+        // rośnie razem z liczbą akcji.
+        return Response::redirectFor($request, $this->urls->to('/konto') . '?ok=' . $this->ok($request));
+    }
+
+    /** Które zdanie potwierdzenia: jedno urządzenie czy pozostałe. */
+    private function ok(Request $request): string
+    {
+        return $request->postString('session', 64) === '' ? 'sesje-zakonczone' : 'sesja-zakonczona';
     }
 
     private function user(Request $request): CurrentUser

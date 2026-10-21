@@ -145,3 +145,14 @@
 {% macro katalog() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M3.4 6.4a1.4 1.4 0 0 1 1.4-1.4h2.6l1.6 1.9h5.2a1.4 1.4 0 0 1 1.4 1.4v6.1a1.4 1.4 0 0 1-1.4 1.4H4.8a1.4 1.4 0 0 1-1.4-1.4Z"/></svg>{% endmacro %}
 {% macro uwaga() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M10.9 4.2a1 1 0 0 0-1.8 0L3.3 15a1 1 0 0 0 .9 1.5h11.6a1 1 0 0 0 .9-1.5Z"/><path d="M10 8.3v3.2"/><circle cx="10" cy="13.8" r=".85" fill="currentColor" stroke="none"/></svg>{% endmacro %}
 {% macro strzalka_w_dol() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M10 4.4v11.2"/><path d="m5.6 11.2 4.4 4.4 4.4-4.4"/></svg>{% endmacro %}
+
+{#- ⚠ **Cztery ikony dopisane dla „Mojego konta"** (zlecenie Z69, 21.10.2026). Ten sam układ
+    co cała rodzina: `viewBox="0 0 20 20"`, klasa `ico`, obrys z `currentColor`, zero wypełnień
+    poza kropkami. `tarcza` jest dla weryfikacji dwuetapowej, a nie `klodka`: kłódka znaczy
+    w tym systemie „hasło i blokada", więc dwie różne rzeczy miałyby jeden znak.
+    ⚠ `komputer`, `telefon` i `aplikacja` odpowiadają trzem rodzajom sesji z `ClientKind` —
+    i to jest cała lista, bo rejestr sesji innych rodzajów nie zna. -#}
+{% macro tarcza() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M10 3.2 15.6 5.4v4.2c0 3.2-2.2 5.6-5.6 7-3.4-1.4-5.6-3.8-5.6-7V5.4Z"/><path d="M10 7.4v2.8"/><circle cx="10" cy="12.4" r=".85" fill="currentColor" stroke="none"/></svg>{% endmacro %}
+{% macro komputer() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><rect x="2.8" y="4.4" width="14.4" height="9" rx="1.4"/><path d="M7.4 16.4h5.2M10 13.4v3"/></svg>{% endmacro %}
+{% macro telefon() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><rect x="6" y="2.8" width="8" height="14.4" rx="1.6"/><path d="M8.8 4.8h2.4"/><circle cx="10" cy="14.8" r=".9" fill="currentColor" stroke="none"/></svg>{% endmacro %}
+{% macro aplikacja() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><rect x="3.6" y="3.6" width="5.6" height="5.6" rx="1.4"/><rect x="10.8" y="3.6" width="5.6" height="5.6" rx="1.4"/><rect x="3.6" y="10.8" width="5.6" height="5.6" rx="1.4"/><circle cx="13.6" cy="13.6" r="2.8"/></svg>{% endmacro %}

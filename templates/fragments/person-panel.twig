@@ -148,9 +148,11 @@
             <label class="field">
                 <span class="field__label">Telefon</span>
                 <input class="input" type="tel" name="telefon" maxlength="32" value="{{ wpisane.telefon ?? o.phone }}">
-                {#- ⚠ ŹRÓDŁO numeru, nie flaga „zweryfikowany": `person.phone` nie jest zapisywany
-                    przez nic poza tym ekranem, więc numer może pochodzić wyłącznie od administratora. -#}
-                <span class="field__hint">nie przychodzi z kadr</span>
+                {#- ⚠ ŹRÓDŁO numeru: od Z69 (21.10.2026) `person.phone` zapisują DWA ekrany — ten
+                    i „Moje konto", gdzie pracownik ustawia numer sam (decyzja Krzysztofa). Podpis
+                    mówi o tym wprost, bo inaczej administrator nadpisywałby numer wpisany przez
+                    pracownika, nie wiedząc, że ten mógł go podać. Z kadr numer nadal nie przychodzi. -#}
+                <span class="field__hint">nie przychodzi z kadr; pracownik może ustawić go sam na „Moim koncie"</span>
             </label>
         </div>
     </form>
@@ -212,19 +214,9 @@
                 (`CalendarVisibility::zrodlaWidza()`) — panel nie liczy niczego osobno. -#}
             <ul class="op-zrodla">
                 {% for z in widocznosc.zrodla %}
-                    <li class="op-zrodlo">
-                        <span class="op-zrodlo__znak">
-                            {%- if z.ikona == 'drzewo' %}{{ ikony.drzewo() }}
-                            {%- elseif z.ikona == 'firma' %}{{ ikony.firma() }}
-                            {%- elseif z.ikona == 'etykieta' %}{{ ikony.etykieta() }}
-                            {%- else %}{{ ikony.konto() }}{% endif -%}
-                        </span>
-                        <span class="op-zrodlo__tresc">
-                            <span class="op-zrodlo__cel">{{ z.cel }}</span>
-                            <span class="op-zrodlo__skad">{{ z.skad }} · {{ z.osob }} {{ odmiana_osob(z.osob) }}</span>
-                        </span>
-                        {{ include('partials/zakres-plakietka.twig', {'zakres': z.zakres, 'nazwy': nazwy_zakresow}, with_context = false) }}
-                    </li>
+                    {#- ⚠ Wiersz źródła renderuje WSPÓLNY partial (Z69): ten sam wygląd i ten sam
+                        słownik niesie karta „Dostęp" na „Moim koncie". -#}
+                    {{ include('partials/zrodlo-wgladu.twig', {'z': z, 'nazwy': nazwy_zakresow}, with_context = false) }}
                 {% endfor %}
             </ul>
             {#- ⚠ Zdanie o pierwszeństwie jest tu obowiązkowe, nie uprzejme: z samych wierszy

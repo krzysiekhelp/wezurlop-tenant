@@ -114,7 +114,15 @@ $shared = [
     ['POST', '/kontekst/spolka/{id:\d+}',                [ContextController::class, 'switchCompany'],  'permission' => 'app.use', 'exempt' => ['context'], 'zakres' => 'tenant'],
 
     // konto: profil, 2FA, urządzenia
-    ['GET',  '/konto',                                   [ProfileController::class, 'index'],          'permission' => 'account.manage_own', 'exempt' => ['context'], 'zakres' => 'tenant'],
+    ['GET',  '/konto',                                   [ProfileController::class, 'index'],          'permission' => 'account.manage_own', 'exempt' => ['2fa', 'context'], 'zakres' => 'tenant'],
+    // ⚠ **Telefon i hasło zmienia sam właściciel konta** (zlecenie Z69, decyzja Krzysztofa):
+    // `account.manage_own`, bez `admin.users` — nie ma tu żadnego identyfikatora osoby
+    // w żądaniu, bo kontroler bierze `person_id` z konta w sesji.
+    ['POST', '/konto/telefon',                           [ProfileController::class, 'telefon'],        'permission' => 'account.manage_own', 'exempt' => ['context'], 'zakres' => 'tenant'],
+    ['POST', '/konto/telefon/usun',                      [ProfileController::class, 'telefonUsun'],    'permission' => 'account.manage_own', 'exempt' => ['context'], 'zakres' => 'tenant'],
+    ['POST', '/konto/haslo',                             [ProfileController::class, 'haslo'],          'permission' => 'account.manage_own', 'exempt' => ['context'], 'zakres' => 'tenant'],
+    // ⚠ Nowe kody zapasowe zostają w `SecurityController` razem z całą logiką 2FA (Z69).
+    ['POST', '/ustawienia/2fa/kody/nowe',                [SecurityController::class, 'regenerate'],    'permission' => 'account.manage_own', 'exempt' => ['2fa', 'context'], 'zakres' => 'tenant'],
     ['GET',  '/ustawienia/2fa',                          [SecurityController::class, 'index'],         'permission' => 'account.manage_own', 'exempt' => ['2fa', 'context'], 'zakres' => 'tenant'],
     ['POST', '/ustawienia/2fa/rozpocznij',               [SecurityController::class, 'start'],         'permission' => 'account.manage_own', 'exempt' => ['2fa', 'context'], 'zakres' => 'tenant'],
     ['GET',  '/ustawienia/2fa/kod.svg',                  [SecurityController::class, 'qr'],            'permission' => 'account.manage_own', 'exempt' => ['2fa', 'context'], 'zakres' => 'tenant'],

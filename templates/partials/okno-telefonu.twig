@@ -1,0 +1,68 @@
+{#- Okno „Dodaj / Zmień numer telefonu" (zlecenie Z69, decyzja Krzysztofa: pracownik ustawia
+    numer sam). Zmienne: `osoba`, `okno`, `error`, `wpisany_telefon`.
+
+    ⚠ **Okno osadzone w stronie i otwierane przez serwer** (`?okno=telefon` → `<dialog open>`),
+    dokładnie jak okno nazw firm: działa bez JavaScriptu, a `ui.js` tylko podnosi je do warstwy
+    wierzchniej. Wersja dociągana htmx-em byłaby krótsza i **nieosiągalna bez skryptów**.
+
+    ⚠ **Prefiks `+48` jest NAPISEM obok pola, nie wartością w polu**: numer wpisany jako
+    „+48 600 100 200" i jako „600100200" ma trafić do bazy w jednym kształcie, a człowiek
+    nie ma zgadywać, czy prefiks dopisać. Serwer i tak normalizuje (`Support\Telefon`). -#}
+{% import 'partials/ikony.twig' as ikony %}
+<dialog id="okno-telefonu" class="modal modal--waskie" aria-labelledby="okno-telefonu-tytul"
+        data-modal-trwale{{ okno == 'telefon' ? ' open' : '' }}>
+    <div class="modal__head modal__head--znak">
+        <span class="card__znak">{{ ikony.telefon() }}</span>
+        <div class="card__tytuly">
+            <h3 id="okno-telefonu-tytul">{{ osoba.telefon is null ? 'Dodaj numer telefonu' : 'Zmień numer telefonu' }}</h3>
+            <p class="card__opis">Numer widzą kadry i Twoi przełożeni. Nie służy do logowania.</p>
+        </div>
+        <button type="button" class="modal__close" data-modal-close="okno-telefonu" aria-label="Zamknij okno">×</button>
+    </div>
+
+    <form method="post" action="{{ url('/konto/telefon') }}" class="modal__wrap">
+        {% include 'partials/csrf.twig' %}
+        <div class="modal__body">
+            {% if error is not null and okno == 'telefon' %}
+                {% include 'partials/komunikat.twig' with {'tekst': error, 'rodzaj': 'blad'} only %}
+            {% endif %}
+            <label class="field">
+                <span class="field__label">Numer telefonu</span>
+                {#- ⚠ `inputmode="numeric"` zamiast `type="number"`: pole liczbowe daje strzałki
+                    w górę i w dół, zjada wiodące zera i na części przeglądarek pozwala wpisać
+                    „e" oraz minus. Numer telefonu to ciąg cyfr, nie liczba do liczenia. -#}
+                <span class="pole-telefonu">
+                    <span class="pole-telefonu__prefiks" aria-hidden="true">+48</span>
+                    <input class="input pole-telefonu__pole" type="tel" name="telefon" inputmode="numeric"
+                           autocomplete="tel-national" maxlength="13" data-telefon
+                           aria-describedby="telefon-hint"
+                           value="{{ wpisany_telefon != '' ? wpisany_telefon : (osoba.telefon is null ? '' : osoba.telefon|replace({'+48 ': ''})) }}" autofocus>
+                </span>
+                {#- ⚠ Podpowiedź ma dwa stany, a drugi („numer wygląda poprawnie") dokłada JavaScript
+                    przy dziewięciu cyfrach. Bez skryptu zostaje pierwsze zdanie — to jest wygoda,
+                    nie walidacja: o kształcie rozstrzyga serwer (CLAUDE.md §6). -#}
+                <span class="field__hint" id="telefon-hint" data-telefon-hint data-opis-ok="numer wygląda poprawnie">9 cyfr, bez zera na początku i bez +48</span>
+            </label>
+        </div>
+        <div class="modal__foot">
+            {#- ⚠ „Zapisz" jest aktywne od początku, a JavaScript je wyłącza, dopóki cyfr jest mniej
+                niż dziewięć. Odwrotnie być nie może: `disabled` wpisane w szablon zostałoby
+                wyłączone na zawsze w przeglądarce bez skryptów. -#}
+            <button type="submit" class="btn btn--primary" data-telefon-zapisz>Zapisz</button>
+            <button type="button" class="btn btn--ghost" data-modal-close="okno-telefonu">Anuluj</button>
+            {% if osoba.telefon is not null %}
+                {#- ⚠ Usunięcie to OSOBNY formularz, nie pole w tym samym: inaczej „Zapisz"
+                    z pustym polem znaczyłoby „usuń", a to dwie różne decyzje człowieka. -#}
+                <span class="modal__foot-prawa">
+                    <button type="submit" class="btn btn--ghost btn--danger"
+                            form="usun-telefon">Usuń numer</button>
+                </span>
+            {% endif %}
+        </div>
+    </form>
+    {% if osoba.telefon is not null %}
+        <form id="usun-telefon" method="post" action="{{ url('/konto/telefon/usun') }}" class="formularz-ukryty">
+            {% include 'partials/csrf.twig' %}
+        </form>
+    {% endif %}
+</dialog>

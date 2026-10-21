@@ -1,0 +1,70 @@
+{#- Okno „Wyłącz weryfikację dwuetapową" (zlecenie Z69 pkt 7). Zmienne: `okno`, `error`, `dwa_etapy`.
+
+    ⚠ **Hasło JEST w tym oknie, choć szkic zlecenia miał sam kod.** CLAUDE.md §9 mówi wprost:
+    „Wyłączenie: wymaga hasła i aktualnego kodu". Zdjęcie drugiego składnika samym kodem
+    z odblokowanego telefonu byłoby rozbrojeniem zabezpieczenia przez to, co ono właśnie chroni.
+    Zgłoszone w raporcie Z69 jako odstępstwo od szkicu.
+
+    ⚠ **Kod zapasowy jako druga droga** (odnośnik przełączający `?okno=2fa-wylacz&tryb=zapasowy`,
+    bez JavaScriptu): telefon bywa zgubiony, a wtedy jedyną drogą byłby reset przez administratora
+    — czyli jawne obejście zabezpieczenia w dzienniku, zamiast decyzji właściciela konta. -#}
+{% import 'partials/ikony.twig' as ikony %}
+{%- set zapasowy = okno == '2fa-wylacz' and tryb_kodu == 'zapasowy' -%}
+<dialog id="okno-2fa-wylacz" class="modal modal--waskie" aria-labelledby="okno-2fa-wylacz-tytul"
+        data-modal-trwale{{ okno == '2fa-wylacz' ? ' open' : '' }}>
+    <div class="modal__head modal__head--znak">
+        <span class="card__znak">{{ ikony.uwaga() }}</span>
+        <div class="card__tytuly">
+            <h3 id="okno-2fa-wylacz-tytul">Wyłącz weryfikację dwuetapową</h3>
+            <p class="card__opis">Konto zostanie wtedy chronione samym hasłem.</p>
+        </div>
+        <button type="button" class="modal__close" data-modal-close="okno-2fa-wylacz" aria-label="Zamknij okno">×</button>
+    </div>
+
+    <form method="post" action="{{ url('/ustawienia/2fa/wylacz') }}" class="modal__wrap">
+        {% include 'partials/csrf.twig' %}
+        <input type="hidden" name="tryb" value="{{ zapasowy ? 'zapasowy' : 'aplikacja' }}">
+        <div class="modal__body">
+            {% if error is not null and okno == '2fa-wylacz' %}
+                {% include 'partials/komunikat.twig' with {'tekst': error, 'rodzaj': 'blad'} only %}
+            {% endif %}
+            {#- ⚠ Ostrzeżenie wymienia WSZYSTKIE trzy skutki, bo dwa z nich są niewidoczne
+                w chwili kliknięcia: kody zapasowe przestają działać od razu, a powrót wymaga
+                parowania aplikacji od nowa (stary wpis w aplikacji będzie dawał złe kody). -#}
+            <ul class="lista-uwag">
+                <li>Logowanie będzie chronione <strong>samym hasłem</strong>.</li>
+                <li>Twoje kody zapasowe <strong>przestaną działać</strong>.</li>
+                <li>Powrót do 2FA będzie wymagał <strong>parowania aplikacji od nowa</strong>.</li>
+            </ul>
+            <label class="field">
+                <span class="field__label">Twoje hasło</span>
+                <input class="input" type="password" name="password" autocomplete="current-password"
+                       maxlength="4096" required autofocus>
+            </label>
+            <label class="field">
+                <span class="field__label">{{ zapasowy ? 'Kod zapasowy' : 'Kod z aplikacji' }}</span>
+                {% if zapasowy %}
+                    <input class="input" type="text" name="code" maxlength="32" autocomplete="off"
+                           aria-describedby="kod-wylacz-hint" required>
+                    <span class="field__hint" id="kod-wylacz-hint">Jeden z kodów zapisanych przy włączaniu. Zostanie zużyty.</span>
+                {% else %}
+                    <input class="input pole-kodu" type="text" name="code" inputmode="numeric"
+                           autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6"
+                           data-kod-6 aria-describedby="kod-wylacz-hint" required>
+                    <span class="field__hint" id="kod-wylacz-hint">Sześć cyfr z aplikacji uwierzytelniającej.</span>
+                {% endif %}
+            </label>
+            <p class="modal__przelacznik">
+                {% if zapasowy %}
+                    <a href="{{ url('/konto') }}?okno=2fa-wylacz">Mam dostęp do aplikacji — podam kod z niej</a>
+                {% else %}
+                    <a href="{{ url('/konto') }}?okno=2fa-wylacz&amp;tryb=zapasowy">Nie mam telefonu — użyję kodu zapasowego</a>
+                {% endif %}
+            </p>
+        </div>
+        <div class="modal__foot">
+            <button type="button" class="btn btn--ghost" data-modal-close="okno-2fa-wylacz">Anuluj</button>
+            <button type="submit" class="btn btn--ghost btn--danger">Wyłącz</button>
+        </div>
+    </form>
+</dialog>

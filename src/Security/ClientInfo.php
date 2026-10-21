@@ -41,6 +41,26 @@ final class ClientInfo
     }
 
     /** Czytelny opis przeglądarki i systemu — przybliżony, tylko do wyświetlenia. */
+    /**
+     * Czy to urządzenie **przenośne** — wyłącznie do wyboru IKONY na liście urządzeń (Z69).
+     *
+     * ⚠ `User-Agent` jest tekstem od klienta, więc nie wolno na nim oprzeć ŻADNEJ decyzji
+     * o dostępie (CLAUDE.md §11). Wybór ikony to prezentacja — ta sama klasa czyta już z niego
+     * nazwę przeglądarki i systemu na tę samą listę. Gdy nie wiadomo, pokazujemy komputer:
+     * zgadywanie „telefon" przy braku danych myliłoby bardziej niż ogólna ikona.
+     */
+    public static function mobilny(?string $ua): bool
+    {
+        if ($ua === null || $ua === '') {
+            return false;
+        }
+
+        return str_contains($ua, 'Android')
+            || str_contains($ua, 'iPhone')
+            || str_contains($ua, 'iPad')
+            || str_contains($ua, 'Mobile');
+    }
+
     public static function describeUserAgent(?string $ua): string
     {
         if ($ua === null || $ua === '') {

@@ -38,6 +38,12 @@ final class DeviceService
                 'device'       => ClientKind::describe((string) $row['client'], $row['app_version'])
                     ?? ClientInfo::describeUserAgent($row['user_agent']),
                 'network'      => $row['ip_prefix'],
+                // ⚠ Rodzaj do IKONY, nie do decyzji: aplikacja mobilna poznaje się po rejestrze
+                // sesji (`client`), telefon w przeglądarce po `User-Agent` — a to dana od klienta,
+                // więc wpływa wyłącznie na wygląd wiersza (Z69, CLAUDE.md §11).
+                'kind'         => (string) $row['client'] === 'app'
+                    ? 'app'
+                    : (ClientInfo::mobilny($row['user_agent']) ? 'telefon' : 'komputer'),
                 'created_at'   => (string) $row['created_at'],
                 'last_seen_at' => (string) $row['last_seen_at'],
                 'current'      => hash_equals($current, (string) $row['id']),

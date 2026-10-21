@@ -267,6 +267,21 @@ final class Kernel
             $csrf,
             $services->limiter,
             $services->mailRenderer(),
+            new \Wezurlop\Support\WidokKonta($view, new \Wezurlop\Service\MojeKonto(
+                $services->accounts,
+                $services->people,
+                $services->employments,
+                $services->companies,
+                $services->grupyRepository(),
+                $services->permissions,
+                $widocznoscKalendarza,
+                $twoFactor,
+                $services->devices,
+                // ⚠ Wymóg 2FA to KONFIGURACJA ORAZ rola — ekran pytał dotąd tylko o rolę, więc
+                // przy `ADMIN_2FA_REQUIRED=0` pisał „Twoja rola wymaga weryfikacji dwuetapowej",
+                // a middleware nie wymuszał niczego (punkt 10 zlecenia Z69).
+                $config->adminTwoFactorRequired,
+            ), $twoFactor, $session),
         ));
         // ⚠ Znacznik spółki w belce: **jedno** rozstrzygnięcie na żądanie, liczone leniwie
         // (ekran logowania i strona błędu nie pytają o nic).
@@ -324,8 +339,12 @@ final class Kernel
                 $urls->to('/logowanie/kod'),
                 $sessionHandler,
             ),
-            new Require2fa($services->permissions, $twoFactor, $urls->to('/ustawienia/2fa'), $urls->to('/ustawienia/2fa/kody'),
-                $config->adminTwoFactorRequired),
+            // ⚠ **Oba przekierowania wymogu 2FA prowadzą na „Moje konto"** (Z69 pkt 9): ekran
+            // parowania i ekran kodów przestały istnieć osobno, więc kierowanie na nie dawałoby
+            // przekierowanie na przekierowanie. Adres niesie, KTÓRE okno ma się otworzyć, bo
+            // strona działa bez JavaScriptu i okno otwiera serwer, nie skrypt.
+            new Require2fa($services->permissions, $twoFactor, $urls->to('/konto') . '?okno=2fa',
+                $urls->to('/konto') . '?okno=kody', $config->adminTwoFactorRequired),
             new EmploymentContext($authSession, $services->employments, $services->permissions, $view,
                 $urls->to('/kontekst'), $services->accounts),
             new LicenseGuard($services->license, $view),

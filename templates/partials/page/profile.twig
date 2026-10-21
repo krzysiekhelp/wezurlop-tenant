@@ -1,17 +1,277 @@
-{%- set me = current_user() -%}
-<section class="card">
-    <div class="card__head"><h2>{{ me.name }}</h2>{% if me.two_factor %}<span class="chip">2FA włączone</span>{% else %}<span class="chip chip--warn">2FA wyłączone</span>{% endif %}</div>
-    <div class="card__body">
-        <ul class="settings-list">
-            <li><a class="settings-list__row" href="{{ url('/ustawienia/2fa') }}">Weryfikacja dwuetapowa <span aria-hidden="true">›</span></a></li>
-            <li><a class="settings-list__row" href="{{ url('/ustawienia/urzadzenia') }}">Twoje urządzenia <span aria-hidden="true">›</span></a></li>
-            {% if me.employment_count > 1 %}
-                <li><a class="settings-list__row" href="{{ url('/kontekst') }}">Zmień firmę <span aria-hidden="true">›</span></a></li>
-            {% endif %}
-            {% if can('admin.settings') %}
-                <li><a class="settings-list__row" href="{{ url('/ustawienia') }}">Ustawienia tenanta <span aria-hidden="true">›</span></a></li>
-            {% endif %}
-        </ul>
+{#- **„Moje konto"** — dane, typ konta, dostęp i bezpieczeństwo na jednym ekranie
+    (zlecenie Z69, 21.10.2026; projekt zaakceptowany przez Krzysztofa w przeglądarce).
+
+    Zmienne: `osoba`, `typ`, `dwa_etapy`, `haslo`, `ostatnie_logowanie`, `urzadzenia`, `urzadzen`,
+    `dostep`, `nazwy_zakresow`, `okno`, `error`, `potwierdzenie`, `wpisany_telefon`, `kody`,
+    `sekret`, `parowanie` — wszystko gotowe z `Support\WidokKonta`.
+
+    ⚠ **Zero logiki.** Szablon wyświetla stany policzone w `Service\MojeKonto`; nie pyta bazy,
+    nie liczy uprawnień i nie rozstrzyga, co komu wolno (CLAUDE.md §5 i §15 — w szablonie nie ma
+    reguł biznesowych, bo szablonu nie da się zakodować Encoderem).
+
+    ⚠ **Okna otwiera SERWER przez `?okno=…`**, nie skrypt: cała strona działa bez JavaScriptu.
+    `modules/konto.js` dokłada tylko wygodę (formatowanie numeru, przeskok w okienkach kodu,
+    kopiowanie) — i każda z tych rzeczy ma działającą wersję bez niego. -#}
+{% import 'partials/ikony.twig' as ikony %}
+
+{% if potwierdzenie is not null %}
+    {% include 'partials/komunikat.twig' with {'tekst': potwierdzenie, 'rodzaj': 'sukces'} only %}
+{% endif %}
+{#- ⚠ Odmowa, która NIE ma swojego okna (np. próba wyłączenia 2FA wysłana z ręki przy wymogu),
+    musi być widoczna na stronie — inaczej żądanie wraca 422 i nic się nie zmienia na ekranie. -#}
+{% if error is not null and okno is null %}
+    {% include 'partials/komunikat.twig' with {'tekst': error, 'rodzaj': 'blad'} only %}
+{% endif %}
+
+{#- ══════════ 1. Nagłówek konta ══════════ -#}
+<section class="card konto-glowa">
+    <div class="card__body konto-glowa__body">
+        <span class="konto-glowa__inicjaly" aria-hidden="true">{{ osoba.inicjaly }}</span>
+        <div class="konto-glowa__dane">
+            <h2 class="konto-glowa__nazwa">{{ osoba.nazwa }}</h2>
+            <p class="konto-glowa__wiersz">
+                <span class="konto-glowa__mail">{{ ikony.koperta() }}{{ osoba.email }}</span>
+                <span class="chip chip--typ">{{ typ.napis }}</span>
+            </p>
+        </div>
         {% include 'partials/logout.twig' %}
     </div>
 </section>
+
+{#- ══════════ 2. Kafle stanu ══════════
+    ⚠ Ten sam komponent, co na pulpicie i w ustawieniach (`.kafle`/`.kafel`) — cztery odpowiedzi
+    na pytania, które człowiek zadaje najpierw, zanim cokolwiek rozwinie. -#}
+<section class="kafle kafle--auto" aria-label="Stan konta">
+    <div class="kafel">
+        <span class="kafel__glowa">{{ ikony.konto() }}<span class="kafel__etykieta">Typ konta</span></span>
+        <span class="kafel__dana">
+            <span class="kafel__wartosc">{{ typ.rodzaj == 'administrator' ? 'Administrator' : (typ.rodzaj == 'bez_etatu' ? 'Dostęp bez etatu' : 'Pracownik') }}</span>
+            <span class="kafel__opis">{{ typ.napis }}</span>
+        </span>
+    </div>
+    <div class="kafel">
+        <span class="kafel__glowa">{{ ikony.tarcza() }}<span class="kafel__etykieta">Weryfikacja dwuetapowa</span></span>
+        <span class="kafel__dana">
+            {#- ⚠ Bursztyn TYLKO wtedy, gdy wyłączona u kogoś, kto ją mieć musi: kolorujemy to,
+                co wymaga reakcji (system wizualny §3.1). U pracownika wyłączone 2FA jest stanem
+                dozwolonym, więc nie świeci się na żółto. -#}
+            {% if dwa_etapy.wlaczone %}
+                <span class="kafel__wartosc">włączona</span>
+                <span class="kafel__opis">kody zapasowe: {{ dwa_etapy.kodow_zostalo }} z {{ dwa_etapy.kodow_razem }}</span>
+            {% elseif dwa_etapy.wymagane %}
+                <span class="kafel__wartosc kafel__wartosc--odchylenie">wyłączona</span>
+                <span class="kafel__opis">wymagana dla Twojej roli</span>
+            {% else %}
+                <span class="kafel__wartosc">wyłączona</span>
+                <span class="kafel__opis">możesz ją włączyć niżej</span>
+            {% endif %}
+        </span>
+    </div>
+    <div class="kafel">
+        <span class="kafel__glowa">{{ ikony.zegar() }}<span class="kafel__etykieta">Ostatnie logowanie</span></span>
+        <span class="kafel__dana">
+            <span class="kafel__wartosc">{{ ostatnie_logowanie is null ? '—' : czas_data(ostatnie_logowanie) }}</span>
+            <span class="kafel__opis">{{ ostatnie_logowanie is null ? 'brak zapisanego logowania' : czas(ostatnie_logowanie) }}</span>
+        </span>
+    </div>
+    <div class="kafel">
+        <span class="kafel__glowa">{{ ikony.komputer() }}<span class="kafel__etykieta">Urządzenia</span></span>
+        <span class="kafel__dana">
+            <span class="kafel__wartosc">{{ urzadzen.razem }}</span>
+            <span class="kafel__opis">{{ urzadzen.inne == 0 ? 'tylko ta przeglądarka' : 'ta przeglądarka i ' ~ urzadzen.inne ~ ' ' ~ (urzadzen.inne == 1 ? 'inne' : 'inne') }}</span>
+        </span>
+    </div>
+</section>
+
+{#- ══════════ 3. Dane konta ══════════ -#}
+<section class="card">
+    <div class="card__head card__head--znak">
+        <span class="card__znak">{{ ikony.konto() }}</span>
+        <div class="card__tytuly">
+            <h2>Dane konta</h2>
+            <p class="card__opis">Adres e-mail jest loginem — zmienia go administrator w „Kontach". Telefon możesz ustawić sam.</p>
+        </div>
+    </div>
+    <div class="card__body">
+        <div class="konto-pola">
+            <div class="konto-pole">
+                <span class="konto-pole__etykieta">Imię i nazwisko</span>
+                <span class="konto-pole__wartosc">{{ osoba.nazwa }}</span>
+                <span class="konto-pole__hint">z programu kadrowego</span>
+            </div>
+            <div class="konto-pole">
+                <span class="konto-pole__etykieta">Adres e-mail</span>
+                <span class="konto-pole__wartosc">{{ osoba.email }}</span>
+                <span class="konto-pole__hint">login do aplikacji</span>
+            </div>
+            <div class="konto-pole">
+                <span class="konto-pole__etykieta">Telefon</span>
+                <span class="konto-pole__wartosc konto-pole__wartosc--akcja">
+                    {% if osoba.telefon is null %}
+                        <span class="konto-pole__brak">nie podano</span>
+                    {% else %}
+                        {{ osoba.telefon }}
+                    {% endif %}
+                    {#- ⚠ Ołówek to ODNOŚNIK, nie przycisk ze skryptem: bez JavaScriptu prowadzi
+                        na `/konto?okno=telefon`, a serwer renderuje otwarte okno. -#}
+                    <a class="ikona-akcja ikona-akcja--edycja" href="{{ url('/konto') }}?okno=telefon"
+                       data-modal-open="okno-telefonu" aria-label="Zmień numer telefonu"
+                       title="Zmień numer telefonu">{{ ikony.olowek() }}</a>
+                </span>
+                <span class="konto-pole__hint">widzą go kadry i przełożeni</span>
+            </div>
+            <div class="konto-pole">
+                <span class="konto-pole__etykieta">Konto od</span>
+                <span class="konto-pole__wartosc">{{ osoba.konto_od is null ? '—' : czas_data(osoba.konto_od) }}</span>
+                <span class="konto-pole__hint">data utworzenia konta</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+{#- ══════════ 4. Dostęp ══════════
+    ⚠ **Blok tylko dla firmy, w której JEST wgląd w cudze nieobecności** (dopisek Krzysztofa
+    do Z69). Firmy, w których ktoś pracuje, widać w plakietce typu konta wyżej — pusta ramka
+    „widzisz tylko siebie" przy każdym etacie mówiła najwięcej tam, gdzie nie było o czym mówić. -#}
+<section class="card">
+    <div class="card__head card__head--znak">
+        <span class="card__znak">{{ ikony.oko() }}</span>
+        <div class="card__tytuly">
+            <h2>Dostęp</h2>
+            <p class="card__opis">Czyje nieobecności widzisz w kalendarzu i skąd ten wgląd się bierze.</p>
+        </div>
+    </div>
+    <div class="card__body">
+        {% if dostep is empty %}
+            <p class="empty-state">W kalendarzu widzisz tylko swoje nieobecności.</p>
+        {% else %}
+            <div class="konto-dostep">
+                {% for blok in dostep %}
+                    <div class="konto-blok">
+                        <div class="konto-blok__glowa">
+                            <span class="konto-blok__firma">{{ ikony.firma() }}{{ blok.firma }}</span>
+                            <span class="konto-blok__rola">{{ blok.rola }}</span>
+                            <span class="konto-blok__ile">{{ blok.zrodel }} {{ blok.zrodel == 1 ? 'źródło' : 'źródła' }} wglądu</span>
+                        </div>
+                        {#- ⚠ Najwyżej trzy wiersze widoczne, resztę rozwija `<details>` — bez
+                            JavaScriptu, bo to natywny element. Ten sam chwyt, co w menu konta
+                            w belce. -#}
+                        <ul class="op-zrodla">
+                            {% for z in blok.zrodla|slice(0, 3) %}
+                                {{ include('partials/zrodlo-wgladu.twig', {'z': z, 'nazwy': nazwy_zakresow}, with_context = false) }}
+                            {% endfor %}
+                        </ul>
+                        {% if blok.zrodla|length > 3 %}
+                            <details class="disclosure">
+                                <summary >Pokaż jeszcze {{ blok.zrodla|length - 3 }} {{ ikony.strzalka() }}</summary>
+                                <ul class="op-zrodla">
+                                    {% for z in blok.zrodla|slice(3) %}
+                                        {{ include('partials/zrodlo-wgladu.twig', {'z': z, 'nazwy': nazwy_zakresow}, with_context = false) }}
+                                    {% endfor %}
+                                </ul>
+                            </details>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+            <p class="card__opis card__opis--notka">Gdy kilka reguł obejmuje tę samą osobę, wygrywa szerszy zakres.</p>
+        {% endif %}
+    </div>
+</section>
+
+{#- ══════════ 5. Bezpieczeństwo ══════════ -#}
+<section class="card">
+    <div class="card__head card__head--znak">
+        <span class="card__znak">{{ ikony.klodka() }}</span>
+        <div class="card__tytuly">
+            <h2>Bezpieczeństwo</h2>
+            <p class="card__opis">Hasło, drugi składnik logowania i zalogowane urządzenia.</p>
+        </div>
+    </div>
+    <div class="card__body">
+        <ul class="bezp">
+            <li class="bezp__wiersz">
+                <span class="bezp__znak">{{ ikony.klodka() }}</span>
+                <span class="bezp__opis">
+                    <strong>Hasło</strong>
+                    <small>
+                        {%- if haslo.zmienione is null -%}
+                            nie zmieniano od utworzenia konta
+                        {%- else -%}
+                            ostatnia zmiana {{ czas_data(haslo.zmienione) }}
+                        {%- endif -%}
+                    </small>
+                </span>
+                <a class="btn btn--ghost bezp__akcja" href="{{ url('/konto') }}?okno=haslo" data-modal-open="okno-hasla">Zmień hasło</a>
+            </li>
+            <li class="bezp__wiersz">
+                <span class="bezp__znak">{{ ikony.tarcza() }}</span>
+                <span class="bezp__opis">
+                    <strong>Weryfikacja dwuetapowa
+                        {% if dwa_etapy.wlaczone %}<span class="chip chip--accent">włączona</span>
+                        {% else %}<span class="chip chip--warn">wyłączona</span>{% endif %}
+                    </strong>
+                    <small>
+                        {%- if dwa_etapy.wlaczone -%}
+                            od {{ czas_data(dwa_etapy.od) }} · kody zapasowe: {{ dwa_etapy.kodow_zostalo }} z {{ dwa_etapy.kodow_razem }}
+                        {%- else -%}
+                            kod z aplikacji na telefonie przy każdym logowaniu
+                        {%- endif -%}
+                    </small>
+                </span>
+                {% if dwa_etapy.wlaczone %}
+                    <span class="bezp__akcje">
+                        <a class="btn btn--ghost bezp__akcja" href="{{ url('/konto') }}?okno=kody-nowe" data-modal-open="okno-kodow-nowych">Nowe kody</a>
+                        {#- ⚠ Przy wymogu dla administratorów NIE MA przycisku wyłączenia, a serwer
+                            odmawia osobno (`TwoFactorService::ODMOWA_WYMOGU`) — ukrycie przycisku
+                            nie jest zabezpieczeniem (CLAUDE.md §10). -#}
+                        {% if dwa_etapy.wymagane %}
+                            <span class="bezp__nota">Wymagane dla administratorów — nie można wyłączyć</span>
+                        {% else %}
+                            <a class="btn btn--ghost btn--danger bezp__akcja" href="{{ url('/konto') }}?okno=2fa-wylacz" data-modal-open="okno-2fa-wylacz">Wyłącz</a>
+                        {% endif %}
+                    </span>
+                {% else %}
+                    <a class="btn btn--primary bezp__akcja" href="{{ url('/konto') }}?okno=2fa" data-modal-open="okno-2fa">Włącz</a>
+                {% endif %}
+            </li>
+            <li class="bezp__wiersz bezp__wiersz--pion">
+                <span class="bezp__znak">{{ ikony.komputer() }}</span>
+                <span class="bezp__opis">
+                    <strong>Zalogowane urządzenia</strong>
+                    <small>{{ urzadzen.razem }} {{ urzadzen.razem == 1 ? 'sesja' : (urzadzen.razem < 5 ? 'sesje' : 'sesji') }}
+                        {%- if urzadzen.inne > 0 %} · ta przeglądarka i {{ urzadzen.inne }} {{ urzadzen.inne == 1 ? 'inne' : 'inne' }}{% else %} · tylko ta przeglądarka{% endif %}</small>
+                </span>
+                {#- ⚠ Rozwijanie natywnym `<details>`, nie skryptem: jeden przycisk, treść w miejscu,
+                    działa bez JavaScriptu. Lista jest celem htmx (`#konto-urzadzenia`), więc po
+                    zakończeniu sesji wymienia się sama, bez przeładowania strony. -#}
+                <details class="disclosure disclosure--urzadzenia">
+                    <summary class="bezp__akcja">Pokaż {{ ikony.strzalka() }}</summary>
+                    {% include 'fragments/konto-urzadzenia.twig' with {'urzadzenia': urzadzenia, 'zakonczono': false} only %}
+                </details>
+            </li>
+            {% if urzadzen.inne > 0 %}
+                <li class="bezp__wiersz">
+                    <span class="bezp__znak">{{ ikony.osoba_bez() }}</span>
+                    <span class="bezp__opis">
+                        <strong>Wyloguj z pozostałych urządzeń</strong>
+                        <small>ta przeglądarka zostaje zalogowana</small>
+                    </span>
+                    <form method="post" action="{{ url('/ustawienia/urzadzenia/zakoncz-pozostale') }}"
+                          hx-post="{{ url('/ustawienia/urzadzenia/zakoncz-pozostale') }}"
+                          hx-target="#konto-urzadzenia" hx-swap="outerHTML">
+                        {% include 'partials/csrf.twig' %}
+                        <button type="submit" class="btn btn--ghost btn--danger bezp__akcja">Wyloguj</button>
+                    </form>
+                </li>
+            {% endif %}
+        </ul>
+    </div>
+</section>
+
+{#- ══════════ Okna ══════════ -#}
+{% include 'partials/okno-telefonu.twig' %}
+{% include 'partials/okno-hasla.twig' %}
+{% include 'partials/okno-2fa.twig' %}
+{% include 'partials/okno-2fa-wylacz.twig' %}
+{% include 'partials/okno-kodow.twig' %}

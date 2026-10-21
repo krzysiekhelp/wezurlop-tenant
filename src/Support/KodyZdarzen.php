@@ -67,6 +67,7 @@ final class KodyZdarzen
         '2fa.delayed'                   => 'Kod 2FA opóźniony (limit prób)',
         '2fa.reset_by_admin'            => 'Reset 2FA przez administratora',
         '2fa.backup_codes_acknowledged' => 'Potwierdzenie kodów zapasowych',
+        '2fa.backup_codes_regenerated'  => 'Nowe kody zapasowe',
         'context.switched'              => 'Przełączenie firmy',
         'tenant.timezone_changed'       => 'Zmiana strefy czasowej',
         'tenant.company_display_name'   => 'Zmiana nazwy wyświetlanej firmy',

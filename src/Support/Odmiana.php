@@ -35,6 +35,18 @@ final class Odmiana
     }
 
     /**
+     * „1 firma", „2 firmy", „5 firm" — plakietka typu konta na „Moim koncie" (Z69).
+     *
+     * ⚠ Odmienia się jak `osoby()`, czyli przez `mnoga()`: po 2–4 mianownik mnogi („2 firmy"),
+     * od 5 dopełniacz („5 firm"). Doklejenie samego „firmy" dałoby „5 firmy" u kogoś z pięcioma
+     * etatami — a takie konta w tym produkcie istnieją (biuro rachunkowe).
+     */
+    public static function firmy(int $ile): string
+    {
+        return abs($ile) === 1 ? 'firma' : (self::mnoga($ile) ? 'firmy' : 'firm');
+    }
+
+    /**
      * „1 podwładny", „3 podwładnych", „5 podwładnych" — lista przełożonych w oknie reguły.
      *
      * ⚠ Forma mnoga jest **jedna**, w odróżnieniu od `osoby()`: „podwładny" odmienia się jak

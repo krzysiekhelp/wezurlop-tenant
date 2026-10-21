@@ -65,6 +65,7 @@ final class ZdanieZdarzenia
         '2fa.delayed'                   => ['musiał(a) zaczekać przed kolejnym kodem 2FA', 'zegar', self::BARWA_ZWYKLA],
         '2fa.reset_by_admin'            => ['zresetował(a) 2FA na koncie {podmiot}', 'klodka', self::BARWA_USUNIECIE],
         '2fa.backup_codes_acknowledged' => ['potwierdził(a) odebranie kodów zapasowych', 'klodka', self::BARWA_ZWYKLA],
+        '2fa.backup_codes_regenerated'  => ['wygenerował(a) nowe kody zapasowe', 'klucz', self::BARWA_ZWYKLA],
         '2fa.backup_code_used'          => ['zalogował(a) się kodem zapasowym', 'klodka', self::BARWA_LOGOWANIE],
 
         // ——— konta, dostęp, uprawnienia ———

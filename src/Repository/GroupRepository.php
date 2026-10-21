@@ -443,6 +443,34 @@ final class GroupRepository
      *
      * @return array<int, list<string>> grupa → nazwiska członków, w kolejności wyświetlania
      */
+    /**
+     * **Grupy JEDNEGO zatrudnienia** — podpis roli w karcie „Dostęp" na „Moim koncie" (Z69).
+     *
+     * ⚠ Osobna metoda, mimo że `skladGrup()` czyta tę samą tabelę: tamta zwraca grupy całej
+     * firmy z nazwiskami osób (do ekranu grup), więc żeby wyciągnąć z niej grupy jednej osoby,
+     * trzeba by przeczytać całą załogę i dopasować po nazwisku — czyli po **danej osobowej**,
+     * która do tego nie jest unikalna. To zapytanie pyta o parę `zatrudnienie + firma`.
+     *
+     * ⚠ Firma w warunku jest konieczna, choć `employment_id` jest unikalne: grupa należy
+     * do firmy, więc bez tego warunku dołożenie kiedyś grup międzyfirmowych przeciekłoby
+     * nazwą grupy z innej firmy (CLAUDE.md §10 — warunek w zapytaniu, nie `if` po pobraniu).
+     *
+     * @return list<string>
+     */
+    public function grupyZatrudnienia(int $employmentId, int $companyId): array
+    {
+        $stmt = $this->db->pdo()->prepare(
+            'SELECT g.name
+               FROM employment_group eg
+               JOIN company_group g ON g.id = eg.group_id
+              WHERE eg.employment_id = :employment AND g.company_id = :company
+              ORDER BY g.name'
+        );
+        $stmt->execute(['employment' => $employmentId, 'company' => $companyId]);
+
+        return array_map(static fn (array $r): string => (string) $r['name'], $stmt->fetchAll());
+    }
+
     public function skladGrup(int $companyId): array
     {
         $stmt = $this->db->pdo()->prepare(

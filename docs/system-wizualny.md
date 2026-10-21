@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.48, 21.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.19.0, 21.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,49 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.48 → 1.19.0: „Moje konto" od nowa — dane, dostęp i bezpieczeństwo na jednym
+> ekranie** (zlecenie Z69, projekt zaakceptowany przez Krzysztofa 21.10.2026). ⚠ Numer wersji
+> rośnie na drugim członie, bo to nowy EKRAN, a nie poprawka istniejącego.
+> - **Było**: lista czterech odnośników („Weryfikacja dwuetapowa", „Twoje urządzenia", „Zmień
+>   firmę", „Ustawienia tenanta") i plakietka stanu 2FA. Każda rzecz o koncie mieszkała na innym
+>   ekranie, a trzy z nich były osiągalne tylko stąd.
+> - **Jest**: pięć kart jedna pod drugą — nagłówek konta (inicjały 56 px, nazwa, e-mail,
+>   plakietka typu konta, „Wyloguj"), cztery kafle stanu (typ konta, 2FA, ostatnie logowanie,
+>   urządzenia), „Dane konta", „Dostęp" i „Bezpieczeństwo". Odnośnik „Ustawienia tenanta" znika
+>   (ustawienia mają własną pozycję w nawigacji), a `/ustawienia/2fa` i `/ustawienia/urzadzenia`
+>   **przekierowują tutaj**.
+> - **Telefon ustawia sam pracownik** (decyzja Krzysztofa): wartość z ołówkiem w karcie „Dane
+>   konta", okno z nieruchomym prefiksem `+48` i formatem 3-3-3. Reguła jest wąska i jedna
+>   (`Support\Telefon`): dziewięć cyfr krajowych, jedna postać w bazie (`+48600100200`).
+>   W panelu osoby administrator zmienia numer dalej, a podpis pola mówi teraz, że pracownik
+>   może go ustawić sam — inaczej administrator nadpisywałby cudzy wpis, nie wiedząc o tym.
+> - **Karta „Dostęp" pokazuje blok TYLKO dla firmy z wglądem w cudze nieobecności** (dopisek
+>   Krzysztofa). Bez żadnego wglądu karta mówi jedno zdanie: „W kalendarzu widzisz tylko swoje
+>   nieobecności." Wiersze źródeł renderuje **wspólny partial** z kartą „Widoczność" w panelu
+>   osoby (`partials/zrodlo-wgladu.twig`) — jedna odpowiedź na dwóch ekranach, jeden słownik.
+> - **Bezpieczeństwo**: hasło z datą ostatniej zmiany (`account.password_changed_at`, przy pustej
+>   „nie zmieniano od utworzenia konta"), 2FA z liczbą kodów zapasowych, lista urządzeń rozwijana
+>   natywnym `<details>` i „Wyloguj z pozostałych urządzeń". Przyciski w tej karcie mają JEDNĄ
+>   szerokość (120 px), bo stoją w kolumnie jeden pod drugim.
+> - ⚠ **Kodów zapasowych jest OSIEM, nie dziesięć** (rozstrzygnięcie Krzysztofa po pytaniu
+>   z raportu Z68): ósemka stoi w `CLAUDE.md` §9 i w stałej `BackupCodes::COUNT`, a ekran liczbę
+>   bierze z tej stałej — nie z napisu.
+> - ⚠ **Okna otwiera SERWER adresem** (`?okno=telefon`, `?okno=haslo`, `?okno=2fa`,
+>   `?okno=2fa-wylacz`, `?okno=kody`), tak jak okno nazw firm: cały ekran działa bez JavaScriptu,
+>   a odmowa wraca **pełną stroną z otwartym oknem i komunikatem**. `modules/konto.js` dokłada
+>   wyłącznie wygodę (format 3-3-3, podpowiedź „numer wygląda poprawnie", zgodność haseł,
+>   odblokowanie „Gotowe", kopiowanie) i każda z tych rzeczy ma działającą wersję bez niego.
+> - ⚠ **Okno włączania 2FA przy wymogu dla administratora NIE MA „Anuluj" ani krzyżyka**
+>   (rozstrzygnięcie zarządcy), a jedyną drogą wyjścia jest „Wyloguj" — żeby nikt nie utknął
+>   w oknie bez żadnego przycisku. Oba przekierowania wymogu prowadzą teraz na „Moje konto".
+> - ⚠ **Pole kodu to JEDNO pole w wyglądzie okienek, a nie sześć osobnych**: sześć pól bez
+>   JavaScriptu wymaga kliknięcia w każde, a wklejenie kodu z menedżera haseł trafia tylko
+>   w pierwsze. Kratki robi arkusz (`letter-spacing`), wartość jest jedna.
+> - ⚠ **Wyłączenie 2FA wymaga HASŁA i kodu** (`CLAUDE.md` §9), choć szkic zlecenia rysował samo
+>   pole kodu. Drugą drogą jest kod zapasowy (odnośnik przełączający, bez JavaScriptu).
+> - Telefon 375 px: przyciski w karcie bezpieczeństwa schodzą pod opis i rozciągają się na całą
+>   szerokość, odstęp w polu kodu maleje z 12 do 8 px.
 
 > **Zmiana 1.18.47 → 1.18.48: kolumna dnia wolnego jest CIĄGŁA także w wierszu z nieobecnością**
 > (zlecenie Z68, decyzja Krzysztofa z 21.10.2026 po prototypie w przeglądarce: „Czarnecki

@@ -94,7 +94,11 @@ final class ControllerFactory
                 $d->kontekstSpolki, $d->errors, $d->urls),
             LeaveRequestController::class  => new LeaveRequestController($d->view),
             TeamController::class          => new TeamController($d->view),
-            ProfileController::class       => new ProfileController($d->view),
+            // ⚠ Kolejność argumentów jak w konstruktorze — ta sama lekcja, co przy
+            // `SettingsController` niżej (zamiana dwóch typowanych argumentów dawała 500).
+            ProfileController::class       => new ProfileController($d->widokKonta, $d->session,
+                $d->accounts, $d->people, $d->passwordReset, $d->authSession, $d->fingerprint,
+                $d->events, $d->urls),
             // ⚠ Kolejność argumentów jak w konstruktorze: `MailRenderer`, potem `Config`.
             // Zamiana tych dwóch miejsc dawała 500 na `/ustawienia` i `/ustawienia/poczta`
             // od Z60 — oba są typowane, więc PHP odrzucał wywołanie, a bramka ekranowa
@@ -103,7 +107,8 @@ final class ControllerFactory
                 $d->mailSettings, $d->cron, $d->jobs, $d->transportFactory, $d->urls,
                 $d->mailRenderer, $d->config),
             ContextController::class       => new ContextController($d->view, $d->employments, $d->authSession, $d->events, $d->errors, $d->urls, $d->kontekstSpolki, $d->accounts),
-            SecurityController::class      => new SecurityController($d->view, $d->twoFactor, $d->permissions, $d->fingerprint, $d->errors, $d->urls),
+            SecurityController::class      => new SecurityController($d->view, $d->twoFactor, $d->permissions,
+                $d->fingerprint, $d->errors, $d->urls, $d->widokKonta, $d->config),
             DeviceController::class        => new DeviceController($d->view, $d->devices, $d->session, $d->fingerprint, $d->errors, $d->urls),
             AdminAccountController::class  => new AdminAccountController($d->view, $d->accounts, $d->people,
                 $d->invitations, $d->access, $d->konta, $d->events, $d->jobs, $d->termin, $d->twoFactor, $d->devices,

@@ -64,6 +64,73 @@ final class PasswordResetService
     }
 
     /**
+     * **Zmiana własnego hasła z aplikacji** (zlecenie Z69, decyzja Krzysztofa 21.10.2026 —
+     * prawdziwa zmiana, nie wysłanie linku resetu).
+     *
+     * ⚠ Stoi w TEJ klasie, a nie w nowej: wszystko, czego potrzebuje — polityka hasła,
+     * hashowanie, licznik prób, rejestr sesji, dziennik i transakcja — jest już tu, a dwa
+     * miejsca ustawiające hasło to dwa miejsca, w których można zapomnieć o unieważnieniu sesji.
+     *
+     * ⚠ **Licznik prób per konto i adres** (`KIND_PASSWORD`, ten sam co przy logowaniu): formularz
+     * za zalogowaną sesją jest wygodnym miejscem na zgadywanie hasła, jeśli ktoś dopadł
+     * niezablokowanego komputera. Rośnie opóźnienie, nie ma twardej blokady (CLAUDE.md §9).
+     *
+     * ⚠ **Bieżąca sesja ZOSTAJE, pozostałe się kończą.** Wyjątek przekazujemy jako hash
+     * identyfikatora; `null` znaczy „zakończ wszystkie" i tak właśnie działa reset z linku.
+     * Samo `password_changed_at` nie wystarcza do utrzymania tej sesji — robi to
+     * `AuthSession::odswiezPoZmianieHasla()` po stronie kontrolera.
+     *
+     * @return string|null komunikat odmowy albo null przy sukcesie
+     */
+    public function changeOwn(
+        int $accountId,
+        #[\SensitiveParameter] string $current,
+        #[\SensitiveParameter] string $new,
+        #[\SensitiveParameter] string $repeat,
+        string $ipHash,
+        ?string $exceptSessionHash,
+    ): ?string {
+        if ($this->limiter->delaySeconds($accountId, $ipHash, RateLimiter::KIND_PASSWORD) > 0) {
+            return 'Zbyt wiele prób. Odczekaj chwilę i spróbuj ponownie.';
+        }
+        $account = $this->accounts->findById($accountId);
+        if ($account === null) {
+            return 'Nie udało się zmienić hasła.';
+        }
+        $ok = $this->password->verify($current, $account['password_hash']);
+        $this->limiter->record($accountId, $ipHash, RateLimiter::KIND_PASSWORD, $ok);
+        if (!$ok) {
+            // ⚠ Zdarzenie to samo, co przy nieudanym logowaniu hasłem, bo to jest ta sama próba:
+            // ktoś podaje hasło i nie zgaduje. Osobny kod rozdzieliłby jeden atak na dwie listy.
+            $this->events->record('auth.login_failed', $accountId, $ipHash, null, 'account', $accountId, null, ['via' => 'zmiana_hasla']);
+
+            return 'Obecne hasło jest nieprawidłowe.';
+        }
+        if ($new !== $repeat) {
+            return 'Nowe hasła nie są takie same.';
+        }
+        $policyError = $this->password->policyError($new);
+        if ($policyError !== null) {
+            return $policyError;
+        }
+        // ⚠ To samo hasło odrzucamy, zanim cokolwiek zapiszemy: zapis przestawiłby
+        // `password_changed_at` i **wylogował pozostałe urządzenia** bez żadnej zmiany
+        // poświadczeń — skutek bez przyczyny, najgorszy rodzaj niespodzianki.
+        if ($this->password->verify($new, $account['password_hash'])) {
+            return 'Nowe hasło musi być inne niż obecne.';
+        }
+        $hash = $this->password->hash($new);
+        $this->db->transaction(function () use ($accountId, $hash, $exceptSessionHash): void {
+            $this->accounts->setPassword($accountId, $hash);
+            $this->tokens->revokeAllForAccount($accountId);
+            $this->sessions->revokeAllForAccount($accountId, $exceptSessionHash);
+        });
+        $this->events->record('auth.password_changed', $accountId, $ipHash, null, 'account', $accountId, null, ['via' => 'konto']);
+
+        return null;
+    }
+
+    /**
      * Ustawienie nowego hasła. Po zmianie: pozostałe sesje konta nieważne (password_changed_at),
      * niezużyte tokeny unieważnione, wpis w dzienniku.
      *

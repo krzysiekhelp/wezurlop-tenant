@@ -116,6 +116,10 @@ final class ControllerDependencies
         // Render wiadomości — wiadomość próbna z ekranu ustawień idzie tym samym układem,
         // co poczta z kolejki (zlecenie Z60).
         public readonly \Wezurlop\Service\Mail\MailRenderer $mailRenderer,
+        // Strona „Moje konto" (Z69): model z siedmiu źródeł plus zmienne widoku. Renderują ją
+        // DWA kontrolery — `ProfileController` i `SecurityController` (odmowa 2FA wraca pełną
+        // stroną z otwartym oknem) — więc lista zmiennych ma być jedna, nie dwie.
+        public readonly \Wezurlop\Support\WidokKonta $widokKonta,
     ) {
     }
 }

@@ -1,0 +1,57 @@
+{#- Okno „Zmień hasło" (zlecenie Z69 pkt 5, decyzja Krzysztofa: prawdziwa zmiana w aplikacji,
+    nie wysłanie linku resetu). Zmienne: `okno`, `error`.
+
+    ⚠ **Trzy pola, nie dwa**: obecne hasło jest tu zabezpieczeniem, nie formalnością — formularz
+    stoi za zalogowaną sesją, więc bez niego wystarczyłby niezablokowany komputer, żeby przejąć
+    konto na stałe. Serwer liczy też nieudane próby tym samym licznikiem, co logowanie.
+
+    ⚠ **Po zmianie pozostałe urządzenia się wylogowują, a ta przeglądarka zostaje** — i to jest
+    napisane w oknie, zanim człowiek kliknie, bo inaczej wygląda to na awarię na drugim
+    urządzeniu. -#}
+{% import 'partials/ikony.twig' as ikony %}
+<dialog id="okno-hasla" class="modal modal--waskie" aria-labelledby="okno-hasla-tytul"
+        data-modal-trwale{{ okno == 'haslo' ? ' open' : '' }}>
+    <div class="modal__head modal__head--znak">
+        <span class="card__znak">{{ ikony.klodka() }}</span>
+        <div class="card__tytuly">
+            <h3 id="okno-hasla-tytul">Zmień hasło</h3>
+            <p class="card__opis">Po zmianie pozostałe urządzenia zostaną wylogowane. Ta przeglądarka zostaje.</p>
+        </div>
+        <button type="button" class="modal__close" data-modal-close="okno-hasla" aria-label="Zamknij okno">×</button>
+    </div>
+
+    <form method="post" action="{{ url('/konto/haslo') }}" class="modal__wrap">
+        {% include 'partials/csrf.twig' %}
+        <div class="modal__body">
+            {% if error is not null and okno == 'haslo' %}
+                {% include 'partials/komunikat.twig' with {'tekst': error, 'rodzaj': 'blad'} only %}
+            {% endif %}
+            <label class="field">
+                <span class="field__label">Obecne hasło</span>
+                <input class="input" type="password" name="obecne" autocomplete="current-password"
+                       maxlength="4096" required autofocus>
+            </label>
+            <label class="field">
+                <span class="field__label">Nowe hasło</span>
+                <input class="input" type="password" name="nowe" autocomplete="new-password"
+                       minlength="12" maxlength="4096" required data-haslo-nowe
+                       aria-describedby="haslo-hint">
+                <span class="field__hint" id="haslo-hint">co najmniej 12 znaków; długie zdanie jest lepsze niż krótki zlepek znaków</span>
+            </label>
+            <label class="field">
+                <span class="field__label">Powtórz nowe hasło</span>
+                <input class="input" type="password" name="powtorzone" autocomplete="new-password"
+                       minlength="12" maxlength="4096" required data-haslo-powtorzone
+                       aria-describedby="haslo-zgodnosc">
+                {#- ⚠ Wskaźnik zgodności dokłada JavaScript; bez niego rozstrzyga serwer i wraca
+                    ze zdaniem „Nowe hasła nie są takie same". Nic nie ginie bez skryptu. -#}
+                <span class="field__hint" id="haslo-zgodnosc" data-haslo-zgodnosc
+                      data-opis-ok="hasła są takie same" data-opis-zle="hasła jeszcze się różnią"></span>
+            </label>
+        </div>
+        <div class="modal__foot">
+            <button type="submit" class="btn btn--primary">Zmień hasło</button>
+            <button type="button" class="btn btn--ghost" data-modal-close="okno-hasla">Anuluj</button>
+        </div>
+    </form>
+</dialog>

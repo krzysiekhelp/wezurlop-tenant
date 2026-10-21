@@ -1,0 +1,29 @@
+{#- **Jeden wiersz źródła wglądu w kalendarz** — ikona rodzaju, cel, „skąd · ile osób"
+    i plakietka zakresu.
+
+    ⚠ **Jeden plik dla DWÓCH ekranów**: karty „Widoczność" w panelu osoby (gdzie administrator
+    patrzy na cudze konto) i karty „Dostęp" na „Moim koncie" (gdzie człowiek patrzy na własne,
+    zlecenie Z69). Oba mówią o tym samym — wierszach z `CalendarVisibility::zrodlaWidza()` —
+    więc rozjechanie się ich wyglądu albo słownika byłoby rozjechaniem się JEDNEJ odpowiedzi
+    na dwóch ekranach.
+
+    ⚠ **Ikona z JAWNEGO warunku, nigdy sklejana z danych**: `ikony[z.ikona]()` wzięłoby nazwę
+    makra z bazy — ta sama rodzina ryzyka, przez którą `{% include zmienna %}` jest zakazane
+    (CLAUDE.md §5). Nieznany rodzaj dostaje ikonę konta, a nie pustkę.
+
+    Zmienne: `z` (wiersz źródła), `nazwy` (słownik zakresów). Renderowany `with_context = false`,
+    więc widzi wyłącznie to, co mu podano. -#}
+{% import 'partials/ikony.twig' as ikony %}
+<li class="op-zrodlo">
+    <span class="op-zrodlo__znak">
+        {%- if z.ikona == 'drzewo' %}{{ ikony.drzewo() }}
+        {%- elseif z.ikona == 'firma' %}{{ ikony.firma() }}
+        {%- elseif z.ikona == 'etykieta' %}{{ ikony.etykieta() }}
+        {%- else %}{{ ikony.konto() }}{% endif -%}
+    </span>
+    <span class="op-zrodlo__tresc">
+        <span class="op-zrodlo__cel">{{ z.cel }}</span>
+        <span class="op-zrodlo__skad">{{ z.skad }} · {{ z.osob }} {{ odmiana_osob(z.osob) }}</span>
+    </span>
+    {{ include('partials/zakres-plakietka.twig', {'zakres': z.zakres, 'nazwy': nazwy}, with_context = false) }}
+</li>

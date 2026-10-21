@@ -9,6 +9,13 @@
     bo to layout decyduje, czy plik się wczyta, a EKRAN — czy jest czego odświeżać: wewnątrz
     aplikacji to samo byłoby odnawianiem sesji zalogowanej w tle (zlecenie Z56 §2). -#}
 {% if token ?? false %}<script src="{{ asset('js/modules/token.js') }}" defer></script>{% endif %}
+{#- ⚠ „Moje konto" (Z69) — PRZED podziałem na warianty, bo ten ekran istnieje w obu powłokach
+    (`/konto` i `/m/konto`), a wygoda pisania numeru przydaje się najbardziej na telefonie.
+    Plik dokłada: format 3-3-3, podpowiedź przy pełnym numerze, zgodność nowych haseł,
+    odblokowanie „Gotowe" przy kodach i kopiowanie do schowka. Bez niego ekran działa
+    w całości — okna otwiera serwer przez `?okno=…`, a o kształcie numeru, haseł i kodu
+    rozstrzyga serwer (CLAUDE.md §6). -#}
+{% if konto_js ?? false %}<script src="{{ asset('js/modules/konto.js') }}" defer></script>{% endif %}
 {% if variant == 'mobile' %}
 <script src="{{ asset('js/app-mobile.js') }}" defer></script>
 {% else %}

@@ -6682,3 +6682,221 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   /* Rola zostaje z ikoną, ale w jednej linii z pozostałymi danymi. */
   .table--adm .cell--rola { display: inline-flex; }
 }
+
+/* ——— „Moje konto": nagłówek, dane, dostęp, bezpieczeństwo (zlecenie Z69, 21.10.2026) ————————
+   ⚠ Komponenty dokładane, nie nowy język: karty, kafle, plakietki, okna i `.op-zrodlo`
+   są te same, co na pozostałych ekranach. Nowe jest TYLKO to, czego nie było — nagłówek konta
+   z inicjałami, siatka pól, bloki dostępu, wiersze bezpieczeństwa i lista urządzeń.
+   ⚠ Zero wartości barw wprost: wszystko tokenami z `00-tokens.css` (reguła z check-rules). */
+
+/* Nagłówek konta: inicjały 56 px, nazwa, e-mail i plakietka typu, „Wyloguj" po prawej. */
+.konto-glowa__body {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  flex-wrap: wrap;
+}
+.konto-glowa__inicjaly {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--c-accent-soft);
+  color: var(--c-accent-text);
+  font-size: var(--t-h2);
+  font-weight: 600;
+  letter-spacing: .5px;
+}
+/* ⚠ `min-width: 0` na kolumnie z danymi, bo inaczej długi adres e-mail rozpycha wiersz
+   i „Wyloguj" wychodzi za kartę (ta sama pułapka co w belce przy nazwie ekranu, Z63 B). */
+.konto-glowa__dane { flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; gap: var(--s-1); }
+.konto-glowa__nazwa { font-size: var(--t-h2); margin: 0; }
+.konto-glowa__wiersz { display: flex; align-items: center; gap: var(--s-3); flex-wrap: wrap; margin: 0; }
+.konto-glowa__mail {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-width: 0;
+  color: var(--c-text-2);
+  font-size: var(--t-small);
+  overflow-wrap: anywhere;
+}
+.konto-glowa__mail .ico { flex: none; width: 16px; height: 16px; color: var(--c-text-3); }
+
+/* Dane konta: pola w jednym wierszu, zawijające się przy wąskim ekranie. */
+.konto-pola {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--s-4);
+}
+.konto-pole { display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; }
+.konto-pole__etykieta { font-size: var(--t-label); text-transform: uppercase; letter-spacing: .4px; color: var(--c-text-3); }
+.konto-pole__wartosc { font-size: var(--t-body); color: var(--c-text-1); overflow-wrap: anywhere; }
+.konto-pole__wartosc--akcja { display: inline-flex; align-items: center; gap: var(--s-2); }
+.konto-pole__brak { color: var(--c-text-3); }
+.konto-pole__hint { font-size: var(--t-caption); color: var(--c-text-3); }
+
+/* Dostęp: bloki firm OBOK SIEBIE, na telefonie jedna kolumna (siatka auto-fit, bez zapytań). */
+.konto-dostep {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--s-4);
+}
+.konto-blok {
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
+  background: var(--c-surface);
+  min-width: 0;
+}
+.konto-blok__glowa {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s-2) var(--s-3);
+  padding: var(--s-3);
+  border-bottom: 1px solid var(--c-line-soft);
+}
+.konto-blok__firma { display: inline-flex; align-items: center; gap: var(--s-2); font-weight: 600; min-width: 0; }
+.konto-blok__firma .ico { flex: none; width: 16px; height: 16px; color: var(--c-text-3); }
+.konto-blok__rola { font-size: var(--t-caption); color: var(--c-text-2); }
+.konto-blok__ile { font-size: var(--t-caption); color: var(--c-text-3); margin-left: auto; }
+.konto-blok .op-zrodla { border: 0; }
+
+/* Bezpieczeństwo: wiersz = ikona, opis, akcja o STAŁEJ szerokości (żeby przyciski stały w kolumnie). */
+.bezp { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.bezp__wiersz {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-4) 0;
+  flex-wrap: wrap;
+}
+.bezp__wiersz + .bezp__wiersz { border-top: 1px solid var(--c-line-soft); }
+.bezp__znak { flex: none; display: flex; color: var(--c-text-3); }
+.bezp__opis { flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.bezp__opis strong { display: inline-flex; align-items: center; gap: var(--s-2); flex-wrap: wrap; }
+.bezp__opis small { font-size: var(--t-caption); color: var(--c-text-3); }
+/* ⚠ 120 px i `justify-content: center` — przyciski w tej karcie mają JEDNĄ szerokość, bo stoją
+   jeden pod drugim i różna długość napisu („Włącz" kontra „Zmień hasło") dawała schodki. */
+.bezp__akcja {
+  flex: none;
+  min-width: 120px;
+  justify-content: center;
+  text-align: center;
+}
+.bezp__akcje { display: flex; align-items: center; gap: var(--s-2); flex-wrap: wrap; }
+.bezp__nota { font-size: var(--t-caption); color: var(--c-text-3); max-width: 240px; }
+/* Wiersz z rozwijaną listą urządzeń: `<details>` zajmuje całą szerokość pod opisem. */
+.bezp__wiersz--pion { align-items: flex-start; }
+.disclosure--urzadzenia { flex: 1 1 100%; border: 0; }
+.disclosure--urzadzenia > summary { padding: 0; }
+
+/* Lista urządzeń. */
+.urzadzenia { margin-top: var(--s-3); }
+.urzadzenia__lista { list-style: none; margin: 0; padding: 0; border: 1px solid var(--c-line-soft); border-radius: var(--radius-card); }
+.urzadzenie { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-3); flex-wrap: wrap; }
+.urzadzenie + .urzadzenie { border-top: 1px solid var(--c-line-soft); }
+.urzadzenie--to { background: var(--c-surface-hover); }
+.urzadzenie__znak { flex: none; display: flex; color: var(--c-text-3); }
+.urzadzenie__opis { flex: 1 1 200px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.urzadzenie__opis small { font-size: var(--t-caption); color: var(--c-text-3); }
+.urzadzenie__nota { font-size: var(--t-caption); color: var(--c-text-3); }
+
+/* Okna: dwa rozmiary — wąskie (jedno pole) i na trzy kroki parowania. */
+.modal--waskie { max-width: 460px; }
+.modal--kroki { max-width: 640px; }
+.modal__foot--jedno { justify-content: flex-end; }
+.modal__foot-prawa { margin-left: auto; }
+.modal__przelacznik { font-size: var(--t-caption); margin: var(--s-2) 0 0; }
+
+/* Pole telefonu z nieruchomym prefiksem. */
+.pole-telefonu { display: flex; align-items: stretch; }
+.pole-telefonu__prefiks {
+  display: grid;
+  place-items: center;
+  padding-inline: var(--s-3);
+  border: 1px solid var(--c-line);
+  border-right: 0;
+  border-radius: var(--radius) 0 0 var(--radius);
+  background: var(--c-surface-hover);
+  color: var(--c-text-2);
+  font-variant-numeric: tabular-nums;
+}
+.pole-telefonu__pole { border-radius: 0 var(--radius) var(--radius) 0; min-width: 0; }
+
+/* Pole kodu: JEDNA wartość, wygląd okienek. ⚠ Sześć osobnych pól odpadło, bo bez JavaScriptu
+   nie dają się obsłużyć klawiaturą, a wklejenie kodu z menedżera haseł trafia tylko w pierwsze. */
+.pole-kodu {
+  font-size: 24px;
+  letter-spacing: 12px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  padding-inline: var(--s-3);
+}
+
+/* Kody zapasowe: siatka, bo osiem pozycji w jednej kolumnie nie mieści się w oknie. */
+.kody-lista {
+  list-style: none;
+  margin: 0;
+  padding: var(--s-3);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--s-2);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
+  background: var(--c-surface-hover);
+}
+.kody-lista__kod {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--t-body);
+  letter-spacing: 1px;
+  text-align: center;
+}
+.lista-uwag { margin: 0 0 var(--s-4); padding-left: var(--s-5); display: flex; flex-direction: column; gap: var(--s-1); }
+.pole-wyboru { display: flex; align-items: flex-start; gap: var(--s-2); margin-top: var(--s-3); font-size: var(--t-small); }
+/* Formularz pomocniczy dla przycisku `form="…"` — nie zajmuje miejsca i nie ma czego pokazywać. */
+.formularz-ukryty { display: contents; }
+
+/* Trzy kroki parowania 2FA. */
+.kroki { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s-4); }
+.krok { display: flex; gap: var(--s-3); }
+.krok__numer {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--c-accent-soft);
+  color: var(--c-accent-text);
+  font-size: var(--t-caption);
+  font-weight: 600;
+}
+.krok__tresc { min-width: 0; display: flex; flex-direction: column; gap: var(--s-2); }
+.krok__tytul { margin: 0; font-size: var(--t-body); }
+.krok__opis { margin: 0; font-size: var(--t-caption); color: var(--c-text-3); }
+.krok__opis--lista { color: var(--c-text-2); }
+.krok__qr { width: 180px; height: 180px; border: 1px solid var(--c-line); border-radius: var(--radius-card); background: var(--c-surface); }
+.krok__sekret { display: flex; align-items: center; gap: var(--s-2); flex-wrap: wrap; margin: 0; }
+.krok__sekret code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 1px;
+  padding: var(--s-1) var(--s-2);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius);
+  background: var(--c-surface-hover);
+  overflow-wrap: anywhere;
+}
+
+/* ⚠ Telefon (375 px): karty i tak idą jedna pod drugą, ale przyciski w karcie bezpieczeństwa
+   muszą zejść POD opis i rozciągnąć się na całą szerokość — przy 120 px i trzech akcjach
+   w jednym wierszu nie mieszczą się obok siebie (zlecenie Z69 pkt 12). */
+@media (max-width: 560px) {
+  .bezp__wiersz { align-items: flex-start; }
+  .bezp__akcja, .bezp__akcje { width: 100%; }
+  .bezp__akcje .bezp__akcja { flex: 1 1 0; }
+  .konto-glowa__body { align-items: flex-start; }
+  .pole-kodu { letter-spacing: 8px; font-size: 20px; }
+}

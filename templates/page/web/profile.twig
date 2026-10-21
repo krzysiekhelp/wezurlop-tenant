@@ -2,11 +2,10 @@
 
 {% block nazwa_ekranu %}Moje konto{% endblock %}
 
+{#- ⚠ **Bez `.page__head`**: od Z69 pierwszą rzeczą na ekranie jest karta nagłówka konta
+    (inicjały, nazwa, e-mail, typ konta, „Wyloguj"), a nazwa ekranu stoi w belce — jedno źródło
+    nazwy, jak w całym layoucie. Zdanie „Bezpieczeństwo konta i urządzenia" zniknęło razem
+    z listą odnośników, którą opisywało. -#}
 {% block content %}
-    <div class="page__head">
-        <div class="page__title">
-            <p class="page__sub">Bezpieczeństwo konta i urządzenia.</p>
-        </div>
-    </div>
     {% include 'partials/page/profile.twig' %}
 {% endblock %}

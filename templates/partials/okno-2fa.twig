@@ -1,0 +1,118 @@
+{#- Okno „Włącz weryfikację dwuetapową" — trzy kroki w jednym oknie (zlecenie Z69 pkt 6).
+    Zmienne: `osoba`, `okno`, `error`, `parowanie`, `sekret`, `dwa_etapy`.
+
+    ⚠ **Trzy kroki widać NARAZ, bo każdy jest potrzebny jednocześnie**: aplikacja na telefonie,
+    kod QR do zeskanowania i pole na kod z tej aplikacji. Kreator z „dalej" kazałby przeskakiwać
+    tam i z powrotem przy pierwszej pomyłce w kodzie — a pomyłka przy sześciu cyfrach jest
+    normalna, nie wyjątkowa.
+
+    ⚠ **Kod QR wchodzi przez `<img src>`, a nie przez wstrzyknięcie znaczników SVG do strony**:
+    obrazek daje osobny endpoint (`/ustawienia/2fa/kod.svg`), więc szablon nie wypuszcza żadnego
+    nieescapowanego HTML-a (CLAUDE.md §5). To także jedyny sposób, w którym kod QR powstaje
+    lokalnie — sekret nie opuszcza serwera (CLAUDE.md §9).
+
+    ⚠ **Okno BEZ drogi wyjścia, gdy wymóg obowiązuje** (Z69 pkt 5 rozstrzygnięcia): administrator
+    przy `ADMIN_2FA_REQUIRED=1` nie ma „Anuluj" ani krzyżyka, bo middleware i tak zawróci go tutaj
+    z każdego ekranu. Jedyne wyjście to „Wyloguj" — żeby nikt nie utknął w oknie bez żadnego
+    przycisku, co jest gorsze od wymogu. -#}
+{% import 'partials/ikony.twig' as ikony %}
+{%- set bez_wyjscia = dwa_etapy.wymagane and not dwa_etapy.wlaczone -%}
+<dialog id="okno-2fa" class="modal modal--kroki" aria-labelledby="okno-2fa-tytul"
+        data-modal-trwale{{ okno == '2fa' ? ' open' : '' }}{{ bez_wyjscia ? ' data-modal-bez-zamykania' : '' }}>
+    <div class="modal__head modal__head--znak">
+        <span class="card__znak">{{ ikony.tarcza() }}</span>
+        <div class="card__tytuly">
+            <h3 id="okno-2fa-tytul">Włącz weryfikację dwuetapową</h3>
+            <p class="card__opis">
+                {%- if bez_wyjscia -%}
+                    Twoja rola wymaga drugiego składnika logowania. Bez niego nie wejdziesz do aplikacji.
+                {%- else -%}
+                    Przy logowaniu podasz dodatkowo sześciocyfrowy kod z aplikacji na telefonie.
+                {%- endif -%}
+            </p>
+        </div>
+        {% if not bez_wyjscia %}
+            <button type="button" class="modal__close" data-modal-close="okno-2fa" aria-label="Zamknij okno">×</button>
+        {% endif %}
+    </div>
+
+    <div class="modal__body">
+        {% if error is not null and okno == '2fa' %}
+            {% include 'partials/komunikat.twig' with {'tekst': error, 'rodzaj': 'blad'} only %}
+        {% endif %}
+
+        <ol class="kroki">
+            <li class="krok">
+                <span class="krok__numer" aria-hidden="true">1</span>
+                <div class="krok__tresc">
+                    <h4 class="krok__tytul">Aplikacja na telefonie</h4>
+                    <p class="krok__opis">Generuje kody offline, bez SMS-ów i bez kosztów. Działa też w samolocie.</p>
+                    <p class="krok__opis krok__opis--lista">Google Authenticator, Microsoft Authenticator, Aegis, 1Password, Bitwarden — dowolna z nich.</p>
+                </div>
+            </li>
+            <li class="krok">
+                <span class="krok__numer" aria-hidden="true">2</span>
+                <div class="krok__tresc">
+                    <h4 class="krok__tytul">Zeskanuj kod</h4>
+                    {% if parowanie %}
+                        <img class="krok__qr" src="{{ url('/ustawienia/2fa/kod.svg') }}" width="180" height="180"
+                             alt="Kod QR do sparowania aplikacji uwierzytelniającej">
+                        <p class="krok__opis">W aplikacji konto pojawi się jako <strong>wezurlop · {{ osoba.email }}</strong>.</p>
+                        <p class="krok__opis">Nie możesz zeskanować? Przepisz klucz ręcznie:</p>
+                        <p class="krok__sekret">
+                            <code data-kopiuj-zrodlo="sekret-2fa" id="sekret-2fa">{{ sekret }}</code>
+                            {#- ⚠ „Kopiuj" pokazuje się tylko ze skryptem — bez niego klucz jest
+                                i tak widoczny do przepisania, więc nic nie ginie. -#}
+                            <button type="button" class="btn btn--ghost btn--sm" data-kopiuj="sekret-2fa" hidden>{{ ikony.kopiuj() }}Kopiuj</button>
+                        </p>
+                    {% else %}
+                        {#- ⚠ Parowanie zaczyna POST, nie wejście na stronę: wygenerowanie sekretu
+                            jest zmianą stanu konta (CLAUDE.md §3 — GET nie zmienia stanu). -#}
+                        <form method="post" action="{{ url('/ustawienia/2fa/rozpocznij') }}">
+                            {% include 'partials/csrf.twig' %}
+                            <button type="submit" class="btn btn--primary">Pokaż kod QR</button>
+                        </form>
+                        <p class="krok__opis">Kod pojawi się tutaj. Jest ważny tylko dla tego parowania.</p>
+                    {% endif %}
+                </div>
+            </li>
+            <li class="krok">
+                <span class="krok__numer" aria-hidden="true">3</span>
+                <div class="krok__tresc">
+                    <h4 class="krok__tytul">Potwierdź kodem</h4>
+                    {% if parowanie %}
+                        <form method="post" action="{{ url('/ustawienia/2fa/wlacz') }}">
+                            {% include 'partials/csrf.twig' %}
+                            {#- ⚠ **Jedno pole, a nie sześć okienek osobno.** Sześć osobnych pól
+                                wygląda jak w projekcie, ale bez JavaScriptu nie da się ich obsłużyć
+                                klawiaturą sensownie (każde trzeba kliknąć), a wklejenie kodu
+                                z menedżera haseł wpisuje całość do pierwszego. To pole ma WYGLĄD
+                                okienek (kratki w arkuszu) i jedną wartość, więc wklejenie działa,
+                                a serwer dostaje sześć cyfr tak samo. -#}
+                            <input class="input pole-kodu" type="text" name="code" inputmode="numeric"
+                                   autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6"
+                                   data-kod-6 aria-describedby="kod-2fa-hint" required
+                                   {{ okno == '2fa' ? 'autofocus' : '' }}>
+                            <span class="field__hint" id="kod-2fa-hint">Sześć cyfr z aplikacji. Jeśli kod nie przechodzi, sprawdź, czy telefon ma automatyczne ustawianie godziny.</span>
+                            <div class="btn-row">
+                                <button type="submit" class="btn btn--primary" data-kod-zapisz>Włącz weryfikację</button>
+                                {% if not bez_wyjscia %}
+                                    <button type="button" class="btn btn--ghost" data-modal-close="okno-2fa">Anuluj</button>
+                                {% endif %}
+                            </div>
+                        </form>
+                    {% else %}
+                        <p class="krok__opis">Najpierw pokaż kod QR i zeskanuj go w aplikacji.</p>
+                    {% endif %}
+                </div>
+            </li>
+        </ol>
+        {% if bez_wyjscia %}
+            {#- ⚠ Jedyna droga wyjścia z okna, którego nie można zamknąć. Bez niej człowiek bez
+                telefonu pod ręką nie ma jak nawet się wylogować. -#}
+            <div class="modal__foot modal__foot--jedno">
+                {% include 'partials/logout.twig' %}
+            </div>
+        {% endif %}
+    </div>
+</dialog>

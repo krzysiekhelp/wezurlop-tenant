@@ -718,6 +718,42 @@ final class PersonRepository
         return $this->rowForAdmin($personId, $companyId) !== null;
     }
 
+    /**
+     * **Numer telefonu zmieniany przez samego pracownika** (zlecenie Z69, 21.10.2026).
+     *
+     * ⚠ **Bez zakresu spółki i to jest różnica wobec `updateContact()`.** Tam zakres jest
+     * zabezpieczeniem: administrator nie ma prawa ruszyć osoby z firmy spoza swojego zasięgu.
+     * Tutaj zasięg nie ma czego pilnować — osoba zmienia SWÓJ wiersz, a `person_id` nie bierze
+     * się z żądania, tylko z konta w sesji. Dokładanie tu warunku o spółce dawałoby pozorne
+     * zabezpieczenie i realną usterkę: pracownik, którego firma akurat nie jest w kontekście,
+     * nie mógłby zapisać własnego numeru.
+     *
+     * ⚠ Zwracamy, czy osoba istnieje, a nie `rowCount()`: zapis tego samego numeru daje zero
+     * zmienionych wierszy i to nie jest błąd (ta sama pułapka co w `updateContactEmail()`).
+     */
+    public function updatePhone(int $personId, ?string $phone): bool
+    {
+        $stmt = $this->db->pdo()->prepare('UPDATE person SET phone = :phone WHERE id = :person');
+        $stmt->bindValue('phone', $phone);
+        $stmt->bindValue('person', $personId, PDO::PARAM_INT);
+        $stmt->execute();
+
+        $czy = $this->db->pdo()->prepare('SELECT 1 FROM person WHERE id = :person');
+        $czy->execute(['person' => $personId]);
+
+        return $czy->fetchColumn() !== false;
+    }
+
+    /** Numer telefonu osoby — do porównania „co było" przy zapisie własnego numeru (Z69). */
+    public function phone(int $personId): ?string
+    {
+        $stmt = $this->db->pdo()->prepare('SELECT phone FROM person WHERE id = :person');
+        $stmt->execute(['person' => $personId]);
+        $phone = $stmt->fetchColumn();
+
+        return is_string($phone) && $phone !== '' ? $phone : null;
+    }
+
     private function bindScope(\PDOStatement $stmt, ?int $companyId, string $search, ?int $filtrSpolki = null): void
     {
         $like = '%' . self::escapeLike($search) . '%';

@@ -1,0 +1,100 @@
+{#- Dwa okna o kodach zapasowych (zlecenie Z69 pkt 6 i 8):
+      • `kody`      — pokazanie kodów JEDEN raz (po włączeniu 2FA albo po wygenerowaniu nowych),
+      • `kody-nowe` — pytanie o hasło przed wygenerowaniem nowych.
+    Zmienne: `okno`, `error`, `kody`, `dwa_etapy`.
+
+    ⚠ **Kody widać raz i to nie jest utrudnienie**: leżą w sesji zaszyfrowane, a po potwierdzeniu
+    znikają. Pokazywanie ich na żądanie znaczyłoby trzymanie ich w postaci jawnej — wtedy dostęp
+    do bazy albo do odblokowanego ekranu daje gotowy drugi składnik.
+
+    ⚠ **Checkbox mówi o STANIE, nie o obietnicy**: „Kody są zapisane w bezpiecznym miejscu",
+    nie „Zapisałem je" (rozstrzygnięcie Z69). Człowiek potwierdza fakt, który może sprawdzić,
+    a nie składa deklaracji. -#}
+{% import 'partials/ikony.twig' as ikony %}
+<dialog id="okno-kodow" class="modal modal--waskie" aria-labelledby="okno-kodow-tytul"
+        data-modal-trwale{{ okno == 'kody' ? ' open' : '' }}>
+    <div class="modal__head modal__head--znak">
+        <span class="card__znak">{{ ikony.klucz() }}</span>
+        <div class="card__tytuly">
+            <h3 id="okno-kodow-tytul">Kody zapasowe</h3>
+            <p class="card__opis">Każdy kod działa jeden raz. Użyjesz ich, gdy nie będziesz mieć telefonu.</p>
+        </div>
+    </div>
+
+    <form method="post" action="{{ url('/ustawienia/2fa/kody/potwierdz') }}" class="modal__wrap">
+        {% include 'partials/csrf.twig' %}
+        <div class="modal__body">
+            {% if error is not null and okno == 'kody' %}
+                {% include 'partials/komunikat.twig' with {'tekst': error, 'rodzaj': 'blad'} only %}
+            {% endif %}
+            {% if kody is empty %}
+                {#- ⚠ Okno otwarte bez kodów w sesji: nie udajemy, że coś pokazujemy. Dzieje się
+                    tak po odświeżeniu strony — i właśnie dlatego kody są „raz". -#}
+                <p class="empty-state">Kody zostały już potwierdzone i nie można ich pokazać ponownie. Jeśli ich nie masz, wygeneruj nowe.</p>
+            {% else %}
+                <ul class="kody-lista" id="kody-zapasowe">
+                    {% for kod in kody %}
+                        <li class="kody-lista__kod">{{ kod }}</li>
+                    {% endfor %}
+                </ul>
+                <div class="btn-row">
+                    <button type="button" class="btn btn--ghost btn--sm" data-kopiuj="kody-zapasowe" hidden>{{ ikony.kopiuj() }}Kopiuj</button>
+                    {#- ⚠ Pobranie to POST, nie odnośnik: plik powstaje z kodów w sesji, a GET
+                        pod tym adresem dałby się wywołać z obcej strony (CLAUDE.md §3 i §7). -#}
+                    <button type="submit" class="btn btn--ghost btn--sm" form="pobierz-kody">{{ ikony.strzalka_w_dol() }}Pobierz .txt</button>
+                </div>
+                <label class="pole-wyboru">
+                    <input type="checkbox" name="saved" value="1" data-kody-potwierdzenie>
+                    <span>Kody są zapisane w bezpiecznym miejscu</span>
+                </label>
+            {% endif %}
+        </div>
+        <div class="modal__foot">
+            {% if kody is empty %}
+                <a class="btn btn--ghost" href="{{ url('/konto') }}">Zamknij</a>
+            {% else %}
+                {#- ⚠ „Gotowe" wysyła `saved=1` i serwer SPRAWDZA to pole — zaznaczenie nie jest
+                    ozdobą, a odblokowanie przycisku skryptem to tylko podpowiedź dla oka. -#}
+                <button type="submit" class="btn btn--primary" data-kody-gotowe>Gotowe</button>
+            {% endif %}
+        </div>
+    </form>
+    {% if kody is not empty %}
+        <form id="pobierz-kody" method="post" action="{{ url('/ustawienia/2fa/kody/pobierz') }}" class="formularz-ukryty">
+            {% include 'partials/csrf.twig' %}
+        </form>
+    {% endif %}
+</dialog>
+
+<dialog id="okno-kodow-nowych" class="modal modal--waskie" aria-labelledby="okno-kodow-nowych-tytul"
+        data-modal-trwale{{ okno == 'kody-nowe' ? ' open' : '' }}>
+    <div class="modal__head modal__head--znak">
+        <span class="card__znak">{{ ikony.klucz() }}</span>
+        <div class="card__tytuly">
+            <h3 id="okno-kodow-nowych-tytul">Nowe kody zapasowe</h3>
+            <p class="card__opis">Dotychczasowe kody przestaną działać natychmiast.</p>
+        </div>
+        <button type="button" class="modal__close" data-modal-close="okno-kodow-nowych" aria-label="Zamknij okno">×</button>
+    </div>
+    <form method="post" action="{{ url('/ustawienia/2fa/kody/nowe') }}" class="modal__wrap">
+        {% include 'partials/csrf.twig' %}
+        <div class="modal__body">
+            {% if error is not null and okno == 'kody-nowe' %}
+                {% include 'partials/komunikat.twig' with {'tekst': error, 'rodzaj': 'blad'} only %}
+            {% endif %}
+            <p>Masz teraz {{ dwa_etapy.kodow_zostalo }} z {{ dwa_etapy.kodow_razem }} niezużytych kodów. Nowy zestaw zastąpi je w całości.</p>
+            <label class="field">
+                <span class="field__label">Twoje hasło</span>
+                {#- ⚠ Hasło, a nie kod z aplikacji: po tę funkcję sięga się właśnie wtedy, gdy kody
+                    się kończą albo wyciekły. Bez hasła ktoś, kto dopadł odblokowanego komputera,
+                    wyrobiłby sobie zestaw kodów na przyszłość. -#}
+                <input class="input" type="password" name="password" autocomplete="current-password"
+                       maxlength="4096" required autofocus>
+            </label>
+        </div>
+        <div class="modal__foot">
+            <button type="submit" class="btn btn--primary">Wygeneruj nowe kody</button>
+            <button type="button" class="btn btn--ghost" data-modal-close="okno-kodow-nowych">Anuluj</button>
+        </div>
+    </form>
+</dialog>

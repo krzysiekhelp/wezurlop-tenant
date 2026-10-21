@@ -99,6 +99,27 @@ final class AuthSession
         $this->session->set(self::AUTH_AT, $authAt > 0 ? $authAt : microtime(true));
     }
 
+    /**
+     * **Odświeżenie znacznika uwierzytelnienia po zmianie hasła z aplikacji** (zlecenie Z69).
+     *
+     * ⚠ Bez tego „pozostałe sesje kończą się, ta zostaje" jest NIEWYKONALNE i to nie jest
+     * subtelność: `Authenticate` wylogowuje każdą sesję, której `auth_at` jest starszy niż
+     * `account.password_changed_at` (druga warstwa unieważniania, obok rejestru sesji). Zmiana
+     * własnego hasła przestawia tę kolumnę na „teraz", więc BIEŻĄCA sesja też wpadłaby pod ten
+     * warunek i człowiek wylądowałby na ekranie logowania zaraz po udanej zmianie — wyglądałoby
+     * to jak odrzucenie zapisu, który się udał.
+     *
+     * ⚠ Nie używamy do tego `complete()`: tamta metoda **czyści sesję** (`reset()`), więc
+     * zgubiłaby wybrane zatrudnienie i kontekst firmy. Tu zmienia się jedno: znacznik czasu.
+     * Identyfikator sesji regenerujemy, bo zmiana poświadczeń to dokładnie ten moment,
+     * w którym CLAUDE.md §8 tego wymaga.
+     */
+    public function odswiezPoZmianieHasla(): void
+    {
+        $this->session->regenerate();
+        $this->session->set(self::AUTH_AT, microtime(true));
+    }
+
     private function storeClient(ClientKind $client): void
     {
         $this->session->set(self::CLIENT, $client->client);

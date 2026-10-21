@@ -30,6 +30,9 @@ final class TwoFactorService
     private const PENDING_TTL = 600;
     private const CODES = '_2fa_codes';
 
+    /** Odmowa wyłączenia 2FA przy wymogu dla administratorów — jedno zdanie dla ekranu i serwera. */
+    public const ODMOWA_WYMOGU = 'Weryfikacja dwuetapowa jest wymagana dla administratorów — nie można jej wyłączyć.';
+
     public function __construct(
         private readonly Session $session,
         private readonly AccountRepository $accounts,
@@ -199,9 +202,35 @@ final class TwoFactorService
 
     // --- Wyłączenie i reset -----------------------------------------------------------------------
 
-    /** Wyłączenie: hasło i aktualny kod (CLAUDE.md §9). Zwraca komunikat błędu albo null. */
-    public function disable(int $accountId, #[\SensitiveParameter] string $password, string $code, string $ipHash): ?string
-    {
+    /**
+     * Wyłączenie: hasło **i** aktualny kod (CLAUDE.md §9). Zwraca komunikat błędu albo null.
+     *
+     * ⚠ **Hasło jest wymagane także wtedy, gdy zlecenie rysuje okno bez niego** (Z69 pkt 7
+     * pokazywał sam kod): §9 mówi „wyłączenie wymaga hasła i aktualnego kodu", a to reguła
+     * z dokumentu wiążącego, nie szkic ekranu. Wyłączenie drugiego składnika samym kodem
+     * z odblokowanego telefonu byłoby zdjęciem zabezpieczenia przez to, co właśnie zabezpiecza.
+     *
+     * ⚠ `$backup = true` znaczy „to jest kod ZAPASOWY, nie z aplikacji" (Z69: telefon zgubiony,
+     * ale kody zapisane). Kod zapasowy sprawdza `verifyBackupCode()`, które **zużywa** trafiony
+     * kod — i tak ma być: wyłączenie 2FA i tak unieważnia wszystkie kody, a przy nieudanej
+     * próbie nic się nie zużywa. Hasło sprawdzamy PRZED kodem w obu drogach, więc samo
+     * zgadywanie kodów bez hasła nie zużyje ani jednego.
+     */
+    public function disable(
+        int $accountId,
+        #[\SensitiveParameter] string $password,
+        string $code,
+        string $ipHash,
+        bool $backup = false,
+        bool $wymagane = false,
+    ): ?string {
+        // ⚠ **Odmowa wymogu stoi TUTAJ, nie tylko w kontrolerze** (Z69 pkt 7): kontroler zna
+        // konfigurację i rolę, ale „nie wolno zdjąć drugiego składnika" jest regułą
+        // bezpieczeństwa — musi dać się sprawdzić testem bez przeglądarki i musi paść także
+        // wtedy, gdy kiedyś pojawi się druga droga do tej metody.
+        if ($wymagane) {
+            return self::ODMOWA_WYMOGU;
+        }
         $account = $this->accounts->findById($accountId);
         if ($account === null || $account['totp_enabled_at'] === null) {
             return '2FA nie jest włączone.';
@@ -210,8 +239,15 @@ final class TwoFactorService
             return 'Zbyt wiele prób. Odczekaj chwilę i spróbuj ponownie.';
         }
         $passwordOk = $this->password->verify($password, $account['password_hash']);
-        $codeOk = $passwordOk && $this->checkTotp($accountId, trim($code));
-        $this->limiter->record($accountId, $ipHash, RateLimiter::KIND_TOTP, $codeOk);
+        $codeOk = $passwordOk && ($backup
+            ? $this->verifyBackupCode($accountId, $code, $ipHash)
+            : $this->checkTotp($accountId, trim($code)));
+        // ⚠ Licznik `KIND_TOTP` zapisujemy tylko dla kodu z aplikacji: drogę zapasową liczy już
+        // `verifyBackupCode()` swoim własnym licznikiem (`KIND_BACKUP_CODE`), a podwójny zapis
+        // tej samej próby zamykałby człowiekowi obie drogi za jedną pomyłkę.
+        if (!$backup) {
+            $this->limiter->record($accountId, $ipHash, RateLimiter::KIND_TOTP, $codeOk);
+        }
         if (!$codeOk) {
             $this->events->record('2fa.disable_failed', $accountId, $ipHash);
             return 'Nieprawidłowe hasło lub kod.';
@@ -219,6 +255,46 @@ final class TwoFactorService
 
         $this->removeSecondFactor($accountId);
         $this->events->record('2fa.disabled', $accountId, $ipHash, null, 'account', $accountId);
+
+        return null;
+    }
+
+    /**
+     * **Nowe kody zapasowe** — stare przestają działać natychmiast (zlecenie Z69 pkt 8).
+     *
+     * ⚠ Wymaga hasła, bo to jest wymiana poświadczeń awaryjnych: komu uda się dopaść
+     * niezablokowanego komputera, ten bez hasła nie wyrobi sobie ośmiu kodów na przyszłość.
+     * Kodu z aplikacji tu NIE żądamy — człowiek sięga po tę funkcję właśnie wtedy, gdy kody
+     * mu się kończą albo wyciekły, a telefon ma przy sobie i tak zaraz poda kod przy logowaniu.
+     *
+     * ⚠ Kody pokazujemy **raz**, tą samą drogą co po włączeniu 2FA (pojemnik w sesji,
+     * zaszyfrowany), więc po odświeżeniu strony nie ma ich już nigdzie w jawnej postaci.
+     *
+     * @return string|null komunikat odmowy albo null przy sukcesie
+     */
+    public function regenerateCodes(int $accountId, #[\SensitiveParameter] string $password, string $ipHash): ?string
+    {
+        $account = $this->accounts->findById($accountId);
+        if ($account === null || $account['totp_enabled_at'] === null) {
+            return '2FA nie jest włączone.';
+        }
+        if ($this->limiter->delaySeconds($accountId, $ipHash, RateLimiter::KIND_PASSWORD) > 0) {
+            return 'Zbyt wiele prób. Odczekaj chwilę i spróbuj ponownie.';
+        }
+        $ok = $this->password->verify($password, $account['password_hash']);
+        $this->limiter->record($accountId, $ipHash, RateLimiter::KIND_PASSWORD, $ok);
+        if (!$ok) {
+            return 'Hasło jest nieprawidłowe.';
+        }
+        $codes = BackupCodes::generate();
+        $hashes = array_map(fn (string $c): string => $this->password->hash(BackupCodes::normalize($c)), $codes);
+        $this->backupCodes->replaceAll($accountId, $hashes);
+        $this->session->set(self::CODES, [
+            'account' => $accountId,
+            'codes'   => $this->box->seal(implode("\n", $codes)),
+        ]);
+        $this->events->record('2fa.backup_codes_regenerated', $accountId, $ipHash, null, 'account', $accountId,
+            null, ['ile' => count($codes)]);
 
         return null;
     }

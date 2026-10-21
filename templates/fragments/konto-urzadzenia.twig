@@ -1,0 +1,52 @@
+{#- Lista zalogowanych urządzeń — fragment karty „Bezpieczeństwo" na „Moim koncie" (Z69 pkt 5).
+    Zmienne: `urzadzenia` (handle, device, network, created_at, last_seen_at, current), `zakonczono`.
+
+    ⚠ `id` zostaje, bo to cel htmx (`hx-target="#konto-urzadzenia"`): po zakończeniu sesji
+    lista wymienia się na STAN Z BAZY, a nie na to, co przyszło w żądaniu (CLAUDE.md §5).
+
+    ⚠ **Adres pokazujemy zamaskowany i bez miasta**: baza trzyma `ip_prefix` (sieć /24), bo
+    pełny adres osoby to dana, której do niczego tu nie potrzebujemy — a „miasto z IP" bywa
+    po prostu nieprawdą (adres operatora komórkowego potrafi wskazać drugi koniec kraju).
+
+    ⚠ **Bieżąca sesja nie ma przycisku, tylko napis**: „Wyloguj" przy niej znaczyłoby
+    „wyloguj mnie teraz", a do tego jest „Wyloguj" w nagłówku strony. Serwer i tak odmawia
+    zakończenia własnej sesji tą drogą (`DeviceService::revoke`). -#}
+{% import 'partials/ikony.twig' as ikony %}
+<div id="konto-urzadzenia" class="urzadzenia">
+    {% if zakonczono %}
+        {% include 'partials/komunikat.twig' with {'tekst': 'Wybrane urządzenie zostało wylogowane. Zniknie przy jego następnym żądaniu.', 'rodzaj': 'sukces'} only %}
+    {% endif %}
+    <ul class="urzadzenia__lista">
+        {% for u in urzadzenia %}
+            <li class="urzadzenie{{ u.current ? ' urzadzenie--to' : '' }}">
+                <span class="urzadzenie__znak">
+                    {#- ⚠ Ikona z JAWNEGO warunku po rodzaju sesji z rejestru, nie z nazwy
+                        przeglądarki: `user_agent` to tekst od klienta (CLAUDE.md §11), więc
+                        wnioskowanie z niego o ikonie byłoby zaufaniem danym z żądania. -#}
+                    {%- if u.kind == 'app' %}{{ ikony.aplikacja() }}
+                    {%- elseif u.kind == 'telefon' %}{{ ikony.telefon() }}
+                    {%- else %}{{ ikony.komputer() }}{% endif -%}
+                </span>
+                <span class="urzadzenie__opis">
+                    <strong>{{ u.device }}</strong>
+                    <small>
+                        ostatnio aktywne {{ czas(u.last_seen_at) }}
+                        {%- if u.network is not null %} · {{ u.network }}{% endif %}
+                    </small>
+                </span>
+                {% if u.current %}
+                    <span class="chip chip--accent">ta przeglądarka</span>
+                    <span class="urzadzenie__nota">to urządzenie</span>
+                {% else %}
+                    <form method="post" action="{{ url('/ustawienia/urzadzenia/zakoncz') }}"
+                          hx-post="{{ url('/ustawienia/urzadzenia/zakoncz') }}"
+                          hx-target="#konto-urzadzenia" hx-swap="outerHTML">
+                        {% include 'partials/csrf.twig' %}
+                        <input type="hidden" name="session" value="{{ u.handle }}">
+                        <button type="submit" class="btn btn--ghost btn--danger btn--sm">Wyloguj</button>
+                    </form>
+                {% endif %}
+            </li>
+        {% endfor %}
+    </ul>
+</div>
