@@ -2617,6 +2617,47 @@ body:has(dialog.modal[open]) { overflow: hidden; }
    CZTEROKROTNIE mocniej odznaczone niż sama nieobecność (system wizualny 1.14, nazwany wyjątek
    osi czasu). Po poprawce: weekend 1,06, pasek 1,23. Siatka miesiąca zostaje na `--c-neutral-soft`. */
 .team-grid__cell--free { background: var(--c-surface-hover); }
+
+/* ⚠ **Tło DZIEŃ PO DNIU pod paskiem wielodniowym** (zlecenie Z68, prototyp Krzysztofa
+   z 21.10.2026: „Czarnecki 16–23.02 ma tak jak powinno być").
+
+   Usterka, którą to naprawia, była widoczna w dwie strony: pasek nieobecności leży w JEDNEJ
+   komórce rozciągniętej na kilka kolumn (`grid-column: span N`), więc jej tło brało się
+   z pierwszego dnia zakresu. Nieobecność zaczęta w dzień roboczy dawała całe tło zwykłe
+   i kolumna weekendu **urywała się w połowie wiersza**; nieobecność zaczęta w weekend wygaszała
+   pod paskiem także dni robocze (zmierzone na zwolnieniu 1–28.02: cała komórka w kolorze dnia
+   wolnego).
+
+   ⚠ **Dlaczego warstwa pod-kratek, a nie gradient.** Prototyp liczył pozycje kolumn
+   w JavaScripcie i wstawiał gradient w `style` — u nas oba te środki są zakazane (CLAUDE.md §6).
+   Gradient z klasy też nie przechodzi: wzór dni wolnych zależy od rozkładu czasu pracy osoby
+   i od dnia tygodnia, na który pada początek zakresu, więc klasa musiałaby kodować wszystkie
+   kombinacje. Pod-kratki wymagają jednego pola w modelu (`k.dni`) i zera liczenia.
+
+   ⚠ **Dlaczego `flex: 1 1 0` wystarcza i nie trzeba znać liczby dni w arkuszu.** Kolumny dni
+   w `.team-grid` są równe i bez `gap`, więc równy podział wnętrza komórki pokrywa się
+   z kolumnami. Niedobór wynosi dokładnie 1 px (prawa krawędź komórki) rozłożony na N dni,
+   więc granica k-tej pod-kratki leży o `k/N` px w lewo od granicy kolumny — czyli **zawsze
+   wewnątrz pasma kreski oddzielającej kolumny**, nigdy poza nim. Dla N = 1 warstwy nie ma
+   w ogóle: komórka jednodniowa maluje się klasą `--free` jak każda inna.
+
+   ⚠ Kolor jest TEN SAM token, co w kolumnie bez nieobecności (`--c-surface-hover`). Ciemniejszy
+   wariant z Z67 (pkt 1) został porzucony, bo pasek zasiłku miał na ciemniejszym tle 1,041
+   kontrastu przy podłodze 1,05. Jeden odcień dnia wolnego w osi czasu, bez rozjaśnień paska. */
+.team-grid__dni {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  /* ⚠ **BEZ `pointer-events: none`** — i to jest decyzja, nie przeoczenie (zmierzone 21.10.2026).
+     Warstwa nie ma żadnej obsługi zdarzeń, więc wyłączanie jej z testu trafienia niczego nie
+     naprawia, a psuje dwie rzeczy: `elementFromPoint` zwraca wtedy komórkę POD warstwą, czyli
+     biel zamiast barwy, którą widzi człowiek — na tym wywróciło się moje pierwsze kryterium
+     Z68 (111 próbek, wszystkie dni wolne „białe") — i tak samo oślepłaby cała rodzina sprawdzeń
+     osiągalności w bramce. Kliknięcia i tak docierają tam, gdzie mają: pasek jest malowany
+     WYŻEJ i pozostaje trafialny, a zdarzenia z pod-kratek bąbelkują do komórki. */
+}
+.team-grid__dzien { flex: 1 1 0; }
+.team-grid__dzien--free { background: var(--c-surface-hover); }
 /* ⚠ **Znacznik „dziś": OBWÓDKA wokół całej kratki, jedna nazwa, jeden kształt w trzech
    widokach** (zlecenie `2026-10-11-poprawki-skale-i-znacznik-dzis.md` §1 i §1a).
 

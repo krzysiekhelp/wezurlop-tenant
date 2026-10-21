@@ -234,6 +234,33 @@ final class CalendarVisibility
     }
 
     /**
+     * **Skąd bierze się wgląd ZE SZCZEGÓŁAMI** — jedno zdanie dla kalendarza firmy
+     * (zlecenie Z68, dopisek po prototypie z 21.10.2026).
+     *
+     * ⚠ Powód jest rzeczowy: pod kalendarzem stało zdanie „To nadana reguła dostępu, nie domyślny
+     * stan konta", a od Z55 (20.10.2026) dla administratora pełny wgląd **jest** stanem domyślnym
+     * — daje go reguła „Administratorzy" zakładana migracją w każdej firmie. Zdanie mówiło więc
+     * administratorowi nieprawdę o źródle jego własnego dostępu, i to przy danych o zdrowiu.
+     *
+     * ⚠ Źródła liczy `zrodlaWidza()`, nie osobny rachunek: karta „Widoczność" w panelu osoby
+     * i to zdanie mają mówić **tym samym słownikiem**, bo opisują tę samą rzecz. Tutaj zostają
+     * wyłącznie reguły dające `ze_szczegolami` i tylko ich nazwy źródeł, bez powtórzeń.
+     */
+    public function zrodlaSzczegolu(int $accountId, int $companyId, ?int $widzEmploymentId): string
+    {
+        $skad = [];
+        foreach ($this->zrodlaWidza($accountId, $companyId, $widzEmploymentId) as $zrodlo) {
+            if ($zrodlo['zakres'] === ZakresWidocznosci::ZE_SZCZEGOLAMI) {
+                $skad[] = $zrodlo['skad'];
+            }
+        }
+
+        // ⚠ Ta sama miara „najwyżej trzy i tyle innych", co w pozostałych zdaniach — zdanie
+        // pod kalendarzem nie ma prawa rosnąć wraz z liczbą reguł w firmie.
+        return $skad === [] ? '' : self::wyliczenie(array_values(array_unique($skad)));
+    }
+
+    /**
      * Jedno źródło dostępu jako wiersz do wyświetlenia.
      *
      * @param array<string, mixed> $r

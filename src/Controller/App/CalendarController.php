@@ -104,6 +104,7 @@ final class CalendarController
                 'ja' => null, 'zespol' => null, 'osoby' => [], 'wybrane' => [], 'ma_zespol' => false,
                 'ma_firme' => false, 'ukryci' => 0, 'w_zasiegu' => 0, 'obciete' => 0,
                 'zakresy' => [], 'ma_bez_szczegolow' => false, 'ma_ze_szczegolami' => false,
+                'zrodla_szczegolu' => '',
                 'zasieg_opis' => null, 'szukaj' => '',
                 'spolki' => [], 'spolka' => null, 'osob_w_liscie' => 0, 'pozycji_widoku' => 0,
                 'kontekst_podglad' => null, 'widok_odmowa' => null,
@@ -420,6 +421,16 @@ final class CalendarController
             // jest (§2 zlecenia) — inaczej opisywałaby kolor, którego nie widać.
             'ma_bez_szczegolow' => in_array(ZakresWidocznosci::BEZ_SZCZEGOLOW, $zakresyPokazanych, true),
             'ma_ze_szczegolami' => in_array(ZakresWidocznosci::ZE_SZCZEGOLAMI, $zakresyPokazanych, true),
+            // ⚠ **Zdanie o nazwach rodzajów mówi, SKĄD ten wgląd się bierze** (Z68, dopisek).
+            // Do Z55 brzmiało „To nadana reguła dostępu, nie domyślny stan konta" — a dla
+            // administratora pełny wgląd JEST od Z55 stanem domyślnym (reguła „Administratorzy").
+            // Źródła liczy `CalendarVisibility::zrodlaSzczegolu()` tym samym słownikiem, którym
+            // karta „Widoczność" w panelu osoby opisuje te same reguły.
+            'zrodla_szczegolu' => $this->widocznosc->zrodlaSzczegolu(
+                $user->accountId(),
+                (int) $spolka['id'],
+                $widzEtat,
+            ),
             'ma_zespol' => $zasieg['galaz'] > 1,
             'ma_firme' => $zasieg['moze_firme'],
             // ⚠ **Ile pozycji ma przełącznik widoku** — liczone tu, bo szablon ma wyświetlać,

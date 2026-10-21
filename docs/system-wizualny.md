@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.18.47, 20.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.18.48, 21.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,56 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.18.47 → 1.18.48: kolumna dnia wolnego jest CIĄGŁA także w wierszu z nieobecnością**
+> (zlecenie Z68, decyzja Krzysztofa z 21.10.2026 po prototypie w przeglądarce: „Czarnecki
+> 16–23.02 ma tak jak powinno być").
+> - **Było**: pasek nieobecności leży w JEDNEJ komórce rozciągniętej na kilka kolumn
+>   (`grid-column: span N`), więc całe jej tło brało się z **pierwszego dnia** zakresu. Usterka
+>   miała dwie twarze: nieobecność zaczęta w dzień roboczy dawała całe tło białe i **kolumna
+>   weekendu urywała się w połowie wiersza** (zgłoszony przypadek: 16–23.02, przerwa na 21–22),
+>   a nieobecność zaczęta w weekend wygaszała pod paskiem **także dni robocze** (zwolnienie
+>   1–28.02 miało całą komórkę w barwie dnia wolnego).
+> - **Jest**: komórka z paskiem wielodniowym rysuje tło dzień po dniu — dni wolne barwą kolumny
+>   dnia wolnego, dni robocze barwą zwykłej komórki. Widać to **nad paskiem i pod nim** (pasek ma
+>   `inset: 6px 2px`), więc kolumna weekendu biegnie bez przerwy z góry na dół.
+> - ⚠ **Kolory i kolumny bez zmian.** `.team-grid__cell--free` zostaje na `--c-surface-hover`,
+>   paleta pasków bez zmian, bez rozjaśnień na weekendzie. Ciemniejszy wariant kolumny
+>   (Z67 pkt 1) jest **porzucony** — miał na sobie pasek zasiłku z kontrastem **1,041** przy
+>   podłodze 1,05.
+> - ⚠ **Rozwiązanie: warstwa pod-kratek, nie gradient.** Prototyp liczył pozycje kolumn
+>   w JavaScripcie i wstawiał gradient atrybutem `style` — oba te środki są u nas zakazane
+>   (CLAUDE.md §6). Gradient z klasy też nie przechodzi, bo wzór dni wolnych zależy od rozkładu
+>   czasu pracy osoby i od dnia tygodnia, w który wypada początek zakresu: klasa musiałaby kodować
+>   wszystkie kombinacje. Serwer podaje listę `dni` (po jednym `wolny` na kolumnę), szablon
+>   renderuje `.team-grid__dni` z `.team-grid__dzien` na dzień, a arkusz dzieli je `flex: 1 1 0`.
+>   **Arkusz nie musi znać liczby dni**: kolumny są równe i bez `gap`, a niedobór to dokładnie
+>   1 px prawej krawędzi rozłożony na N dni, więc każda granica pod-kratki wypada **wewnątrz
+>   pasma kreski** między kolumnami.
+> - ⚠ Warstwa **nie ma** `pointer-events: none` i to jest decyzja: nie obsługuje żadnych zdarzeń,
+>   a wyłączona z testu trafienia staje się niewidoczna dla `elementFromPoint` — czyli dla
+>   kryterium, które sprawdza, co widzi człowiek, i dla całej rodziny sprawdzeń osiągalności.
+>   Pasek jest malowany wyżej i pozostaje trafialny.
+> - **Dni wolne z rozkładu osoby**, nie tylko weekendy: lista `dni` bierze `wolny` z tych samych
+>   nagłówków, którymi wygaszają się kolumny bez nieobecności.
+> - Dotyczy **osi czasu** (Zespół, Firma) w powłoce web i `/m/` — jeden plik
+>   (`partials/os-czasu.twig`) obsługuje obie. ⚠ **Siatki Miesiąca i Roku to NIE dotyczy**
+>   (sprawdzone): tam każdy dzień jest osobną kratką, a dzień z nieobecnością bierze barwę rodzaju
+>   na całą kratkę — nie ma paska, nad którym i pod którym mogłoby coś przeświecać, więc nie ma
+>   czego scalać ani przerywać.
+> - ⚠ **Przy tej samej turze poprawione zdanie pod kalendarzem Firma** (dopisek do Z68).
+>   Stało tam „To nadana reguła dostępu, **nie domyślny stan konta**" — a od Z55 (20.10.2026)
+>   dla administratora pełny wgląd **jest** stanem domyślnym, bo daje go reguła „Administratorzy"
+>   zakładana migracją w każdej firmie. Zdanie zaprzeczało więc temu, co człowiek widzi na ekranie,
+>   i to przy danych o zdrowiu. Teraz mówi, SKĄD ten wgląd się bierze, a źródła podaje
+>   `CalendarVisibility::zrodlaSzczegolu()` — ta sama funkcja i ten sam słownik, którym mówi karta
+>   „Widoczność" w panelu osoby. Zmierzone na obu kontach administracyjnych i obu firmach:
+>   „z uprawnień administratora · reguła domyślna »Administratorzy«".
+
+> - Kryterium: `paski_nieobecnosci` ma twierdzenie `tlo_dni_pod_paskiem` — mierzone **kolorem
+>   w punkcie** nad paskiem i pod nim, porównywanym z barwami zmierzonymi na komórkach bez paska
+>   (kryterium nie zna żadnego kodu koloru). Zmierzone po poprawce: **111 próbek, 32 dni wolne,
+>   zero niezgodnych**; progi kontrastu bez zmian (dzień wolny 1,063 do wiersza, paski 1,19–1,21).
 
 > **Zmiana 1.18.46 → 1.18.47: powłoka `/m/` jest pod aplikację mobilną, a nie pod telefon
 > w przeglądarce** (rozstrzygnięcie Krzysztofa 20.10.2026, pozycja 74 z `do-sprawdzenia.md`;

@@ -136,8 +136,14 @@
                     może obejmować jedną grupę, a nie całą firmę. Jedno zdanie o całym ekranie
                     kłamałoby wtedy dla części wierszy, a rozstrzygać o tym ma serwer, nie szablon —
                     stąd dwa gotowe stany z modelu, a nie porównanie liczby. -#}
+                {#- ⚠ **Zdanie mówi, SKĄD wgląd ze szczegółami** (Z68, dopisek po prototypie).
+                    Stało tu „To nadana reguła dostępu, nie domyślny stan konta" — nieprawda od Z55:
+                    administrator ma pełny wgląd z reguły domyślnej „Administratorzy", więc zdanie
+                    zaprzeczało temu, co widzi na ekranie, przy danych o zdrowiu. Źródła przychodzą
+                    gotowe z `CalendarVisibility::zrodlaSzczegolu()` — tym samym słownikiem, którym
+                    mówi karta „Widoczność" w panelu osoby. -#}
                 {% if ma_ze_szczegolami %}
-                    <p class="card__meta">Przy części osób widzisz <strong>nazwy rodzajów</strong> nieobecności — w tym rodzaje zwolnień. To nadana reguła dostępu, nie domyślny stan konta.</p>
+                    <p class="card__meta">Przy części osób widzisz <strong>nazwy rodzajów</strong> nieobecności — w tym rodzaje zwolnień.{% if zrodla_szczegolu != '' %} Skąd masz ten wgląd: {{ zrodla_szczegolu }}.{% endif %}</p>
                 {% endif %}
                 {% if ma_bez_szczegolow %}
                     <p class="card__meta">Szare paski „nieobecny" znaczą, że przy tej osobie masz dostęp <strong>bez szczegółów</strong>: widać sam fakt nieobecności, bez rodzaju i bez przyczyny. Szczegóły własnych nieobecności są zawsze w widoku „Tylko ja".</p>

@@ -694,7 +694,7 @@ final class KalendarzPracownika
             $tu = $wDniu[$d] ?? null;
             if ($tu === null) {
                 $komorki[] = ['rozpietosc' => 1, 'wolny' => $naglowki[$d - 1]['wolny'],
-                    'dzis' => $naglowki[$d - 1]['dzis'], 'pasek' => null];
+                    'dzis' => $naglowki[$d - 1]['dzis'], 'dni' => [], 'pasek' => null];
                 continue;
             }
             $koniec = $d;
@@ -707,10 +707,36 @@ final class KalendarzPracownika
                 $koniec++;
                 $wiele = $wiele || $wDniu[$koniec]['ile'] > 1;
             }
+            // ⚠ **Komórka z paskiem WIELODNIOWYM podaje tło DZIEŃ PO DNIU, a nie jedno**
+            // (zlecenie Z68, prototyp Krzysztofa z 21.10.2026). Pasek leży w jednej komórce
+            // rozciągniętej na kilka kolumn, więc dotąd całe jej tło brało się z PIERWSZEGO dnia
+            // zakresu — i to był błąd widoczny na ekranie w dwie strony: nieobecność zaczęta
+            // w dzień roboczy gasiła kolumnę weekendu pod paskiem (kolumna dnia wolnego urywała
+            // się w połowie wiersza), a nieobecność zaczęta w weekend wygaszała pod paskiem także
+            // dni robocze. Stąd `wolny` jest tu świadomie `false`: zostawione `true` nadal
+            // malowałoby CAŁĄ komórkę kolorem pierwszego dnia, czyli dokładnie tę usterkę.
+            //
+            // ⚠ Lista `dni` niesie tylko to, czego potrzebuje wygląd — po jednym `wolny`
+            // na kolumnę objętą paskiem. Dni wolne pochodzą z `naglowki`, więc idą z rozkładu
+            // czasu pracy osoby, nie z samej nazwy dnia tygodnia (to ta sama droga, którą
+            // wygaszają się kolumny bez nieobecności).
+            // ⚠ Nazwa `$tloDni`, a NIE `$dni`: `$dni` to w tej pętli liczba dni miesiąca
+            // (`for ($d = 1; $d <= $dni; ...)`). Nadpisanie jej tablicą wywróciło warunek pętli
+            // na porównanie liczby z tablicą, pętla wyszła za koniec miesiąca i kalendarz zespołu
+            // padał na `Undefined array key 31` (zmierzone 21.10.2026 — bramka zwróciła wszystkie
+            // pomiary puste, bo ekran w ogóle się nie renderował).
+            $rozpietosc = $koniec - $d + 1;
+            $tloDni = [];
+            if ($rozpietosc > 1) {
+                for ($i = $d; $i <= $koniec; $i++) {
+                    $tloDni[] = ['wolny' => $naglowki[$i - 1]['wolny']];
+                }
+            }
             $komorki[] = [
-                'rozpietosc' => $koniec - $d + 1,
-                'wolny' => $naglowki[$d - 1]['wolny'],
+                'rozpietosc' => $rozpietosc,
+                'wolny' => $rozpietosc === 1 && $naglowki[$d - 1]['wolny'],
                 'dzis' => $naglowki[$d - 1]['dzis'],
+                'dni' => $tloDni,
                 'pasek' => self::pasek($tu['wpis'], $zakres, [
                     'zakres' => DataDnia::zakres($tu['wpis']['od'], $tu['wpis']['do']),
                     // ⚠ **Na pasku stoi ZAKRES DAT, nie nazwa rodzaju** (zlecenie 06.10 §3).

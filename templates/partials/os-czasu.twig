@@ -47,6 +47,19 @@
                         zlewa się z pierwszym dniem). Komórki pokrywają wszystkie dni, więc
                         `loop.last` jest ostatnią kolumną zawsze. -#}
                     <div class="team-grid__cell{{ k.rozpietosc > 1 ? ' team-grid__cell--span-' ~ k.rozpietosc : '' }}{{ k.wolny ? ' team-grid__cell--free' : '' }}{{ loop.last ? ' team-grid__cell--ostatnia' : '' }}">
+                        {#- ⚠ **Tło dzień po dniu pod paskiem wielodniowym** (zlecenie Z68).
+                            Komórka z paskiem obejmuje kilka kolumn, więc jedno tło zawsze
+                            kłamałoby o którymś dniu: albo gasiło weekend pod paskiem, albo
+                            wygaszało dni robocze. Pod-kratki stoją PRZED paskiem w znaczniku,
+                            bo oba elementy są pozycjonowane bez `z-index` — maluje się ten
+                            późniejszy, więc pasek zostaje na wierzchu bez dokładania warstw.
+                            Widać je nad paskiem i pod nim (`inset: 6px 2px` na pasku).
+                            ⚠ `aria-hidden`, bo to wyłącznie tło: zakres i rodzaj czytnik bierze
+                            z `aria-label` paska, a siedem pustych elementów w kolejce byłoby
+                            szumem bez treści. -#}
+                        {% if k.dni is not empty %}
+                            <span class="team-grid__dni" aria-hidden="true">{% for dz in k.dni %}<span class="team-grid__dzien{{ dz.wolny ? ' team-grid__dzien--free' : '' }}"></span>{% endfor %}</span>
+                        {% endif %}
                         {% if k.pasek is not null %}
                             {#- ⚠ **Na pasku ZAKRES DAT, nie nazwa rodzaju** (zlecenie 06.10 §3).
                                 Policzone na sierpniu w SERWAL: 16 z 17 pasków miało napis

@@ -312,6 +312,14 @@ _usterka("kratka_bez_title", """
     if (k) { k.removeAttribute('title'); }
 """)
 
+# Tło pod paskiem: warstwa pod-kratek znika, więc komórka z paskiem znowu maluje się jednym
+# tłem z pierwszego dnia zakresu — dokładnie stan sprzed Z68 (kolumna weekendu urywa się
+# w połowie wiersza). Usuwamy ELEMENT, nie styl: inline `style` jest w tym projekcie zakazany,
+# a usunięcie z DOM-u odtwarza tamten render wierniej niż ukrycie.
+_usterka("tlo_dnia_pod_paskiem", """
+    document.querySelectorAll('.team-grid__dni').forEach(w => w.remove());
+""")
+
 # Prawda kalendarza: nagłówek ekranu mówi „Mój kalendarz" nad widokiem całej spółki — czyli
 # dokładnie zgłoszona usterka z 23.09, w której ekran przypisywał oglądającemu cudzy kalendarz.
 _usterka("prawda_kalendarza", """
@@ -1445,7 +1453,8 @@ POMIAR_PASKOW = """() => {
     .filter(h => !h.classList.contains('team-grid__head--person'))
     .map(h => {
       const n = h.querySelector('.team-grid__numer, .dzien-dzis');
-      return {numer: (n || h).textContent.trim(), r: h.getBoundingClientRect()};
+      return {numer: (n || h).textContent.trim(), r: h.getBoundingClientRect(),
+              wolny: h.classList.contains('team-grid__head--free')};
     });
   const numery = Array.from(document.querySelectorAll('.team-grid__bar--jeden')).map(b => {
     const r = b.getBoundingClientRect();
@@ -1457,7 +1466,41 @@ POMIAR_PASKOW = """() => {
             ucieta: b.scrollWidth > b.clientWidth + 1};
   });
 
+  // ⚠ **Tło POD PASKIEM, dzień po dniu** (zlecenie Z68). Pytanie brzmi „jaki kolor widzi
+  // człowiek nad paskiem i pod nim w kolumnie dnia wolnego", więc czytamy kolor W PUNKCIE
+  // (`elementFromPoint`), a nie klasy naszej warstwy pod-kratek: kryterium ma mierzyć WYNIK,
+  // nie sposób jego osiągnięcia — przy innej implementacji (gradient, pseudoelement) musi
+  // działać bez zmiany. Pasek ma `inset: 6px 2px`, więc 2 px nad jego krawędzią i 2 px pod nią
+  // leżą jeszcze w komórce.
+  // ⚠ Punkt poza oknem zwraca co innego albo nic, a oś czasu przewija się w poziomie — kolumny
+  // spoza widoku są więc POMIJANE i policzone osobno, żeby „zero próbek" nie przeszło na zielono.
+  const pod_paskiem = [];
+  let pominietych = 0;
+  Array.from(document.querySelectorAll('.team-grid__bar')).forEach(b => {
+    const rk = b.parentElement.getBoundingClientRect();
+    const rb = b.getBoundingClientRect();
+    const kolumny = naglowki.filter(h => h.r.left >= rk.left - 1 && h.r.right <= rk.right + 1);
+    if (kolumny.length < 2) { return; }
+    kolumny.forEach(h => {
+      const x = (h.r.left + h.r.right) / 2;
+      const nad = rb.top - 2, pod = rb.bottom + 2;
+      if (x < 0 || x > window.innerWidth || nad < 0 || pod > window.innerHeight) {
+        pominietych++;
+        return;
+      }
+      const eNad = document.elementFromPoint(x, nad);
+      const ePod = document.elementFromPoint(x, pod);
+      pod_paskiem.push({
+        numer: h.numer,
+        wolny: h.wolny,
+        tlo_nad: eNad ? efektywne(eNad) : null,
+        tlo_pod: ePod ? efektywne(ePod) : null,
+      });
+    });
+  });
+
   return {tlo_wiersza, tlo_wolnego, zywe, sondy, numery,
+          pod_paskiem, pominietych,
           paskow: zywe.length, jednodniowych: numery.length,
           legenda: Array.from(document.querySelectorAll('.legend__mark')).map(m => {
             const st = getComputedStyle(m);
@@ -3773,7 +3816,7 @@ def dane_paskow() -> dict:
     return json.loads(wyn.stdout or "{}")
 
 
-def sprawdz_paski_nieobecnosci(b) -> dict:
+def sprawdz_paski_nieobecnosci(b, usterka: str | None = None) -> dict:
     """**Wygląd paska nieobecności** (zlecenie `2026-10-11-paski-nieobecnosci.md` §5).
 
     ⚠ **Następca kryterium kontrastu z 06.10**, które mierzyło obrys w kolorze rodzaju
@@ -3790,7 +3833,15 @@ def sprawdz_paski_nieobecnosci(b) -> dict:
          z reguły 1.14, sufit 3,0 jako wykrywacz błędnego pomiaru) **i** wobec tła dnia
          **wolnego** (podłoga 1,05, bo tam tło jest ciemniejsze), plus warunek strukturalny
          z 06.10: pasek musi być mocniejszym znakiem niż samo wygaszenie weekendu,
-      3. `numer_dnia_zgodny` — pasek jednodniowy niesie numer dnia **zgodny z kolumną**,
+      3. `tlo_dni_pod_paskiem` — pod paskiem WIELODNIOWYM każdy dzień ma tło swojej kolumny:
+         dzień wolny barwę dnia wolnego, dzień roboczy barwę zwykłej komórki, i tak samo **nad**
+         paskiem, jak **pod** nim. ⚠ Twierdzenie dodane w Z68, bo komórka z paskiem obejmuje
+         kilka kolumn i brała tło z PIERWSZEGO dnia zakresu: kolumna weekendu urywała się
+         w połowie wiersza (nieobecność od dnia roboczego) albo wygaszała dni robocze
+         (nieobecność od weekendu). Mierzone kolorem W PUNKCIE, nie klasą — przy innej
+         implementacji tła ma działać bez zmiany. Barwy odniesienia to zmierzone tła zwykłej
+         i wolnej komórki BEZ paska, więc kryterium nie zna żadnego kodu koloru,
+      4. `numer_dnia_zgodny` — pasek jednodniowy niesie numer dnia **zgodny z kolumną**,
          w której stoi (rozstrzygane geometrią, nie kolejnością w DOM), i numer **nie jest
          ucięty** — ani przy 1440 px, ani na wąskim ekranie (374 i 320 px), gdzie dodatkowo
          pilnujemy **0 przewijania strony w poziomie**.
@@ -3810,7 +3861,13 @@ def sprawdz_paski_nieobecnosci(b) -> dict:
         # siatki firmy, a pasków na ekranie jest wtedy zero. Stan wyjściowy odczytany PRZED
         # nadaniem i przywracany w `finally` — kontekst i role są trwałe (lekcja z 11.10).
         poziom_kalendarza(spolka, 2, LOGIN)
-        ctx = b.new_context(viewport={"width": SZEROKOSC_LAPTOPA, "height": 1000}, ignore_https_errors=True)
+        # ⚠ Kontekst przez `nowy_kontekst`, nie `b.new_context`: inaczej kryterium nie da się
+        # uruchomić w trybie `kontrola` (zmierzone 21.10.2026 — kontrola przerwała się
+        # na `TypeError`, bo funkcja nie przyjmowała nazwy usterki, a trzy kryteria dalej
+        # w rejestrze nie zostały sprawdzone wcale).
+        ctx = nowy_kontekst(b, usterka,
+                            viewport={"width": SZEROKOSC_LAPTOPA, "height": 1000},
+                            ignore_https_errors=True)
         pg = ctx.new_page()
         pg.goto(BAZA + "/logowanie", wait_until="networkidle")
         pg.fill("#login-email", LOGIN)
@@ -3878,6 +3935,22 @@ def sprawdz_paski_nieobecnosci(b) -> dict:
             and zywe != []
             and all(KONTRAST_PASKA_MIN <= p["k_do_wiersza"] <= KONTRAST_PASKA_MAX for p in zywe)
         )
+        # ⚠ **Tło dzień po dniu pod paskiem** (Z68). Porównanie z barwami ODNIESIENIA
+        # zmierzonymi na komórkach bez paska — nie z kodem koloru, żeby zmiana tokena nie
+        # wymagała ruszania bramki. Wymagamy obu rodzajów dni w próbkach: gdyby na ekranie
+        # wypadły same dni robocze, twierdzenie przechodziłoby na pusto.
+        dni_pod = [d for d in szeroki.get("pod_paskiem") or []
+                   if d["tlo_nad"] is not None and d["tlo_pod"] is not None]
+        tlo_dni_pod_paskiem = (
+            dni_pod != []
+            and any(d["wolny"] for d in dni_pod)
+            and any(not d["wolny"] for d in dni_pod)
+            and all(
+                (d["tlo_nad"] == szeroki["tlo_wolnego"] and d["tlo_pod"] == szeroki["tlo_wolnego"])
+                if d["wolny"]
+                else (d["tlo_nad"] == szeroki["tlo_wiersza"] and d["tlo_pod"] == szeroki["tlo_wiersza"])
+                for d in dni_pod)
+        )
         numer_dnia_zgodny = (
             numery != []
             and all(n["zgodny"] for n in numery)
@@ -3893,14 +3966,27 @@ def sprawdz_paski_nieobecnosci(b) -> dict:
         legenda_zgodna = trzy and all(
             legenda.get(r) == sondy[r]["tlo"] for r in ("urlop", "zasilek", "kadrowe"))
         return {
-            "ok": kontrast_tekstu and kontrast_paska and numer_dnia_zgodny and legenda_zgodna,
+            "ok": (kontrast_tekstu and kontrast_paska and tlo_dni_pod_paskiem
+                   and numer_dnia_zgodny and legenda_zgodna),
             "kontrast_tekstu": kontrast_tekstu,
             "kontrast_paska": kontrast_paska,
+            "tlo_dni_pod_paskiem": tlo_dni_pod_paskiem,
             "numer_dnia_zgodny": numer_dnia_zgodny,
             "legenda_zgodna": legenda_zgodna,
             "ekran": adres,
             "tlo_wiersza": szeroki.get("tlo_wiersza"),
             "tlo_wolnego": szeroki.get("tlo_wolnego"),
+            # Próbki tła pod paskiem: ile zgodnych, ile nie i pierwsze niezgodne z nazwą dnia.
+            "dni_pod_paskiem": {
+                "probek": len(dni_pod),
+                "wolnych": sum(1 for d in dni_pod if d["wolny"]),
+                "pominietych_poza_oknem": szeroki.get("pominietych"),
+                "niezgodne": [d for d in dni_pod if (
+                    (d["tlo_nad"], d["tlo_pod"]) != (szeroki["tlo_wolnego"], szeroki["tlo_wolnego"])
+                    if d["wolny"]
+                    else (d["tlo_nad"], d["tlo_pod"]) != (szeroki["tlo_wiersza"], szeroki["tlo_wiersza"])
+                )][:6],
+            },
             "dzien_wolny_do_wiersza": wolny_do_wiersza,
             "sondy": sondy,
             "paskow_na_ekranie": szeroki.get("paskow"),
@@ -6712,6 +6798,7 @@ KONTROLE: dict[str, object] = {
     "skale_czasu": sprawdz_skale_czasu,
     # ⚠ Druga usterka tego samego kryterium: kratka bez podpowiedzi (szóste twierdzenie, Z66).
     "kratka_bez_title": sprawdz_skale_czasu,
+    "tlo_dnia_pod_paskiem": sprawdz_paski_nieobecnosci,
     "prawda_kalendarza": sprawdz_prawde_kalendarza,
     "jedna_wizualizacja_obca_krata": sprawdz_jedna_wizualizacje,
     "jedna_wizualizacja_dwie_rodziny": sprawdz_jedna_wizualizacje,
@@ -6805,7 +6892,19 @@ def tryb_kontrola() -> int:
                 print(f"KONTROLA {nazwa}: BRAK WSTRZYKIWANEJ USTERKI")
                 zle = True
                 continue
-            wynik = funkcja(b, nazwa)  # type: ignore[operator]
+            # ⚠ **Osłona na wyjątek Z KRYTERIUM, nie z usterki** (dopisane 21.10.2026, Z68).
+            # Bez niej jedno kryterium przewracające się na `TypeError` przerywało CAŁY przebieg
+            # kontroli: zmierzone tego dnia — `sprawdz_paski_nieobecnosci()` nie przyjmowało
+            # nazwy usterki, przebieg padł na piątej pozycji, a o siedmiu dalszych nie dowiedzieliśmy
+            # się niczego. Co gorsza, ostatnia linia („wszystkie kryteria się łamią") wtedy po prostu
+            # nie powstaje — brak dobrej wiadomości łatwo wziąć za jej brak w logu, nie za awarię.
+            # Wyjątek jest więc WYNIKIEM CZERWONYM tego kryterium, a przebieg idzie dalej.
+            try:
+                wynik = funkcja(b, nazwa)  # type: ignore[operator]
+            except Exception as e:  # noqa: BLE001 — kontrola ma dojść do końca rejestru
+                print(f"KONTROLA {nazwa}: BŁĄD KRYTERIUM ({type(e).__name__}: {e})")
+                zle = True
+                continue
             zlamane = wynik.get("ok") is False
             print(f"KONTROLA {nazwa}: {'złamane (dobrze)' if zlamane else 'NIE ZŁAMANE — kryterium jest ozdobą'}")
             if not zlamane:
