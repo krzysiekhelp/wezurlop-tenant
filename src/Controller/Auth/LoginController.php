@@ -13,6 +13,7 @@ use Wezurlop\Security\AuthSession;
 use Wezurlop\Security\OneTimeToken;
 use Wezurlop\Security\ClientFingerprint;
 use Wezurlop\Service\AuthService;
+use Wezurlop\Support\Komunikat;
 use Wezurlop\Support\UrlGenerator;
 use Wezurlop\Support\View;
 
@@ -26,20 +27,37 @@ final class LoginController
     // odnośnikiem na tym samym ekranie, więc komunikat nie musi jej powtarzać.
     private const FAILED = 'Nieprawidłowy login lub hasło. Przy kolejnych próbach odczekaj chwilę.';
 
-    /** Powody przekierowania na ekran logowania — biała lista (CLAUDE.md §11). */
+    /**
+     * Powody przekierowania na ekran logowania — biała lista (CLAUDE.md §11), każdy z RODZAJEM
+     * komunikatu.
+     *
+     * ⚠ **Rodzaj per powód, a nie jeden dla wszystkich** (zgłoszenie z 21.10.2026): do tego dnia
+     * ekran stawiał `notice_rodzaj => 'sukces'` na sztywno, z uzasadnieniem „powody z REASONS to
+     * potwierdzenia czynności". Dla „Wylogowano." to prawda, ale dla pozostałych już nie —
+     * i widać to było na ekranie: **„Sesja wygasła" z zielonym ptaszkiem**, a nawet „Dostęp do
+     * tego konta został zablokowany" jako sukces. Zielony znaczy „udało się to, co robiłeś";
+     * wygaśnięcie sesji nie jest niczyją czynnością, a blokada jest odmową.
+     *
+     * Podział jest więc taki: SUKCES tylko tam, gdzie człowiek coś zrobił i to się udało
+     * (wylogowanie, zmiana hasła, aktywacja konta), INFO tam, gdzie stan po prostu nastąpił
+     * (wygaśnięcie, nieważna sesja, zakończenie z innego urządzenia), UWAGA przy odmowie
+     * dostępu — bo tam jest co zrobić (skontaktować się z administratorem).
+     *
+     * @var array<string, array{0: string, 1: string}>
+     */
     private const REASONS = [
-        'wygasla'         => 'Sesja wygasła. Zaloguj się ponownie.',
-        'wylogowano'      => 'Wylogowano.',
-        'sesja-niewazna'  => 'Sesja jest nieważna (np. po zmianie hasła). Zaloguj się ponownie.',
-        'haslo-zmienione' => 'Hasło zostało zmienione. Zaloguj się nowym hasłem.',
-        'konto-aktywne'   => 'Konto jest aktywne. Zaloguj się ustawionym hasłem.',
-        'sesja-zakonczona' => 'Ta sesja została zakończona (np. z innego urządzenia). Zaloguj się ponownie.',
+        'wygasla'         => ['Sesja wygasła. Zaloguj się ponownie.', Komunikat::INFO],
+        'wylogowano'      => ['Wylogowano.', Komunikat::SUKCES],
+        'sesja-niewazna'  => ['Sesja jest nieważna (np. po zmianie hasła). Zaloguj się ponownie.', Komunikat::INFO],
+        'haslo-zmienione' => ['Hasło zostało zmienione. Zaloguj się nowym hasłem.', Komunikat::SUKCES],
+        'konto-aktywne'   => ['Konto jest aktywne. Zaloguj się ustawionym hasłem.', Komunikat::SUKCES],
+        'sesja-zakonczona' => ['Ta sesja została zakończona (np. z innego urządzenia). Zaloguj się ponownie.', Komunikat::INFO],
         // ⚠ Ten powód wystawia WYŁĄCZNIE `Authenticate`, gdy działającą sesję przerwała blokada
         // konta (zlecenie `blokady-przyjete-i-etap6` §4). Zwykłe logowanie go nie używa: hasło
         // błędne i konto zablokowane dają ten sam `FAILED`, bo inaczej ekran logowania
         // odpowiadałby na pytanie „czy takie konto istnieje" (CLAUDE.md §9).
-        'konto-zablokowane' => 'Dostęp do tego konta został zablokowany. '
-            . 'Jeśli to pomyłka, skontaktuj się z administratorem systemu.',
+        'konto-zablokowane' => ['Dostęp do tego konta został zablokowany. '
+            . 'Jeśli to pomyłka, skontaktuj się z administratorem systemu.', Komunikat::UWAGA],
     ];
 
     public function __construct(
@@ -62,8 +80,9 @@ final class LoginController
             return Response::redirectFor($request, $this->urls->to('/logowanie/kod'));
         }
         $reason = $request->query('powod');
+        $powod = is_string($reason) ? (self::REASONS[$reason] ?? null) : null;
 
-        return $this->render(is_string($reason) ? (self::REASONS[$reason] ?? null) : null, null, '');
+        return $this->render($powod[0] ?? null, null, '', 200, $powod[1] ?? Komunikat::SUKCES);
     }
 
     /** @param array<string, string> $params */
@@ -136,13 +155,20 @@ final class LoginController
         return Response::redirectFor($request, $this->urls->to($sciezka) . '?token=' . rawurlencode($token));
     }
 
-    private function render(?string $notice, ?string $error, string $email, int $status = 200): Response
-    {
+    private function render(
+        ?string $notice,
+        ?string $error,
+        string $email,
+        int $status = 200,
+        string $rodzaj = Komunikat::SUKCES,
+    ): Response {
         return $this->view->render('page/auth/login.twig', [
             'notice' => $notice,
-            // Powody z `REASONS` to potwierdzenia czynności („Wylogowano.") — zielone.
-            // Spokojne wyjaśnienie po wygasłym tokenie renderuje `Http\OdnowienieFormularza`.
-            'notice_rodzaj' => 'sukces',
+            // ⚠ Rodzaj przychodzi z `REASONS` razem ze zdaniem — jedno miejsce, bo inaczej
+            // zdanie i jego barwa rozjadą się przy pierwszym nowym powodzie (tak właśnie
+            // „Sesja wygasła" dostała zielony ptaszek). Wyjaśnienie po wygasłym tokenie
+            // renderuje `Http\OdnowienieFormularza` i ma własny rodzaj.
+            'notice_rodzaj' => $rodzaj,
             'error'  => $error,
             'email'  => $email,
         ], $status);
