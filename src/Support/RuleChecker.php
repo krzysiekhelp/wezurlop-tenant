@@ -239,11 +239,17 @@ final class RuleChecker
                 $this->checkMetodyRazem($file);
             }
         }
+        // ⚠ **Dwa przebiegi po arkuszach, nie jeden**: żeby sprawdzić, czy użyty token istnieje,
+        // trzeba najpierw znać WSZYSTKIE definicje — a te stoją nie tylko w `00-tokens.css`
+        // (`--kal-ramka` w komponencie kalendarza, `--team-days` w siatce zespołu). Sprawdzanie
+        // pliku po pliku zapalałoby każdy token zdefiniowany w innym arkuszu niż użyty.
+        $znaneTokeny = $this->cssTokeny();
         foreach ($this->files('public/assets/css') as $file) {
             if ($file->getExtension() !== 'css') {
                 continue;
             }
             $bezKomentarzy = $this->withoutCssComments($this->read($file));
+            $this->checkCssTokeny($file, $bezKomentarzy, $znaneTokeny);
             // ⚠ Nawiasy sprawdzamy w KAŻDYM arkuszu, także w `00-tokens.css`: wyjątek dotyczy
             // wartości kolorów, a nie składni. Niedomknięty blok w pliku tokenów wyłączyłby
             // wszystko, co po nim stoi, czyli połowę systemu wizualnego.
@@ -384,6 +390,68 @@ final class RuleChecker
      * ⚠ Komentarze i napisy w cudzysłowach schodzą PRZED liczeniem: `content: "}"` jest legalne
      * i nie jest nawiasem bloku.
      */
+    /**
+     * **Wszystkie tokeny zdefiniowane w arkuszach** — zbiór nazw, nie wartości.
+     *
+     * ⚠ Czytamy KAŻDY arkusz, nie tylko `00-tokens.css`: część tokenów to zmienne komponentu
+     * (`--kal-ramka`, `--team-days`, `--przyklej-luka`) i mieszkają przy regule, która ich używa.
+     * Wymaganie, żeby wszystkie stały w pliku tokenów, byłoby inną regułą niż ta — i nieprawdziwą,
+     * bo zmienna układu nie jest wartością systemu wizualnego.
+     *
+     * @return array<string, true>
+     */
+    private function cssTokeny(): array
+    {
+        $znane = [];
+        foreach ($this->files('public/assets/css') as $file) {
+            if ($file->getExtension() !== 'css') {
+                continue;
+            }
+            // Komentarze odpadają, bo w komentarzach stoją nazwy tokenów SKASOWANYCH
+            // (np. „token `--c-dzis` zniknął razem z regułami") — definicją nie są.
+            $tekst = $this->withoutCssComments($this->read($file));
+            if (preg_match_all('/(--[a-z0-9-]+)\s*:/i', $tekst, $m) > 0) {
+                foreach ($m[1] as $nazwa) {
+                    $znane[$nazwa] = true;
+                }
+            }
+        }
+
+        return $znane;
+    }
+
+    /**
+     * **Użyty token istnieje albo ma wartość zapasową** (zlecenie Z77, 22.10.2026).
+     *
+     * ⚠ Powód jest zmierzony, nie teoretyczny: nieznana nazwa w `var(--x)` **nie jest dla
+     * przeglądarki błędem** — unieważnia całą deklarację po cichu, a wartość bierze się
+     * z dziedziczenia. Taki błąd nie zapala się NIGDZIE: ani w przeglądarce, ani w phpcs,
+     * ani (do dziś) tutaj. Dwa przykłady z tego repozytorium: `color: var(--c-text-1)`
+     * w `.konto-pole__wartosc` siedziało od 19.10.2026 do 21.10.2026 i przez cały ten czas
+     * nie robiło nic, a `font-size: var(--fs-sm)` w dwóch regułach ekranu hierarchii nie
+     * ustawiało rozmiaru od chwili przepisania arkusza.
+     *
+     * ⚠ Wartość zapasowa (`var(--x, 8px)`) jest **dozwolona i konieczna**: tak czyta się tokeny
+     * ustawiane w czasie pracy (`--sonda-postep` z JavaScriptu, `--przyklej-luka` z pomiaru).
+     * Rozstrzyga znak po nazwie: przecinek znaczy „jest zapas", nawias zamykający — „musi istnieć".
+     *
+     * @param array<string, true> $znane
+     */
+    private function checkCssTokeny(SplFileInfo $file, string $bezKomentarzy, array $znane): void
+    {
+        if (preg_match_all('/var\(\s*(--[a-z0-9-]+)\s*([,)])/i', $bezKomentarzy, $m, PREG_OFFSET_CAPTURE) < 1) {
+            return;
+        }
+        foreach ($m[1] as $i => [$nazwa, $pozycja]) {
+            if ($m[2][$i][0] === ',' || isset($znane[$nazwa])) {
+                continue;
+            }
+            $this->hit($file, $this->lineAt($bezKomentarzy, $pozycja),
+                "token {$nazwa} nie jest nigdzie zdefiniowany i nie ma wartości zapasowej — "
+                . 'przeglądarka odrzuci CAŁĄ deklarację po cichu');
+        }
+    }
+
     private function checkCssNawiasy(SplFileInfo $file, string $bezKomentarzy): void
     {
         $tekst = $this->withoutCssStrings($bezKomentarzy);

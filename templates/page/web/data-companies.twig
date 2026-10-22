@@ -150,7 +150,13 @@
                                             <span class="chip chip--accent"><span class="chip__kropka"></span>zatwierdzona</span>
                                         {% endif %}
                                         {% if f.key_name is not null %}
-                                            <span class="chip">{{ ikony.klucz() }}{{ f.key_name }}</span>
+                                            {#- ⚠ Nazwa klucza w OSOBNYM spanie, bo wielokropek działa na
+                                                pojemniku tekstu, a `.chip` jest `inline-flex` z ikoną —
+                                                `text-overflow` na plakietce nie przyciąłby napisu, tylko
+                                                rozpychał ją dalej (zmierzone w Z77: 273 px przy kolumnie
+                                                170 px i wiersz rosnący z 71 do 80 px). Pełna nazwa
+                                                w `title`, więc nic nie ginie. -#}
+                                            <span class="chip dane-firma__klucz" title="{{ f.key_name }}">{{ ikony.klucz() }}<span class="dane-firma__klucz-nazwa">{{ f.key_name }}</span></span>
                                         {% else %}
                                             {#- Brak klucza to stan wymagający reakcji: connector nie ma
                                                 czym się przedstawić, więc ta firma przestanie się

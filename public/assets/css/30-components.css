@@ -3450,7 +3450,13 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 }
 .hier__card-main { display: grid; gap: 2px; min-width: 0; }
 .hier__osoba { color: var(--c-text); }
-.hier__fakty { color: var(--c-text-3); font-size: var(--fs-sm); }
+/* ⚠ **Reguła `.hier__fakty` stała TUTAJ i była martwa dwa razy** (usunięta w Z77): miała
+   `font-size: var(--fs-sm)`, czyli token, którego nie ma w zestawie, a dodatkowo niżej
+   (przy karcie osoby) stoi druga reguła `.hier__fakty` z `--t-caption` i tym samym kolorem —
+   więc nawet poprawny rozmiar nie miałby tu znaczenia. ⚠ To ślad PO NAPRAWIE: ktoś zauważył
+   zły token i dopisał poprawną regułę niżej, zamiast zmienić tę. Zostawiona duplikatka wygląda
+   potem jak miejsce, w którym „coś się ustawia", i następna osoba zmienia właśnie ją — bez
+   żadnego skutku na ekranie. Rozmiar faktów rozstrzyga jedno miejsce: reguła przy karcie osoby. */
 .hier__card-chips { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s-2); }
 /* ⚠ Bursztyn wyłącznie tam, gdzie ktoś ma zareagować: „ma podwładnych, a nie ma roli
    przełożonego" i „ma podwładnych, a konto zablokowane". Reszta kart jest bez koloru. */
@@ -3606,7 +3612,10 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 }
 .hier__bar-text { display: grid; gap: var(--s-2); min-width: 0; }
 .hier__bar-list { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--s-1); }
-.hier__bar-item { color: var(--c-text-2); font-size: var(--fs-sm); }
+/* ⚠ `--t-small`, nie `--fs-sm`: tokena `--fs-sm` nie ma w zestawie, więc wiersze paska brały
+   rozmiar odziedziczony (zmierzone: 14 px, czyli tyle, ile treść). `--t-small` (13 px) to w tym
+   systemie „pomocnicze, przyciski drugorzędne" — a pasek wymienia zmiany obok przycisków. */
+.hier__bar-item { color: var(--c-text-2); font-size: var(--t-small); }
 .hier__bar-actions { display: flex; gap: var(--s-2); flex: none; }
 
 @media (max-width: 1100px) {
@@ -5474,10 +5483,30 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.dane-firma__stan { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); min-width: 0; }
+/* ⚠ **`nowrap` w wariancie szerokim, `wrap` w kafelku** (Z77). Z zawijaniem jedna dłuższa nazwa
+   klucza spychała drugą plakietkę do drugiej linii i wiersz rósł z 71 do 80 px — czyli wysokość
+   CAŁEJ tabeli zależała od najdłuższej nazwy klucza. Bez zawijania plakietka klucza kurczy się
+   do wolnego miejsca i ucina napis (pełna nazwa w `title`), a wiersz trzyma wysokość. W kafelku
+   zawijanie wraca, bo tam kolumna stanu ma całą szerokość karty i jest gdzie się zmieścić. */
+.dane-firma__stan { display: flex; flex-wrap: nowrap; align-items: center; gap: var(--s-2); min-width: 0; }
 /* ⚠ Ikona w plakietce potrzebuje WŁASNEGO odstępu: `.chip` jest `inline-flex`, więc odstęp
    między dwoma dziećmi znika — ta sama pułapka, co przy kropce stanu. */
 .dane-firma__stan .chip .ico { width: 14px; height: 14px; margin-right: var(--s-1); }
+/* ⚠ **Plakietka klucza kurczy się i ucina napis, zamiast rozpychać kolumnę** (Z77, decyzja
+   Krzysztofa: „wielokropek, nie zawijanie"). Zmierzone przed poprawką: nazwa klucza na 41 znaków
+   dawała plakietkę 273 px w kolumnie 170 px, chipy łamały się na dwie linie, a wiersz rósł z 71
+   do 80 px — czyli jedna dłuższa nazwa przestawiała wysokość CAŁEJ tabeli.
+   ⚠ Trzy rzeczy są tu konieczne naraz: `min-width: 0` i `flex-shrink` na plakietce (inaczej flex
+   nie pozwoli jej zmaleć poniżej treści), `max-width: 100%` (żeby nie wyszła za kolumnę)
+   i wielokropek na WEWNĘTRZNYM spanie (bo `.chip` jest `inline-flex`, więc `text-overflow`
+   nie ma na czym działać). Pełną nazwę niesie `title`. */
+.dane-firma__klucz { min-width: 0; flex: 0 1 auto; max-width: 100%; }
+.dane-firma__klucz-nazwa {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 .dane-firma__liczba {
   font-size: 20px;
   font-weight: var(--w-semibold);
@@ -5508,7 +5537,7 @@ body:has(dialog.modal[open]) { overflow: hidden; }
     padding: var(--s-4);
   }
   .dane-firma__firma { grid-column: 1 / -1; }
-  .dane-firma__stan { grid-column: 1 / -1; }
+  .dane-firma__stan { grid-column: 1 / -1; flex-wrap: wrap; }
   /* Liczba i czas znikają jako kolumny — zastępuje je jedno zdanie skrótu. */
   .dane-firma__liczba, .dane-firma__czas { display: none; }
   .dane-firma__skrot {

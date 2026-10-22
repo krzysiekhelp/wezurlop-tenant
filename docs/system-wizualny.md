@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.20.0, 22.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.20.1, 22.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,37 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.20.0 → 1.20.1: nieistniejący token CSS jest teraz naruszeniem, a nie ciszą**
+> (zlecenie Z77, decyzje Krzysztofa po Z75 i Z76).
+> - ⚠ **Reguła w `bin/check-rules.php`**: każde `var(--x)` w arkuszach musi mieć definicję
+>   (w `00-tokens.css` albo przy regule, która jej używa — `--kal-ramka`, `--team-days`) ALBO
+>   wartość zapasową (`var(--sonda-postep, 0%)`, bo tak czyta się tokeny ustawiane w czasie pracy).
+>   Powód jest zmierzony: nieznana nazwa **nie jest dla przeglądarki błędem** — unieważnia całą
+>   deklarację po cichu i wartość bierze się z dziedziczenia. Taki błąd nie zapalał się nigdzie:
+>   `--c-text-1` siedział w `.konto-pole__wartosc` od 19.10 do 21.10, a `--fs-sm` w dwóch
+>   regułach hierarchii od przepisania arkusza. Kontrola negatywna: zmyślony token zapala regułę
+>   (jedno trafienie), a `var(--t-small, 13px)` w tej samej linii nie — zwolnienie dla wartości
+>   zapasowej też jest dowiedzione.
+> - **Hierarchia**: `.hier__bar-item` dostał `--t-small` zamiast nieistniejącego `--fs-sm`
+>   — zmierzone 14 px → **13 px** (wiersze paska zmian brały dotąd rozmiar treści).
+>   ⚠ Druga reguła z tym tokenem (`.hier__fakty`) została **usunięta, nie poprawiona**: niżej
+>   w pliku stoi druga reguła `.hier__fakty` z `--t-caption` i tym samym kolorem, więc tamta
+>   deklaracja była martwa dwa razy — zły token i nadpisanie. Rozmiar faktów nie zmienił się
+>   (12 px przed i po). To ślad PO NAPRAWIE: ktoś dopisał poprawną regułę niżej, zamiast zmienić
+>   tę; zostawiona duplikatka wygląda potem jak miejsce, w którym „coś się ustawia".
+> - **`/dane`, plakietka nazwy klucza**: jedna linia z wielokropkiem, pełna nazwa w `title`
+>   (decyzja Krzysztofa: „wielokropek, nie zawijanie"). Przed poprawką nazwa na 41 znaków dawała
+>   plakietkę **273 px w kolumnie 170 px**, chipy łamały się na dwie linie, a wiersz rósł
+>   z 71 na **80 px** — czyli wysokość całej tabeli zależała od najdłuższej nazwy klucza.
+>   Po poprawce wiersz trzyma **71 px**, plakietka kurczy się do 60 px i ucina napis.
+>   ⚠ Zawijanie zniknęło TYLKO w wariancie szerokim; w kafelku (`@container` < 760 px) wraca,
+>   bo tam kolumna stanu ma całą szerokość karty — zmierzone przy 375 px: dwie linie plakietek,
+>   36 znaków nazwy widocznych, zero przewijania.
+> - ⚠ **Cena jest policzona i warto ją znać**: przy kolumnie 170 px i plakietce stanu 102 px na
+>   nazwę klucza zostaje 60 px, czyli **6 znaków**. Pełna nazwa jest w `title`, ale jeśli ma być
+>   czytelna bez najeżdżania, kolumna STATUS potrzebuje ~258 px (wtedy widać ~20 znaków) —
+>   kosztem kolumny nazwy firmy, która przy 1366 px ma 254 px. Decyzja czeka.
 
 > **Zmiana 1.19.5 → 1.20.0: `/dane` — lista firm jako czytelna tabela** (zlecenie Z76,
 > zgłoszenie Krzysztofa „dużo informacji i nic nie widać", prototyp zaakceptowany).
