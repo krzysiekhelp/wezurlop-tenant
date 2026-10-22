@@ -17,9 +17,17 @@ namespace Wezurlop\Repository;
  * kiedykolwiek wpadł pusty łańcuch (import, ręczna poprawka w bazie), wyrażenie nadal pokaże
  * nazwę z R2, a nie puste miejsce w kolumnie.
  *
- * ⚠ Gdzie NIE używamy: ekrany `/dane`, `/admin/integracja` i przebiegi synchronizacji pokazują
- * dane **tak, jak przyszły z R2** — tam nazwa z R2 jest treścią, nie etykietą, i podmiana
- * na naszą krótką nazwę utrudniłaby porównanie z programem kadrowym.
+ * ⚠ Gdzie NIE używamy: `/admin/integracja` i przebiegi synchronizacji pokazują dane **tak, jak
+ * przyszły z R2** — tam nazwa z R2 jest treścią, nie etykietą, i podmiana na naszą krótką nazwę
+ * utrudniłaby porównanie z programem kadrowym.
+ *
+ * ⚠ **`/dane` od Z76 (22.10.2026) pokazuje nazwę WYŚWIETLANĄ, a prawną trzyma w podpowiedzi**
+ * (decyzja Krzysztofa). Wcześniej stało tu, że ten ekran jej nie używa — i było to uzasadnione
+ * tym samym porównaniem z kadrami. Zmiana nie unieważnia tego powodu, tylko rozdziela role:
+ * w kolumnie na jedną jednostkę siatki 46-znakowa nazwa prawna wersalikami była nieczytelna,
+ * a **kluczem porównania z programem kadrowym jest NIP**, który stoi w wierszu jawnie. Nazwa
+ * z R2 nie zniknęła: niesie ją atrybut `title` nazwy firmy, więc dosłowne brzmienie dalej jest
+ * na tym ekranie dostępne.
  */
 final class NazwaSpolki
 {

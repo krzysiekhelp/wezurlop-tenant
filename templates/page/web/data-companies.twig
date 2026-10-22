@@ -72,14 +72,19 @@
 
     {#- ══════════ Jedna karta z listą firm (§3 i §4) ══════════ -#}
     <section class="card">
-        {#- ⚠ Karta **bez tytułu**: ekran nazywa się „Dane z kadr" i ta nazwa stoi w belce jako
-            jedyny `h1`. Tytuł karty byłby DRUGIM tytułem tego samego ekranu (reguła z 11.10,
-            kryterium bramki `nazwa_ekranu_w_belce`) — tak samo jak na `/admin/konta`. -#}
+        {#- ⚠ **Karta MA tytuł i to nie łamie reguły z 11.10** (zlecenie Z76). Reguła i kryterium
+            bramki pilnują, żeby NAZWA EKRANU nie powtarzała się w nagłówkach — mierzą to wprost
+            (`powtorzenia` w `POMIAR_TYTULU`: `h2`/`h3`, których tekst równa się tekstowi `h1`).
+            „Firmy z programu kadrowego" nie jest nazwą tego ekranu („Dane z kadr"), tylko nazwą
+            SEKCJI — tak samo jak „Dane konta" i „Bezpieczeństwo" na „Moim koncie". Poprzedni
+            komentarz w tym miejscu ujmował regułę za szeroko („tytuł karty byłby drugim tytułem
+            ekranu") i to przez niego karta została bez tytułu, a dwa zdania opisu musiały go
+            udawać. -#}
         <div class="card__head card__head--znak card__head--lista">
             <span class="card__znak">{{ ikony.dane() }}</span>
             <div class="card__tytuly">
-                <p class="card__opis card__opis--lead">Podgląd tego, co przysłał connector.</p>
-                <p class="card__opis">Dane pochodzą z programu kadrowego i są tu tylko do odczytu — poprawki robi się w kadrach, a przy następnym cyklu trafiają tutaj.</p>
+                <h2>Firmy z programu kadrowego</h2>
+                <p class="card__opis">Podgląd tego, co przysłał connector. Tylko do odczytu — poprawki robi się w kadrach, trafiają tu przy następnym cyklu.</p>
             </div>
             <div class="card__akcje">
                 <a class="btn btn--ghost btn--akcja" href="{{ url('/dane/synchronizacja') }}">{{ ikony.odswiezenie() }}Stan synchronizacji ›</a>
@@ -88,62 +93,89 @@
         {% if firmy is empty %}
             <div class="card__body"><p class="empty-state">Nie ma jeszcze żadnej firmy. Firmy pojawią się tu po tym, jak connector je zgłosi, a administrator zatwierdzi.</p></div>
         {% else %}
-            <ul class="dane-firmy">
-                {% for f in firmy %}
-                    {#- ⚠ **Cały wiersz jest JEDNYM odnośnikiem, a „Pracownicy ›" jego częścią** —
-                        `<span class="btn">` wewnątrz `<a>`, nie zagnieżdżony przycisk: przycisk
-                        w odnośniku jest w HTML niedozwolony, a przeglądarka rozstrzyga to po
-                        swojemu. Ta sama konstrukcja, co w wierszu konfiguracji na `/ustawienia`
-                        (`.settings-list--akcje`). Oba cele prowadzą pod ten sam adres, więc drugi
-                        cel kliknięcia niczego by nie dodał. -#}
-                    <li>
-                        <a class="dane-firma" href="{{ url('/dane/firma/' ~ f.id) }}">
-                            <span class="dane-firma__znak">{{ ikony.firma() }}</span>
-                            <span class="dane-firma__glowna">
-                                <span class="dane-firma__nazwa">{{ f.name }}</span>
-                                <span class="dane-firma__plakietki">
-                                    <span class="chip">NIP {{ nip_grupami(f.nip) }}</span>
-                                    {#- ⚠ Modyfikator z BIAŁEJ LISTY w jawnym warunku, nie sklejany
-                                        z danych (`chip--{{ f.signup }}`, §4b): pierwszy nowy stan
-                                        zgłoszenia wytworzyłby klasę, której system nie ma, i nikt
-                                        by tego nie zauważył.
-                                        ⚠ Kropka bierze barwę z napisu (`currentColor`), więc trzy
-                                        stany nie dokładają ani jednego nowego tokenu. -#}
-                                    {% if f.signup == 'pending' %}
-                                        <span class="chip chip--warn"><span class="chip__kropka"></span>zgłoszona, czeka</span>
-                                    {% elseif f.signup == 'rejected' %}
-                                        <span class="chip chip--danger"><span class="chip__kropka"></span>odrzucona</span>
-                                    {% else %}
-                                        <span class="chip chip--accent"><span class="chip__kropka"></span>zatwierdzona</span>
-                                    {% endif %}
-                                    {% if f.key_name is not null %}
-                                        <span class="chip">{{ ikony.klucz() }}{{ f.key_name }}</span>
-                                    {% else %}
-                                        {#- Brak klucza to stan wymagający reakcji: connector nie ma
-                                            czym się przedstawić, więc ta firma przestanie się
-                                            synchronizować. -#}
-                                        <span class="chip chip--warn"><span class="chip__kropka"></span>brak aktywnego klucza</span>
-                                    {% endif %}
-                                </span>
-                            </span>
-                            <span class="dane-firma__liczba">
-                                {#- ⚠ „Zatrudnienia", nie „Pracownicy" — ta sama nazwa, co w kaflu
-                                    nad listą, bo to ta sama liczba: suma kolumny daje kafel.
-                                    Dwie nazwy jednej liczby każą pytać, która jest która. -#}
-                                <span class="dane-firma__etykieta">Zatrudnienia</span>
-                                <span class="dane-firma__wartosc">{{ f.employees }}</span>
-                            </span>
-                            {# ⚠ Znacznik przez filtr — surowy `RRRR-MM-DD HH:MM:SS` w treści dla użytkownika
-                               to ten sam błąd co „UTC”, tylko bez etykiety (docs §10 punkt 3). #}
-                            <span class="dane-firma__liczba dane-firma__liczba--czas" title="{{ f.last_sync ? czas_ze_strefa(f.last_sync) : '' }}">
-                                <span class="dane-firma__etykieta">Ostatnia synchronizacja</span>
-                                <span class="dane-firma__czas">{{ f.last_sync ? czas_wzgledny(f.last_sync) : 'jeszcze nie było' }}</span>
-                            </span>
-                            <span class="btn btn--ghost btn--akcja dane-firma__akcja">Pracownicy ›</span>
-                        </a>
-                    </li>
-                {% endfor %}
-            </ul>
+            {#- ⚠ **Lista w RAMCE, wewnątrz `card__body`** (zlecenie Z76). Dwie rzeczy naraz:
+                ramka oddziela tabelę od karty (wcześniej wiersze zaczynały się od krawędzi
+                i zlewały z nagłówkiem), a `card__body` **ustanawia kontener zapytania**
+                (`container-name: karta`) — bez niego wariant wąski nie miałby o co pytać,
+                bo `@container` nie pyta o samego siebie. -#}
+            <div class="card__body">
+                <div class="dane-tabela">
+                    {#- ⚠ **Jeden wiersz nagłówków kolumn zamiast etykiety w każdym wierszu**:
+                        „Zatrudnienia" i „Ostatnia synchronizacja" stały dotąd przy KAŻDEJ firmie,
+                        czyli przy dwóch firmach dwa razy, a przy pięćdziesięciu — pięćdziesiąt.
+                        Etykieta powtórzona w każdym wierszu nie jest etykietą, tylko szumem.
+                        ⚠ `aria-hidden`, bo to nagłówki WZROKOWE: czytnik dostaje nazwy z treści
+                        wiersza (nazwa firmy, liczba, czas), a nie z tej belki — która dla niego
+                        byłaby pięcioma napisami bez związku z żadnym wierszem. -#}
+                    <div class="dane-tabela__glowa" aria-hidden="true">
+                        <span>Firma</span>
+                        <span>Status</span>
+                        <span class="dane-tabela__do-prawej">Zatrudnienia</span>
+                        <span>Ostatnia synchronizacja</span>
+                        <span></span>
+                    </div>
+                    <ul class="dane-firmy">
+                        {% for f in firmy %}
+                            {#- ⚠ **Cały wiersz jest JEDNYM odnośnikiem, a „Pracownicy ›" jego częścią** —
+                                `<span class="btn">` wewnątrz `<a>`, nie zagnieżdżony przycisk: przycisk
+                                w odnośniku jest w HTML niedozwolony, a przeglądarka rozstrzyga to po
+                                swojemu. Ta sama konstrukcja, co w wierszu konfiguracji na `/ustawienia`.
+                                Oba cele prowadzą pod ten sam adres, więc drugi cel kliknięcia
+                                niczego by nie dodał. -#}
+                            <li>
+                                <a class="dane-firma" href="{{ url('/dane/firma/' ~ f.id) }}">
+                                    <span class="dane-firma__firma">
+                                        <span class="dane-firma__znak">{{ ikony.firma() }}</span>
+                                        <span class="dane-firma__opis">
+                                            {#- ⚠ **Nazwa WYŚWIETLANA, pełna nazwa prawna w podpowiedzi**
+                                                (Z76 pkt 4). Ekran służy do porównania z kadrami, więc
+                                                nazwa z R2 nie może zniknąć — ale 46 znaków wersalikami
+                                                w kolumnie na 1 fr nie dało się przeczytać. Kluczem
+                                                porównania jest NIP i stoi niżej, jawnie. -#}
+                                            <span class="dane-firma__nazwa" title="{{ f.nazwa_r2 }}">{{ f.nazwa }}</span>
+                                            {#- NIP przestaje być plakietką: to dana, nie stan (Z76 pkt 3). -#}
+                                            <span class="dane-firma__nip">NIP {{ nip_grupami(f.nip) }}</span>
+                                        </span>
+                                    </span>
+                                    <span class="dane-firma__stan">
+                                        {#- ⚠ Modyfikator z BIAŁEJ LISTY w jawnym warunku, nie sklejany
+                                            z danych (`chip--{{ f.signup }}`): pierwszy nowy stan
+                                            zgłoszenia wytworzyłby klasę, której system nie ma, i nikt
+                                            by tego nie zauważył. Kropka bierze barwę z napisu. -#}
+                                        {% if f.signup == 'pending' %}
+                                            <span class="chip chip--warn"><span class="chip__kropka"></span>zgłoszona, czeka</span>
+                                        {% elseif f.signup == 'rejected' %}
+                                            <span class="chip chip--danger"><span class="chip__kropka"></span>odrzucona</span>
+                                        {% else %}
+                                            <span class="chip chip--accent"><span class="chip__kropka"></span>zatwierdzona</span>
+                                        {% endif %}
+                                        {% if f.key_name is not null %}
+                                            <span class="chip">{{ ikony.klucz() }}{{ f.key_name }}</span>
+                                        {% else %}
+                                            {#- Brak klucza to stan wymagający reakcji: connector nie ma
+                                                czym się przedstawić, więc ta firma przestanie się
+                                                synchronizować. -#}
+                                            <span class="chip chip--warn"><span class="chip__kropka"></span>brak aktywnego klucza</span>
+                                        {% endif %}
+                                    </span>
+                                    {#- ⚠ „Zatrudnienia", nie „Pracownicy" — ta sama nazwa, co w kaflu
+                                        nad listą, bo to ta sama liczba: suma kolumny daje kafel. -#}
+                                    <span class="dane-firma__liczba">{{ f.employees }}</span>
+                                    {# ⚠ Znacznik przez filtr — surowy `RRRR-MM-DD HH:MM:SS` w treści dla
+                                       użytkownika to ten sam błąd co „UTC”, tylko bez etykiety. #}
+                                    <span class="dane-firma__czas" title="{{ f.last_sync ? czas_ze_strefa(f.last_sync) : '' }}">{{ f.last_sync ? czas_wzgledny(f.last_sync) : 'jeszcze nie było' }}</span>
+                                    {#- ⚠ W wariancie wąskim ta linijka zastępuje dwie kolumny: liczbę
+                                        i czas widać wtedy w jednym zdaniu, bo kafelek nie ma kolumn.
+                                        Renderujemy ją ZAWSZE, a arkusz rozstrzyga, która postać jest
+                                        widoczna — inaczej trzeba by liczyć szerokość skryptem. -#}
+                                    <span class="dane-firma__skrot">{{ f.employees }} {{ odmiana_zatrudnien(f.employees) }} · {{ f.last_sync ? czas_wzgledny(f.last_sync) : 'jeszcze nie było synchronizacji' }}</span>
+                                    <span class="btn btn--ghost btn--sm dane-firma__akcja">Pracownicy ›</span>
+                                </a>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
         {% endif %}
     </section>
 {% endblock %}

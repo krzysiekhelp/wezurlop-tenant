@@ -485,6 +485,7 @@ final class Kernel
             'odmiana_dni_robocze' => Odmiana::dniRobocze(...),
             'odmiana_wpisow' => Odmiana::wpisy(...),
             'odmiana_zadan' => Odmiana::zadania(...),
+            'odmiana_zatrudnien' => Odmiana::zatrudnienia(...),
             'nip_grupami'  => Nip::human(...),
             'data_dnia'    => DataDnia::pl(...),
             'czas_wzgledny' => static fn (?string $utc): string => RelativeTime::format($utc),
@@ -593,6 +594,7 @@ final class Kernel
                 'odmiana_wpisow' => Odmiana::wpisy(...),
                 // „1 zadanie”, „3 zadania”, „5 zadań” — kafel kolejki na `/ustawienia/poczta` (Z43).
                 'odmiana_zadan' => Odmiana::zadania(...),
+                'odmiana_zatrudnien' => Odmiana::zatrudnienia(...),
                 'nip_grupami'  => Nip::human(...),
                 // ⚠ Data KALENDARZOWA z kadr (`2009-03-09` → `09.03.2009`), nie znacznik czasu:
                 // nie przechodzi przez strefę, bo data zatrudnienia godziny nie ma, a przeliczanie

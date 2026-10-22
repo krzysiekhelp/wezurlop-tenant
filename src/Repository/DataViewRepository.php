@@ -41,12 +41,19 @@ final class DataViewRepository
      * Firmy z licznikiem pracowników, czasem ostatniej udanej synchronizacji i kluczem, który je obsługuje.
      *
      * @param list<int>|null $companies
-     * @return list<array{id: int, nip: string, name: string, employees: int, last_sync: ?string, key_name: ?string, signup: ?string}>
+     * ⚠ **Dwie nazwy, nie jedna** (zlecenie Z76, 22.10.2026): `nazwa` to nazwa wyświetlana
+     * (`NazwaSpolki`, czyli to, czym firma nazywa się w całej aplikacji), a `nazwa_r2` zostaje
+     * pełną nazwą prawną **tak, jak przyszła z programu kadrowego**. Ekran pokazuje pierwszą,
+     * a drugą trzyma w podpowiedzi — bo ten ekran służy do PORÓWNANIA z kadrami i wycięcie
+     * nazwy z R2 zabrałoby jedyne miejsce, w którym widać ją dosłownie. Kluczem porównania
+     * pozostaje NIP i on stoi w wierszu jawnie.
+     *
+     * @return list<array{id: int, nip: string, name: string, nazwa: string, nazwa_r2: string, employees: int, last_sync: ?string, key_name: ?string, signup: ?string}>
      */
     public function companies(?array $companies): array
     {
         $stmt = $this->db->pdo()->prepare(
-            "SELECT c.id, c.nip, c.name,
+            "SELECT c.id, c.nip, c.name, " . NazwaSpolki::SQL . " AS nazwa,
                     (SELECT COUNT(*) FROM employment e WHERE e.company_id = c.id AND e.is_active = 1) AS employees,
                     (SELECT MAX(r.finished_at) FROM sync_run r WHERE r.company_id = c.id AND r.status = 'closed') AS last_sync,
                     (SELECT k.name FROM api_key_company kc JOIN api_key k ON k.id = kc.api_key_id
@@ -54,13 +61,15 @@ final class DataViewRepository
                     (SELECT s.status FROM company_signup s WHERE s.nip = c.nip ORDER BY s.id DESC LIMIT 1) AS signup
              FROM company c
              WHERE " . self::scopeSql($companies, 'c.id') . "
-             ORDER BY c.name"
+             ORDER BY " . NazwaSpolki::SQL
         );
         $stmt->execute(self::scopeParams($companies));
         $out = [];
         foreach ($stmt->fetchAll() as $row) {
             $out[] = [
                 'id' => (int) $row['id'], 'nip' => (string) $row['nip'], 'name' => (string) $row['name'],
+                'nazwa' => (string) $row['nazwa'],
+                'nazwa_r2' => (string) $row['name'],
                 'employees' => (int) $row['employees'],
                 'last_sync' => $row['last_sync'] === null ? null : (string) $row['last_sync'],
                 'key_name' => $row['key_name'] === null ? null : (string) $row['key_name'],

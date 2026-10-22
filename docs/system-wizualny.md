@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.19.5, 22.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.20.0, 22.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,46 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.19.5 → 1.20.0: `/dane` — lista firm jako czytelna tabela** (zlecenie Z76,
+> zgłoszenie Krzysztofa „dużo informacji i nic nie widać", prototyp zaakceptowany).
+> ⚠ Numer rośnie na drugim członie, bo zmienia się UKŁAD karty, nie jej szczegóły.
+> - **Było**: wiersz był rzędem pudełek `flex`, w którym każda firma powtarzała etykiety
+>   „Zatrudnienia" i „Ostatnia synchronizacja" (przy dwóch firmach dwa razy, przy pięćdziesięciu
+>   — pięćdziesiąt), NIP był plakietką wśród plakietek stanu, a nazwa szła **pełną nazwą prawną
+>   z R2** (zmierzone: 46 znaków wersalikami wobec 6-znakowej nazwy wyświetlanej). Dane były,
+>   ale nic nie stało w jednej osi, więc nie dawały się zestawić.
+> - **Jest**: tabela w ramce (`1px --c-line`, promień 10 px) z JEDNYM wierszem nagłówków kolumn
+>   na `--c-bg` (11 px, wersaliki, odstęp `.05em`, `--c-text-3`): FIRMA · STATUS · ZATRUDNIENIA
+>   (do prawej) · OSTATNIA SYNCHRONIZACJA · akcja. Etykiety z każdego wiersza zniknęły.
+> - **Wiersz**: siatka `minmax(0,1fr) 170px 130px 190px 130px`, odstęp 24 px, padding 14/16,
+>   kreska `--c-line`, tło `--c-bg` po najechaniu. Ikona 36×36 na `--c-bg`, nazwa 15 px/600
+>   z wielokropkiem, pod nią „NIP …" 12 px `--c-text-3` cyframi tabelarycznymi (NIP przestał
+>   być plakietką), liczba zatrudnień 20 px/600 do prawej, czas 14 px `--c-text-2`, „Pracownicy ›"
+>   jako mały przycisk drugorzędny do prawej. Cały wiersz pozostaje jednym odnośnikiem.
+> - **Karta ma tytuł** „Firmy z programu kadrowego" (18 px/600) i jedno zdanie pod nim.
+>   ⚠ To NIE łamie reguły z 11.10: kryterium `nazwa_ekranu_w_belce` mierzy **powtórzenie nazwy
+>   ekranu** w nagłówkach (`h2`/`h3` o tekście równym `h1`), a „Firmy z programu kadrowego" nie
+>   jest nazwą ekranu („Dane z kadr") — jest nazwą sekcji, jak „Dane konta" na „Moim koncie".
+>   Poprzedni komentarz w szablonie ujmował regułę za szeroko i właśnie dlatego karta stała bez
+>   tytułu, a dwa zdania opisu musiały go udawać.
+> - ⚠ **Nazwa wyświetlana na tym ekranie, nazwa prawna w podpowiedzi** (Z76 pkt 4). Dotąd
+>   `NazwaSpolki` wykluczała `/dane` wprost — „tam nazwa z R2 jest treścią, nie etykietą".
+>   Powód nie zniknął, ale role się rozdzieliły: kluczem porównania z kadrami jest **NIP**, który
+>   stoi w wierszu jawnie, a dosłowne brzmienie nazwy niesie `title`. Docblock `NazwaSpolki`
+>   został poprawiony, żeby nie mówił nieprawdy.
+> - **Wąsko przez `@container karta`, nie `@media`**: decyduje szerokość KARTY, bo ta sama lista
+>   może stanąć w węższej kolumnie przy szerokim oknie. Poniżej 760 px wiersz przechodzi
+>   w kafelek (nazwa i NIP, pod nimi plakietki, potem jedno zdanie „39 zatrudnień · przed chwilą"),
+>   nagłówki kolumn się chowają; poniżej 420 px przycisk bierze całą szerokość. ⚠ Lista musiała
+>   trafić do `card__body`, bo `@container` **nie pyta o samego siebie** — bez tego pojemnika
+>   nie byłoby o co pytać.
+> - Zmierzone: 1920 → kolumny `760 170 130 190 130`, wiersz 71 px, ikona 36×36, liczba 20 px/600
+>   przy x=1324, przycisk 102×32 przy prawej krawędzi; 1366 → `254 170 130 190 130`, wiersz 71 px;
+>   375 → nagłówki ukryte, liczba i czas ukryte, zdanie skrótu widoczne, przycisk 259 px na całą
+>   szerokość, wiersz 171 px. **Zero przewijania strony i kontenerów na wszystkich trzech.**
+>   Wielokropek sprawdzony podstawieniem 71-znakowej nazwy: ucina się, a siatka i szerokość
+>   wiersza nie drgnęły.
 
 > **Zmiana 1.19.4 → 1.19.5: w „Moim koncie" nagłówki oddzielone od treści** (zlecenie Z75,
 > zgłoszenie Krzysztofa „treść się zlewa", prototyp zaakceptowany).

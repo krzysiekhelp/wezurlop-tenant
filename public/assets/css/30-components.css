@@ -5388,75 +5388,142 @@ body:has(dialog.modal[open]) { overflow: hidden; }
    ⚠ **Wiersz jest odnośnikiem, a przycisk jego CZĘŚCIĄ** (`<span class="btn">` wewnątrz `<a>`),
    bo przycisk w odnośniku jest w HTML niedozwolony. Ta sama konstrukcja i ta sama reguła
    najechania, co w wierszu konfiguracji na `/ustawienia` (`.settings-list--akcje`). */
-.dane-firmy { display: flex; flex-direction: column; }
-/* ⚠ Separator rysuje GÓRNA krawędź od drugiego wiersza, a nie dolna każdego: dolna krawędź
-   ostatniego wiersza dublowała się z krawędzią karty. */
-.dane-firmy li + li .dane-firma { border-top: 1px solid var(--c-line-soft); }
+/* ⚠ **Tabela firm: ramka, jeden wiersz nagłówków, kolumny o stałych szerokościach**
+   (zlecenie Z76, 22.10.2026 — zgłoszenie Krzysztofa „dużo informacji i nic nie widać").
+
+   Co było nie tak i dlaczego to nie kwestia gustu: wiersz był rzędem pudełek `flex`, w którym
+   każda firma powtarzała etykiety „Zatrudnienia" i „Ostatnia synchronizacja" (przy dwóch firmach
+   dwa razy, przy pięćdziesięciu — pięćdziesiąt), NIP był plakietką wśród plakietek stanu, a nazwa
+   firmy szła pełną nazwą prawną z R2, wersalikami, na 46 znaków. Dane były, ale nie dało się ich
+   ZESTAWIĆ: nic nie stało w jednej osi.
+
+   ⚠ Kolumny mają STAŁE szerokości, a pierwsza `minmax(0, 1fr)`: przy `auto` kolumna liczb
+   skakałaby z wiersza na wiersz („39" kontra „1247"), a czas rozpychałby się między „1 minutę
+   temu" i „jeszcze nie było". `minmax(0, …)`, nie `1fr`, bo inaczej długa nazwa firmy rozpiera
+   siatkę i wielokropek nigdy się nie pojawia (ta sama pułapka, co w belce ekranu, Z63 B). */
+.dane-tabela {
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+.dane-tabela__glowa,
 .dane-firma {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 170px 130px 190px 130px;
   align-items: center;
-  gap: var(--s-4);
+  gap: var(--s-5);
   min-width: 0;
-  padding: var(--s-3) var(--s-5);
+}
+.dane-tabela__glowa {
+  padding: var(--s-2) var(--s-4);
+  background: var(--c-bg);
+  border-bottom: 1px solid var(--c-line);
+  font-size: var(--t-label);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--c-text-3);
+}
+.dane-tabela__do-prawej { text-align: right; }
+.dane-firmy { display: flex; flex-direction: column; list-style: none; margin: 0; padding: 0; }
+/* ⚠ Separator rysuje GÓRNA krawędź od drugiego wiersza, a nie dolna każdego: dolna krawędź
+   ostatniego wiersza dublowałaby się z ramką tabeli. */
+.dane-firmy li + li .dane-firma { border-top: 1px solid var(--c-line); }
+.dane-firma {
+  padding: 14px var(--s-4);
   /* Wiersz jest odnośnikiem, więc dziedziczoną zieleń odnośnika trzeba zdjąć TUTAJ — nazwa
      firmy ma być daną, a nie napisem „kliknij". */
   color: inherit;
   text-decoration: none;
 }
 @media (hover: hover) {
-  .dane-firma:hover { background: var(--c-surface-hover); }
+  .dane-firma:hover { background: var(--c-bg); }
   /* Dopiero najechanie nadaje przyciskowi znaczenie — tak samo jak w `.settings-list--akcje`. */
   .dane-firma:hover .dane-firma__akcja { background: var(--c-accent-soft); border-color: var(--c-accent); }
 }
-/* ⚠ Kwadrat 38 px w barwie OBOJĘTNEJ (`--c-neutral-soft`), nie akcentu: stoi przy każdej firmie,
-   także odrzuconej i bez klucza, więc zieleń obiecywałaby stan, o którym nic nie wie (Z41).
-   Stan niesie plakietka z kropką i tylko ona. */
+.dane-firma__firma { display: flex; align-items: center; gap: var(--s-3); min-width: 0; }
+/* ⚠ Kwadrat 36 px w barwie OBOJĘTNEJ (`--c-bg`), nie akcentu: stoi przy każdej firmie, także
+   odrzuconej i bez klucza, więc zieleń obiecywałaby stan, o którym nic nie wie. Stan niesie
+   plakietka z kropką i tylko ona. */
 .dane-firma__znak {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  width: var(--control-h);
-  height: var(--control-h);
-  border-radius: var(--radius-card);
-  background: var(--c-neutral-soft);
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius);
+  background: var(--c-bg);
   color: var(--c-text-3);
 }
 .dane-firma__znak .ico { width: 20px; height: 20px; }
-.dane-firma__glowna { display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; margin-right: auto; }
-.dane-firma__nazwa { font-size: var(--t-body); font-weight: var(--w-semibold); color: var(--c-text); }
-.dane-firma__plakietki { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); min-width: 0; }
+.dane-firma__opis { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+/* ⚠ Wielokropek wymaga TRZECH rzeczy naraz (`overflow`, `white-space`, `text-overflow`) i czwartej
+   w rodzicu (`min-width: 0`): bez którejkolwiek nazwa albo rozpycha siatkę, albo się zawija. */
+.dane-firma__nazwa {
+  font-size: 15px;
+  font-weight: var(--w-semibold);
+  color: var(--c-text);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.dane-firma__nip {
+  font-size: var(--t-caption);
+  color: var(--c-text-3);
+  /* Cyfry tabelaryczne, bo NIP-y w kolejnych wierszach mają się dać porównać kolumną cyfr. */
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.dane-firma__stan { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); min-width: 0; }
 /* ⚠ Ikona w plakietce potrzebuje WŁASNEGO odstępu: `.chip` jest `inline-flex`, więc odstęp
-   między dwoma dziećmi znika — ta sama pułapka, co przy kropce stanu (stąd `margin-right`
-   na `.chip__kropka`, a nie `gap` na plakietce). 14 px, bo plakietka ma 22 px wysokości. */
-.dane-firma__plakietki .chip .ico { width: 14px; height: 14px; margin-right: var(--s-1); }
-/* Dwie dane w kolumnach: etykieta nad wartością, wyrównane do lewej krawędzi swojej kolumny.
-   ⚠ Szerokości STAŁE, nie `auto`: przy „jeszcze nie było" i „2 dni temu" kolumny skakałyby
-   z wiersza na wiersz, a liczba pracowników przestałaby stać w jednej osi. */
-.dane-firma__liczba { display: flex; flex-direction: column; gap: 2px; flex: 0 0 auto; width: 96px; }
-.dane-firma__liczba--czas { width: 168px; }
-.dane-firma__etykieta { font-size: var(--t-caption); color: var(--c-text-3); line-height: var(--lh-tight); }
-.dane-firma__wartosc { font-size: var(--t-lead); font-weight: var(--w-semibold); color: var(--c-text); line-height: var(--lh-tight); }
+   między dwoma dziećmi znika — ta sama pułapka, co przy kropce stanu. */
+.dane-firma__stan .chip .ico { width: 14px; height: 14px; margin-right: var(--s-1); }
+.dane-firma__liczba {
+  font-size: 20px;
+  font-weight: var(--w-semibold);
+  color: var(--c-text);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  line-height: var(--lh-tight);
+}
 .dane-firma__czas { font-size: var(--t-body); color: var(--c-text-2); line-height: var(--lh-tight); }
+/* Skrót „39 zatrudnień · 1 minutę temu" jest renderowany zawsze, ale widoczny tylko w kafelku. */
+.dane-firma__skrot { display: none; }
 /* ⚠ Przycisk ma `pointer-events: none`, bo jest NAPISEM w odnośniku, a nie drugim celem:
    bez tego kursor nad nim zmieniał się na strzałkę i wiersz wyglądał, jakby tam przestawał
    być klikalny. Kliknięcie i tak obsługuje odnośnik, więc nic nie tracimy. */
-.dane-firma__akcja { flex: 0 0 auto; pointer-events: none; }
+.dane-firma__akcja { justify-self: end; pointer-events: none; }
 
-/* ⚠ Telefon: wiersz przestaje być rzędem — kwadrat i nazwa w pierwszej linii, plakietki pod nimi,
-   dwie dane obok siebie, przycisk na całą szerokość (§5 zlecenia). Próg od OKNA, bo dotyczy
-   całego ekranu, a nie jednej karty. */
-@media (max-width: 640px) {
+/* ⚠ **Wariant wąski przez `@container`, nie `@media`** (Z76 §5): decyduje szerokość KARTY,
+   bo ta sama lista może kiedyś stanąć w węższej kolumnie przy szerokim oknie. Pytamy o kontener
+   `karta`, ustanowiony przez `.card__body` — i dlatego lista jest w `card__body`, a nie wprost
+   w karcie: `@container` nie pyta o samego siebie, więc bez tego pojemnika nie byłoby o co pytać.
+   Próg 760 px: przy węższej karcie pięć kolumn (1fr + 170 + 130 + 190 + 130 + cztery odstępy
+   24 px) nie mieści się bez przycinania nazwy do kilku znaków. */
+@container karta (max-width: 760px) {
+  .dane-tabela__glowa { display: none; }
   .dane-firma {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: var(--s-2) var(--s-3);
     padding: var(--s-4);
   }
-  .dane-firma__glowna { grid-column: 2 / 3; }
-  .dane-firma__liczba { grid-column: 1 / 2; width: auto; }
-  .dane-firma__liczba--czas { grid-column: 2 / 3; width: auto; }
-  .dane-firma__akcja { grid-column: 1 / -1; width: 100%; justify-content: center; }
+  .dane-firma__firma { grid-column: 1 / -1; }
+  .dane-firma__stan { grid-column: 1 / -1; }
+  /* Liczba i czas znikają jako kolumny — zastępuje je jedno zdanie skrótu. */
+  .dane-firma__liczba, .dane-firma__czas { display: none; }
+  .dane-firma__skrot {
+    display: block;
+    grid-column: 1 / 2;
+    font-size: var(--t-caption);
+    color: var(--c-text-3);
+    font-variant-numeric: tabular-nums;
+  }
+  .dane-firma__akcja { grid-column: 2 / 3; justify-self: end; }
+}
+/* Bardzo wąsko (telefon): przycisk schodzi pod zdanie i bierze całą szerokość. */
+@container karta (max-width: 420px) {
+  .dane-firma__skrot { grid-column: 1 / -1; }
+  .dane-firma__akcja { grid-column: 1 / -1; justify-self: stretch; text-align: center; }
 }
 
 /* ——— okno „Skrzynka na alerty" (zlecenie Z49, 19.10.2026) ——————————————————————

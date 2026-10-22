@@ -35,6 +35,19 @@ final class Odmiana
     }
 
     /**
+     * „1 zatrudnienie", „2 zatrudnienia", „5 zatrudnień" — wiersz firmy na `/dane` w wariancie
+     * wąskim (Z76), gdzie liczba i czas schodzą do jednego zdania.
+     *
+     * ⚠ Rodzaj nijaki, więc po 2–4 końcówka `-a`, a od 5 dopełniacz `-ń`. Doklejenie samego
+     * „zatrudnień" dałoby „2 zatrudnień", a „zatrudnienia" — „5 zatrudnienia"; obie formy
+     * widać na ekranie przy dwóch i pięciu firmach, czyli od razu.
+     */
+    public static function zatrudnienia(int $ile): string
+    {
+        return abs($ile) === 1 ? 'zatrudnienie' : (self::mnoga($ile) ? 'zatrudnienia' : 'zatrudnień');
+    }
+
+    /**
      * „1 firma", „2 firmy", „5 firm" — plakietka typu konta na „Moim koncie" (Z69).
      *
      * ⚠ Odmienia się jak `osoby()`, czyli przez `mnoga()`: po 2–4 mianownik mnogi („2 firmy"),
