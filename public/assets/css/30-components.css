@@ -6739,11 +6739,45 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: var(--s-4);
 }
-.konto-pole { display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; }
-.konto-pole__etykieta { font-size: var(--t-label); text-transform: uppercase; letter-spacing: .4px; color: var(--c-text-3); }
-.konto-pole__wartosc { font-size: var(--t-body); color: var(--c-text-1); overflow-wrap: anywhere; }
+/* ⚠ **Każde pole jest KAFELKIEM, a nie trzema wierszami tekstu** (Z75). Przed poprawką etykieta
+   (11 px), wartość (14 px, waga 400) i opis miały podobną wagę i żadnej ramki — oko nie miało
+   po czym rozdzielić czterech pól stojących w jednym wierszu siatki. Ramka i szare tło robią
+   granicę, a wartość dostaje wagę 600, bo to ona jest DANĄ, a nie opisem. */
+.konto-pole {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  min-width: 0;
+  padding: 12px 14px;
+  background: var(--c-bg);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
+}
+.konto-pole__etykieta {
+  font-size: var(--t-label);
+  text-transform: uppercase;
+  /* Odstęp liter .04em, nie .4px: przy wersalikach 11 px miara względna trzyma się rozmiaru,
+     a nie przypadkowej wartości w pikselach (Z75). */
+  letter-spacing: .04em;
+  color: var(--c-text-3);
+  margin-bottom: 2px;
+}
+/* ⚠ `--c-text`, nie `--c-text-1`: tokena `--c-text-1` **NIE MA** w `00-tokens.css`, więc reguła
+   z Z69 nic nie robiła i wartość brała kolor z dziedziczenia (zmierzone: `rgb(42,47,57)`, czyli
+   `--c-text-2`). Nieznany token nie jest błędem dla przeglądarki — po prostu unieważnia całą
+   deklarację, cicho. */
+.konto-pole__wartosc {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--c-text);
+  overflow-wrap: anywhere;
+}
 .konto-pole__wartosc--akcja { display: inline-flex; align-items: center; gap: var(--s-2); }
-.konto-pole__brak { color: var(--c-text-3); }
+/* ⚠ **Brak danej NIE udaje danej**: pusta wartość („nie podano", „—") wraca do wagi zwykłej
+   i koloru przygaszonego. Przy wadze 600 w kolorze głównym „nie podano" czytałoby się jak
+   wpisana treść — a to jest informacja o BRAKU (Z75). */
+.konto-pole__brak,
+.konto-pole__wartosc--brak { font-weight: 400; color: var(--c-text-3); }
 .konto-pole__hint { font-size: var(--t-caption); color: var(--c-text-3); }
 
 /* Dostęp: bloki firm OBOK SIEBIE, na telefonie jedna kolumna (siatka auto-fit, bez zapytań). */
@@ -6758,15 +6792,33 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   background: var(--c-surface);
   min-width: 0;
 }
+/* ⚠ **Nagłówek bloku firmy ODDZIELA się od wierszy źródeł** (zgłoszenie Z75: „treść się zlewa").
+   Przed poprawką miał tło przezroczyste, czyli tę samą biel co wiersze pod nim, a kreskę
+   `--c-line-soft` (zmierzone: `rgb(240,242,245)`) — przy 1 px praktycznie niewidoczną. Teraz
+   szare tło i mocniejsza kreska robią z niego nagłówek, a nie pierwszy wiersz listy.
+   ⚠ Promień o 1 px MNIEJSZY niż bloku (`calc(--radius-card - 1px)`): blok ma ramkę 1 px, więc
+   tło narożnika liczone pełnym promieniem wystawałoby za jej łuk. Widać to tylko w narożniku
+   i tylko na szarym tle — czyli dokładnie w tej jednej sytuacji, którą ta zmiana wprowadza. */
 .konto-blok__glowa {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: var(--s-2) var(--s-3);
   padding: var(--s-3);
-  border-bottom: 1px solid var(--c-line-soft);
+  background: var(--c-bg);
+  border-bottom: 1px solid var(--c-line);
+  border-radius: calc(var(--radius-card) - 1px) calc(var(--radius-card) - 1px) 0 0;
 }
-.konto-blok__firma { display: inline-flex; align-items: center; gap: var(--s-2); font-weight: 600; min-width: 0; }
+.konto-blok__firma {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  /* 15 px, nie `--t-body`: nazwa firmy jest tytułem bloku, więc stoi o stopień wyżej niż
+     wiersze źródeł pod nią (Z75). Waga 600 zostaje. */
+  font-size: 15px;
+  font-weight: 600;
+  min-width: 0;
+}
 .konto-blok__firma .ico { flex: none; width: 16px; height: 16px; color: var(--c-text-3); }
 .konto-blok__rola { font-size: var(--t-caption); color: var(--c-text-2); }
 .konto-blok__ile { font-size: var(--t-caption); color: var(--c-text-3); margin-left: auto; }

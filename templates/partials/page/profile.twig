@@ -122,7 +122,14 @@
             </div>
             <div class="konto-pole">
                 <span class="konto-pole__etykieta">Konto od</span>
-                <span class="konto-pole__wartosc">{{ osoba.konto_od is null ? '—' : czas_data(osoba.konto_od) }}</span>
+                {#- ⚠ Brak daty dostaje klasę `--brak`, żeby „—" nie czytało się jak wpisana dana
+                    (Z75): wartości mają wagę 600, a informacja o BRAKU wraca do wagi zwykłej
+                    i koloru przygaszonego. -#}
+                {% if osoba.konto_od is null %}
+                    <span class="konto-pole__wartosc konto-pole__wartosc--brak">—</span>
+                {% else %}
+                    <span class="konto-pole__wartosc">{{ czas_data(osoba.konto_od) }}</span>
+                {% endif %}
                 <span class="konto-pole__hint">data utworzenia konta</span>
             </div>
         </div>

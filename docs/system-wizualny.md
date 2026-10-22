@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.19.4, 21.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.19.5, 22.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,34 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.19.4 → 1.19.5: w „Moim koncie" nagłówki oddzielone od treści** (zlecenie Z75,
+> zgłoszenie Krzysztofa „treść się zlewa", prototyp zaakceptowany).
+> - **Nagłówek bloku firmy** w karcie „Dostęp": tło `--c-bg`, kreska `1px --c-line`, nazwa firmy
+>   15 px (waga 600 zostaje). Przed poprawką miał tło przezroczyste — tę samą biel co wiersze
+>   źródeł pod nim — i kreskę `--c-line-soft`, czyli zmierzone `rgb(240,242,245)`, przy 1 px
+>   praktycznie niewidoczną. Czytał się jak pierwszy wiersz listy, nie jak nagłówek.
+>   ⚠ Promień górnych rogów jest o **1 px mniejszy** niż bloku (`calc(--radius-card - 1px)`):
+>   blok ma ramkę 1 px, więc tło liczone pełnym promieniem wystawałoby za jej łuk. Widać to
+>   wyłącznie w narożniku i wyłącznie przy szarym tle, czyli dokładnie w sytuacji, którą ta
+>   zmiana wprowadza.
+> - **Pola w karcie „Dane konta" są kafelkami**: tło `--c-bg`, ramka `1px --c-line`, promień
+>   10 px, padding 12/14 px, odstęp siatki 16 px bez zmian. Wartość 15 px, waga **600**,
+>   `--c-text`; etykieta z odstępem liter `.04em` (miara względna, nie `.4px`) i 2 px pod nią.
+>   Przed poprawką etykieta, wartość i opis miały podobną wagę, więc cztery pola w jednym
+>   wierszu siatki zlewały się w blok tekstu.
+> - ⚠ **Brak danej nie udaje danej**: „nie podano" i „—" wracają do wagi 400 w `--c-text-3`.
+>   Przy wadze 600 w kolorze głównym „nie podano" czytałoby się jak wpisana treść.
+> - Zmierzone po zmianie (1920 / 375 / `/m/` 375): nagłówek `rgb(245,246,248)` z kreską
+>   `rgb(230,232,236)` i promieniem 9 px; kafelek `rgb(245,246,248)`, ramka `rgb(230,232,236)`,
+>   promień 10 px, padding `12px 14px`; wartość 15 px waga 600 w `rgb(21,24,29)`; brak danej
+>   waga 400 w `rgb(107,114,128)`; etykieta 11 px z odstępem 0,44 px. Zero przewijania strony
+>   i kontenerów przy 375 px.
+> - ⚠ **Przy okazji naprawiony cichy błąd z Z69**: wartość pola miała `color: var(--c-text-1)`,
+>   a tokena `--c-text-1` **nie ma** w `00-tokens.css`. Nieznany token nie jest dla przeglądarki
+>   błędem — unieważnia całą deklarację po cichu, więc kolor brał się z dziedziczenia (zmierzone
+>   `rgb(42,47,57)`, czyli `--c-text-2`). **Nauka: nieznana nazwa tokena nie zapala się nigdzie
+>   — ani w przeglądarce, ani w `check-rules`.**
 
 > **Zmiana 1.19.3 → 1.19.4: pole telefonu to JEDEN komponent w trzech miejscach**
 > (zlecenie Z73, decyzja Krzysztofa po Z72).
