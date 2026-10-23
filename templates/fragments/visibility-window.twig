@@ -14,8 +14,11 @@
     Wypisanie w nich wyboru („Kto widzi: Nowak") robiłoby z nagłówka trzecią kopię tego, co
     i tak stoi w kroku — a przy długim nazwisku rozpychałoby pasek.
 
-    ⚠ **„Wszyscy przełożeni" blokuje krok 2** — i jest to zapisane TU jako `disabled`, a po
-    stronie serwera jako wymuszenie celu `subordinates`. Ekran jest podpowiedzią, nie bramką.
+    ⚠ **Reguły stałe („Każdy przełożony" i „Administratorzy") mają w tym oknie JEDEN krok** —
+    zakres (zlecenia Z78 i Z79, decyzja Krzysztofa). Kroki 1 i 2 są wyłączone, bo podmiot i cel
+    są w nich stałe: „każdy przełożony › jego podwładni" i „administratorzy › cała firma".
+    Decyduje o tym SERWER (`stanOkna()` wymusza krok 3, `WidocznoscService` przyjmuje z takiej
+    reguły wyłącznie zakres), a wygląd kafelków jest tego podpowiedzią, nie bramką.
 
     ⚠ **„Podwładni" przy koncie BEZ etatu w tej firmie jest wyłączone** (decyzja Krzysztofa):
     takie konto nie ma gałęzi, więc reguła nigdy by nic nie dała — a reguła wyglądająca na
@@ -63,13 +66,27 @@
         {% set gotowy = (nr == 1 and (okno.kto == 'supervisor_all' or okno.kto_id > 0))
             or (nr == 2 and okno.krok > 2)
             or (nr == 3 and okno.regula > 0) %}
-        {#- ⚠ **Przy regule „Administratorzy" kroki 1 i 2 są WYŁĄCZONE**, a nie ukryte: ta reguła
-            nie ma podmiotu do wskazania ani celu do wyboru, więc kliknięcie w krok 1 wyrzucałoby
-            człowieka na listę, z której nie da się wybrać „administratorów" — czyli w ślepą
-            uliczkę. Kafelki zostają, bo mówią, ile kroków ma to okno normalnie. -#}
-        {% if okno.kto == 'admins_all' and nr != 3 %}
+        {#- ⚠ **W regule STAŁEJ kroki 1 i 2 są WYŁĄCZONE**, a nie ukryte: taka reguła nie ma
+            podmiotu do wskazania ani celu do wyboru, więc kliknięcie w krok 1 wyrzucałoby człowieka
+            na listę, z której nie da się wybrać tego, co już jest wybrane — czyli w ślepą uliczkę.
+            Kafelki zostają, bo mówią, ile kroków ma to okno normalnie.
+            ⚠ **Rozstrzyga JEDNA flaga `okno.stala`, a nie nazwa podmiotu** (zlecenie Z79). Do
+            23.10.2026 stało tu `okno.kto == 'admins_all'`, więc „Każdy przełożony" — reguła dla
+            serwera równie stała (`CalendarAccessRepository::STALE`) — miała kroki 1 i 2 czynne
+            i dawała się w oknie przestawić na coś, czego zapis i tak nie przyjmował. Dwa miejsca
+            decydujące o tym samym rozjeżdżają się przy pierwszej nowej regule stałej. -#}
+        {% if okno.stala and nr != 3 %}
             <span class="wid-krok wid-krok--wylaczony"
-                  title="Reguła „Administratorzy" obejmuje wszystkie konta z prawem zarządzania widocznością i całą firmę — można jej zmienić tylko zakres">
+                  {#- ⚠ **W tym napisie NIE MA cudzysłowów i to jest wymóg, nie styl.** Twig
+                      traktuje napis literalny w wyrażeniu jako bezpieczny i NIE escapuje go
+                      (widać w skompilowanym szablonie: `yield (string) (warunek ? "…" : "…")`
+                      bez wywołania escapera). Zwykły `"` w środku zamykał więc atrybut `title`,
+                      a reszta zdania stawała się listą bezsensownych atrybutów — zmierzone
+                      23.10.2026 w Chrome: `class,title,obejmuje,wszystkie,konta,…`. Podpowiedź
+                      urywała się na pierwszym cudzysłowie i tak było od 19.10.2026. -#}
+                  title="{{ okno.kto == 'admins_all'
+                      ? 'Reguła stała: obejmuje wszystkie konta z prawem zarządzania widocznością i całą firmę — można jej zmienić tylko zakres'
+                      : 'Reguła stała: obejmuje każdego, kto ma dziś podwładnych, i wyłącznie jego podwładnych — można jej zmienić tylko zakres' }}">
                 <span class="wid-krok__numer">{{ nr }}</span>
                 <span class="wid-krok__nazwa">{{ nazwa }}</span>
             </span>
@@ -182,17 +199,20 @@
                 żeby porównać, co się właściwie wybiera. -#}
             <div class="wid-seg" role="group" aria-label="Czyje nieobecności">
                 {% for kod, nazwa in {'persons': 'Osoby', 'groups': 'Grupy', 'subordinates': 'Podwładni'} %}
-                    {#- ⚠ Oba zakazy rozstrzyga SERWER (`stanOkna()` i `WidocznoscService`);
-                        tutaj wyłącznie wyszarzamy, żeby nie dało się wybrać czegoś, co i tak
-                        zostanie odrzucone. Wyszarzenie nie jest zabezpieczeniem. -#}
-                    {% set wylaczony = (okno.kto == 'supervisor_all' and kod != 'subordinates')
-                        or (kod == 'subordinates' and okno.kto_bez_etatu) %}
+                    {#- ⚠ Zakaz rozstrzyga SERWER (`stanOkna()` i `WidocznoscService`); tutaj
+                        wyłącznie wyszarzamy, żeby nie dało się wybrać czegoś, co i tak zostanie
+                        odrzucone. Wyszarzenie nie jest zabezpieczeniem.
+                        ⚠ **Warunku na „Wszystkich przełożonych" tu NIE MA i to nie jest przeoczenie**
+                        (Z79): reguła stała nie dochodzi do kroku 2 w ogóle, bo `stanOkna()` wymusza
+                        jej krok zakresu. Zostawiony warunek wyglądałby na miejsce, w którym ten krok
+                        da się dla niej wyświetlić — a następna osoba poprawiałaby właśnie jego. -#}
+                    {% set wylaczony = kod == 'subordinates' and okno.kto_bez_etatu %}
                     {#- Zakładka „Osoby" jest czynna przy obu swoich stanach: „cała firma"
                         i wskazane osoby to jedna lista, nie dwie. -#}
                     {% set czynna = okno.czyje == kod or (kod == 'persons' and okno.czyje == 'company') %}
                     {% if wylaczony %}
                         <span class="wid-seg__poz wid-seg__poz--wylaczona"
-                              title="{{ okno.kto == 'supervisor_all' ? 'Wszyscy przełożeni widzą wyłącznie swoich podwładnych' : 'ta osoba nie jest zatrudniona w tej firmie' }}">
+                              title="ta osoba nie jest zatrudniona w tej firmie">
                             {%- if kod == 'subordinates' %}{{ ikony.drzewo() }}{% elseif kod == 'groups' %}{{ ikony.etykieta() }}{% else %}{{ ikony.konto() }}{% endif -%}
                             <span>{{ nazwa }}</span>
                         </span>
@@ -303,10 +323,21 @@
         {#- ⚠ **Oba wyjścia są widoczne na KAŻDYM kroku** (dopisek z 19.10.2026): kreator
             z ukrytym „Nadaj dostęp" kazałby klikać „Dalej" także wtedy, gdy wszystko jest już
             wybrane — a przy zmianie istniejącej reguły człowiek zwykle poprawia jedną rzecz.
-            ⚠ **„Anuluj" nie ma**: okno zamyka × w nagłówku, tak jak wszystkie pozostałe.
-            Drugi przycisk zamykający w stopce był trzecim wyjściem z tego samego okna. -#}
+            ⚠ **„Anuluj" jest TYLKO w regule stałej** (zlecenie Z78, decyzja Krzysztofa).
+            W oknie wielokrokowym go nie ma i to zostaje: wyjściem jest × w nagłówku, a drugi
+            przycisk zamykający obok „Wstecz" byłby trzecim wyjściem z tego samego okna. Reguła
+            stała ma jednak krok DOKŁADNIE JEDEN, więc „Wstecz" nie miałoby gdzie wracać, a stopka
+            z jednym przyciskiem zapisu nie pokazywała żadnego wyjścia bez zapisu — przy oknie,
+            które zmienia dostęp do danych kadrowych całej firmy. -#}
         <div class="btn-row btn-row--jedna-linia">
-            {% if okno.krok > 1 %}
+            {% if okno.stala %}
+                {#- ⚠ „Anuluj" jest ODNOŚNIKIEM, nie przyciskiem: bez JavaScriptu zamknięciem okna
+                    jest powrót na ekran bez parametru `okno`, a ze skryptem `ui.js` przechwytuje
+                    kliknięcie i zamyka okno na miejscu — dokładnie to samo, co × w nagłówku
+                    (ta sama droga, co w pozostałych oknach z „Anuluj"). -#}
+                <a class="btn btn--ghost" href="{{ url('/admin/widocznosc') }}?spolka={{ spolka.id }}"
+                   data-modal-close="widocznosc-okno">Anuluj</a>
+            {% elseif okno.krok > 1 %}
                 <a class="btn btn--ghost" href="{{ strona }}&amp;{{ stan }}{{ stan_grup }}&amp;krok={{ okno.krok - 1 }}"
                    {% if hx %}hx-get="{{ baza }}&amp;{{ stan }}{{ stan_grup }}&amp;krok={{ okno.krok - 1 }}"
                    hx-target="#widocznosc-okno-tresc" hx-swap="innerHTML"{% endif %}>Wstecz</a>

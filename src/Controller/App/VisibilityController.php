@@ -323,6 +323,15 @@ final class VisibilityController
                 : ZakresWidocznosci::CZYJE_OSOBY;
         }
         $krok = (int) $wartosc('krok', 2);
+        $krok = $krok >= 1 && $krok <= 3 ? $krok : 1;
+        // ⚠ **Reguła stała otwiera się WYŁĄCZNIE na kroku zakresu** (zlecenia Z78 i Z79):
+        // ani podmiotu, ani celu nie da się w niej wskazać, więc kroki 1 i 2 nie mają czego
+        // pokazać. Rozstrzyga to SERWER, a nie wyszarzenie kafelków: `krok=1` dopisany do adresu
+        // z ręki pokazywałby listę przełożonych i pasek „Kto widzi" dla reguły, w której te pola
+        // są stałe — czyli wybór, który i tak zostanie odrzucony przy zapisie (`WidocznoscService`).
+        if (CalendarAccessRepository::stala($kto)) {
+            $krok = 3;
+        }
         // ⚠ **Jedna liczba osób celu, nie dwie.** „Cała firma · dziś N osób" i „pokazano 20 z N"
         // muszą mówić o TYM SAMYM zbiorze, więc obie biorą go z jednego zapytania — razem
         // z pominięciem podmiotu z kroku 1. Zmierzone przed poprawką: pozycja mówiła „36 osób",
@@ -347,7 +356,7 @@ final class VisibilityController
             // Reguła stała: w oknie zostaje wyłącznie krok zakresu, bo podmiotu ani celu
             // nie da się w niej wskazać.
             'stala' => CalendarAccessRepository::stala($kto),
-            'krok' => $krok >= 1 && $krok <= 3 ? $krok : 1,
+            'krok' => $krok,
             'kto' => $kto,
             'kto_id' => CalendarAccessRepository::stala($kto) ? 0 : max(0, $ktoId),
             // Czy wskazane konto ma etat w tej firmie — od tego zależy, czy wolno mu dać
@@ -371,7 +380,7 @@ final class VisibilityController
                 $kto === ZakresWidocznosci::KTO_KONTO => 'szukaj osoby…',
                 default => 'szukaj przełożonego…',
             },
-            'listy' => $this->listy($request, $companyId, $kto, $czyje, $pomin, $wartosc('szukaj', 100),
+            'listy' => $this->listy($companyId, $krok, $kto, $czyje, $pomin, $wartosc('szukaj', 100),
                 max(0, (int) $wartosc('od', 6))),
             // ⚠ Stopka listy mówi **co wybrano**, a nie tylko ile pokazano: przy liście doczytywanej
             // partiami wybrana pozycja bywa wyżej, poza polem widzenia, i bez tego napisu znika
@@ -394,12 +403,17 @@ final class VisibilityController
      * Listy do kroków 1 i 2 — **tylko ta, którą widać**: zapytanie o pozostałe byłoby odczytem,
      * z którego nikt nie skorzysta.
      *
+     * ⚠ **Numer kroku przychodzi PARAMETREM, a nie z żądania drugi raz** (poprawka z Z79).
+     * Wcześniej ta metoda czytała `krok` sama, więc po wymuszeniu kroku zakresu dla reguły stałej
+     * w `stanOkna()` miałaby o nim inne zdanie niż okno, które renderuje: `krok=1` w adresie dawałby
+     * zapytanie o listę przełożonych do okna, w którym żadnej listy nie ma. Jedna wielkość,
+     * jedno miejsce odczytu.
+     *
      * @return array<string, mixed>
      */
-    private function listy(Request $request, int $companyId, string $kto, string $czyje, array $pomin, string $szukaj, int $od): array
+    private function listy(int $companyId, int $krok, string $kto, string $czyje, array $pomin, string $szukaj, int $od): array
     {
         $szukaj = trim($szukaj);
-        $krok = (int) ($request->method() === 'POST' ? $request->postString('krok', 2) : $request->queryString('krok', 2));
         if ($krok === 3) {
             // Krok zakresu nie ma listy — odczyt byleby był to odczyt, z którego nikt nie skorzysta.
             return ['pozycje' => [], 'razem' => 0, 'rodzaj' => 'brak', 'od' => 0];

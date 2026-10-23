@@ -299,6 +299,104 @@ use Wezurlop\Service\ZasiegPodgladu;
         $check('w: po odmowie reguła nadal jest w bazie',
             $reguly->regulaStala($firmy['ALFA'], Z::KTO_ADMINI) !== null);
 
+        // ——— Z78, Z79: REGUŁA STAŁA NIE PRZYJMUJE ZMIANY PODMIOTU ANI CELU ——————————
+        // ⚠ **To jest test żądania ZŁOŻONEGO Z RĘKI, a nie klikania w oknie.** Ekran wyłącza
+        // w regule stałej kroki „Kto widzi" i „Czyje nieobecności", ale wyłączony kafelek nie jest
+        // bramką (CLAUDE.md §10): żądanie z innym podmiotem i innym celem wysyła się jednym
+        // wywołaniem `curl`. Sprawdzamy więc to, co zostaje, gdy ekranu nie ma wcale.
+        //
+        // ⚠ **Każda odmowa ma obok siebie dowód, że żądanie NIE przeszło bokiem**: zmieniony
+        // zakres. Bez tego test przechodziłby także wtedy, gdyby serwis odrzucał całe żądanie
+        // z innego powodu — a wtedy nikt by nie zauważył, że pilnowana granica przestała istnieć.
+        foreach ([Z::KTO_PRZELOZENI => Z::CZYJE_PODWLADNI, Z::KTO_ADMINI => Z::CZYJE_FIRMA] as $staly => $celStaly) {
+            $sygn = '„' . ($staly === Z::KTO_ADMINI ? 'Administratorzy' : 'Każdy przełożony') . '"';
+            // Pierwszy zapis zakłada wiersz — bez niego reguła obowiązuje, ale numeru nie ma.
+            $service->zapisz(null, $firmy['ALFA'], $staly, 0, $celStaly, [], Z::BEZ_SZCZEGOLOW,
+                $konta['widz'], 'test');
+            $stalaId = (int) ($reguly->regulaStala($firmy['ALFA'], $staly)['id'] ?? 0);
+            $ileStalych = $ileRegul();
+            $check('Z79: reguła ' . $sygn . ' ma po zapisie swój wiersz', $stalaId > 0, (string) $stalaId);
+
+            // (a) podmiot wskazany z listy przy rodzaju stałym → JAWNA odmowa
+            $check('Z78: ' . $sygn . ' + wskazane konto jako podmiot → odmowa „podmiot"',
+                $service->zapisz(null, $firmy['ALFA'], $staly, $konta['widz'], $celStaly, [],
+                    Z::ZE_SZCZEGOLAMI, $konta['widz'], 'test') === WidocznoscService::POWOD_PODMIOT);
+
+            // (b) inny cel przy rodzaju stałym → cel wymuszony, zakres przyjęty
+            $innyCel = $celStaly === Z::CZYJE_FIRMA ? Z::CZYJE_PODWLADNI : Z::CZYJE_FIRMA;
+            $powodCel = $service->zapisz(null, $firmy['ALFA'], $staly, 0, $innyCel, [],
+                Z::ZE_SZCZEGOLAMI, $konta['widz'], 'test');
+            $poCelu = $reguly->regulaStala($firmy['ALFA'], $staly);
+            $check('Z78: ' . $sygn . ' — żądanie innego celu nie zmieniło celu',
+                (string) ($poCelu['target_kind'] ?? '') === $celStaly, (string) ($poCelu['target_kind'] ?? ''));
+            $check('Z78: ' . $sygn . ' — to samo żądanie zmieniło ZAKRES (więc dojechało do zapisu)',
+                $powodCel === null && (string) ($poCelu['scope'] ?? '') === Z::ZE_SZCZEGOLAMI,
+                (string) $powodCel . '/' . (string) ($poCelu['scope'] ?? ''));
+
+            // (c) numer reguły stałej + zupełnie inny podmiot i cel → zmienia się WYŁĄCZNIE zakres
+            $powodZamiany = $service->zapisz($stalaId, $firmy['ALFA'], Z::KTO_KONTO, $konta['widz'],
+                Z::CZYJE_FIRMA, [], Z::BEZ_SZCZEGOLOW, $konta['widz'], 'test');
+            $poZamianie = $reguly->regulaStala($firmy['ALFA'], $staly);
+            $check('Z78: ' . $sygn . ' — podmiotu nie da się podmienić numerem reguły',
+                (string) ($poZamianie['subject_kind'] ?? '') === $staly
+                && (int) ($poZamianie['subject_account_id'] ?? -1) === 0,
+                (string) ($poZamianie['subject_kind'] ?? '') . '/'
+                    . (string) ($poZamianie['subject_account_id'] ?? '—'));
+            $check('Z78: ' . $sygn . ' — cel po próbie podmiany nietknięty',
+                (string) ($poZamianie['target_kind'] ?? '') === $celStaly,
+                (string) ($poZamianie['target_kind'] ?? ''));
+            $check('Z78: ' . $sygn . ' — i to nadal TA SAMA, jedna reguła',
+                (int) ($poZamianie['id'] ?? 0) === $stalaId && $ileRegul() === $ileStalych,
+                (int) ($poZamianie['id'] ?? 0) . '/' . ($ileRegul() - $ileStalych));
+            $check('Z78: ' . $sygn . ' — próba podmiany też zmieniła sam zakres',
+                $powodZamiany === null && (string) ($poZamianie['scope'] ?? '') === Z::BEZ_SZCZEGOLOW,
+                (string) $powodZamiany . '/' . (string) ($poZamianie['scope'] ?? ''));
+        }
+
+        // ——— Z79: ZAKRES REGUŁY „KAŻDY PRZEŁOŻONY" DOCHODZI DO KALENDARZA ——————————
+        // ⚠ **Osobna gałąź próbna, a nie widz z poprzednich przypadków.** Tamto konto ma już
+        // reguły osobiste, a między regułami wygrywa SZERSZA — mierzylibyśmy więc tamtą regułę,
+        // nie tę, i test świeciłby zielono niezależnie od tego, co robi reguła stała.
+        //
+        // ⚠ **Przez tę samą funkcję, która karmi kalendarz** (`CalendarVisibility::zakresy()`),
+        // a nie przez drugą, podobną: zakres pokazany w oknie reguly i zakres zastosowany
+        // w siatce muszą być tą samą wielkością.
+        $osoby['szef'] = $wstaw(
+            'INSERT INTO person (first_name, last_name, outside_hr) VALUES (:i, :n, 0)',
+            ['i' => 'Szef', 'n' => 'PRÓBNY SZEF']
+        );
+        $osoby['podwl'] = $wstaw(
+            'INSERT INTO person (first_name, last_name, outside_hr) VALUES (:i, :n, 0)',
+            ['i' => 'Podwładny', 'n' => 'PRÓBNY PODWŁADNY']
+        );
+        $konta['szef'] = $wstaw(
+            "INSERT INTO account (person_id, email, status) VALUES (:p, :e, 'active')",
+            ['p' => $osoby['szef'], 'e' => strtolower($znacznik) . '-szef@example.invalid']
+        );
+        $etaty['szef'] = $wstaw(
+            'INSERT INTO employment (person_id, company_id, is_active) VALUES (:p, :c, 1)',
+            ['p' => $osoby['szef'], 'c' => $firmy['ALFA']]
+        );
+        $etaty['podwl'] = $wstaw(
+            'INSERT INTO employment (person_id, company_id, supervisor_employment_id, is_active)
+             VALUES (:p, :c, :s, 1)',
+            ['p' => $osoby['podwl'], 'c' => $firmy['ALFA'], 's' => $etaty['szef']]
+        );
+        $check('Z79: gałąź próbna założona (przełożony + jeden podwładny)',
+            $etaty['szef'] > 0 && $etaty['podwl'] > 0);
+        // ⚠ Oba zakresy, nie jeden: pomiar jednego stanu nie odróżnia „zakres zadziałał"
+        // od „ten zakres jest tu zawsze".
+        foreach ([Z::ZE_SZCZEGOLAMI, Z::BEZ_SZCZEGOLOW] as $zakres) {
+            $powodZakresu = $service->zapisz(null, $firmy['ALFA'], Z::KTO_PRZELOZENI, 0,
+                Z::CZYJE_PODWLADNI, [], $zakres, $konta['widz'], 'test');
+            $widziane = $widocznosc->zakresy($konta['szef'], $firmy['ALFA'], $etaty['szef'],
+                [$etaty['podwl']]);
+            $check('Z79: po zmianie zakresu reguły stałej przełożony widzi podwładnego jako „'
+                . $zakres . '"',
+                $powodZakresu === null && ($widziane[$etaty['podwl']] ?? '') === $zakres,
+                (string) $powodZakresu . '/' . ($widziane[$etaty['podwl']] ?? '—'));
+        }
+
         // ——— KANDYDACI: konto z nadaniem na cały tenant ————————————————————————
         // ⚠ To domknięcie decyzji z Z53 (zlecenie Z55 pkt 2). Bez niego reguła założona takiemu
         // kontu przez migrację miała martwy ołówek: każdy zapis sprawdza kandydaturę podmiotu.
