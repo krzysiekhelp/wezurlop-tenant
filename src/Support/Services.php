@@ -129,7 +129,7 @@ final class Services
         );
         $this->settings = new TenantSettingRepository($this->db);
         $this->access = new AccessService($this->db, $this->permissions, $this->accounts, $this->employments, $this->events, $this->license);
-        $this->konta = new AccountService($this->db, $this->accounts, $this->events);
+        $this->konta = new AccountService($this->db, $this->accounts, $this->events, $this->widocznosc());
         $this->sessions = new SessionRepository($this->db);
         $this->devices = new DeviceService($this->sessions, $this->events);
         $this->limiter = new RateLimiter(new LoginAttemptRepository($this->db), $this->settings, $this->events, $this->jobs);
@@ -236,6 +236,8 @@ final class Services
             $this->events,
             $this->apiKeyService(),
             $this->jobs,
+            // Droga 2 przeliczania reguł widoczności (Z80 B3): wygaszenie etatu i blokada konta.
+            $this->widocznosc(),
         );
     }
 
@@ -264,12 +266,32 @@ final class Services
 
     public function hierarchia(): \Wezurlop\Service\Hierarchia
     {
-        return new \Wezurlop\Service\Hierarchia($this->db, $this->hierarchyRepository(), $this->events);
+        // ⚠ Zapis hierarchii przelicza reguły widoczności (Z80 B3, droga 1): zmiana krawędzi
+        // odbiera albo przywraca podwładnych, a od tego zależy skutek reguł „przełożony X"
+        // i „podwładni X".
+        return new \Wezurlop\Service\Hierarchia($this->db, $this->hierarchyRepository(), $this->events,
+            $this->widocznosc());
     }
 
     public function grupyRepository(): \Wezurlop\Repository\GroupRepository
     {
         return new \Wezurlop\Repository\GroupRepository($this->db);
+    }
+
+    /**
+     * ⚠ **Jedna wytwórnia na wszystkie drogi** (zlecenie Z80 cz. B). Do 23.10.2026 serwis
+     * widoczności powstawał wyłącznie w środku `grupy()`, bo tylko tamta droga go potrzebowała.
+     * Od Z80 przelicza reguły także zapis hierarchii, wygaszenie etatu z synchronizacji
+     * i blokada konta — a cztery kopie tego samego `new` rozjechałyby się przy pierwszej
+     * nowej zależności serwisu.
+     */
+    public function widocznosc(): \Wezurlop\Service\WidocznoscService
+    {
+        return new \Wezurlop\Service\WidocznoscService(
+            new \Wezurlop\Repository\CalendarAccessRepository($this->db),
+            $this->grupyRepository(),
+            $this->events,
+        );
     }
 
     public function grupy(): \Wezurlop\Service\GrupyService
@@ -279,11 +301,7 @@ final class Services
             $this->events,
             // ⚠ Usunięcie grupy sprząta reguły widoczności, które ją wskazują (zlecenie Z53 §1) —
             // z wpisem w dzienniku, czego kaskada bazy by nie zrobiła.
-            new \Wezurlop\Service\WidocznoscService(
-                new \Wezurlop\Repository\CalendarAccessRepository($this->db),
-                $this->grupyRepository(),
-                $this->events,
-            ),
+            $this->widocznosc(),
         );
     }
 

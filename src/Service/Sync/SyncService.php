@@ -57,6 +57,10 @@ final class SyncService
         private readonly EventLogRepository $events,
         private readonly ApiKeyService $keyService,
         private readonly JobRepository $jobs,
+        // ⚠ Synchronizacja przelicza reguły widoczności (Z80 B3, droga 2): wygaszenie etatu
+        // odbiera cel regule „osoby", podmiot regule „osoba", podwładnego regule „przełożony X",
+        // a przy ostatnim etacie osoby blokuje też konto — cztery wyzwalacze jedną drogą.
+        private readonly \Wezurlop\Service\WidocznoscService $widocznosc,
     ) {
     }
 
@@ -260,7 +264,22 @@ final class SyncService
             $stats['pominietePola'] = ($stats['pominietePola'] ?? 0) + $checked['skipped'];
             $stats['oczekujace'] = $pending['pending'];
             $stats['rozwiazaneOczekujace'] = ($stats['rozwiazaneOczekujace'] ?? 0) + $pending['resolved'];
-            $stats = $this->mergeEvents($stats, $this->applier->takeEvents());
+            // ⚠ Liczniki paczki bierzemy do ZMIENNEJ, zanim je scalimy z licznikami przebiegu:
+            // po scaleniu nie da się odróżnić „ta paczka wygasiła etat" od „któraś wcześniejsza
+            // wygasiła", a przeliczanie reguł ma się dziać wtedy, gdy jest po co.
+            $zdarzeniaPaczki = $this->applier->takeEvents();
+            $stats = $this->mergeEvents($stats, $zdarzeniaPaczki);
+            // ⚠ **Przeliczenie reguł widoczności W TEJ SAMEJ transakcji, co paczka** (Z80 B3).
+            // Raz na paczkę, nie raz na rekord: `przelicz()` przechodzi po wszystkich regułach
+            // firmy, więc wywołanie przy każdym wygaszonym etacie byłoby tą samą pracą wykonaną
+            // pięćset razy. Sprawcą jest `sync`, bo żaden człowiek tej decyzji nie podjął.
+            if (($zdarzeniaPaczki['zatrudnieniaNieaktywne'] ?? 0) > 0
+                || ($zdarzeniaPaczki['kontaZablokowane'] ?? 0) > 0) {
+                $wylaczone = $this->widocznosc->przelicz($company['id'], true, null, 'sync');
+                if ($wylaczone !== []) {
+                    $stats['regulyWylaczone'] = ($stats['regulyWylaczone'] ?? 0) + count($wylaczone);
+                }
+            }
             $stats = self::countIdempotency($stats, $idempotencyKey);
             // Pełne ładowanie zbioru zakończone → przegląd kontrolny w następnym przebiegu.
             if ($ostatnia && ($stats['tryby'][$zbior] ?? '') === 'pelny') {

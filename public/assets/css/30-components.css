@@ -5913,10 +5913,15 @@ body:has(dialog.modal[open]) { overflow: hidden; }
      (zlecenie Z57 U8). Przy torze 32 px przycisk 38 px wystawał o 6 px i zjadał odstęp
      wiersza: ołówek wychodził w prawo, kosz (z ujemnym marginesem pary) w lewo, i oba się
      stykały — zmierzone 1763–1801 i 1801–1839, odstęp 0 px przy 6 px na `/admin/grupy`. */
-  grid-template-columns: 38px minmax(0, 1fr) 16px minmax(0, 1.2fr) auto var(--control-h) var(--control-h);
+  /* ⚠ Kolumna AKTYWNA (Z80 B6) stoi między zakresem a akcjami i ma stałą szerokość 34 px —
+     tyle, ile tor przełącznika. `auto` dałoby różną szerokość w wierszu z „zawsze"
+     i w wierszu z przełącznikiem, czyli rozjechane kolumny w pionie. */
+  grid-template-columns: 38px minmax(0, 1fr) 16px minmax(0, 1.2fr) auto 34px var(--control-h) var(--control-h);
   align-items: center;
   gap: var(--s-3);
 }
+/* Wiersz oddzielający nie jest siatką — to jedna linia napisu na całą szerokość. */
+.wid-lista .wid-wiersz--separator { display: block; }
 .wid-naglowki {
   padding: var(--s-3) var(--s-5);
   border-top: 1px solid var(--c-line);
@@ -6260,6 +6265,66 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 }
 .wid-szukanie:has(.wid-szukanie__pole:disabled) .ico { color: var(--c-text-4); opacity: .6; }
 
+/* ——— lista reguł: kolumna AKTYWNA i wiersz nieaktywny (Z80 cz. B) ————————— */
+/* ⚠ **Wiersz nieaktywny ma NORMALNE tło**, a przygaszony jest tekst i ikona. Inne tło czytałoby
+   się jak ostrzeżenie o błędzie, a to jest stan: reguła istnieje, da się ją włączyć i ma obie
+   akcje. Przygaszenie przez `color`, nie `opacity`: opacity zgasiłoby też przełącznik,
+   czyli jedyną rzecz, którą w tym wierszu się klika. */
+.wid-wiersz--nieaktywna .wid-wiersz__nazwa,
+.wid-wiersz--nieaktywna .wid-wiersz__opis { color: var(--c-text-3); }
+.wid-wiersz--nieaktywna .wid-wiersz__znak,
+.wid-wiersz--nieaktywna .wid-wiersz__ikona,
+.wid-wiersz--nieaktywna .wid-wiersz__strzalka { color: var(--c-text-3); }
+/* Zakres zostaje WIDOCZNY, tylko przygaszony: mówi, co reguła da, gdy ją włączyć (§B6). */
+.wid-wiersz--nieaktywna .chip--zakres { opacity: .7; }
+/* Wiersz oddzielający: wersaliki 11 px, odstęp liter, wcięcie jak treść wierszy. */
+.wid-wiersz--separator {
+  display: block;
+  padding: var(--s-2) var(--s-4);
+  border-bottom: 1px solid var(--c-line);
+  background: var(--c-bg);
+  color: var(--c-text-4);
+  font-size: 11px;
+  font-weight: var(--w-semibold);
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+.wid-wiersz__stan { display: flex; align-items: center; justify-content: flex-start; }
+/* „zawsze" przy regule stałej — napis, nie kontrolka, więc bez kursora wskazania. */
+.wid-wiersz__stan--zawsze { font-size: var(--t-label); color: var(--c-text-4); }
+/* Przełącznik: tor z kropką. ⚠ To `<button type="submit">` w formularzu `POST`, a nie pole
+   wyboru ze skryptem — stan dostępu do danych kadrowych musi dać się zmienić bez JavaScriptu. */
+.wid-stan {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.wid-stan__tor {
+  display: inline-flex;
+  align-items: center;
+  width: 34px;
+  height: 20px;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--c-neutral-soft);
+  transition: background .15s ease;
+}
+.wid-stan__kropka {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--c-surface);
+  box-shadow: var(--shadow-card);
+  transition: transform .15s ease;
+}
+.wid-stan--on .wid-stan__tor { background: var(--c-accent); }
+.wid-stan--on .wid-stan__kropka { transform: translateX(14px); }
+/* Reguła, której nie da się włączyć (§B4): przełącznik wyłączony, powód w podpowiedzi. */
+.wid-stan:disabled { cursor: not-allowed; opacity: .5; }
+
 /* ——— krok 2: sekcja „Podwładni" ———————————————————————————————————————— */
 /* ⚠ **Blok `.wid-zbior` (pole z przerywaną ramką) USUNIĘTY w Z80**, a nie zostawiony „na
    wszelki wypadek": od A1 pkt 5 sekcja „Podwładni" ma jeden wiersz DO ZAZNACZENIA i renderuje
@@ -6391,7 +6456,10 @@ body:has(dialog.modal[open]) { overflow: hidden; }
    co w `.table--pracownicy` na wąskim ekranie. */
 @media (max-width: 720px) {
   .wid-naglowki { display: none; }
-  .wid-wiersz { grid-template-columns: 38px minmax(0, 1fr) var(--control-h) var(--control-h); }
+  /* ⚠ Na telefonie przełącznik stoi w PIERWSZEJ linii wiersza, obok akcji — tam, gdzie
+     kciuk, a nie pod trzema liniami relacji. Stąd piąta kolumna 34 px zamiast rozkładu
+     na kolejny wiersz. */
+  .wid-wiersz { grid-template-columns: 38px minmax(0, 1fr) 34px var(--control-h) var(--control-h); }
   .wid-wiersz__strzalka { display: none; }
   .wid-wiersz__kto { grid-column: 2 / -1; }
   .wid-wiersz__czyje { grid-column: 2 / -1; }

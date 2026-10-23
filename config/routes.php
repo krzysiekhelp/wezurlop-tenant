@@ -185,6 +185,9 @@ $webOnly = [
     ['GET',  '/admin/widocznosc/pozycje',                [VisibilityController::class, 'pozycje'],     'permission' => 'calendar.visibility_manage', 'zakres' => 'spolka'],
     ['POST', '/admin/widocznosc/zapisz',                 [VisibilityController::class, 'zapisz'],      'permission' => 'calendar.visibility_manage', 'zakres' => 'spolka'],
     ['POST', '/admin/widocznosc/{id:\d+}/usun',          [VisibilityController::class, 'usun'],        'permission' => 'calendar.visibility_manage', 'zakres' => 'spolka'],
+    // Z80 B2: włączenie i wyłączenie reguły. `POST`, bo zmienia stan (CLAUDE.md §3),
+    // i to samo uprawnienie co reszta ekranu — kto rozstrzyga o widoczności, ten ją włącza.
+    ['POST', '/admin/widocznosc/{id:\d+}/przestaw',      [VisibilityController::class, 'przestaw'],    'permission' => 'calendar.visibility_manage', 'zakres' => 'spolka'],
     ['GET',  '/admin/dziennik',                          [EventLogController::class, 'index'],         'permission' => 'admin.event_log', 'zakres' => 'tenant'],
     ['GET',  '/admin/konta',                             [AdminAccountController::class, 'index'],     'permission' => 'admin.users', 'zakres' => 'spolka'],
     ['POST', '/admin/konta/zapros',                      [AdminAccountController::class, 'inviteBatch'],   'permission' => 'admin.users', 'zakres' => 'spolka'],

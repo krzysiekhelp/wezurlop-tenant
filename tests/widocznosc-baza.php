@@ -34,7 +34,9 @@ use Wezurlop\Repository\GroupRepository;
 use Wezurlop\Repository\HierarchyRepository;
 use Wezurlop\Repository\PermissionRepository;
 use Wezurlop\Repository\PracownikRepository;
+use Wezurlop\Repository\SyncDomainRepository;
 use Wezurlop\Service\CalendarVisibility;
+use Wezurlop\Service\GrupyService;
 use Wezurlop\Service\WidocznoscService;
 use Wezurlop\Service\ZakresWidocznosci as Z;
 use Wezurlop\Service\ZasiegPodgladu;
@@ -64,6 +66,11 @@ use Wezurlop\Service\ZasiegPodgladu;
     $grupy = new GroupRepository($db);
     $events = new EventLogRepository($db);
     $service = new WidocznoscService($reguly, $grupy, $events);
+    // ⚠ Te dwie zależności są tu po to, żeby test IDZIE TĄ SAMĄ DROGĄ co produkt (Z80 cz. B):
+    // wygaszenie etatu przez repozytorium domenowe synchronizacji i zmiany składu grupy przez
+    // serwis grup — a nie własnym `UPDATE`-em, który ominąłby to, co przy okazji robi produkt.
+    $domenaSync = new SyncDomainRepository($db);
+    $grupySerwis = new GrupyService($grupy, $events, $service);
     $uprawnienia = new PermissionRepository($db);
     $widocznosc = new CalendarVisibility(
         $reguly,
@@ -411,6 +418,168 @@ use Wezurlop\Service\ZasiegPodgladu;
                 $powodZakresu === null && ($widziane[$etaty['podwl']] ?? '') === $zakres,
                 (string) $powodZakresu . '/' . ($widziane[$etaty['podwl']] ?? '—'));
         }
+
+        // ——— Z80 cz. B: STATUS „AKTYWNA" ——————————————————————————————————————————
+        // ⚠ **Reguła nieaktywna nie daje ANI JEDNEGO uprawnienia** (§B5) i to jest w tym
+        // zestawie najważniejsze twierdzenie: status bez tego byłby ozdobą na liście.
+        // Mierzymy przez `CalendarVisibility::zakresy()`, czyli tę samą funkcję, która karmi
+        // kalendarz — nie przez zapytanie napisane w teście.
+        $regulaB = $service->zapisz(null, $firmy['ALFA'], Z::KTO_KONTO, $konta['widz'], Z::CZYJE_OSOBY,
+            [$etaty['cel2']], Z::ZE_SZCZEGOLAMI, $konta['widz'], 'test');
+        $check('B5: reguła na wskazaną osobę zapisana', $regulaB === null, (string) $regulaB);
+        $idB = 0;
+        foreach ($reguly->reguly($firmy['ALFA']) as $r) {
+            if ((string) $r['target_kind'] === Z::CZYJE_OSOBY && in_array($etaty['cel2'], $r['grupy'], true)) {
+                $idB = (int) $r['id'];
+            }
+        }
+        $check('B5: reguła ma swój numer i jest aktywna', $idB > 0
+            && (int) $reguly->regula($idB, $firmy['ALFA'])['is_active'] === 1);
+        $widaC = static fn (): string => $widocznosc->zakresy($konta['widz'], $firmy['ALFA'],
+            $etaty['widz'], [$etaty['cel2']])[$etaty['cel2']] ?? '?';
+        $check('B5: przed wyłączeniem widz widzi osobę ze szczegółami', $widaC() === Z::ZE_SZCZEGOLAMI, $widaC());
+        $check('B2: administrator wyłącza regułę', $service->przestaw($idB, $firmy['ALFA'], false,
+            $konta['widz'], 'test') === null);
+        $check('B5: po wyłączeniu reguła nie daje NIC', $widaC() === Z::BRAK, $widaC());
+        $zrodla = $widocznosc->zrodlaWidza($konta['widz'], $firmy['ALFA'], $etaty['widz']);
+        $check('B5: wyłączonej reguły nie ma też w źródłach wglądu',
+            array_filter($zrodla, static fn (array $z): bool => $z['rodzaj'] === Z::CZYJE_OSOBY) === []);
+        $check('B2: wpis w dzienniku o wyłączeniu',
+            $events->countRecent('calendar_access.disabled', 1) >= 1);
+        $check('B2: administrator włącza regułę z powrotem', $service->przestaw($idB, $firmy['ALFA'], true,
+            $konta['widz'], 'test') === null);
+        $check('B5: po włączeniu wgląd wraca', $widaC() === Z::ZE_SZCZEGOLAMI, $widaC());
+        // ⚠ Drugie wywołanie z tym samym stanem nie jest błędem, ale też nie dokłada wpisu:
+        // dziennik ma mieć tyle zdarzeń, ile było ZMIAN.
+        $wpisowPrzed = $events->countRecent('calendar_access.enabled', 1);
+        $service->przestaw($idB, $firmy['ALFA'], true, $konta['widz'], 'test');
+        $check('B2: powtórne włączenie nie dokłada wpisu',
+            $events->countRecent('calendar_access.enabled', 1) === $wpisowPrzed);
+        $check('B1: reguły stałej nie da się wyłączyć',
+            $service->przestaw((int) ($reguly->regulaStala($firmy['ALFA'], Z::KTO_ADMINI)['id'] ?? 0),
+                $firmy['ALFA'], false, $konta['widz'], 'test') === WidocznoscService::POWOD_DOMYSLNA);
+
+        // ——— Z80 B-e, B-f: ODMOWY WOKÓŁ STATUSU ————————————————————————————————
+        $service->przestaw($idB, $firmy['ALFA'], false, $konta['widz'], 'test');
+        $check('B-e: identyczna reguła przy wyłączonej → odmowa „wylaczona", nie „duplikat"',
+            $service->zapisz(null, $firmy['ALFA'], Z::KTO_KONTO, $konta['widz'], Z::CZYJE_OSOBY,
+                [$etaty['cel2']], Z::ZE_SZCZEGOLAMI, $konta['widz'], 'test')
+                === WidocznoscService::POWOD_WYLACZONA);
+        $service->przestaw($idB, $firmy['ALFA'], true, $konta['widz'], 'test');
+        $check('B-e: przy regule CZYNNEJ odmowa jest nadal „duplikat"',
+            $service->zapisz(null, $firmy['ALFA'], Z::KTO_KONTO, $konta['widz'], Z::CZYJE_OSOBY,
+                [$etaty['cel2']], Z::ZE_SZCZEGOLAMI, $konta['widz'], 'test')
+                === WidocznoscService::POWOD_DUPLIKAT);
+        // ⚠ B-f: reguła bez skutku nie wchodzi do bazy. Przełożony próbny ma podwładnego,
+        // więc jego reguła się zapisze; `cel1` nie jest niczyim przełożonym, więc jego — nie.
+        $przedBezSkutku = $ileRegul();
+        // ⚠ Podmiotem jest KONTO Z ETATEM, ale bez ani jednego podwładnego. To jest przypadek,
+        // którego dotąd NIE BYŁO: `sprawdzPodmiot()` przepuszcza takie konto (jest kandydatem),
+        // `sprawdzCel()` też (ma etat, więc nie wpada w `POWOD_BEZ_ETATU`) — i do 23.10.2026
+        // reguła zapisywała się jako czynna, nie dając nikomu nic.
+        // ⚠ Przy KTO = Przełożony ten sam brak odrzuca już `sprawdzPodmiot()` (`POWOD_PODMIOT`),
+        // bo lista przełożonych zawiera wyłącznie zatrudnienia z podwładnymi — i tak zostaje.
+        $check('B-f: konto z etatem, ale bez podwładnych, przy celu „podwładni" → odmowa',
+            $service->zapisz(null, $firmy['ALFA'], Z::KTO_KONTO, $konta['widz'], Z::CZYJE_PODWLADNI,
+                [], Z::BEZ_SZCZEGOLOW, $konta['widz'], 'test')
+                === WidocznoscService::BEZ_SKUTKU_PODWLADNI);
+        $check('B-f: KTO = Przełożony bez podwładnych → odmowa „podmiot" (jak dotąd)',
+            $service->zapisz(null, $firmy['ALFA'], Z::KTO_PRZELOZONY, $etaty['cel1'], Z::CZYJE_PODWLADNI,
+                [], Z::BEZ_SZCZEGOLOW, $konta['widz'], 'test')
+                === WidocznoscService::POWOD_PODMIOT);
+        $check('B-f: po dwóch odmowach nie przybyła żadna reguła', $ileRegul() === $przedBezSkutku);
+
+        // ——— Z80 B3 + droga 2: JEDNO WYGASZENIE ETATU, CZTERY WYZWALACZE ——————————
+        // ⚠ **Tak wygląda najczęściej spotykana zmiana w kadrach**: ktoś odchodzi z firmy.
+        // Jedno wygaszenie etatu odbiera naraz: cel regule „osoby", podwładnego regule
+        // „przełożony X › jego podwładni", podmiot regule „osoba" (bo konto bez żadnego
+        // czynnego etatu zostaje zablokowane) — i właśnie dlatego test jest jeden, a nie cztery.
+        // ⚠ Wygaszenie idzie `SyncDomainRepository::deactivateEmployment()`, czyli DOKŁADNIE tą
+        // metodą, którą wywołuje `RecordApplier::deactivate()` w drodze 2.
+        $kontoPodwl = $wstaw(
+            "INSERT INTO account (person_id, email, status) VALUES (:p, :e, 'active')",
+            ['p' => $osoby['podwl'], 'e' => strtolower($znacznik) . '-podwl@example.invalid']
+        );
+        $konta['podwl'] = $kontoPodwl;
+        // ⚠ Numer roli bierzemy osobnym zapytaniem, a NIE domknięciem `$rola` z fixture: pętla
+        // zakładająca etaty nadpisuje tę zmienną napisem (`'obcy'`), więc wywołanie kończy się
+        // „undefined function obcy()". Zmierzone 23.10.2026 — i to jest dokładnie ten rodzaj
+        // pułapki, który daje `$rola` w dwóch znaczeniach w jednym pliku.
+        $stmtRola = $pdo->prepare('SELECT id FROM role WHERE code = :kod');
+        $stmtRola->execute(['kod' => 'employee']);
+        $wstaw('INSERT INTO role_assignment (account_id, role_id, company_id) VALUES (:a, :r, :c)',
+            ['a' => $kontoPodwl, 'r' => (int) $stmtRola->fetchColumn(), 'c' => $firmy['ALFA']]);
+        $r1 = $service->zapisz(null, $firmy['ALFA'], Z::KTO_PRZELOZONY, $etaty['szef'], Z::CZYJE_PODWLADNI,
+            [], Z::BEZ_SZCZEGOLOW, $konta['widz'], 'test');
+        $r2 = $service->zapisz(null, $firmy['ALFA'], Z::KTO_KONTO, $konta['widz'], Z::CZYJE_OSOBY,
+            [$etaty['podwl']], Z::BEZ_SZCZEGOLOW, $konta['widz'], 'test');
+        $r3 = $service->zapisz(null, $firmy['ALFA'], Z::KTO_KONTO, $kontoPodwl, Z::CZYJE_FIRMA,
+            [], Z::BEZ_SZCZEGOLOW, $konta['widz'], 'test');
+        $check('droga 2: trzy reguły próbne zapisane', $r1 === null && $r2 === null && $r3 === null,
+            (string) $r1 . '/' . (string) $r2 . '/' . (string) $r3);
+        $aktywnych = static fn (): int => (int) $pdo->query('SELECT COUNT(*) FROM calendar_access_rule
+            WHERE company_id = ' . (int) $firmy['ALFA'] . ' AND is_active = 1')->fetchColumn();
+        $przedWygaszeniem = $aktywnych();
+        // Wygaszenie etatu podwładnego + blokada konta przy zerze czynnych etatów — tak samo
+        // jak w `RecordApplier::deactivate()`.
+        $osobaPodwl = $domenaSync->deactivateEmployment($etaty['podwl']);
+        $check('droga 2: wygaszenie etatu zwróciło osobę', $osobaPodwl === $osoby['podwl'],
+            (string) $osobaPodwl);
+        if ($osobaPodwl !== null && $domenaSync->activeEmploymentCount($osobaPodwl) === 0) {
+            $domenaSync->blockAccountOfPerson($osobaPodwl);
+        }
+        $check('droga 2: konto podwładnego zablokowane po utracie ostatniego etatu',
+            $pdo->query('SELECT blocked_at FROM account WHERE id = ' . $kontoPodwl)->fetchColumn() !== null);
+        $wylaczone = $service->przelicz($firmy['ALFA'], true, null, 'sync');
+        $powody = array_values($wylaczone);
+        $check('droga 2: jedno wygaszenie wyłączyło TRZY reguły', count($wylaczone) === 3,
+            json_encode($wylaczone));
+        $check('droga 2: powód „brak podwładnych" (reguła przełożonego i cel podwładni)',
+            in_array(WidocznoscService::BEZ_SKUTKU_PODWLADNI, $powody, true));
+        $check('droga 2: powód „bez czynnych osób" (cel wskazane osoby)',
+            in_array(WidocznoscService::BEZ_SKUTKU_OSOBY, $powody, true));
+        $check('droga 2: powód „konto nieczynne" (podmiot z zablokowanym kontem)',
+            in_array(WidocznoscService::BEZ_SKUTKU_KONTO, $powody, true));
+        $check('droga 2: liczba reguł aktywnych spadła dokładnie o trzy',
+            $aktywnych() === $przedWygaszeniem - 3, (string) ($przedWygaszeniem - $aktywnych()));
+        $check('droga 2: wpisy w dzienniku o wyłączeniu automatycznym',
+            $events->countRecent('calendar_access.auto_disabled', 1) >= 3);
+        // ⚠ **System NIGDY nie włącza reguły sam** (§B4): drugi przebieg po tych samych danych
+        // nie rusza niczego, także gdyby skutek wrócił.
+        $check('B4: drugi przebieg przeliczania nie wyłącza ani nie włącza niczego',
+            $service->przelicz($firmy['ALFA'], true, null, 'sync') === []
+            && $aktywnych() === $przedWygaszeniem - 3);
+        // ⚠ B4: włączyć wolno WYŁĄCZNIE regułę, która ma skutek — i odmawia SERWER, a nie
+        // zablokowany przełącznik na ekranie.
+        $idBezSkutku = (int) array_key_first($wylaczone);
+        $check('B4: włączenie reguły bez skutku → odmowa z powodem',
+            in_array($service->przestaw($idBezSkutku, $firmy['ALFA'], true, $konta['widz'], 'test'), [
+                WidocznoscService::BEZ_SKUTKU_PODWLADNI,
+                WidocznoscService::BEZ_SKUTKU_OSOBY,
+                WidocznoscService::BEZ_SKUTKU_KONTO,
+            ], true));
+        $check('B4: po odmowie reguła jest nadal nieaktywna',
+            (int) $reguly->regula($idBezSkutku, $firmy['ALFA'])['is_active'] === 0);
+
+        // ——— Z80 B3-d: PUSTA GRUPA NIE WYŁĄCZA REGUŁY ————————————————————————————
+        // ⚠ Decyzja Krzysztofa z 23.10.2026, świadomie inna niż przy przełożonym bez podwładnych:
+        // skład grupy zmienia się przy zwykłych porządkach w etykietach, a to nie jest decyzja
+        // o dostępie. Ten test pilnuje, żeby nikt tego nie „ujednolicił".
+        // ⚠ **WŁASNA grupa, nie `$grupaId` z fixture**: przypadek `h` wyżej usuwa tę pierwszą,
+        // a reguła na usuniętą grupę nie zapisze się wcale (`POWOD_PODMIOT`). Zmierzone
+        // 23.10.2026 — test mówił wtedy „podmiot" i wyglądało to na usterkę produktu.
+        $nowaGrupa = $grupySerwis->utworz($firmy['ALFA'], 'Grupa pusta ' . $znacznik, $konta['widz'], 'test');
+        $grupaPusta = is_array($nowaGrupa) ? (int) $nowaGrupa['id'] : 0;
+        $check('B3-d: druga grupa próbna założona', $grupaPusta > 0);
+        $grupySerwis->przypisz($grupaPusta, $firmy['ALFA'], [$etaty['cel1']], $konta['widz'], 'test');
+        $rGrupa = $service->zapisz(null, $firmy['ALFA'], Z::KTO_GRUPA, $grupaPusta, Z::CZYJE_FIRMA, [],
+            Z::BEZ_SZCZEGOLOW, $konta['widz'], 'test');
+        $check('B3-d: reguła na grupę zapisana', $rGrupa === null, (string) $rGrupa);
+        $grupySerwis->wypisz($grupaPusta, $firmy['ALFA'], [$etaty['cel1']], $konta['widz'], 'test');
+        $check('B3-d: grupa jest teraz pusta',
+            $reguly->zatrudnieniaGrup($firmy['ALFA'], [$grupaPusta]) === []);
+        $check('B3-d: pusta grupa NIE wyłącza reguły',
+            $service->przelicz($firmy['ALFA'], true, null, 'test') === []);
 
         // ——— KANDYDACI: konto z nadaniem na cały tenant ————————————————————————
         // ⚠ To domknięcie decyzji z Z53 (zlecenie Z55 pkt 2). Bez niego reguła założona takiemu

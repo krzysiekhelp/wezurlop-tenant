@@ -1,0 +1,124 @@
+{#- **Wiersz reguły dodatkowej na `/admin/widocznosc`** — jeden plik dla reguł AKTYWNYCH
+    i NIEAKTYWNYCH (zlecenie Z80 B6).
+
+    ⚠ **Wyciągnięte z `visibility.twig` w Z80, a nie napisane od nowa.** Lista rozpadła się
+    na dwie (aktywne, separator, nieaktywne), a dwie pętle nad kopią tych samych siedemdziesięciu
+    linii rozjechałyby się przy pierwszej poprawce wyglądu — dokładnie tak, jak rozjechało się
+    pole numeru telefonu w Z72 i Z73.
+
+    ⚠ **Wiersz nieaktywny ma NORMALNE tło i przygaszoną treść** (§B6), a nie inne tło: inne tło
+    czytałoby się jak ostrzeżenie o błędzie, a tu chodzi o stan — reguła istnieje i da się ją
+    włączyć. Ołówek i kosz zostają, bo obie akcje mają sens także wtedy, gdy reguła nic nie daje.
+
+    ⚠ **Renderowany `with_context = false`, więc KAŻDA zmienna musi być podana jawnie** —
+    i to jest pułapka, która nie zapala się od razu: brak `adres` wywalił listę wyłącznie w firmie,
+    która MA regułę dodatkową (zmierzone 23.10.2026: firma bez takiej reguły renderowała się
+    bez jednego błędu, bo partial nie był wołany ani raz). Lista wyszła wtedy PUSTA przy statusie
+    200 — usterkę widać w `storage/logs`, nie na ekranie.
+
+    Zmienne: `r` (wiersz z `VisibilityController::wiersz()`), `spolka`, `nazwy_zakresow`,
+    `adres` (baza adresu ekranu z `visibility.twig`); `ikony` dostaje własnym importem. -#}
+{% import 'partials/ikony.twig' as ikony %}
+<li class="wid-wiersz{{ r.aktywna ? '' : ' wid-wiersz--nieaktywna' }}">
+                <span class="wid-wiersz__znak">
+                    {%- if r.kto_rodzaj == 'group' %}{{ ikony.etykieta() }}
+                    {%- elseif r.kto_rodzaj == 'supervisor' %}{{ ikony.drzewo() }}
+                    {%- else %}{{ ikony.konto() }}{% endif -%}
+                </span>
+                <div class="wid-wiersz__kto">
+                    <span class="wid-wiersz__nazwa">
+                        {{- r.kto -}}
+                        {#- ⚠ **Dwie plakietki, nie jedna z dopiskiem**: „wyłączona automatycznie"
+                            jest OSTRZEŻENIEM (coś się stało bez decyzji człowieka i ktoś stracił
+                            wgląd), a „wyłączona" jest stanem neutralnym (ktoś tak postanowił).
+                            Jedna plakietka z dwoma znaczeniami kazałaby czytać linię powodu,
+                            żeby je rozróżnić. -#}
+                        {%- if not r.aktywna %}
+                            <span class="chip chip--mala{{ r.automatycznie ? ' chip--warn' : '' }} wid-wiersz__plakietka">
+                                {{- r.automatycznie ? 'wyłączona automatycznie' : 'wyłączona' -}}
+                            </span>
+                        {%- endif %}
+                    </span>
+                    {#- Przy regule wyłączonej druga linia mówi POWÓD, a nie opis podmiotu:
+                        „z czego wynika ten wiersz" jest wtedy mniej ważne od „dlaczego nie działa". -#}
+                    <span class="wid-wiersz__opis">{{ r.aktywna ? r.kto_opis : r.powod_opis }}</span>
+                </div>
+                <span class="wid-wiersz__strzalka" aria-hidden="true">›</span>
+                {#- ⚠ Przy osobach `title` niesie **pełną listę nazwisk, razem ze zwolnionymi** —
+                    bo to ona mówi, co w regule stoi. Kolumna pokazuje skrót, a nie całość:
+                    dwunastu nazwisk nie da się zmieścić w jednej linii, a zawijanie rozpychałoby
+                    każdy wiersz tabeli. -#}
+                <div class="wid-wiersz__czyje" title="
+                    {%- if r.czyje_rodzaj == 'subordinates' %}Cała gałąź pod tą osobą w hierarchii, liczona przy każdym wyświetleniu
+                    {%- elseif r.czyje_rodzaj == 'company' %}Wszyscy pracownicy firmy — także zatrudnieni w przyszłości
+                    {%- elseif r.czyje_rodzaj == 'persons' %}{{ r.czyje_pelne }}
+                    {%- else %}Członkowie tych grup — także dopisani do nich później{% endif -%}">
+                    <span class="wid-wiersz__ikona">
+                        {%- if r.czyje_rodzaj == 'subordinates' %}{{ ikony.drzewo() }}
+                        {%- elseif r.czyje_rodzaj == 'company' %}{{ ikony.firma() }}
+                        {%- elseif r.czyje_rodzaj == 'persons' %}{{ ikony.konto() }}
+                        {%- else %}{{ ikony.etykieta() }}{% endif -%}
+                    </span>
+                    {% if r.czyje_rodzaj == 'persons' %}
+                        {#- ⚠ Każde nazwisko w osobnym `span`, bo przekreślenie dotyczy nazwiska,
+                            a nie przecinka między nazwiskami. -#}
+                        <span class="wid-wiersz__nazwa">
+                            {%- for o in r.czyje_osoby -%}
+                                {%- if not loop.first %}, {% endif -%}
+                                <span{% if not o.czynne %} class="wid-wiersz__osoba--zwolniona" title="Zatrudnienie zakończone"{% endif %}>{{ o.nazwa }}</span>
+                            {%- endfor -%}
+                            {%- if r.czyje_reszta > 0 %} {{ r.czyje_reszta_opis }}{% endif -%}
+                        </span>
+                    {% else %}
+                        <span class="wid-wiersz__nazwa">{{ r.czyje }}</span>
+                    {% endif %}
+                </div>
+                {{ include('partials/zakres-plakietka.twig', {'zakres': r.zakres, 'nazwy': nazwy_zakresow}, with_context = false) }}
+                {#- ══════════ Kolumna AKTYWNA (zlecenie Z80 B2 i B6) ══════════
+                    ⚠ **Przełącznik jest FORMULARZEM `POST`, nie polem wyboru ze skryptem**: zmienia
+                    stan dostępu do danych kadrowych, więc musi działać bez JavaScriptu (CLAUDE.md §3).
+                    ⚠ Stan docelowy jedzie POLEM (`aktywna`), nie domysłem „na przeciwny": przy dwóch
+                    otwartych kartach domysł daje wynik zależny od kolejności kliknięć.
+                    ⚠ Przy regule, której nie da się włączyć, przycisk jest `disabled` Z POWODEM
+                    w `title` — a serwer odmawia niezależnie (§B4): wyłączony przycisk nie jest
+                    bramką, żądanie da się złożyć z ręki. -#}
+                <form method="post" action="{{ url('/admin/widocznosc/' ~ r.id ~ '/przestaw') }}"
+                      class="wid-wiersz__stan">
+                    {% include 'partials/csrf.twig' %}
+                    <input type="hidden" name="spolka" value="{{ spolka.id }}">
+                    <input type="hidden" name="aktywna" value="{{ r.aktywna ? '0' : '1' }}">
+                    <button type="submit" class="wid-stan{{ r.aktywna ? ' wid-stan--on' : '' }}"
+                            aria-label="{{ (r.aktywna ? 'Wyłącz regułę: ' : 'Włącz regułę: ') ~ r.kto }}"
+                            {%- if not r.aktywna and not r.mozna_wlaczyc %} disabled
+                            title="{{ r.blokada_opis|e('html_attr') }}"
+                            {%- else %} title="{{ r.aktywna ? 'Wyłącz tę regułę' : 'Włącz tę regułę' }}"{% endif %}>
+                        <span class="wid-stan__tor" aria-hidden="true"><span class="wid-stan__kropka"></span></span>
+                    </button>
+                </form>
+                {#- ⚠ **Przy celu „podwładni" ołówek niesie `podwladni=1`** (Z80 A1 pkt 5): wybór
+                    w tej sekcji jest polem wyboru, a nie samą zakładką — bo zakładka bez pola
+                    nie miałaby czego odznaczyć i nie byłoby czego pokazać w nagłówku kroku.
+                    Bez tego parametru edycja zapisanej reguły otwierała się z kafelkiem
+                    „nie wybrano" i odblokowanymi sekcjami, czyli pokazywała co innego, niż
+                    stoi w bazie (zmierzone 23.10.2026, wymóg A5). Pozostałe cele niosą swój
+                    wybór same: „cała firma" przez `czyje=company`, osoby i grupy przez `grupy[]`. -#}
+                {#- ⚠ **Czysty `&`, nie `&amp;`**: to napis w wyrażeniu, więc przy wypisaniu
+                    przechodzi przez auto-escaping i `&` zamienia się na `&amp;` sam. Wpisany
+                    tu `&amp;` escapowałby się drugi raz i adres dostawał parametr o nazwie
+                    `amp;podwladni` (zmierzone 23.10.2026 w DOM-ie). -#}
+                {% set wybor_celu = r.czyje_rodzaj == 'subordinates' ? '&podwladni=1' : '' %}
+                <a class="ikona-akcja ikona-akcja--edycja" href="{{ adres }}&amp;okno=1&amp;regula={{ r.id }}&amp;kto={{ r.kto_rodzaj }}&amp;kto_id={{ r.kto_id }}&amp;czyje={{ r.czyje_rodzaj }}{{ wybor_celu }}&amp;zakres={{ r.zakres }}&amp;krok=1{% for g in r.grupy %}&amp;grupy[]={{ g }}{% endfor %}"
+                   data-modal-open="widocznosc-okno"
+                   hx-get="{{ url('/admin/widocznosc/okno') }}?spolka={{ spolka.id }}&amp;regula={{ r.id }}&amp;kto={{ r.kto_rodzaj }}&amp;kto_id={{ r.kto_id }}&amp;czyje={{ r.czyje_rodzaj }}{{ wybor_celu }}&amp;zakres={{ r.zakres }}&amp;krok=1{% for g in r.grupy %}&amp;grupy[]={{ g }}{% endfor %}"
+                   hx-target="#widocznosc-okno-tresc" hx-swap="innerHTML"
+                   aria-label="Zmień dostęp: {{ r.kto }}" title="Zmień dostęp">{{ ikony.olowek() }}</a>
+                {#- ⚠ Bez JavaScriptu kosz wysyła formularz; z `ui.js` otwiera okno
+                    potwierdzenia. Jeden przycisk, dwie drogi — tak samo jak na `/admin/grupy`. -#}
+                <form method="post" action="{{ url('/admin/widocznosc/' ~ r.id ~ '/usun') }}" class="ikona-akcja__form">
+                    {% include 'partials/csrf.twig' %}
+                    <input type="hidden" name="spolka" value="{{ spolka.id }}">
+                    <button type="submit" class="ikona-akcja ikona-akcja--usun"
+                            data-modal-open="wid-usun-{{ r.id }}"
+                            aria-label="Odbierz dostęp: {{ r.kto }}" title="Odbierz dostęp">{{ ikony.kosz() }}</button>
+                </form>
+            </li>

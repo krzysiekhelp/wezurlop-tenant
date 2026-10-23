@@ -37,6 +37,9 @@ final class AccountService
         private readonly Connection $db,
         private readonly AccountRepository $accounts,
         private readonly EventLogRepository $events,
+        // ⚠ Blokada konta przelicza reguły widoczności (Z80 B3, droga 5): zablokowane konto
+        // przestaje być kandydatem na podmiot, więc jego reguła nie daje już nic.
+        private readonly WidocznoscService $widocznosc,
     ) {
     }
 
@@ -106,6 +109,11 @@ final class AccountService
             $this->events->record('session.revoked', $byAccountId, $ipHash, $actorLabel, 'account', $accountId, null,
                 ['count' => $sesje, 'powod' => 'blokada', 'zrodlo' => 'reczna']);
         }
+        // ⚠ **Przeliczenie PO zatwierdzeniu blokady, nie w jej transakcji** (Z80 B3, droga 5).
+        // Blokada ma się udać także wtedy, gdy przeliczanie reguł padnie: odebranie dostępu
+        // zablokowanemu kontu jest ważniejsze od statusu reguły, a sama blokada i tak odcina
+        // wgląd natychmiast (`regulyWidza()` pyta o kandydaturę przy każdym odczycie).
+        $this->widocznosc->przeliczDlaKonta($accountId, $byAccountId, $actorLabel);
 
         return null;
     }

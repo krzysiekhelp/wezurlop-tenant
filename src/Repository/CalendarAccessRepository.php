@@ -46,9 +46,15 @@ final class CalendarAccessRepository
             // ⚠ `subject_group_id` jest tu po to, żeby panel osoby mógł powiedzieć, PRZEZ KTÓRĄ
             // grupę ta osoba widzi (zlecenie Z58, karta „Widoczność kalendarza"). Reguła wybrana
             // zapytaniem nie mówi sama, które z pięciu dopasowań ją wpuściło.
+            // ⚠ **`is_active = 1` stoi W ZAPYTANIU, nie w filtrze po odczycie** (Z80 B5): to jest
+            // jedyna droga, którą reguły docierają do decyzji o wglądzie (`CalendarVisibility`
+            // i oba `zrodla*`), więc wyłączona reguła nie ma prawa opuścić bazy. Filtr w PHP
+            // znaczyłby, że każdy nowy odczyt musi o nim pamiętać — a chodzi o dostęp do danych
+            // o zdrowiu. Lista reguł do ZARZĄDZANIA czyta osobną metodą, która bierze wszystkie.
             'SELECT r.id, r.scope, r.target_kind, r.subject_kind, r.subject_group_id
                FROM calendar_access_rule r
               WHERE r.company_id = :company
+                AND r.is_active = 1
                 AND ( (r.subject_kind = :kto_konto AND r.subject_account_id = :konto)
                    OR (r.subject_kind = :kto_przelozony AND r.subject_employment_id = :etat_a)
                    OR (r.subject_kind = :kto_przelozeni)
@@ -89,8 +95,11 @@ final class CalendarAccessRepository
     public function reguly(int $companyId): array
     {
         $stmt = $this->db->pdo()->prepare(
+            // ⚠ Lista do ZARZĄDZANIA bierze reguły wyłączone też — tym różni się od
+            // `regulyWidza()`, która ich nie wypuszcza. Administrator ma je widzieć, żeby móc
+            // je włączyć albo skasować; dostępu nie dają (Z80 B5, B6).
             'SELECT r.id, r.scope, r.target_kind, r.subject_kind, r.subject_account_id,
-                    r.subject_employment_id, r.subject_group_id
+                    r.subject_employment_id, r.subject_group_id, r.is_active, r.inactive_reason, r.inactive_kind, r.inactive_at, r.inactive_by_account_id
                FROM calendar_access_rule r
               WHERE r.company_id = :company
               ORDER BY r.subject_kind, r.id'
@@ -105,7 +114,7 @@ final class CalendarAccessRepository
     {
         $stmt = $this->db->pdo()->prepare(
             'SELECT r.id, r.scope, r.target_kind, r.subject_kind, r.subject_account_id,
-                    r.subject_employment_id, r.subject_group_id
+                    r.subject_employment_id, r.subject_group_id, r.is_active, r.inactive_reason, r.inactive_kind, r.inactive_at, r.inactive_by_account_id
                FROM calendar_access_rule r
               WHERE r.id = :id AND r.company_id = :company'
         );
@@ -157,6 +166,19 @@ final class CalendarAccessRepository
             foreach (['subject_kind', 'subject_account_id', 'subject_employment_id', 'subject_group_id'] as $pole) {
                 if (array_key_exists($pole, $r)) {
                     $out[$pole] = $pole === 'subject_kind' ? (string) $r[$pole] : (int) $r[$pole];
+                }
+            }
+            // ⚠ **Status „aktywna" przepisujemy TYLKO wtedy, gdy był w zapytaniu** (Z80 cz. B) —
+            // tak samo jak pola podmiotu wyżej. `regulyWidza()` go nie pobiera, bo odsiewa
+            // nieaktywne w SQL-u; gdyby ta metoda dopisywała `is_active` z domysłem, odczyt
+            // bez tej kolumny mówiłby „aktywna" także o regule, o którą nikt nie pytał.
+            // ⚠ Bez tej pętli `przelicz()` widziało wszystkie reguły jako aktywne (klucza nie było,
+            // a `?? 1` dawało jedynkę) i wyłączało je w każdym przebiegu od nowa — zmierzone
+            // 23.10.2026 na teście „drugi przebieg nie rusza niczego".
+            foreach (['is_active', 'inactive_reason', 'inactive_kind', 'inactive_at',
+                      'inactive_by_account_id'] as $pole) {
+                if (array_key_exists($pole, $r)) {
+                    $out[$pole] = $pole === 'is_active' ? (int) $r[$pole] : $r[$pole];
                 }
             }
 
@@ -554,11 +576,100 @@ final class CalendarAccessRepository
      * `bez_szczegolow`. Domyślność stosuje JEDNO miejsce w kodzie
      * (`CalendarVisibility::zakresPrzelozonych()`), a nie `DEFAULT` kolumny i kod naraz.
      */
+    /**
+     * **Przestawienie statusu „aktywna"** — `true`, gdy wiersz naprawdę zmienił stan
+     * (zlecenie Z80 cz. B).
+     *
+     * ⚠ **Warunek `is_active <> :docelowy` jest częścią zapisu, nie ozdobą.** Dzięki niemu
+     * drugie wywołanie z tym samym stanem nie rusza wiersza i zwraca `false` — a wywołujący
+     * zapisuje w dzienniku dokładnie tyle zdarzeń, ile było zmian. Przeliczanie chodzi po
+     * wszystkich regułach firmy przy każdej zmianie hierarchii, więc bez tego dziennik
+     * zalewałby się wpisami „wyłączono regułę, która była już wyłączona".
+     *
+     * ⚠ Czas w UTC (`UTC_TIMESTAMP()`), jak wszystkie znaczniki tabel aplikacji — `phinxlog`
+     * trzyma czas lokalny i to jedyny wyjątek w bazie (docs/srodowisko.md).
+     */
+    public function ustawAktywnosc(
+        int $ruleId,
+        int $companyId,
+        bool $aktywna,
+        ?string $powod,
+        ?string $rodzaj,
+        ?int $przez
+    ): bool {
+        $stmt = $this->db->pdo()->prepare(
+            'UPDATE calendar_access_rule
+                SET is_active = :aktywna,
+                    inactive_reason = :powod,
+                    inactive_kind = :rodzaj,
+                    inactive_at = :kiedy,
+                    inactive_by_account_id = :przez,
+                    updated_at = NOW()
+              WHERE id = :id AND company_id = :company AND is_active <> :docelowy'
+        );
+        $stmt->execute([
+            'aktywna' => $aktywna ? 1 : 0,
+            'powod' => $aktywna ? null : $powod,
+            'rodzaj' => $aktywna ? null : $rodzaj,
+            // Znacznik czasu i sprawca znikają razem z powodem: reguła aktywna nie jest „wyłączona
+            // od 23.10", więc trzymanie tam daty byłoby śladem po stanie, którego nie ma.
+            'kiedy' => $aktywna ? null : gmdate('Y-m-d H:i:s'),
+            'przez' => $aktywna ? null : $przez,
+            'id' => $ruleId,
+            'company' => $companyId,
+            'docelowy' => $aktywna ? 1 : 0,
+        ]);
+
+        return $stmt->rowCount() > 0;
+    }
+
+    /**
+     * **Firmy, w których to konto jest podmiotem jakiejś reguły** (zlecenie Z80 B3, droga 5).
+     *
+     * ⚠ Blokada konta nie dotyczy jednej firmy: jedna osoba bywa zatrudniona w dwóch i może
+     * mieć regułę w każdej z nich. Przeliczenie chodzi po firmach, bo tylko ono wie, czy
+     * w danej firmie konto jest jeszcze kandydatem — a to zależy od etatów i ról W TEJ firmie.
+     *
+     * @return list<int>
+     */
+    public function firmyZRegulamiKonta(int $accountId): array
+    {
+        $stmt = $this->db->pdo()->prepare(
+            'SELECT DISTINCT r.company_id
+               FROM calendar_access_rule r
+              WHERE r.subject_kind = :rodzaj AND r.subject_account_id = :konto'
+        );
+        $stmt->execute(['rodzaj' => ZakresWidocznosci::KTO_KONTO, 'konto' => $accountId]);
+
+        return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+    }
+
+    /**
+     * **Reguła o tym samym podpisie** — do odmowy „identyczna reguła jest wyłączona"
+     * (zlecenie Z80 B-e, rozstrzygnięcie z 23.10.2026).
+     *
+     * ⚠ Bez tego zapis trafiający w podpis reguły WYŁĄCZONEJ kończył się odmową „duplikat",
+     * a człowiek widział tylko „taka reguła już jest" — przy regule leżącej niżej, w części
+     * nieaktywnej, gdzie jej nie szukał.
+     */
+    public function regulaPoPodpisie(int $companyId, string $podpis): ?array
+    {
+        $stmt = $this->db->pdo()->prepare(
+            'SELECT r.id, r.is_active
+               FROM calendar_access_rule r
+              WHERE r.company_id = :company AND r.signature = :podpis'
+        );
+        $stmt->execute(['company' => $companyId, 'podpis' => $podpis]);
+        $wiersz = $stmt->fetch();
+
+        return is_array($wiersz) ? $wiersz : null;
+    }
+
     public function regulaStala(int $companyId, string $ktoRodzaj): ?array
     {
         $stmt = $this->db->pdo()->prepare(
             'SELECT r.id, r.scope, r.target_kind, r.subject_kind, r.subject_account_id,
-                    r.subject_employment_id, r.subject_group_id
+                    r.subject_employment_id, r.subject_group_id, r.is_active, r.inactive_reason, r.inactive_kind, r.inactive_at, r.inactive_by_account_id
                FROM calendar_access_rule r
               WHERE r.company_id = :company AND r.subject_kind = :rodzaj'
         );
@@ -626,9 +737,14 @@ final class CalendarAccessRepository
      * Przełożeni tej firmy — zatrudnienia, które **dziś** mają choć jednego podwładnego.
      *
      * ⚠ Lista jest do WYBORU w oknie reguły, a nie do rozstrzygania dostępu: o tym, kto kogo
-     * widzi, decyduje przejście gałęzi przy odczycie. Przełożony, który jutro straci
-     * podwładnych, zniknie z tej listy, a jego reguła zostanie i po prostu nic nie da —
-     * tak samo jak reguła dla osoby, która jeszcze podwładnych nie ma.
+     * widzi, decyduje przejście gałęzi przy odczycie.
+     *
+     * ⚠ **Od Z80 (23.10.2026) przełożony, który straci podwładnych, ma regułę WYŁĄCZONĄ.**
+     * Do tej daty stało tu zdanie „jego reguła zostanie i po prostu nic nie da" — i było to
+     * świadome. Decyzja Krzysztofa je odwraca: reguła bez skutku ma o tym mówić (status
+     * `is_active = 0`, powód `brak_podwladnych`), a po powrocie podwładnych włącza ją CZŁOWIEK,
+     * nie system. Ta sama lista rozstrzyga o jednym i o drugim (`zEtatowZPodwladnymi()`),
+     * więc „kto jest przełożonym" ma dokładnie jedną definicję.
      *
      * @return list<array{id: int, osoba: string, podwladnych: int}>
      */
@@ -711,6 +827,35 @@ final class CalendarAccessRepository
     public function ilePrzelozonychRazem(int $companyId): int
     {
         return $this->ilePrzelozonych($companyId, '');
+    }
+
+    /**
+     * **Które ze WSKAZANYCH zatrudnień mają dziś podwładnych** (zlecenie Z80 cz. B).
+     *
+     * ⚠ **To samo zapytanie, co lista przełożonych w oknie reguły** (`SQL_PRZELOZENI`), tylko
+     * zawężone do podanych numerów. Osobne „policz podwładnych" byłoby drugą definicją tego,
+     * kto jest przełożonym — a od Z80 od tej definicji zależy WYŁĄCZANIE reguł, czyli utrata
+     * dostępu. Dwie definicje rozjeżdżają się na pierwszym brakującym warunku (tu: `is_active`
+     * podwładnego i granica firmy w podzapytaniu).
+     *
+     * ⚠ Bez `LIMIT`: `jestPrzelozonym()` w serwisie pytało o pierwsze tysiąc przełożonych firmy
+     * i porównywało w PHP, co przy większej załodze dawałoby ciche „nie jest przełożonym".
+     *
+     * @param list<int> $employmentIds
+     * @return list<int> te z nich, które mają co najmniej jednego czynnego podwładnego
+     */
+    public function zEtatowZPodwladnymi(int $companyId, array $employmentIds): array
+    {
+        if ($employmentIds === []) {
+            return [];
+        }
+        $stmt = $this->db->pdo()->prepare(
+            'SELECT t.id FROM (' . self::SQL_PRZELOZENI . ') t
+              WHERE t.id IN (' . self::inSql($employmentIds, 'e') . ')'
+        );
+        $stmt->execute(self::inParams($employmentIds, 'e') + ['company' => $companyId]);
+
+        return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
     }
 
     /**

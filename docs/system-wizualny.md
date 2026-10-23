@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.20.2, 23.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.20.3, 23.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,41 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.20.2 → 1.20.3: reguła widoczności ma status „aktywna", a lista — kolumnę
+> i część nieaktywną** (zlecenie Z80 cz. B; decyzje Krzysztofa z 23.10.2026).
+> - **Nowa kolumna „AKTYWNA"** między „Zakres" a akcjami, szerokość 34 px (tyle, ile tor
+>   przełącznika — `auto` rozjeżdżałoby kolumny między wierszami). Reguły stałe firmy mają tam
+>   przygaszone **„zawsze"** i żadnej kontrolki: są aktywne zawsze, bo bez nich nie istnieje
+>   żaden domyślny wgląd. Puste miejsce czytałoby się jak brakująca dana.
+> - **Przełącznik to `<button type="submit">` w formularzu `POST`**, nie pole wyboru ze skryptem:
+>   zmienia dostęp do danych kadrowych, więc musi działać bez JavaScriptu. Tor 34×20 px z kropką
+>   16 px; włączony `--c-accent`, wyłączony `--c-neutral-soft`. Reguła, której **nie da się
+>   włączyć**, ma przełącznik `disabled` (opacity .5, `not-allowed`) i powód w podpowiedzi —
+>   a serwer odmawia niezależnie od tego, bo wyłączony przycisk nie jest bramką.
+> - **Wiersz oddzielający** na tle `--c-bg`: „NIEAKTYWNE · N reguły, nie dają wglądu" —
+>   wersaliki 11 px, odstęp liter .05em, wcięcie jak treść wierszy. ⚠ Wiersz, nie druga karta
+>   z tytułem: reguły nieaktywne są dalej regułami tej samej listy, z ołówkiem, koszem
+>   i przełącznikiem. Osobna karta sugerowałaby archiwum, czyli coś, czego się nie dotyka.
+> - **Wiersz nieaktywny ma NORMALNE tło**, a przygaszony tekst i ikony (`--c-text-3`) —
+>   przez `color`, nie `opacity`, bo opacity zgasiłoby też przełącznik, czyli jedyną rzecz,
+>   którą w tym wierszu się klika. Inne tło czytałoby się jak błąd, a to jest stan.
+>   Zakres zostaje widoczny (przygaszony o 30%): mówi, co reguła da, gdy ją włączyć.
+> - **Dwie plakietki przy nazwie**: „wyłączona automatycznie" (ostrzegawcza, `chip--warn` —
+>   ktoś stracił wgląd bez niczyjej decyzji) i „wyłączona" (neutralna — ktoś tak postanowił).
+>   Druga linia wiersza mówi wtedy POWÓD z datą („nie ma podwładnych od 23.10"), a nie opis
+>   podmiotu. ⚠ Plakietka liczona w locie („nieaktywna — brak czynnych osób") ZNIKŁA: ten sam
+>   stan jest teraz zapisany w bazie dla wszystkich rodzajów reguł.
+> - **Kafle nad listą liczą WYŁĄCZNIE reguły aktywne**: odpowiadają na pytanie „ile osób coś
+>   widzi", a reguła wyłączona nie daje nic. Zmierzone: po wyłączeniu jedynej reguły dodatkowej
+>   kafle schodzą z 1 na 0.
+> - **Wiersz reguły mieszka od Z80 w `partials/wid-wiersz.twig`**, bo renderują go dwie pętle.
+>   ⚠ Renderowany `with_context = false`, więc każda zmienna idzie jawnie — brak `adres`
+>   wywalił listę wyłącznie w firmie, która MA regułę dodatkową (lista pusta przy statusie 200,
+>   ślad tylko w `storage/logs`).
+> - **Zmierzone w Chrome na 1920 / 1366 / 375**: przełącznik, separator, plakietki, kafle
+>   i brak przewijania poziomego na każdej z trzech szerokości. Na telefonie przełącznik stoi
+>   w pierwszej linii wiersza, obok akcji — tam, gdzie kciuk, a nie pod trzema liniami relacji.
 
 > **Zmiana 1.20.1 → 1.20.2: okno reguły widoczności — wybór w jednej sekcji blokuje pozostałe,
 > a nagłówek kroku mówi NAZWĘ SEKCJI** (zlecenia Z78, Z79 i Z80 cz. A; prototypy zaakceptowane

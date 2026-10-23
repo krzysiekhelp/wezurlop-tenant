@@ -112,6 +112,8 @@
             <span></span>
             <span>Czyje nieobecności</span>
             <span>Zakres</span>
+            {#- Kolumna AKTYWNA między zakresem a akcjami (zlecenie Z80 B6). -#}
+            <span>Aktywna</span>
             <span></span>
             <span></span>
         </div>
@@ -133,6 +135,11 @@
                     <span class="wid-wiersz__nazwa">Swoi podwładni</span>
                 </div>
                 {{ include('partials/zakres-plakietka.twig', {'zakres': zakres_domyslny, 'nazwy': nazwy_zakresow}, with_context = false) }}
+                {#- ⚠ **Reguła stała nie ma przełącznika** (Z80 B1): jest aktywna zawsze, bo bez niej
+                    nie istnieje żaden domyślny wgląd. Kolumna zostaje z przygaszonym „zawsze",
+                    żeby wiersze stałe i dodatkowe nie rozjeżdżały się w pionie — puste miejsce
+                    czytałoby się jak brakująca dana. -#}
+                <span class="wid-wiersz__stan wid-wiersz__stan--zawsze">zawsze</span>
                 {#- ⚠ Ołówek, ale **bez kosza**: hierarchia istnieje zawsze, więc tej reguły nie
                     da się odebrać — można jej tylko zmienić zakres. Serwer odrzuca usunięcie
                     niezależnie od tego, że przycisku tu nie ma. -#}
@@ -170,6 +177,11 @@
                     <span class="wid-wiersz__nazwa">Cała firma</span>
                 </div>
                 {{ include('partials/zakres-plakietka.twig', {'zakres': zakres_administratorow, 'nazwy': nazwy_zakresow}, with_context = false) }}
+                {#- ⚠ **Reguła stała nie ma przełącznika** (Z80 B1): jest aktywna zawsze, bo bez niej
+                    nie istnieje żaden domyślny wgląd. Kolumna zostaje z przygaszonym „zawsze",
+                    żeby wiersze stałe i dodatkowe nie rozjeżdżały się w pionie — puste miejsce
+                    czytałoby się jak brakująca dana. -#}
+                <span class="wid-wiersz__stan wid-wiersz__stan--zawsze">zawsze</span>
                 {#- Ołówek bez kosza, tak samo jak u przełożonych: administratorzy w firmie są
                     zawsze, więc tej reguły nie da się odebrać — można jej zmienić zakres. -#}
                 <a class="ikona-akcja ikona-akcja--edycja" href="{{ adres }}&amp;okno=1&amp;kto=admins_all&amp;krok=3&amp;zakres={{ zakres_administratorow }}&amp;regula={{ administratorow_id }}"
@@ -180,82 +192,33 @@
                 <span class="wid-wiersz__brak-akcji" aria-hidden="true"></span>
             </li>
 
-            {#- ══════════ Reguły dodatkowe ══════════ -#}
+            {#- ══════════ Reguły dodatkowe: AKTYWNE ══════════
+                ⚠ Wiersz mieszka w partialu, bo renderują go DWIE pętle (aktywne i nieaktywne) —
+                kopia siedemdziesięciu linii rozjechałaby się przy pierwszej poprawce wyglądu. -#}
             {% for r in reguly %}
-                <li class="wid-wiersz">
-                    <span class="wid-wiersz__znak">
-                        {%- if r.kto_rodzaj == 'group' %}{{ ikony.etykieta() }}
-                        {%- elseif r.kto_rodzaj == 'supervisor' %}{{ ikony.drzewo() }}
-                        {%- else %}{{ ikony.konto() }}{% endif -%}
-                    </span>
-                    <div class="wid-wiersz__kto">
-                        <span class="wid-wiersz__nazwa">{{ r.kto }}</span>
-                        <span class="wid-wiersz__opis">{{ r.kto_opis }}</span>
-                    </div>
-                    <span class="wid-wiersz__strzalka" aria-hidden="true">›</span>
-                    {#- ⚠ Przy osobach `title` niesie **pełną listę nazwisk, razem ze zwolnionymi** —
-                        bo to ona mówi, co w regule stoi. Kolumna pokazuje skrót, a nie całość:
-                        dwunastu nazwisk nie da się zmieścić w jednej linii, a zawijanie rozpychałoby
-                        każdy wiersz tabeli. -#}
-                    <div class="wid-wiersz__czyje" title="
-                        {%- if r.czyje_rodzaj == 'subordinates' %}Cała gałąź pod tą osobą w hierarchii, liczona przy każdym wyświetleniu
-                        {%- elseif r.czyje_rodzaj == 'company' %}Wszyscy pracownicy firmy — także zatrudnieni w przyszłości
-                        {%- elseif r.czyje_rodzaj == 'persons' %}{{ r.czyje_pelne }}
-                        {%- else %}Członkowie tych grup — także dopisani do nich później{% endif -%}">
-                        <span class="wid-wiersz__ikona">
-                            {%- if r.czyje_rodzaj == 'subordinates' %}{{ ikony.drzewo() }}
-                            {%- elseif r.czyje_rodzaj == 'company' %}{{ ikony.firma() }}
-                            {%- elseif r.czyje_rodzaj == 'persons' %}{{ ikony.konto() }}
-                            {%- else %}{{ ikony.etykieta() }}{% endif -%}
-                        </span>
-                        {% if r.czyje_rodzaj == 'persons' %}
-                            {#- ⚠ Każde nazwisko w osobnym `span`, bo przekreślenie dotyczy nazwiska,
-                                a nie przecinka między nazwiskami. -#}
-                            <span class="wid-wiersz__nazwa">
-                                {%- for o in r.czyje_osoby -%}
-                                    {%- if not loop.first %}, {% endif -%}
-                                    <span{% if not o.czynne %} class="wid-wiersz__osoba--zwolniona" title="Zatrudnienie zakończone"{% endif %}>{{ o.nazwa }}</span>
-                                {%- endfor -%}
-                                {%- if r.czyje_reszta > 0 %} {{ r.czyje_reszta_opis }}{% endif -%}
-                            </span>
-                            {#- ⚠ Plakietka mówi, że reguła **nic już nie daje**, a nie że jej nie ma:
-                                zostaje na ekranie, żeby administrator sam zdecydował, czy ją skasować. -#}
-                            {% if r.czyje_nieczynna %}
-                                <span class="chip chip--mala wid-wiersz__plakietka">nieaktywna — brak czynnych osób</span>
-                            {% endif %}
-                        {% else %}
-                            <span class="wid-wiersz__nazwa">{{ r.czyje }}</span>
-                        {% endif %}
-                    </div>
-                    {{ include('partials/zakres-plakietka.twig', {'zakres': r.zakres, 'nazwy': nazwy_zakresow}, with_context = false) }}
-                    {#- ⚠ **Przy celu „podwładni" ołówek niesie `podwladni=1`** (Z80 A1 pkt 5): wybór
-                        w tej sekcji jest polem wyboru, a nie samą zakładką — bo zakładka bez pola
-                        nie miałaby czego odznaczyć i nie byłoby czego pokazać w nagłówku kroku.
-                        Bez tego parametru edycja zapisanej reguły otwierała się z kafelkiem
-                        „nie wybrano" i odblokowanymi sekcjami, czyli pokazywała co innego, niż
-                        stoi w bazie (zmierzone 23.10.2026, wymóg A5). Pozostałe cele niosą swój
-                        wybór same: „cała firma" przez `czyje=company`, osoby i grupy przez `grupy[]`. -#}
-                    {#- ⚠ **Czysty `&`, nie `&amp;`**: to napis w wyrażeniu, więc przy wypisaniu
-                        przechodzi przez auto-escaping i `&` zamienia się na `&amp;` sam. Wpisany
-                        tu `&amp;` escapowałby się drugi raz i adres dostawał parametr o nazwie
-                        `amp;podwladni` (zmierzone 23.10.2026 w DOM-ie). -#}
-                    {% set wybor_celu = r.czyje_rodzaj == 'subordinates' ? '&podwladni=1' : '' %}
-                    <a class="ikona-akcja ikona-akcja--edycja" href="{{ adres }}&amp;okno=1&amp;regula={{ r.id }}&amp;kto={{ r.kto_rodzaj }}&amp;kto_id={{ r.kto_id }}&amp;czyje={{ r.czyje_rodzaj }}{{ wybor_celu }}&amp;zakres={{ r.zakres }}&amp;krok=1{% for g in r.grupy %}&amp;grupy[]={{ g }}{% endfor %}"
-                       data-modal-open="widocznosc-okno"
-                       hx-get="{{ url('/admin/widocznosc/okno') }}?spolka={{ spolka.id }}&amp;regula={{ r.id }}&amp;kto={{ r.kto_rodzaj }}&amp;kto_id={{ r.kto_id }}&amp;czyje={{ r.czyje_rodzaj }}{{ wybor_celu }}&amp;zakres={{ r.zakres }}&amp;krok=1{% for g in r.grupy %}&amp;grupy[]={{ g }}{% endfor %}"
-                       hx-target="#widocznosc-okno-tresc" hx-swap="innerHTML"
-                       aria-label="Zmień dostęp: {{ r.kto }}" title="Zmień dostęp">{{ ikony.olowek() }}</a>
-                    {#- ⚠ Bez JavaScriptu kosz wysyła formularz; z `ui.js` otwiera okno
-                        potwierdzenia. Jeden przycisk, dwie drogi — tak samo jak na `/admin/grupy`. -#}
-                    <form method="post" action="{{ url('/admin/widocznosc/' ~ r.id ~ '/usun') }}" class="ikona-akcja__form">
-                        {% include 'partials/csrf.twig' %}
-                        <input type="hidden" name="spolka" value="{{ spolka.id }}">
-                        <button type="submit" class="ikona-akcja ikona-akcja--usun"
-                                data-modal-open="wid-usun-{{ r.id }}"
-                                aria-label="Odbierz dostęp: {{ r.kto }}" title="Odbierz dostęp">{{ ikony.kosz() }}</button>
-                    </form>
-                </li>
+                {{ include('partials/wid-wiersz.twig',
+                    {'r': r, 'spolka': spolka, 'nazwy_zakresow': nazwy_zakresow, 'adres': adres},
+                    with_context = false) }}
             {% endfor %}
+
+            {#- ══════════ Reguły NIEAKTYWNE (zlecenie Z80 B6) ══════════
+                ⚠ **Wiersz oddzielający, a nie druga lista pod osobnym nagłówkiem**: reguły
+                nieaktywne są dalej regułami tej samej firmy i tej samej listy — mają ołówek,
+                kosz i przełącznik. Druga karta z własnym tytułem sugerowałaby archiwum,
+                czyli coś, czego się już nie dotyka.
+                ⚠ Zdanie mówi, CO TO ZNACZY („nie dają wglądu"), a nie tylko ile ich jest:
+                bez tego trzeba zgadywać, czy wyłączona reguła jeszcze coś daje. -#}
+            {% if reguly_nieaktywne is not empty %}
+                <li class="wid-wiersz wid-wiersz--separator" aria-hidden="true">
+                    NIEAKTYWNE · {{ reguly_nieaktywne|length }}
+                    {{- ' ' }}{{ reguly_nieaktywne|length == 1 ? 'reguła' : 'reguły' }}, nie dają wglądu
+                </li>
+                {% for r in reguly_nieaktywne %}
+                    {{ include('partials/wid-wiersz.twig',
+                        {'r': r, 'spolka': spolka, 'nazwy_zakresow': nazwy_zakresow, 'adres': adres},
+                        with_context = false) }}
+                {% endfor %}
+            {% endif %}
         </ul>
 
         <div class="card__body card__body--tight">

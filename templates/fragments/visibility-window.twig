@@ -334,7 +334,19 @@
                             <span class="wid-poz__ptak">{{ ikony.ptaszek() }}</span>
                         </label>
                         {% if okno.podwladnych == 0 and okno.kto_nazwa != '' %}
-                            <p class="wid-lista-wybor__uwaga">{{ okno.kto == 'group' ? 'Członkowie tej grupy nie mają dziś podwładnych' : 'Ta osoba nie ma dziś podwładnych' }} — dostęp zadziała, gdy się pojawią.</p>
+                            {#- ⚠ **Zdanie zmienione w Z80**: do 23.10.2026 mówiło „dostęp zadziała,
+                                gdy się pojawią" i było to prawdą — reguła bez podwładnych zostawała
+                                czynna. Od Z80 serwer takiej reguły NIE ZAPISZE (B-f), a istniejącą
+                                wyłączy, gdy podwładni znikną (B3-b) — więc dawne zdanie obiecywałoby
+                                działanie, którego nie będzie. Przy grupie zostaje wersja dawna, bo
+                                skład grupy reguły nie wyłącza (B3-d). -#}
+                            <p class="wid-lista-wybor__uwaga">
+                                {%- if okno.kto == 'group' -%}
+                                    Członkowie tej grupy nie mają dziś podwładnych — dostęp zadziała, gdy się pojawią.
+                                {%- else -%}
+                                    Ta osoba nie ma dziś podwładnych — takiej reguły nie da się zapisać.
+                                {%- endif -%}
+                            </p>
                         {% endif %}
                     </div>
                 </div>

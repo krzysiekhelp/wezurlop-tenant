@@ -29,6 +29,11 @@
 {%- elseif nazwa == 'ustawienia' %}{{ i.ustawienia() }}
 {%- elseif nazwa == 'odswiezenie' %}{{ i.odswiezenie() }}
 {%- elseif nazwa == 'prostokaty' %}{{ i.prostokaty() }}
+{#- ⚠ Oko i oko przekreślone: status „aktywna" reguły widoczności (Z80 cz. B). Ten sam znak,
+    co w nagłówku ekranu widoczności — czytający dziennik widzi, że chodzi o wgląd, zanim
+    przeczyta zdanie. -#}
+{%- elseif nazwa == 'oko' %}{{ i.oko() }}
+{%- elseif nazwa == 'oko_przekreslone' %}{{ i.oko_przekreslone() }}
 {#- ⚠ `wnioski` ma WŁASNĄ gałąź, choć jest też ikoną zastępczą: katalog zdań używa jej
     świadomie (wnioski urlopowe, limity), a wpadanie do `else` znaczyłoby „nie znamy tej
     ikony". Rozróżnienie ma być widoczne w kodzie, nie tylko w skutku — i jest sprawdzane

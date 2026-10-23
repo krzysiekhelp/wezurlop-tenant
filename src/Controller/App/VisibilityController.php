@@ -172,6 +172,33 @@ final class VisibilityController
     }
 
     /**
+     * **Włączenie i wyłączenie reguły** (zlecenie Z80 B2).
+     *
+     * ⚠ Stan docelowy przychodzi POLEM, a nie z domysłu „przestaw na przeciwny": przy
+     * przeciwnym stanie dwa kliknięcia w dwóch kartach przeglądarki dają wynik zależny
+     * od kolejności, a człowiek widziałby stan, którego nie wybrał.
+     *
+     * @param array<string, string> $params
+     */
+    public function przestaw(Request $request, array $params): Response
+    {
+        $kontekst = $this->kontekst($request);
+        if ($kontekst === null) {
+            return $this->errors->errorPage(403, null, $request->isHtmx());
+        }
+        $aktywna = $request->postString('aktywna', 2) === '1';
+        $powod = $this->service->przestaw(
+            (int) ($params['id'] ?? 0),
+            $kontekst['spolka']['id'],
+            $aktywna,
+            $kontekst['konto'],
+            $kontekst['aktor'],
+        );
+
+        return $this->poZapisie($request, $kontekst, $powod, $aktywna ? 'wlaczony' : 'wylaczony');
+    }
+
+    /**
      * Po zapisie — **przekierowanie z wynikiem w adresie** (POST/Redirect/GET, CLAUDE.md §3).
      *
      * ⚠ Komunikat jedzie parametrem, a nie renderowaniem strony wprost z `POST`-a: inaczej
@@ -201,20 +228,53 @@ final class VisibilityController
         // ⚠ Nazwiska osób celu **jednym zapytaniem na cały ekran**, nie jednym na regułę:
         // dwadzieścia reguł po trzy osoby to dwadzieścia zapytań, czyli ta sama choroba,
         // co licznik liczony w pętli.
+        // ⚠ **Tym samym zapytaniem bierzemy też PODMIOTY reguł na przełożonego** (Z80 cz. B).
+        // Mapa nazw przełożonych powstaje z listy „zatrudnienia z podwładnymi", więc przełożony,
+        // który podwładnych stracił, z niej wypada — a jego reguła od Z80 ZOSTAJE na ekranie jako
+        // nieaktywna. Bez tego wiersz pisał o istniejącej osobie „— (usunięty)" (zmierzone
+        // 23.10.2026) i zaprzeczał własnej plakietce „nie ma podwładnych".
         $osobyCelu = $this->reguly->osobyRegul($companyId, array_merge([], ...array_map(
-            static fn (array $r): array => $r['target_kind'] === ZakresWidocznosci::CZYJE_OSOBY
-                ? $r['grupy']
-                : [],
+            static fn (array $r): array => match (true) {
+                $r['target_kind'] === ZakresWidocznosci::CZYJE_OSOBY => $r['grupy'],
+                (string) $r['subject_kind'] === ZakresWidocznosci::KTO_PRZELOZONY
+                    => [(int) ($r['subject_employment_id'] ?? 0)],
+                default => [],
+            },
             $reguly,
         )));
+        // ⚠ **Dwie listy, nie jedna z sortowaniem** (Z80 B6): aktywne na górze, pod nimi wiersz
+        // oddzielający i reguły nieaktywne. Sortowanie jedną listą po polu `aktywna` dałoby ten
+        // sam układ, ale szablon musiałby potem SAM znaleźć granicę, żeby wstawić separator —
+        // czyli policzyć drugi raz to, co tutaj jest już policzone.
         $wiersze = [];
+        $nieaktywne = [];
         $zeSzczegolami = 0;
         $podmioty = [];
         foreach ($reguly as $r) {
             if (CalendarAccessRepository::stala((string) $r['subject_kind'])) {
                 continue;                       // oba wiersze stałe renderują się osobno
             }
-            $wiersze[] = $this->wiersz($r, $nazwy, $osobyCelu);
+            $wiersz = $this->wiersz($r, $nazwy, $osobyCelu);
+            if (!$wiersz['aktywna']) {
+                // ⚠ **Czy regułę da się DZIŚ włączyć, pytamy osobno** (Z80 B4): zapisany powód
+                // mówi, dlaczego została wyłączona, a nie czy ten powód jeszcze obowiązuje —
+                // podwładni mogli wrócić, a reguła wyłączona ręcznie mogła przez ten czas
+                // stracić skutek. Pytanie kosztuje kilka zapytań na KAŻDĄ regułę nieaktywną,
+                // ale tylko na nieaktywną: przy liście bez nich nie ma ani jednego zapytania.
+                $blokada = $this->service->skutek($r, $companyId);
+                $wiersz['mozna_wlaczyc'] = $blokada === null;
+                $wiersz['blokada_opis'] = $blokada === null
+                    ? ''
+                    : (self::ODMOWY[$blokada] ?? 'Reguła nie dałaby dziś nic.');
+                $nieaktywne[] = $wiersz;
+                continue;
+            }
+            $wiersz['mozna_wlaczyc'] = true;
+            $wiersz['blokada_opis'] = '';
+            $wiersze[] = $wiersz;
+            // ⚠ **Kafle liczą WYŁĄCZNIE reguły aktywne** (§B6): kafel „dostępów dodatkowych"
+            // odpowiada na pytanie „ile osób coś widzi", a reguła wyłączona nie daje nic.
+            // Liczenie jej tutaj znaczyłoby, że kafel mówi o liczącie wierszy, nie o dostępie.
             $zeSzczegolami += $r['scope'] === ZakresWidocznosci::ZE_SZCZEGOLAMI ? 1 : 0;
             $podmioty[$r['subject_kind'] . ':' . self::podmiotId($r)] = true;
         }
@@ -229,6 +289,7 @@ final class VisibilityController
             'spolka_z_zasobu' => false,
             'spolka_fallback' => $kontekst['fallback'],
             'reguly' => $wiersze,
+            'reguly_nieaktywne' => $nieaktywne,
             'zakres_domyslny' => $zakresDomyslny,
             'domyslna_id' => self::idStalej($reguly, ZakresWidocznosci::KTO_PRZELOZENI),
             // ⚠ Druga reguła stała: „Administratorzy › Cała firma" (zlecenie Z55). Wiersz stoi
@@ -747,6 +808,39 @@ final class VisibilityController
      *
      * @return array<string, array<int, array{nazwa: string, opis: string}>>
      */
+    /**
+     * **Jedna linia o tym, dlaczego reguła nic nie daje** (zlecenie Z80 B6).
+     *
+     * ⚠ Zdanie składa się TUTAJ, a w bazie leży sam kod powodu — tak samo jak przy wpisach
+     * dziennika. Dzięki temu poprawka brzmienia nie wymaga ruszania ani jednego wiersza
+     * w tabeli, a kod da się filtrować.
+     *
+     * ⚠ Data w formacie dziennym bez roku („od 23.10"): wyłączenie sprzed roku jest tak samo
+     * nieistotne, jak sprzed tygodnia — istotne jest, że nie działa. Pełna data stoi w dzienniku.
+     */
+    private static function opisBrakuSkutku(string $powod, ?string $kiedy): string
+    {
+        if ($powod === '') {
+            return '';
+        }
+        $zdanie = match ($powod) {
+            WidocznoscService::BEZ_SKUTKU_PODWLADNI => 'nie ma podwładnych',
+            WidocznoscService::BEZ_SKUTKU_KONTO => 'konto zablokowane albo bez dostępu do firmy',
+            WidocznoscService::BEZ_SKUTKU_GRUPA => 'grupa usunięta',
+            WidocznoscService::BEZ_SKUTKU_OSOBY => 'żadna ze wskazanych osób nie jest zatrudniona',
+            WidocznoscService::WYLACZONA_RECZNIE => 'wyłączona przez administratora',
+            // ⚠ Kod spoza listy nie jest błędem do pokazania: po dopisaniu nowego wyzwalacza
+            // ekran ma dalej działać, a nie gubić wiersz — tak samo jak dziennik przy nieznanym
+            // kodzie zdarzenia.
+            default => 'nie daje wglądu',
+        };
+        $data = $kiedy === null ? null : strtotime($kiedy . ' UTC');
+
+        return $data === null || $data === false
+            ? $zdanie
+            : $zdanie . ' od ' . date('j.m', $data);
+    }
+
     private function nazwy(int $companyId): array
     {
         $konta = [];
@@ -806,7 +900,11 @@ final class VisibilityController
         $skrot = count($osoby) > 3 ? array_slice($osoby, 0, 2) : $osoby;
         $podmiot = match ($regula['subject_kind']) {
             ZakresWidocznosci::KTO_KONTO => $nazwy['konto'][$id] ?? null,
-            ZakresWidocznosci::KTO_PRZELOZONY => $nazwy['przelozony'][$id] ?? null,
+            // ⚠ Zapas z `osobyRegul()`: przełożony bez podwładnych nie stoi w mapie przełożonych,
+            // ale jego zatrudnienie istnieje i ma nazwisko. Opis zostaje pusty, bo „ilu podwładnych"
+            // jest wtedy odpowiedzią „zero" — i mówi ją już linia powodu pod nazwą.
+            ZakresWidocznosci::KTO_PRZELOZONY => $nazwy['przelozony'][$id]
+                ?? (isset($osobyCelu[$id]) ? ['nazwa' => $osobyCelu[$id]['nazwa'], 'opis' => ''] : null),
             ZakresWidocznosci::KTO_GRUPA => $nazwy['grupa'][$id] ?? null,
             default => null,
         };
@@ -825,7 +923,21 @@ final class VisibilityController
             )),
             // ⚠ Reguła **zostaje**, ale mówi o sobie, że już nic nie daje: ani jednej czynnej
             // osoby w celu znaczy dostęp do niczego. Usuwa ją administrator koszem, świadomie.
-            'czyje_nieczynna' => $osoby !== [] && $czynnych === 0,
+            // ⚠ **Plakietka „nieaktywna — brak czynnych osób" ZNIKŁA w Z80** (B-g). Liczyła się
+            // w locie i tylko dla celu „osoby", więc istniała wyłącznie na tym ekranie; od Z80
+            // ten sam stan jest ZAPISANY w bazie dla wszystkich rodzajów reguł i rozstrzyga
+            // o dostępie. Dwa źródła tej samej prawdy rozjechałyby się na pierwszym
+            // brakującym przeliczeniu — a rozjazd mówiłby „reguła działa" tam, gdzie nie działa.
+            'aktywna' => (int) ($regula['is_active'] ?? 1) === 1,
+            'powod' => (string) ($regula['inactive_reason'] ?? ''),
+            'automatycznie' => ($regula['inactive_kind'] ?? '') === 'auto',
+            // ⚠ Jedna krótka linia: powód i data (§B6). Kto dokładnie wyłączył regułę i jaką
+            // drogą — to jest w dzienniku zdarzeń, bo tam mieszka historia, a nie w wierszu listy,
+            // który ma się dać przeczytać jednym spojrzeniem.
+            'powod_opis' => self::opisBrakuSkutku(
+                (string) ($regula['inactive_reason'] ?? ''),
+                $regula['inactive_at'] === null ? null : (string) $regula['inactive_at'],
+            ),
             'kto_id' => $id,
             // ⚠ Podmiot skasowany między odczytem listy a odczytem nazw nie wywraca ekranu:
             // wiersz mówi wtedy „— (usunięty)" i da się go skasować koszem.
@@ -933,6 +1045,10 @@ final class VisibilityController
         'nadany' => 'Dostęp nadany.',
         'zmieniony' => 'Dostęp zmieniony.',
         'odebrany' => 'Dostęp odebrany.',
+        // Z80 B2: zdanie mówi o SKUTKU, nie o przełączniku („reguła wyłączona" nie odpowiada
+        // na pytanie, czy ktoś przestał widzieć kalendarz).
+        'wlaczony' => 'Reguła włączona — znowu daje wgląd.',
+        'wylaczony' => 'Reguła wyłączona — nie daje już wglądu.',
     ];
 
     /**
@@ -949,5 +1065,13 @@ final class VisibilityController
         WidocznoscService::POWOD_DOMYSLNA => 'Reguły dla wszystkich przełożonych nie da się usunąć — można jej tylko zmienić zakres.',
         WidocznoscService::POWOD_BRAK => 'Tej reguły już nie ma.',
         WidocznoscService::POWOD_SAM_SIEBIE => 'Nie nadaje się dostępu do własnych nieobecności — widać je zawsze w widoku „Tylko ja".',
+        // ——— Z80 cz. B: odmowy wokół statusu „aktywna" ———
+        // ⚠ Te zdania muszą mówić, CO ZROBIĆ, a nie tylko „nie da się": każde z nich pada
+        // w chwili, w której administrator próbuje komuś nadać albo przywrócić wgląd.
+        WidocznoscService::POWOD_WYLACZONA => 'Identyczna reguła jest wyłączona — włącz ją na liście, zamiast nadawać drugiej takiej samej.',
+        WidocznoscService::BEZ_SKUTKU_PODWLADNI => 'Wskazana osoba nie ma dziś podwładnych, więc reguła nie dałaby nic — wybierz kogoś z podwładnymi albo inny zakres osób.',
+        WidocznoscService::BEZ_SKUTKU_KONTO => 'Konto wskazanej osoby jest zablokowane albo nie ma dostępu do tej firmy, więc reguła nie dałaby nic.',
+        WidocznoscService::BEZ_SKUTKU_GRUPA => 'Wskazanej grupy już nie ma, więc reguła nie dałaby nic.',
+        WidocznoscService::BEZ_SKUTKU_OSOBY => 'Żadna ze wskazanych osób nie jest dziś zatrudniona w tej firmie, więc reguła nie dałaby nic.',
     ];
 }

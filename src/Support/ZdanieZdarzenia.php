@@ -112,6 +112,15 @@ final class ZdanieZdarzenia
         // ⚠ Sprawcą jest „Migracja" (etykieta `migracja` niżej), więc orzeczenie w rodzaju
         // żeńskim: wcześniej czytało się „migracja przeniósł".
         'calendar_access.migrated'      => ['przeniosła dawne poziomy podglądu do reguł dostępu[ — reguł: {regul}][, bez firmy: {bez_firmy}]', 'kalendarz', self::BARWA_ZWYKLA],
+        // ——— status „aktywna" (zlecenie Z80 cz. B) ———
+        // ⚠ Zdanie mówi, CZEGO reguła dotyczyła (`{kto} › {czyje}`), a nie jej numeru: numer
+        // nic nie znaczy dla czytającego dziennik, a para „kto widzi › czyje" jest całą treścią
+        // decyzji o dostępie do danych kadrowych.
+        'calendar_access.disabled'      => ['wyłączył(a) regułę dostępu: {kto} › {czyje}[ — {powod}]', 'oko_przekreslone', self::BARWA_USUNIECIE],
+        'calendar_access.enabled'       => ['włączył(a) regułę dostępu: {kto} › {czyje} · {zakres}', 'oko', self::BARWA_DODANIE],
+        // ⚠ Sprawcą jest system (etykieta `system`), więc orzeczenie bez formy osobowej w nawiasie:
+        // „system wyłączył(a)" czytałoby się jak błąd, a nie jak zdanie.
+        'calendar_access.auto_disabled' => ['wyłączył regułę dostępu, która przestała cokolwiek dawać: {kto} › {czyje}[ — {powod}]', 'oko_przekreslone', self::BARWA_USUNIECIE],
         'person.email_set'              => ['ustawił(a) adres e-mail osobie {podmiot}', 'koperta', self::BARWA_ZWYKLA],
         'person.contact_changed'        => ['zmienił(a) dane kontaktowe osoby {podmiot}', 'olowek', self::BARWA_ZWYKLA],
         // ⚠ Zdarzenie SYSTEMOWE (migracja), więc zdanie bez sprawcy osobowego i bez numerów:

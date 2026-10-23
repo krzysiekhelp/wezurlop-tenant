@@ -39,6 +39,23 @@ final class WidocznoscService
     public const POWOD_DOMYSLNA = 'domyslna';
     public const POWOD_BRAK = 'brak';
     public const POWOD_SAM_SIEBIE = 'sam_siebie';
+    /** Z80 B-e: zapis trafił w podpis reguły, która leży wyłączona. */
+    public const POWOD_WYLACZONA = 'wylaczona';
+
+    /**
+     * **Powody braku skutku — ZAPISYWANE w kolumnie `inactive_reason`** (zlecenie Z80 cz. B).
+     *
+     * ⚠ Osobny zbiór od powodów odmowy wyżej i to jest rozmyśne: tamte żyją jedną odpowiedź
+     * HTTP i mówią „czego nie zapisałem", te leżą w bazie miesiącami i mówią „dlaczego ta
+     * reguła nic nie daje". Wspólna lista znaczyłaby, że pierwszy nowy powód odmowy da się
+     * przez pomyłkę zapisać do bazy jako stan reguły.
+     */
+    public const BEZ_SKUTKU_PODWLADNI = 'brak_podwladnych';
+    public const BEZ_SKUTKU_KONTO = 'konto_nieczynne';
+    public const BEZ_SKUTKU_GRUPA = 'grupa_usunieta';
+    public const BEZ_SKUTKU_OSOBY = 'bez_czynnych_osob';
+    /** Wyłączenie ręczne — nie jest brakiem skutku, ale mieszka w tej samej kolumnie. */
+    public const WYLACZONA_RECZNIE = 'recznie';
 
     public function __construct(
         private readonly CalendarAccessRepository $reguly,
@@ -115,6 +132,25 @@ final class WidocznoscService
         if ($powod !== null) {
             return $powod;
         }
+        // ⚠ **Reguły bez skutku NIE ZAPISUJEMY** (Z80 B-f, decyzja Krzysztofa: „nie można
+        // aktywować reguły bez sensu"). Odwraca to dawniejsze „zapisz, zadziała gdy się pojawią":
+        // skoro system wyłącza regułę, która skutek STRACIŁA, to nadanie reguły, która go NIE MA,
+        // różniłoby się od niej tylko tym, że nikt jej jeszcze nie przeliczył.
+        // ⚠ Odmowa niesie KONKRETNY powód (`brak_podwladnych`, `konto_nieczynne`, …), bo ekran
+        // ma powiedzieć, czego brakuje — „nie da się" bez powodu jest nie do naprawienia.
+        // ⚠ Dotyczy też ZMIANY reguły: po zapisie nie wolno zostawić reguły, której automat
+        // natychmiast by wyłączył.
+        $bezSkutku = $this->skutek([
+            'subject_kind' => $ktoRodzaj,
+            'subject_account_id' => $ktoRodzaj === ZakresWidocznosci::KTO_KONTO ? $ktoId : 0,
+            'subject_employment_id' => $ktoRodzaj === ZakresWidocznosci::KTO_PRZELOZONY ? $ktoId : 0,
+            'subject_group_id' => $ktoRodzaj === ZakresWidocznosci::KTO_GRUPA ? $ktoId : 0,
+            'target_kind' => $czyjeRodzaj,
+            'grupy' => $grupyCelu,
+        ], $companyId);
+        if ($bezSkutku !== null) {
+            return $bezSkutku;
+        }
 
         // ⚠ **Reguły stałe firmy mają JEDNĄ drogę zapisu — zmianę zakresu.** Dotyczy to obu:
         // „Wszyscy przełożeni" i „Administratorzy". Ani podmiotu, ani celu nie da się w nich
@@ -145,7 +181,7 @@ final class WidocznoscService
         if ($ruleId === null) {
             $nowe = $this->reguly->dodaj($companyId, $ktoRodzaj, $ktoId, $czyjeRodzaj, $grupyCelu, $zakres, $accountId);
             if ($nowe === null) {
-                return self::POWOD_DUPLIKAT;
+                return $this->duplikatCzyWylaczona($companyId, $ktoRodzaj, $ktoId, $czyjeRodzaj, $grupyCelu, $zakres);
             }
             $this->zapiszWDzienniku('calendar_access.granted', $accountId, $aktor, $companyId,
                 $nowe, $ktoRodzaj, $ktoId, $czyjeRodzaj, $grupyCelu, $zakres, null);
@@ -163,12 +199,242 @@ final class WidocznoscService
                 (string) $przed['target_kind'], [], $zakres, $accountId, $aktor);
         }
         if (!$this->reguly->zmien($ruleId, $companyId, $ktoRodzaj, $ktoId, $czyjeRodzaj, $grupyCelu, $zakres)) {
-            return self::POWOD_DUPLIKAT;
+            return $this->duplikatCzyWylaczona($companyId, $ktoRodzaj, $ktoId, $czyjeRodzaj, $grupyCelu, $zakres);
         }
         $this->zapiszWDzienniku('calendar_access.changed', $accountId, $aktor, $companyId, $ruleId,
             $ktoRodzaj, $ktoId, $czyjeRodzaj, $grupyCelu, $zakres, self::opisStanu($przed));
 
         return null;
+    }
+
+    /**
+     * **Czy reguła daje dziś cokolwiek** — `null` znaczy „daje", kod powodu znaczy „nie daje"
+     * (zlecenie Z80 B3, rozstrzygnięcia zarządcy i Krzysztofa z 23.10.2026).
+     *
+     * ⚠ **Każdy warunek pyta DOKŁADNIE tym predykatem, którym pyta zapis.** Podmiot „Osoba" —
+     * `kandydatem()`, ten sam, którego używa `sprawdzPodmiot()`; „ma podwładnych" — ta sama
+     * lista przełożonych, którą okno pokazuje do wyboru. Druga, podobna definicja znaczyłaby,
+     * że reguła daje się zapisać, a następnego dnia automat ją wyłącza „bo według niego nie ma
+     * skutku" — albo odwrotnie: że automat zostawia regułę martwą, bo pyta o co innego.
+     *
+     * ⚠ **Podmiot „Osoba" to NIE „osoba z etatem w tej firmie"** (korekta zlecenia, 23.10.2026).
+     * Wolno nim uczynić także konto z rolą nadaną na tę firmę bez etatu i konto z rolą
+     * tenantową — czyli kadry i administratorów. Warunek „bez aktywnego zatrudnienia" wyłączyłby
+     * dostęp dokładnie tym kontom, dla których ten wariant powstał.
+     *
+     * ⚠ **Pusta grupa NIE jest brakiem skutku** — ani jako podmiot, ani jako cel (decyzja
+     * Krzysztofa z 23.10.2026, świadomie inna niż przy przełożonym bez podwładnych). Grupa
+     * zapełni się jutro bez żadnej zmiany w regule, a zmiana składu grupy nie jest zdarzeniem,
+     * które ktoś zauważy. **Nie ujednolicaj tego z przełożonym** bez pytania.
+     *
+     * ⚠ **Przełożony bez podwładnych JEST brakiem skutku** (decyzja Krzysztofa z 23.10.2026)
+     * — i odwraca to dwa dawniejsze zdania („dostęp zadziała, gdy się pojawią"). Konsekwencja
+     * jest przyjęta świadomie: po powrocie podwładnych regułę włącza CZŁOWIEK, nie system,
+     * a przed przypadkową utratą dostępu ostrzega pasek w Hierarchii (część C).
+     *
+     * @param array<string, mixed> $regula wiersz z `CalendarAccessRepository`
+     */
+    public function skutek(array $regula, int $companyId): ?string
+    {
+        $kto = (string) $regula['subject_kind'];
+        // Reguły stałe firmy są aktywne zawsze i nie mają przełącznika (§B1).
+        if (CalendarAccessRepository::stala($kto)) {
+            return null;
+        }
+        $etatyPodmiotu = [];
+        if ($kto === ZakresWidocznosci::KTO_KONTO) {
+            if (!$this->kandydatem($companyId, (int) $regula['subject_account_id'])) {
+                return self::BEZ_SKUTKU_KONTO;
+            }
+            $etatyPodmiotu = $this->reguly->etatyKonta($companyId, (int) $regula['subject_account_id']);
+        } elseif ($kto === ZakresWidocznosci::KTO_PRZELOZONY) {
+            $etatyPodmiotu = [(int) $regula['subject_employment_id']];
+            if ($this->reguly->zEtatowZPodwladnymi($companyId, $etatyPodmiotu) === []) {
+                return self::BEZ_SKUTKU_PODWLADNI;
+            }
+        } elseif ($kto === ZakresWidocznosci::KTO_GRUPA) {
+            if ($this->grupy->find((int) $regula['subject_group_id'], $companyId) === null) {
+                return self::BEZ_SKUTKU_GRUPA;
+            }
+            $etatyPodmiotu = $this->reguly->zatrudnieniaGrup($companyId, [(int) $regula['subject_group_id']]);
+        }
+
+        $czyje = (string) $regula['target_kind'];
+        /** @var list<int> $cel */
+        $cel = array_map('intval', $regula['grupy'] ?? []);
+        if ($czyje === ZakresWidocznosci::CZYJE_PODWLADNI) {
+            // ⚠ **Przy podmiocie GRUPA brak gałęzi NIE wyłącza reguły** — i to nie jest
+            // przeoczenie, tylko wniosek z dwóch decyzji Krzysztofa z 23.10.2026 naraz:
+            // „przełożony bez podwładnych wyłącza" (B3-b) ORAZ „pusta grupa nie wyłącza" (B3-d).
+            // Skład grupy zmienia się bez żadnego zdarzenia, które ktoś zauważy — dopisanie
+            // pracownika do grupy nie jest decyzją o dostępie — więc wyłączanie po składzie
+            // kasowałoby reguły przy zwykłych porządkach w etykietach. Grupę wyłącza wyłącznie
+            // jej USUNIĘCIE (wyżej) — stan nieodwracalny, w odróżnieniu od pustego składu.
+            // ⚠ Przy grupie z członkami gałąź liczy się pod KAŻDYM z nich, więc jeden członek
+            // z podwładnymi wystarcza — ale żaden nie jest warunkiem wyłączenia.
+            if ($kto === ZakresWidocznosci::KTO_GRUPA) {
+                return null;
+            }
+
+            return $this->reguly->zEtatowZPodwladnymi($companyId, $etatyPodmiotu) === []
+                ? self::BEZ_SKUTKU_PODWLADNI
+                : null;
+        }
+        if ($czyje === ZakresWidocznosci::CZYJE_OSOBY) {
+            return $this->reguly->czynneZatrudnienia($companyId, $cel) === []
+                ? self::BEZ_SKUTKU_OSOBY
+                : null;
+        }
+        if ($czyje === ZakresWidocznosci::CZYJE_GRUPY) {
+            // ⚠ Zabezpieczenie, nie główna droga: usunięcie grupy SPRZĄTA reguły
+            // (`poUsunieciuGrupy()` wyrzuca grupę z celu, a regułę bez ani jednej grupy kasuje),
+            // więc pusta lista celu nie powinna się tu zdarzyć. Gdyby jednak grupa zniknęła
+            // kaskadą bazy — a to jedyna droga, której nie kontrolujemy — reguła ma o sobie
+            // powiedzieć prawdę, a nie udawać czynnej.
+            return $cel === [] ? self::BEZ_SKUTKU_GRUPA : null;
+        }
+
+        // Cel „cała firma": firma bez ani jednego pracownika nie jest brakiem skutku —
+        // pierwszy przyjęty pracownik wchodzi do tego zbioru bez dotykania reguły.
+        return null;
+    }
+
+    /**
+     * **Przeliczenie reguł firmy: wyłącz te, które straciły skutek** (zlecenie Z80 B3).
+     *
+     * ⚠ **System NIGDY nie włącza reguły sam** (§B4) — dlatego pętla pomija reguły już
+     * wyłączone i nie pyta ich o skutek. Włączyć może wyłącznie administrator, świadomie,
+     * i tylko regułę, która skutek ma.
+     *
+     * ⚠ `$zapisz = false` daje PODGLĄD tej samej listy, bez tykania bazy — tego potrzebuje
+     * ostrzeżenie w Hierarchii (część C). Jedna funkcja na podgląd i na zapis, bo dwie
+     * rozjechałyby się przy pierwszym nowym wyzwalaczu i pasek ostrzegałby o czymś innym,
+     * niż zrobi zapis.
+     *
+     * ⚠ **Lista dróg wołających tę metodę jest ZAMKNIĘTA** (stan na 23.10.2026): zapis
+     * hierarchii, wygaszenie etatu z synchronizacji, blokada konta, usunięcie grupy i sam zapis
+     * reguły. Wystarcza to dlatego, że **każde** dzisiejsze przejście jest zapisem — zatrudnienie
+     * nie gaśnie „z daty". Gdyby kiedyś powstało pole w rodzaju `valid_to`, przeliczanie na
+     * drogach przestanie wystarczać i trzeba dołożyć przebieg cykliczny (zadanie w kolejce,
+     * w porcjach — CLAUDE.md §0 o limicie 30 s). Na razie go NIE MA świadomie.
+     *
+     * @return array<int, string> numer reguły => kod powodu, dla reguł wyłączonych tym przebiegiem
+     */
+    public function przelicz(int $companyId, bool $zapisz, ?int $accountId, ?string $aktor): array
+    {
+        $wylaczone = [];
+        foreach ($this->reguly->reguly($companyId) as $regula) {
+            if (CalendarAccessRepository::stala((string) $regula['subject_kind'])) {
+                continue;
+            }
+            if ((int) ($regula['is_active'] ?? 1) !== 1) {
+                continue;
+            }
+            $powod = $this->skutek($regula, $companyId);
+            if ($powod === null) {
+                continue;
+            }
+            $ruleId = (int) $regula['id'];
+            $wylaczone[$ruleId] = $powod;
+            if (!$zapisz) {
+                continue;
+            }
+            if ($this->reguly->ustawAktywnosc($ruleId, $companyId, false, $powod, 'auto', null)) {
+                $this->zapiszWDzienniku('calendar_access.auto_disabled', $accountId, $aktor, $companyId,
+                    $ruleId, (string) $regula['subject_kind'], self::podmiotId($regula),
+                    (string) $regula['target_kind'], array_map('intval', $regula['grupy'] ?? []),
+                    (string) $regula['scope'], null, $powod);
+            }
+        }
+
+        return $wylaczone;
+    }
+
+    /**
+     * **Przeliczenie po zmianie, która dotyczy JEDNEGO KONTA** (zlecenie Z80 B3, droga 5).
+     *
+     * ⚠ Osobne wejście, ale TA SAMA pętla: blokada konta nie zna firmy, a kandydatura zależy
+     * od etatów i ról w konkretnej firmie — więc najpierw pytamy, gdzie to konto ma reguły,
+     * a potem przeliczamy każdą z tych firm zwykłą drogą. Drugiej definicji „co traci skutek"
+     * tu nie ma i mieć nie może.
+     *
+     * @return array<int, string> numer reguły => kod powodu
+     */
+    public function przeliczDlaKonta(int $accountId, ?int $przez, ?string $aktor): array
+    {
+        $wylaczone = [];
+        foreach ($this->reguly->firmyZRegulamiKonta($accountId) as $companyId) {
+            foreach ($this->przelicz($companyId, true, $przez, $aktor) as $ruleId => $powod) {
+                $wylaczone[$ruleId] = $powod;
+            }
+        }
+
+        return $wylaczone;
+    }
+
+    /**
+     * **Wyłączenie i włączenie reguły przez administratora** — `null` = zrobione, kod = odmowa
+     * (zlecenie Z80 B2 i B4).
+     *
+     * ⚠ **Włączyć wolno WYŁĄCZNIE regułę, która ma skutek** (§B4) i rozstrzyga o tym serwer,
+     * a nie zablokowany przełącznik na ekranie: żądanie da się złożyć z ręki (CLAUDE.md §10).
+     * Odmowa niesie kod powodu braku skutku, żeby ekran mógł powiedzieć, CZEGO brakuje.
+     *
+     * ⚠ Reguły stałej nie da się ani wyłączyć, ani włączyć — jest aktywna zawsze (§B1).
+     */
+    public function przestaw(int $ruleId, int $companyId, bool $aktywna, ?int $accountId, ?string $aktor): ?string
+    {
+        $regula = $this->reguly->regula($ruleId, $companyId);
+        if ($regula === null) {
+            return self::POWOD_BRAK;
+        }
+        if (CalendarAccessRepository::stala((string) $regula['subject_kind'])) {
+            return self::POWOD_DOMYSLNA;
+        }
+        if ($aktywna) {
+            $powod = $this->skutek($regula, $companyId);
+            if ($powod !== null) {
+                return $powod;
+            }
+        }
+        if (!$this->reguly->ustawAktywnosc($ruleId, $companyId, $aktywna, self::WYLACZONA_RECZNIE,
+            'manual', $accountId)) {
+            // Stan docelowy już był ustawiony — nie jest to błąd, ale i nie ma czego zapisywać
+            // w dzienniku: dwa wpisy o tej samej zmianie to dwa razy ta sama historia.
+            return null;
+        }
+        $this->zapiszWDzienniku($aktywna ? 'calendar_access.enabled' : 'calendar_access.disabled',
+            $accountId, $aktor, $companyId, $ruleId, (string) $regula['subject_kind'],
+            self::podmiotId($regula), (string) $regula['target_kind'],
+            array_map('intval', $regula['grupy'] ?? []), (string) $regula['scope'], null,
+            $aktywna ? null : self::WYLACZONA_RECZNIE);
+
+        return null;
+    }
+
+    /**
+     * **Czy w podpis trafiła reguła CZYNNA, czy WYŁĄCZONA** (zlecenie Z80 B-e).
+     *
+     * ⚠ Jedno i drugie to „taka reguła już jest", ale dla człowieka to dwie różne sytuacje:
+     * czynnej nie ma po co nadawać drugi raz, a wyłączoną trzeba WŁĄCZYĆ — i bez tego
+     * rozróżnienia odmowa „duplikat" kazałaby jej szukać wśród reguł czynnych, gdzie jej nie ma.
+     *
+     * @param list<int> $grupyCelu
+     */
+    private function duplikatCzyWylaczona(
+        int $companyId,
+        string $ktoRodzaj,
+        int $ktoId,
+        string $czyjeRodzaj,
+        array $grupyCelu,
+        string $zakres
+    ): string {
+        $podpis = ZakresWidocznosci::podpis($ktoRodzaj, $ktoId, $czyjeRodzaj, $grupyCelu, $zakres);
+        $istnieje = $this->reguly->regulaPoPodpisie($companyId, $podpis);
+
+        return $istnieje !== null && (int) $istnieje['is_active'] !== 1
+            ? self::POWOD_WYLACZONA
+            : self::POWOD_DUPLIKAT;
     }
 
     /** Usunięcie reguły; `null` = usunięte, kod powodu = odmowa. */
@@ -392,7 +658,11 @@ final class WidocznoscService
         string $czyjeRodzaj,
         array $grupyCelu,
         string $zakres,
-        ?string $bylo
+        ?string $bylo,
+        // ⚠ Powód braku skutku jedzie w treści wpisu jako KOD, nie zdanie (Z80 cz. B): zdanie
+        // dla człowieka składa ekran dziennika, a kod da się filtrować i nie zmienia się przy
+        // poprawce stylistycznej. Dla wpisów bez powodu zostaje `null` i nie wchodzi do treści.
+        ?string $powod = null
     ): void {
         // ⚠ **Przy wskazanych osobach zapisujemy NUMERY ZATRUDNIEŃ, tak samo jak przy grupach**
         // (zlecenie Z57 U2). Wcześniej wpis niósł sam napis `persons`, więc dziennik nie miał
@@ -410,6 +680,9 @@ final class WidocznoscService
         ];
         if ($bylo !== null) {
             $tresc['bylo'] = $bylo;
+        }
+        if ($powod !== null) {
+            $tresc['powod'] = $powod;
         }
         $this->events->record($kod, $accountId, null, $aktor, 'calendar_access_rule',
             $ruleId > 0 ? $ruleId : null, $companyId, $tresc);

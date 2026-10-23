@@ -57,6 +57,9 @@ final class Hierarchia
         private readonly Connection $db,
         private readonly HierarchyRepository $hierarchia,
         private readonly EventLogRepository $events,
+        // ⚠ Zapis hierarchii przelicza reguły widoczności (Z80 B3, droga 1): krawędź przesądza
+        // o tym, kto ma podwładnych, a reguła „przełożony X › jego podwładni" bez nich nie daje nic.
+        private readonly WidocznoscService $widocznosc,
     ) {
     }
 
@@ -263,12 +266,12 @@ final class Hierarchia
      * którego żadna z nich osobno nie układa.
      *
      * @param list<array{employment: int, cel: string, supervisor?: int|null}> $zmiany
-     * @return array{powod: ?string, zapisane: int, zdania: list<string>}
+     * @return array{powod: ?string, zapisane: int, zdania: list<string>, wylaczonych_regul: int}
      */
     public function zapisz(int $companyId, array $zmiany, ?int $accountId, ?string $actorLabel): array
     {
         if ($zmiany === []) {
-            return ['powod' => null, 'zapisane' => 0, 'zdania' => []];
+            return ['powod' => null, 'zapisane' => 0, 'zdania' => [], 'wylaczonych_regul' => 0];
         }
 
         return $this->db->transaction(function () use ($companyId, $zmiany, $accountId, $actorLabel): array {
@@ -281,7 +284,8 @@ final class Hierarchia
             foreach ($zmiany as $zmiana) {
                 $wynik = $this->sprawdz($companyId, $zmiana, $krawedzie);
                 if ($wynik['powod'] !== null) {
-                    return ['powod' => $wynik['powod'], 'zapisane' => 0, 'zdania' => []];
+                    return ['powod' => $wynik['powod'], 'zapisane' => 0, 'zdania' => [],
+                        'wylaczonych_regul' => 0];
                 }
                 // Stan w pamięci idzie za zmianami — patrz uwaga w opisie metody.
                 if ($wynik['supervisor'] === null) {
@@ -323,7 +327,16 @@ final class Hierarchia
                 );
             }
 
-            return ['powod' => null, 'zapisane' => count($doZapisu), 'zdania' => $zdania];
+            // ⚠ **Przeliczenie reguł widoczności W TEJ SAMEJ transakcji** (Z80 B3). Zmiana krawędzi
+            // odbiera komuś podwładnych, a reguła, która ich dotyczyła, przestaje cokolwiek dawać —
+            // i ma to po sobie zapisać, zanim ktokolwiek zdąży odczytać dostęp. Poza transakcją
+            // istniałaby chwila, w której hierarchia jest nowa, a reguły jeszcze stare.
+            // ⚠ Sprawcą wpisu o wyłączeniu jest SYSTEM (`calendar_access.auto_disabled`), nawet
+            // jeśli krawędź zmienił człowiek: reguły nie wyłączył świadomie, tylko w skutku.
+            $wylaczone = $this->widocznosc->przelicz($companyId, true, $accountId, $actorLabel);
+
+            return ['powod' => null, 'zapisane' => count($doZapisu), 'zdania' => $zdania,
+                'wylaczonych_regul' => count($wylaczone)];
         });
     }
 

@@ -106,6 +106,14 @@ final class KodyZdarzen
         'calendar_access.revoked'       => 'Odebranie dostępu do kalendarza',
         'calendar_access.auto_changed'  => 'Dostęp do kalendarza zmieniony po usunięciu grupy',
         'calendar_access.migrated'      => 'Przeniesienie dawnych poziomów do reguł dostępu',
+        // ——— status „aktywna" (zlecenie Z80 cz. B) ———
+        // ⚠ **Trzy kody, nie jeden z polem „kto".** Czytający dziennik szuka odpowiedzi
+        // na pytanie „dlaczego ten człowiek przestał widzieć kalendarz", a odpowiedzi są trzy
+        // różne: administrator wyłączył, administrator włączył, system zdjął regułę bez skutku.
+        // Jeden kod z rozróżnieniem w treści znaczyłby filtrowanie po treści wpisu.
+        'calendar_access.disabled'      => 'Wyłączenie reguły dostępu do kalendarza',
+        'calendar_access.enabled'       => 'Włączenie reguły dostępu do kalendarza',
+        'calendar_access.auto_disabled' => 'Reguła dostępu wyłączona automatycznie',
         'security.ddl_blocked'          => 'Zablokowana próba zmiany schematu bazy',
         'security.login_spraying_suspected' => 'Podejrzenie ataku na wiele kont',
         'security.storage_exposed'      => 'Katalog danych osiągalny z internetu',
