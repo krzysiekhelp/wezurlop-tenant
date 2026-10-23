@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.20.1, 22.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.20.2, 23.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,40 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.20.1 → 1.20.2: okno reguły widoczności — wybór w jednej sekcji blokuje pozostałe,
+> a nagłówek kroku mówi NAZWĘ SEKCJI** (zlecenia Z78, Z79 i Z80 cz. A; prototypy zaakceptowane
+> przez Krzysztofa 23.10.2026).
+> - **Reguły stałe firmy mają w oknie JEDEN krok.** „Każdy przełożony" i „Administratorzy" to
+>   obie reguły stałe (`CalendarAccessRepository::STALE`), więc kroki „Kto widzi" i „Czyje
+>   nieobecności" są w nich wyłączone (`opacity .45`, bez kursora wskazania), a okno otwiera się
+>   od razu na „Zakresie". Stopka takiej reguły to **„Anuluj" + „Zapisz zmiany"**: przy jednym
+>   kroku „Wstecz" nie miałoby gdzie wracać, a stopka z samym zapisem nie pokazywała żadnego
+>   wyjścia bez zapisu. W regułach zwykłych „Wstecz" zostaje bez zmian i „Anuluj" się NIE pojawia.
+> - **Wybór w sekcji blokuje pozostałe sekcje kroku.** Zablokowana zakładka: `opacity .55`,
+>   `--c-text-4`, **kłódka przed nazwą**, `cursor: not-allowed`, `aria-disabled="true"`
+>   i podpowiedź „Odznacz wybór w sekcji „X", żeby wybrać z tej sekcji". Kliknięcie pokazuje
+>   **toast** (ten sam komponent, co od Z47) — bo na telefonie najechania nie ma.
+>   ⚠ Zakładka zostaje ODNOŚNIKIEM, nie `<span>`-em: odznaczenie wyboru wymaga skryptu, więc
+>   bez JavaScriptu `<span>` zamykałby człowieka w sekcji na zawsze.
+> - **Blokadę napędza FAKTYCZNY wybór, nie zakładka.** Sekcja bez wskazanej pozycji nie blokuje
+>   niczego — nie miałaby czego odznaczyć. Dlatego sekcja „Podwładni" (jedyna bez listy) dostała
+>   **jeden wiersz z polem wyboru**, taki sam jak „Cała firma" i „Wszyscy przełożeni";
+>   pole z przerywaną ramką (`.wid-zbior`) ZNIKŁO razem z regułą w arkuszu.
+> - **„Cała firma" wyklucza pojedyncze osoby STRUKTURALNIE.** Jej zaznaczenie odznacza osoby
+>   i daje im `disabled` (wiersz: `opacity .55`, `cursor: not-allowed`, podpowiedź „Odznacz
+>   „Cała firma", żeby wybrać pojedyncze osoby"), a kliknięcie takiego wiersza pokazuje toast.
+>   ⚠ Dzięki temu serwer może teraz ODMAWIAĆ zapisu „cała firma + osoby" — do 23.10.2026 wygrywał
+>   zbiór szerszy, bo bez `disabled` przeglądarka bez skryptów potrafiła wysłać oba pola.
+> - **Nagłówek kroku ma drugą linię: nazwę sekcji** („Osoba", „Grupy", „Podwładni"), a w kroku 3
+>   nazwę zakresu („Bez szczegółów" / „Ze szczegółami"). Kolorem akcentu, pogrubiona; bez wyboru
+>   „nie wybrano" przygaszone (`--c-text-4`, zwykła grubość). Kafelek z wyborem ma **ptaszek
+>   zamiast numeru**. Nazwiska ani licznika w kafelku NIE MA — rozpychałyby pasek i powtarzały to,
+>   co i tak stoi w kroku. ⚠ Numer i ptaszek (oraz kłódka i ikona sekcji) stoją w drzewie OBA,
+>   a przełącza je arkusz: wybór zmienia się bez żądania do serwera, a skrypt nie ma prawa
+>   budować SVG (CLAUDE.md §6).
+> - **Zmierzone w Chrome na 1920 / 1366 / 375** (droga produktu, nie wstrzyknięty DOM): blokady,
+>   toasty, podpisy kafelków i brak przewijania poziomego na każdej z trzech szerokości.
 
 > **Zmiana 1.20.0 → 1.20.1: nieistniejący token CSS jest teraz naruszeniem, a nie ciszą**
 > (zlecenie Z77, decyzje Krzysztofa po Z75 i Z76).

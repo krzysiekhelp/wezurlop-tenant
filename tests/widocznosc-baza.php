@@ -175,8 +175,23 @@ use Wezurlop\Service\ZasiegPodgladu;
         $check('s: pusta lista osób → odmowa „cel"',
             $service->zapisz(null, $firmy['ALFA'], Z::KTO_KONTO, $konta['widz'], Z::CZYJE_OSOBY, [],
                 Z::ZE_SZCZEGOLAMI, $konta['widz'], 'test') === WidocznoscService::POWOD_CEL);
-        $check('j, s: po sześciu odmowach nie przybyła ani jedna reguła',
+        // ⚠ **Z80 A6: „cała firma" RAZEM ze wskazanymi osobami.** To jedyna kombinacja dwóch
+        // rodzajów celu, która dociera do serwisu — przy grupach cel zapisuje się jako `groups`
+        // i znacznik całej firmy zostaje w żądaniu (odmawia tam `powodStanuOkna()`).
+        // ⚠ Do 23.10.2026 serwis tego NIE odrzucał, tylko wygrywał zbiór szerszy; odmowa jest
+        // bezpieczna dlatego, że od Z80 A4 pola osób mają wtedy `disabled` i nie jadą w żądaniu.
+        $check('Z80: cel „cała firma" ze wskazanymi osobami → odmowa „cel"',
+            $service->zapisz(null, $firmy['ALFA'], Z::KTO_KONTO, $konta['widz'], Z::CZYJE_FIRMA,
+                [$etaty['cel1']], Z::ZE_SZCZEGOLAMI, $konta['widz'], 'test')
+                === WidocznoscService::POWOD_CEL);
+        $check('j, s: po siedmiu odmowach nie przybyła ani jedna reguła',
             $ileRegul() === $przedOdmowami, (string) ($ileRegul() - $przedOdmowami));
+        // ⚠ Druga strona tego samego twierdzenia — i dlatego stoi PO liczniku wyżej: ten zapis
+        // się udaje, czyli dokłada regułę. Bez niego odmowa przechodziłaby także wtedy, gdyby
+        // serwis odrzucał „całą firmę" w ogóle.
+        $check('Z80: sam cel „cała firma" (bez osób) nadal przechodzi',
+            $service->zapisz(null, $firmy['ALFA'], Z::KTO_KONTO, $konta['widz'], Z::CZYJE_FIRMA,
+                [], Z::ZE_SZCZEGOLAMI, $konta['widz'], 'test') === null);
 
         // ——— g: KONTO ZABLOKOWANE ————————————————————————————————————————————————
         $kandydatem = static fn (): bool => in_array(

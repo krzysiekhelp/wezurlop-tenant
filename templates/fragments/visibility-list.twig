@@ -100,6 +100,12 @@
                 wierszy) i `modules/widocznosc.js` (wzajemne odznaczanie). Sklejanie go z danych
                 byłoby tym samym błędem, co `{% include zmienna %}` (CLAUDE.md §5). -#}
             {% if cala_firma and okno.szukaj == '' %}
+                {#- ⚠ **Towarzysz pola wyboru: „ta pozycja BYŁA na ekranie"** (Z80 A4). Odznaczone
+                    pole wyboru nie jedzie w żądaniu wcale, więc bez tego ukrytego pola serwer nie
+                    odróżni „człowiek odznaczył całą firmę" od „wszedł w krok 2 pierwszy raz" —
+                    a od Z80 pierwszy stan znaczy „sekcja Osoby, nic nie wskazane", a drugi dalej
+                    znaczy „cała firma" (wartość domyślna celu przy osobie i grupie). -#}
+                <input type="hidden" name="firma_widoczna" value="1">
                 <label class="wid-poz wid-poz--wszyscy">
                     <input type="checkbox" name="cala_firma" id="wid-cala-firma" value="1"
                            class="visually-hidden" {{ firma_wybrana ? 'checked' : '' }}>
@@ -117,7 +123,8 @@
                 <ul class="wid-pozycje">
                     {% include 'fragments/visibility-pozycje.twig' with {
                         'okno': okno, 'spolka': spolka, 'hx': hx, 'krok': krok,
-                        'wybrane': wybrane, 'wielokrotny': wielokrotny
+                        'wybrane': wybrane, 'wielokrotny': wielokrotny,
+                        'firma_blokuje': firma_wybrana
                     } only %}
                 </ul>
             {% endif %}

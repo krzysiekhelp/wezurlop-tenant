@@ -48,6 +48,47 @@ final class WidocznoscService
     }
 
     /**
+     * **Czy stan okna wolno zapisać** — `null` znaczy „wolno", kod powodu znaczy odmowę
+     * (zlecenie Z80 A1 i A6).
+     *
+     * ⚠ **Funkcja czysta, bo inaczej nie da się jej udowodnić testem.** Te trzy odmowy dotyczą
+     * stanów, które OKNO potrafi pokazać, a reguła nie potrafi znaczyć — rozstrzyga o nich kształt
+     * żądania, nie baza. Postawione jako `if`-y w kontrolerze wymagałyby do sprawdzenia pełnego
+     * żądania HTTP; tutaj sprawdza je `tests/widocznosc.php`, bez bazy i bez przeglądarki.
+     *
+     * ⚠ To NIE zastępuje odmów z `zapisz()`, a je poprzedza: tam pilnujemy tego, co da się
+     * sprawdzić wyłącznie w bazie (cudza firma, zablokowane konto, brak etatu), tu — tego,
+     * co wynika z samego żądania.
+     *
+     * ⚠ Przy regule stałej pytanie nie powstaje: podmiot i cel ma z definicji
+     * (`CalendarAccessRepository::STALE`), a zapisać w niej można wyłącznie zakres.
+     *
+     * @param array{stala: bool, wybor_kto: bool, wybor_czyje: bool, cala_firma_zadana: bool,
+     *              czyje: string} $stan stan okna z `VisibilityController::stanOkna()`
+     */
+    public static function powodStanuOkna(array $stan): ?string
+    {
+        if ($stan['stala']) {
+            return null;
+        }
+        if (!$stan['wybor_kto']) {
+            return self::POWOD_PODMIOT;
+        }
+        if (!$stan['wybor_czyje']) {
+            return self::POWOD_CEL;
+        }
+        // ⚠ **Dwa rodzaje celu naraz: „cała firma" i wskazane grupy.** Druga wyrażalna
+        // kombinacja („cała firma" + wskazane osoby) odrzuca się w `sprawdzCel()`, bo tam oba
+        // rodzaje docierają do serwisu; przy grupach cel zapisuje się jako `groups` i znacznik
+        // całej firmy zostaje tylko w żądaniu.
+        if ($stan['cala_firma_zadana'] && $stan['czyje'] === ZakresWidocznosci::CZYJE_GRUPY) {
+            return self::POWOD_CEL;
+        }
+
+        return null;
+    }
+
+    /**
      * Zapis reguły — nowej albo zmienionej. Zwraca `null` przy powodzeniu, kod powodu przy odmowie.
      *
      * @param list<int> $grupyCelu
@@ -231,7 +272,15 @@ final class WidocznoscService
             return null;
         }
         if ($czyjeRodzaj === ZakresWidocznosci::CZYJE_FIRMA) {
-            return null;
+            // ⚠ **„Cała firma" RAZEM ze wskazanymi osobami jest odrzucana** (Z80 A6) — do
+            // 23.10.2026 wygrywał zbiór szerszy, czyli cała firma. Powodem tamtej decyzji nie była
+            // wygoda, tylko droga bez JavaScriptu: pola wykluczały się wtedy wyłącznie wzrokowo,
+            // więc przeglądarka bez skryptów potrafiła wysłać oba i odmowa blokowałaby jej zapis.
+            // ⚠ **Odmowa jest bezpieczna TYLKO dlatego, że od Z80 A4 wykluczenie jest strukturalne**:
+            // przy zaznaczonej „Całej firmie" serwer renderuje pola osób z `disabled`
+            // (`visibility-pozycje.twig`), a `disabled` nie jedzie w żądaniu. Gdyby A4 wypadło,
+            // ta odmowa musi wypaść razem z nim — inaczej wraca błąd, który tamta decyzja omijała.
+            return $grupyCelu === [] ? null : self::POWOD_CEL;
         }
         $grupyCelu = ZakresWidocznosci::uporzadkuj($grupyCelu);
         if ($grupyCelu === []) {

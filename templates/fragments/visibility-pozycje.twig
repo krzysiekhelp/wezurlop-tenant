@@ -37,13 +37,22 @@
         `IntersectionObserver`, który widzi przecięcie z dowolnym przodkiem przewijanym. -#}
     <li{% if ostatnia and hx %} hx-get="{{ adres_dalej }}" hx-trigger="intersect once"
         hx-swap="afterend" hx-indicator="#wid-doczytywanie"{% endif %}>
-        <label class="wid-poz">
+        <label class="wid-poz{{ firma_blokuje|default(false) ? ' wid-poz--zablokowana' : '' }}"
+               {%- if firma_blokuje|default(false) %} aria-disabled="true" data-blokada-firma="1"
+               title="{{ ('Odznacz „Cała firma", żeby wybrać pojedyncze osoby')|e('html_attr') }}"{% endif %}>
             {% if wielokrotny %}
                 {#- ⚠ `data-osob` tylko przy grupach i tylko dlatego, że stopka listy sumuje
                     osoby wybranych grup w przeglądarce (zlecenie Z57 U4). Liczba przychodzi
                     z serwera jako DANA — ten sam zbiór, z którego powstaje opis wiersza. -#}
+                {#- ⚠ **Przy zaznaczonej „Całej firmie" pojedyncze osoby są WYŁĄCZONE** (Z80 A4),
+                    a nie tylko wyszarzone — i to jest warunek odmowy z A6. `disabled` nie jedzie
+                    w żądaniu, więc przeglądarka bez skryptów nie potrafi wysłać „całej firmy"
+                    RAZEM z osobami; bez tego odmowa serwera blokowałaby zapis drodze bez
+                    JavaScriptu, gdzie pola wykluczają się tylko wzrokowo.
+                    ⚠ `disabled` stoi na SAMYM KOńCU, tuż przed `>` — patrz komentarz o sklejaniu
+                    atrybutów w `visibility-list.twig`. -#}
                 <input type="checkbox" name="grupy[]" value="{{ p.id }}" class="visually-hidden"
-                       {% if lista.rodzaj == 'grupa' %}data-osob="{{ p.osob }}"{% endif %} {{ zaznaczona ? 'checked' : '' }}>
+                       {% if lista.rodzaj == 'grupa' %}data-osob="{{ p.osob }}"{% endif %} {{ zaznaczona ? 'checked' : '' }}{% if firma_blokuje|default(false) %} disabled{% endif %}>
             {% else %}
                 <input type="radio" name="wybor" value="{{ lista.rodzaj == 'przelozony' ? 'supervisor' : (lista.rodzaj == 'grupa' ? 'group' : 'account') }}:{{ p.id }}"
                        class="visually-hidden" {{ zaznaczona ? 'checked' : '' }}>

@@ -39,8 +39,12 @@
 {% set baza = url('/admin/widocznosc/okno') ~ '?spolka=' ~ spolka.id %}
 {% set strona = url('/admin/widocznosc') ~ '?spolka=' ~ spolka.id ~ '&okno=1' %}
 {#- Stan przenoszony między krokami — jeden napis, bo powtarza się w każdym odnośniku. -#}
+{#- ⚠ **Wybór „Podwładnych" jedzie W STANIE, obok `czyje`** — bo w tej jednej sekcji zakładka
+    nie jest wyborem (Z80 A1 pkt 5): `czyje=subordinates` mówi „patrzę na tę sekcję", a
+    `podwladni=1` — „wybrałem ją". Bez tego przejście do innego kroku gubiło wybór i kafelek
+    wracał do „nie wybrano". -#}
 {% set stan = 'regula=' ~ okno.regula ~ '&kto=' ~ okno.kto ~ '&kto_id=' ~ okno.kto_id
-    ~ '&czyje=' ~ okno.czyje ~ '&zakres=' ~ okno.zakres %}
+    ~ '&czyje=' ~ okno.czyje ~ (okno.podwladni_wybrany ? '&podwladni=1' : '') ~ '&zakres=' ~ okno.zakres %}
 {% set stan_grup = '' %}
 {% for g in okno.grupy %}{% set stan_grup = stan_grup ~ '&grupy[]=' ~ g %}{% endfor %}
 
@@ -59,13 +63,23 @@
 {#- ══════════ Kafelki kroków ══════════ -#}
 <div class="wid-kroki" role="group" aria-label="Kroki">
     {% for nr, nazwa in {1: 'Kto widzi', 2: 'Czyje nieobecności', 3: 'Zakres'} %}
-        {#- ⚠ **Ptaszek znaczy „ten krok jest wypełniony", a nie „byłeś tu".** Na starcie nie ma
-            go ani na dwójce, ani na trójce: cel i zakres mają wartości domyślne, ale człowiek
-            jeszcze o nich nie rozstrzygnął. Za wypełniony uznajemy krok, przez który naprawdę
-            przeszedł — stąd porównanie z numerem kroku bieżącego, a nie sama obecność wartości. -#}
-        {% set gotowy = (nr == 1 and (okno.kto == 'supervisor_all' or okno.kto_id > 0))
-            or (nr == 2 and okno.krok > 2)
+        {#- ⚠ **Ptaszek znaczy „ten krok ma WYBÓR", a nie „byłeś tu"** (Z80 A3; wcześniej liczył
+            się z numeru kroku bieżącego). Od Z80 sekcja bez wskazanej pozycji jest stanem
+            dozwolonym, więc „przeszedłem przez krok 2" i „wskazałem cel" to dwie różne rzeczy —
+            a ptaszek ma mówić o drugiej. Kafelek kroku 3 zostaje przy regule: zakres ma wartość
+            domyślną, więc sama jej obecność nie znaczy, że ktoś o niej rozstrzygnął. -#}
+        {% set gotowy = (nr == 1 and okno.wybor_kto)
+            or (nr == 2 and okno.wybor_czyje)
             or (nr == 3 and okno.regula > 0) %}
+        {#- ⚠ **Druga linia kafelka to NAZWA SEKCJI, nie wskazana osoba** (Z80 A3, decyzja
+            Krzysztofa po prototypie). Nazwisko w nagłówku byłoby trzecią kopią tego, co i tak stoi
+            w kroku, i rozpychałoby pasek przy długim nazwisku — a nazwa sekcji mieści się zawsze
+            i mówi dokładnie to, czego w zwiniętym kroku nie widać. -#}
+        {% set podpis = nr == 1
+            ? (okno.wybor_kto ? {'account': 'Osoba', 'group': 'Grupa', 'supervisor': 'Przełożony'}[okno.sekcja_kto] : '')
+            : (nr == 2
+                ? (okno.wybor_czyje ? {'persons': 'Osoby', 'groups': 'Grupy', 'subordinates': 'Podwładni'}[okno.sekcja_czyje] : '')
+                : nazwy_zakresow[okno.zakres]|capitalize) %}
         {#- ⚠ **W regule STAŁEJ kroki 1 i 2 są WYŁĄCZONE**, a nie ukryte: taka reguła nie ma
             podmiotu do wskazania ani celu do wyboru, więc kliknięcie w krok 1 wyrzucałoby człowieka
             na listę, z której nie da się wybrać tego, co już jest wybrane — czyli w ślepą uliczkę.
@@ -88,7 +102,10 @@
                       ? 'Reguła stała: obejmuje wszystkie konta z prawem zarządzania widocznością i całą firmę — można jej zmienić tylko zakres'
                       : 'Reguła stała: obejmuje każdego, kto ma dziś podwładnych, i wyłącznie jego podwładnych — można jej zmienić tylko zakres' }}">
                 <span class="wid-krok__numer">{{ nr }}</span>
-                <span class="wid-krok__nazwa">{{ nazwa }}</span>
+                <span class="wid-krok__tresc">
+                    <span class="wid-krok__nazwa">{{ nazwa }}</span>
+                    <span class="wid-krok__podpis">{{ nr == 1 ? 'Przełożeni' : (nr == 2 ? (okno.kto == 'admins_all' ? 'Osoby' : 'Podwładni') : podpis) }}</span>
+                </span>
             </span>
         {% else %}
         <a class="wid-krok{{ okno.krok == nr ? ' wid-krok--on' : '' }}{{ gotowy ? ' wid-krok--gotowy' : '' }}"
@@ -96,8 +113,19 @@
            {% if hx %}hx-get="{{ baza }}&amp;{{ stan }}{{ stan_grup }}&amp;krok={{ nr }}"
            hx-target="#widocznosc-okno-tresc" hx-swap="innerHTML"{% endif %}
            {% if okno.krok == nr %}aria-current="step"{% endif %}>
-            <span class="wid-krok__numer">{% if gotowy %}{{ ikony.ptaszek() }}{% else %}{{ nr }}{% endif %}</span>
-            <span class="wid-krok__nazwa">{{ nazwa }}</span>
+            {#- ⚠ **Numer i ptaszek jadą OBA, a pokazuje jeden arkusz** — tak samo jak kłódka
+                w zakładkach sekcji. Powód ten sam: wybór zmienia się bez żądania do serwera,
+                a skrypt odświeżający kafelek nie ma prawa budować SVG (CLAUDE.md §6). -#}
+            <span class="wid-krok__numer">
+                <span class="wid-krok__cyfra">{{ nr }}</span>
+                <span class="wid-krok__ptak">{{ ikony.ptaszek() }}</span>
+            </span>
+            <span class="wid-krok__tresc">
+                <span class="wid-krok__nazwa">{{ nazwa }}</span>
+                {#- Bez wyboru podpis mówi „nie wybrano" i jest przygaszony — pusty wiersz
+                    kazałby się domyślać, czy czegoś brakuje, czy tak ma być. -#}
+                <span class="wid-krok__podpis{{ podpis == '' ? ' wid-krok__podpis--pusty' : '' }}">{{ podpis != '' ? podpis : 'nie wybrano' }}</span>
+            </span>
         </a>
         {% endif %}
     {% endfor %}
@@ -146,6 +174,10 @@
         {% for g in okno.grupy %}<input type="hidden" name="grupy[]" value="{{ g }}">{% endfor %}
     {% endif %}
     {% if okno.krok != 3 %}<input type="hidden" name="zakres" value="{{ okno.zakres }}">{% endif %}
+    {#- ⚠ Poza krokiem 2 wybór „Podwładnych" nie ma na ekranie swojego pola — tak samo jak
+        wskazane grupy. W kroku 2 niesie go widoczne pole wyboru, więc ukryta kopia dokładałaby
+        tę samą wartość drugi raz. -#}
+    {% if okno.krok != 2 and okno.podwladni_wybrany %}<input type="hidden" name="podwladni" value="1">{% endif %}
 
     <div class="modal__body wid-okno__body">
         {% if okno.krok == 1 %}
@@ -163,12 +195,37 @@
                     wybierałoby regułę domyślną firmy — a to decyzja, której nikt nie podjął
                     (zmierzone: po kliknięciu zakładki stopka mówiła już „wybrano: Wszyscy
                     przełożeni"). Zaznaczoną otwiera wyłącznie ołówek przy wierszu domyślnym. -#}
-                {% for kod, nazwa in {'account': 'Osoba', 'group': 'Grupa', 'supervisor': 'Przełożony'} %}
-                    <a class="wid-seg__poz{{ (okno.kto == kod or (kod == 'supervisor' and okno.kto == 'supervisor_all')) ? ' wid-seg__poz--on' : '' }}"
+                {#- ⚠ **Wybór w jednej sekcji BLOKUJE pozostałe** (Z80 A1). Blokada napędza się
+                    faktycznym wyborem, nie samą zakładką: sekcja bez wskazanej pozycji nie miałaby
+                    czego odznaczyć, więc krok stałby się ślepą uliczką.
+                    ⚠ **Zablokowana zakładka zostaje ODNOŚNIKIEM z `aria-disabled`, a nie `<span>`-em**
+                    — i to jest decyzja o drodze bez JavaScriptu (zgłoszona i przyjęta 23.10.2026).
+                    Odznaczenie wyboru wymaga przełącznika na już zaznaczonym polu radio, czego bez
+                    skryptu zrobić nie można; `<span>` bez `href` zostawiałby więc przeglądarkę bez
+                    skriptów w sekcji na zawsze. Ze skryptem `modules/widocznosc.js` przechwytuje
+                    kliknięcie i pokazuje toast (A2); bez skryptu zakładka przełącza sekcję i gubi
+                    wybór, czyli zachowuje się jak przed Z80. -#}
+                {% set nazwy_kto = {'account': 'Osoba', 'group': 'Grupa', 'supervisor': 'Przełożony'} %}
+                {% for kod, nazwa in nazwy_kto %}
+                    {% set czynna = okno.kto == kod or (kod == 'supervisor' and okno.kto == 'supervisor_all') %}
+                    {% set zablokowana = okno.wybor_kto and not czynna %}
+                    <a class="wid-seg__poz{{ czynna ? ' wid-seg__poz--on' : '' }}{{ zablokowana ? ' wid-seg__poz--zablokowana' : '' }}"
                        href="{{ strona }}&amp;regula={{ okno.regula }}&amp;kto={{ kod }}&amp;czyje={{ okno.czyje }}&amp;zakres={{ okno.zakres }}&amp;krok=1"
                        {% if hx %}hx-get="{{ baza }}&amp;regula={{ okno.regula }}&amp;kto={{ kod }}&amp;czyje={{ okno.czyje }}&amp;zakres={{ okno.zakres }}&amp;krok=1"
-                       hx-target="#widocznosc-okno-tresc" hx-swap="innerHTML"{% endif %}>
-                        {%- if kod == 'supervisor' %}{{ ikony.drzewo() }}{% elseif kod == 'group' %}{{ ikony.etykieta() }}{% else %}{{ ikony.konto() }}{% endif -%}
+                       hx-target="#widocznosc-okno-tresc" hx-swap="innerHTML"{% endif %}
+                       data-sekcja="{{ nazwa }}"
+                       {%- if zablokowana %} aria-disabled="true"
+                       title="{{ ('Odznacz wybór w sekcji „' ~ nazwy_kto[okno.sekcja_kto] ~ '", żeby wybrać z tej sekcji')|e('html_attr') }}"{% endif %}>
+                        {#- ⚠ **Obie ikony jadą z serwera, a pokazuje je ARKUSZ** — i to jest powód,
+                            dla którego nie ma tu `{% if %}` na jedną z nich. Blokadę zdejmuje skrypt
+                            w chwili odznaczenia wyboru (bez okrągłego żądania, bo w kroku 2 zgubiłoby
+                            wskazane grupy — nie jadą w adresie, tylko w formularzu), a skrypt nie ma
+                            prawa budować SVG: żadnego `innerHTML` (CLAUDE.md §6). Podmiana klasy
+                            wystarcza, gdy oba rysunki już są w drzewie. -#}
+                        <span class="wid-seg__ikona">
+                            {%- if kod == 'supervisor' %}{{ ikony.drzewo() }}{% elseif kod == 'group' %}{{ ikony.etykieta() }}{% else %}{{ ikony.konto() }}{% endif -%}
+                        </span>
+                        <span class="wid-seg__klodka">{{ ikony.klodka() }}</span>
                         <span>{{ nazwa }}</span>
                     </a>
                 {% endfor %}
@@ -197,8 +254,9 @@
                 więc obie możliwości muszą stać w jednym zbiorze i mieć jeden znacznik.
                 Osobna zakładka robiła z tego dwa ekrany, między którymi trzeba się przełączać,
                 żeby porównać, co się właściwie wybiera. -#}
+            {% set nazwy_czyje = {'persons': 'Osoby', 'groups': 'Grupy', 'subordinates': 'Podwładni'} %}
             <div class="wid-seg" role="group" aria-label="Czyje nieobecności">
-                {% for kod, nazwa in {'persons': 'Osoby', 'groups': 'Grupy', 'subordinates': 'Podwładni'} %}
+                {% for kod, nazwa in nazwy_czyje %}
                     {#- ⚠ Zakaz rozstrzyga SERWER (`stanOkna()` i `WidocznoscService`); tutaj
                         wyłącznie wyszarzamy, żeby nie dało się wybrać czegoś, co i tak zostanie
                         odrzucone. Wyszarzenie nie jest zabezpieczeniem.
@@ -206,57 +264,95 @@
                         (Z79): reguła stała nie dochodzi do kroku 2 w ogóle, bo `stanOkna()` wymusza
                         jej krok zakresu. Zostawiony warunek wyglądałby na miejsce, w którym ten krok
                         da się dla niej wyświetlić — a następna osoba poprawiałaby właśnie jego. -#}
-                    {% set wylaczony = kod == 'subordinates' and okno.kto_bez_etatu %}
                     {#- Zakładka „Osoby" jest czynna przy obu swoich stanach: „cała firma"
                         i wskazane osoby to jedna lista, nie dwie. -#}
-                    {% set czynna = okno.czyje == kod or (kod == 'persons' and okno.czyje == 'company') %}
-                    {% if wylaczony %}
+                    {% set czynna = kod == okno.sekcja_czyje %}
+                    {#- ⚠ Wyszarzenie „Podwładnych" ma DWA powody i oba są o braku gałęzi do policzenia
+                        (Z80 A1 pkt 5): konto bez etatu w tej firmie (serwer odmawia tak samo:
+                        `POWOD_BEZ_ETATU`) albo brak podmiotu w kroku 1. ⚠ **Grupa NIE jest takim
+                        powodem** — przy regule na grupę „podwładni" znaczą „gałąź pod każdym
+                        członkiem tej grupy" i jest to poprawna reguła. -#}
+                    {% set bez_galezi = kod == 'subordinates' and not okno.podwladni_mozliwy %}
+                    {% set zablokowana = okno.wybor_czyje and not czynna %}
+                    {% if bez_galezi %}
                         <span class="wid-seg__poz wid-seg__poz--wylaczona"
-                              title="ta osoba nie jest zatrudniona w tej firmie">
-                            {%- if kod == 'subordinates' %}{{ ikony.drzewo() }}{% elseif kod == 'groups' %}{{ ikony.etykieta() }}{% else %}{{ ikony.konto() }}{% endif -%}
+                              {#- ⚠ `|e('html_attr')` jest tu KONIECZNE, nie ozdobne: Twig traktuje
+                                  napis literalny w wyrażeniu jako bezpieczny i nie escapuje go sam,
+                                  więc zwykły cudzysłow w środku zamyka atrybut (zmierzone 23.10.2026:
+                                  element dostawał trzeci „atrybut" o nazwie `"`). Filtr podany jawnie
+                                  wykonuje się także na literale. -#}
+                              title="{{ (okno.kto_bez_etatu ? 'ta osoba nie jest zatrudniona w tej firmie' : 'najpierw wskaż podmiot w kroku „Kto widzi"')|e('html_attr') }}">
+                            {{- ikony.drzewo() -}}
                             <span>{{ nazwa }}</span>
                         </span>
                     {% else %}
-                        <a class="wid-seg__poz{{ czynna ? ' wid-seg__poz--on' : '' }}"
+                        <a class="wid-seg__poz{{ czynna ? ' wid-seg__poz--on' : '' }}{{ zablokowana ? ' wid-seg__poz--zablokowana' : '' }}"
                            href="{{ strona }}&amp;regula={{ okno.regula }}&amp;kto={{ okno.kto }}&amp;kto_id={{ okno.kto_id }}&amp;czyje={{ kod }}&amp;zakres={{ okno.zakres }}&amp;krok=2"
                            {% if hx %}hx-get="{{ baza }}&amp;regula={{ okno.regula }}&amp;kto={{ okno.kto }}&amp;kto_id={{ okno.kto_id }}&amp;czyje={{ kod }}&amp;zakres={{ okno.zakres }}&amp;krok=2"
-                           hx-target="#widocznosc-okno-tresc" hx-swap="innerHTML"{% endif %}>
-                            {%- if kod == 'subordinates' %}{{ ikony.drzewo() }}{% elseif kod == 'groups' %}{{ ikony.etykieta() }}{% else %}{{ ikony.konto() }}{% endif -%}
+                           hx-target="#widocznosc-okno-tresc" hx-swap="innerHTML"{% endif %}
+                           data-sekcja="{{ nazwa }}"
+                           {%- if zablokowana %} aria-disabled="true"
+                           title="{{ ('Odznacz wybór w sekcji „' ~ nazwy_czyje[okno.sekcja_czyje] ~ '", żeby wybrać z tej sekcji')|e('html_attr') }}"{% endif %}>
+                            <span class="wid-seg__ikona">
+                                {%- if kod == 'subordinates' %}{{ ikony.drzewo() }}{% elseif kod == 'groups' %}{{ ikony.etykieta() }}{% else %}{{ ikony.konto() }}{% endif -%}
+                            </span>
+                            <span class="wid-seg__klodka">{{ ikony.klodka() }}</span>
                             <span>{{ nazwa }}</span>
                         </a>
                     {% endif %}
                 {% endfor %}
             </div>
 
-            {% if okno.czyje == 'subordinates' %}
-                {#- ⚠ **Pole wyśrodkowane, z PRZERYWANĄ ramką** — bo to nie jest wybrana pozycja
-                    listy, tylko opis zbioru, którego listy nie ma i mieć nie może: gałąź liczy się
-                    przy każdym wyświetleniu, więc wypisanie nazwisk byłoby migawką, która
-                    zestarzeje się następnego dnia. Przerywana ramka mówi „tu nic nie wybierasz"
-                    bez ani jednego zdania o tym. -#}
-                <div class="wid-zbior">
-                    <span class="wid-zbior__znak">{{ ikony.drzewo() }}</span>
-                    <span class="wid-zbior__nazwa">
-                        {%- if okno.kto == 'group' and okno.kto_nazwa != '' %}Podwładni członków grupy {{ okno.kto_nazwa }}
-                        {%- elseif okno.kto_nazwa != '' %}Podwładni: {{ okno.kto_nazwa }}
-                        {%- else %}Podwładni wskazanej osoby{% endif -%}
-                    </span>
-                    {#- ⚠ Przy grupie gałąź liczy się **pod każdym członkiem z osobna**, bo grupa
-                        nie jest węzłem hierarchii (§8a: etykieta, nie warstwa zatwierdzania). -#}
-                    <span class="wid-zbior__opis">{{ okno.kto == 'group' ? 'Gałąź pod każdym członkiem tej grupy' : 'Cała gałąź pod tą osobą w hierarchii' }} — dziś {{ okno.podwladnych }} {{ odmiana_osob(okno.podwladnych) }}, także przyszli podwładni.</span>
-                    {% if okno.podwladnych == 0 and okno.kto != 'supervisor_all' and okno.kto_nazwa != '' %}
-                        <span class="wid-zbior__uwaga">{{ okno.kto == 'group' ? 'Członkowie tej grupy nie mają dziś podwładnych' : 'Ta osoba nie ma dziś podwładnych' }} — dostęp zadziała, gdy się pojawią.</span>
-                    {% endif %}
+            {% if okno.sekcja_czyje == 'subordinates' %}
+                {#- ⚠ **Jeden wiersz DO ZAZNACZENIA, nie opis zbioru** (Z80 A1 pkt 5). Do 23.10.2026
+                    stało tu pole z przerywaną ramką, której zadaniem było powiedzieć „tu nic nie
+                    wybierasz" — bo wejście w zakładkę BYŁO wyborem. Od Z80 wybór w sekcji musi być
+                    widoczny i odznaczalny (blokuje pozostałe sekcje), a sekcja „Podwładni" jest
+                    jedyną bez listy — więc jej wybór dostaje własne pole wyboru, takie samo jak
+                    „Cała firma" i „Wszyscy przełożeni". Listy nazwisk tu nadal NIE MA i mieć nie
+                    może: gałąź liczy się przy każdym odczycie, więc wypisane nazwiska byłyby migawką,
+                    która zestarzeje się następnego dnia. -#}
+                <div class="wid-lista-wybor">
+                    <div class="wid-lista-wybor__ramka">
+                        <label class="wid-poz wid-poz--wszyscy">
+                            {#- ⚠ Identyfikator stały, bo odwołuje się do niego `modules/widocznosc.js`
+                                (blokada sekcji po zaznaczeniu). Sklejanie go z danych byłoby tym
+                                samym błędem, co `{% include zmienna %}` (CLAUDE.md §5). -#}
+                            <input type="checkbox" name="podwladni" id="wid-podwladni" value="1"
+                                   class="visually-hidden" {{ okno.podwladni_wybrany ? 'checked' : '' }}>
+                            <span class="wid-poz__znak wid-poz__znak--wszyscy">{{ ikony.drzewo() }}</span>
+                            <span class="wid-poz__tresc">
+                                <span class="wid-poz__nazwa">
+                                    {%- if okno.kto == 'group' and okno.kto_nazwa != '' %}Podwładni członków grupy {{ okno.kto_nazwa }}
+                                    {%- elseif okno.kto_nazwa != '' %}Podwładni: {{ okno.kto_nazwa }}
+                                    {%- else %}Podwładni wskazanej osoby{% endif -%}
+                                </span>
+                                {#- ⚠ Przy grupie gałąź liczy się **pod każdym członkiem z osobna**, bo grupa
+                                    nie jest węzłem hierarchii (§8a: etykieta, nie warstwa zatwierdzania). -#}
+                                <span class="wid-poz__opis">{{ okno.kto == 'group' ? 'Gałąź pod każdym członkiem tej grupy' : 'Cała gałąź pod tą osobą w hierarchii' }} — dziś {{ okno.podwladnych }} {{ odmiana_osob(okno.podwladnych) }}, także przyszli podwładni.</span>
+                            </span>
+                            <span class="wid-poz__ptak">{{ ikony.ptaszek() }}</span>
+                        </label>
+                        {% if okno.podwladnych == 0 and okno.kto_nazwa != '' %}
+                            <p class="wid-lista-wybor__uwaga">{{ okno.kto == 'group' ? 'Członkowie tej grupy nie mają dziś podwładnych' : 'Ta osoba nie ma dziś podwładnych' }} — dostęp zadziała, gdy się pojawią.</p>
+                        {% endif %}
+                    </div>
                 </div>
             {% else %}
                 {#- Grupy i osoby to ta sama kontrolka, różni je zawartość listy i to, czy nad
                     nazwiskami stoi „Cała firma". -#}
+                {#- ⚠ „Cała firma" stoi w sekcji „Osoby" — o tym, czy POKAZAĆ tę pozycję, rozstrzyga
+                    SEKCJA, a o jej zaznaczeniu faktyczny wybór (`czyje == 'company'`).
+                    ⚠ Komentarz stoi NAD tagiem, a nie w środku wyrażenia: w liście argumentów
+                    `with { … }` lekser Twiga jest w trybie wyrażenia, więc `{#` nie jest tam
+                    komentarzem i szablon przestaje się kompilować (zmierzone 23.10.2026:
+                    „Unexpected character `` ` ``", czyli pierwszy odwrotny apostrof w środku). -#}
                 {% include 'fragments/visibility-list.twig' with {
                     'okno': okno, 'spolka': spolka, 'hx': hx, 'baza': baza, 'strona': strona,
                     'stan': stan, 'stan_grup': stan_grup, 'krok': 2, 'formy_osoby': formy_osoby,
                     'wybrane': okno.grupy, 'wielokrotny': true, 'stopka': '',
                     'wszyscy_przelozeni': false, 'wszyscy_wybrani': false, 'przelozonych': 0,
-                    'cala_firma': okno.czyje != 'groups',
+                    'cala_firma': okno.sekcja_czyje == 'persons',
                     'firma_wybrana': okno.czyje == 'company',
                     'pracownikow': okno.pracownikow,
                     'zacheta': okno.zacheta, 'wybrano': okno.wybrano

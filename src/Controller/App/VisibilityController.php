@@ -116,6 +116,10 @@ final class VisibilityController
             'krok' => $okno['krok'],
             'wybrane' => $okno['krok'] === 2 ? $okno['grupy'] : [$okno['kto_id']],
             'wielokrotny' => $okno['krok'] === 2,
+            // ⚠ Doczytana dwudziestka musi przyjść w TYM SAMYM stanie, co ta na ekranie:
+            // przy zaznaczonej „Całej firmie" pojedyncze osoby są wyłączone (Z80 A4). Inaczej
+            // pierwsza doczytana pozycja dałaby się zaznaczyć mimo blokady.
+            'firma_blokuje' => $okno['czyje'] === ZakresWidocznosci::CZYJE_FIRMA,
             'licznik_oob' => true,
         ]);
     }
@@ -128,6 +132,13 @@ final class VisibilityController
             return $this->errors->errorPage(403, null, $request->isHtmx());
         }
         $stan = $this->stanOkna($request, $kontekst['spolka']['id']);
+        // ⚠ **Stan, który okno potrafi pokazać, a reguła nie potrafi znaczyć** (Z80 A1, A6):
+        // sekcja bez wskazanej pozycji i dwa rodzaje celu naraz. Rozstrzyga o tym czysta funkcja
+        // w serwisie, nie `if`-y tutaj — żeby dawała się udowodnić testem bez żądania HTTP.
+        $powodStanu = WidocznoscService::powodStanuOkna($stan);
+        if ($powodStanu !== null) {
+            return $this->poZapisie($request, $kontekst, $powodStanu, 'nadany');
+        }
         $powod = $this->service->zapisz(
             $stan['regula'] > 0 ? $stan['regula'] : null,
             $kontekst['spolka']['id'],
@@ -317,10 +328,31 @@ final class VisibilityController
         // jest przewidywalny; odwrotne rozstrzygnięcie dawałoby dostęp węższy niż zaznaczony
         // i nikt by nie wiedział, dlaczego. Przeglądarka tylko to pokazuje (`modules/widocznosc.js`).
         $calaFirma = $wartosc('cala_firma', 2) === '1';
+        // ⚠ **Towarzysz pola wyboru: „ta pozycja BYŁA na ekranie"** (Z80 A4). Odznaczone pole
+        // wyboru nie jedzie w żądaniu wcale, więc bez tego znacznika „człowiek odznaczył całą
+        // firmę" jest nieodróżnialne od „wszedł w krok 2 pierwszy raz" — a od Z80 te dwa stany
+        // znaczą co innego i muszą się różnić.
+        $firmaWidoczna = $wartosc('firma_widoczna', 2) === '1';
+        $szukaj = trim($wartosc('szukaj', 100));
+        // ⚠ **Sekcja „Podwładni" ma WŁASNE pole wyboru** (Z80 A1 pkt 5, odpowiedź zarządcy
+        // z 23.10.2026): to jedyna sekcja celu bez listy, więc bez tego pola jej wybór byłby
+        // niewidoczny — nagłówek kroku nie miałby czego pokazać, a blokada pozostałych sekcji
+        // nie miałaby czego odznaczyć. Wejście w zakładkę NIE jest wyborem.
+        $podwladni = $wartosc('podwladni', 2) === '1';
         if ($czyje === ZakresWidocznosci::CZYJE_FIRMA || $czyje === ZakresWidocznosci::CZYJE_OSOBY) {
-            $czyje = $calaFirma || $cel === []
-                ? ZakresWidocznosci::CZYJE_FIRMA
-                : ZakresWidocznosci::CZYJE_OSOBY;
+            // ⚠ **Pusta lista NIE znaczy już „cała firma"** — i to jest zdjęcie niezmiennika
+            // z 19.10.2026 (Z80 A4, decyzja Krzysztofa po prototypie). Do tej pory stan „sekcja
+            // Osoby, nic nie wskazane" nie istniał: serwer zamieniał go na „całą firmę", a skrypt
+            // wymuszał zaznaczenie z powrotem. Bez tego stanu „Cała firma" nie da się ODZNACZYĆ,
+            // czyli nie da się przejść do pojedynczych osób — bo zaznaczona blokuje listę.
+            // Odmowa zapisu w tym stanie zostaje w serwisie (`POWOD_CEL`), bo to ona jest bramką.
+            $czyje = match (true) {
+                $calaFirma => ZakresWidocznosci::CZYJE_FIRMA,
+                $cel !== [] => ZakresWidocznosci::CZYJE_OSOBY,
+                // Pozycja była na ekranie i nie wróciła albo trwa szukanie konkretnych osób.
+                $firmaWidoczna, $szukaj !== '' => ZakresWidocznosci::CZYJE_OSOBY,
+                default => $czyje,
+            };
         }
         $krok = (int) $wartosc('krok', 2);
         $krok = $krok >= 1 && $krok <= 3 ? $krok : 1;
@@ -364,9 +396,37 @@ final class VisibilityController
             'kto_bez_etatu' => $kto === ZakresWidocznosci::KTO_KONTO && $ktoId > 0
                 && !$this->maEtat($companyId, $ktoId),
             'czyje' => $czyje,
+            // ⚠ **Sekcja to NIE to samo, co wybór** (Z80 A1). Sekcja mówi, na co człowiek
+            // patrzy; wybór — co wskazał. Blokada pozostałych sekcji napędza się WYBOREM, bo
+            // sekcja bez wskazanej pozycji nie miałaby czego odznaczyć i krok stałby się ślepą
+            // uliczką. „Cała firma" i wskazane osoby to JEDNA sekcja („Osoby"), bo to jedna lista.
+            'sekcja_kto' => $kto === ZakresWidocznosci::KTO_PRZELOZENI
+                ? ZakresWidocznosci::KTO_PRZELOZONY
+                : $kto,
+            'sekcja_czyje' => $czyje === ZakresWidocznosci::CZYJE_FIRMA
+                ? ZakresWidocznosci::CZYJE_OSOBY
+                : $czyje,
+            'wybor_kto' => $kto === ZakresWidocznosci::KTO_PRZELOZENI || $ktoId > 0,
+            'wybor_czyje' => $czyje === ZakresWidocznosci::CZYJE_FIRMA
+                || ($czyje === ZakresWidocznosci::CZYJE_PODWLADNI && $podwladni)
+                || (($czyje === ZakresWidocznosci::CZYJE_OSOBY || $czyje === ZakresWidocznosci::CZYJE_GRUPY)
+                    && $cel !== []),
+            'podwladni_wybrany' => $podwladni,
+            // ⚠ Surowy znacznik „cała firma" z żądania — potrzebny do odmowy z Z80 A6 w jednym
+            // przypadku, którego serwis nie widzi: „cała firma" przy sekcji GRUP. Tam cel zapisuje
+            // się jako `groups`, więc do serwisu nie dociera żaden ślad tego, że żądanie nazwało
+            // także całą firmę — a to jest druga wyrażalna kombinacja dwóch rodzajów celu naraz.
+            'cala_firma_zadana' => $calaFirma,
+            // ⚠ **„Podwładni" są poprawni TAKŻE dla grupy** — przy regule na grupę znaczą „gałąź
+            // pod każdym członkiem tej grupy" (`ZakresWidocznosci::CZYJE_PODWLADNI`), więc grupa
+            // NIE jest przypadkiem do wyszarzenia. Jedyne dwa, w których ten wybór nic nie da,
+            // to konto bez etatu w tej firmie (serwer odmawia: `POWOD_BEZ_ETATU`) i brak podmiotu
+            // w kroku 1 — bez niego nie ma czyjej gałęzi liczyć.
+            'podwladni_mozliwy' => ($kto === ZakresWidocznosci::KTO_PRZELOZENI || $ktoId > 0)
+                && !($kto === ZakresWidocznosci::KTO_KONTO && $ktoId > 0 && !$this->maEtat($companyId, $ktoId)),
             'grupy' => $cel,
             'zakres' => ZakresWidocznosci::zakres($wartosc('zakres', 20)),
-            'szukaj' => trim($wartosc('szukaj', 100)),
+            'szukaj' => $szukaj,
             // ⚠ **Offset, nie rosnący limit.** Doczytywanie dopisuje kolejne dwadzieścia pozycji
             // do listy, która już stoi na ekranie — gdyby każde doczytanie pobierało całość
             // od początku, trzydziesta strona kosztowałaby sześćset wierszy i wymazałaby
@@ -380,7 +440,7 @@ final class VisibilityController
                 $kto === ZakresWidocznosci::KTO_KONTO => 'szukaj osoby…',
                 default => 'szukaj przełożonego…',
             },
-            'listy' => $this->listy($companyId, $krok, $kto, $czyje, $pomin, $wartosc('szukaj', 100),
+            'listy' => $this->listy($companyId, $krok, $kto, $czyje, $pomin, $szukaj,
                 max(0, (int) $wartosc('od', 6))),
             // ⚠ Stopka listy mówi **co wybrano**, a nie tylko ile pokazano: przy liście doczytywanej
             // partiami wybrana pozycja bywa wyżej, poza polem widzenia, i bez tego napisu znika

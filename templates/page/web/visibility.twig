@@ -228,9 +228,21 @@
                         {% endif %}
                     </div>
                     {{ include('partials/zakres-plakietka.twig', {'zakres': r.zakres, 'nazwy': nazwy_zakresow}, with_context = false) }}
-                    <a class="ikona-akcja ikona-akcja--edycja" href="{{ adres }}&amp;okno=1&amp;regula={{ r.id }}&amp;kto={{ r.kto_rodzaj }}&amp;kto_id={{ r.kto_id }}&amp;czyje={{ r.czyje_rodzaj }}&amp;zakres={{ r.zakres }}&amp;krok=1{% for g in r.grupy %}&amp;grupy[]={{ g }}{% endfor %}"
+                    {#- ⚠ **Przy celu „podwładni" ołówek niesie `podwladni=1`** (Z80 A1 pkt 5): wybór
+                        w tej sekcji jest polem wyboru, a nie samą zakładką — bo zakładka bez pola
+                        nie miałaby czego odznaczyć i nie byłoby czego pokazać w nagłówku kroku.
+                        Bez tego parametru edycja zapisanej reguły otwierała się z kafelkiem
+                        „nie wybrano" i odblokowanymi sekcjami, czyli pokazywała co innego, niż
+                        stoi w bazie (zmierzone 23.10.2026, wymóg A5). Pozostałe cele niosą swój
+                        wybór same: „cała firma" przez `czyje=company`, osoby i grupy przez `grupy[]`. -#}
+                    {#- ⚠ **Czysty `&`, nie `&amp;`**: to napis w wyrażeniu, więc przy wypisaniu
+                        przechodzi przez auto-escaping i `&` zamienia się na `&amp;` sam. Wpisany
+                        tu `&amp;` escapowałby się drugi raz i adres dostawał parametr o nazwie
+                        `amp;podwladni` (zmierzone 23.10.2026 w DOM-ie). -#}
+                    {% set wybor_celu = r.czyje_rodzaj == 'subordinates' ? '&podwladni=1' : '' %}
+                    <a class="ikona-akcja ikona-akcja--edycja" href="{{ adres }}&amp;okno=1&amp;regula={{ r.id }}&amp;kto={{ r.kto_rodzaj }}&amp;kto_id={{ r.kto_id }}&amp;czyje={{ r.czyje_rodzaj }}{{ wybor_celu }}&amp;zakres={{ r.zakres }}&amp;krok=1{% for g in r.grupy %}&amp;grupy[]={{ g }}{% endfor %}"
                        data-modal-open="widocznosc-okno"
-                       hx-get="{{ url('/admin/widocznosc/okno') }}?spolka={{ spolka.id }}&amp;regula={{ r.id }}&amp;kto={{ r.kto_rodzaj }}&amp;kto_id={{ r.kto_id }}&amp;czyje={{ r.czyje_rodzaj }}&amp;zakres={{ r.zakres }}&amp;krok=1{% for g in r.grupy %}&amp;grupy[]={{ g }}{% endfor %}"
+                       hx-get="{{ url('/admin/widocznosc/okno') }}?spolka={{ spolka.id }}&amp;regula={{ r.id }}&amp;kto={{ r.kto_rodzaj }}&amp;kto_id={{ r.kto_id }}&amp;czyje={{ r.czyje_rodzaj }}{{ wybor_celu }}&amp;zakres={{ r.zakres }}&amp;krok=1{% for g in r.grupy %}&amp;grupy[]={{ g }}{% endfor %}"
                        hx-target="#widocznosc-okno-tresc" hx-swap="innerHTML"
                        aria-label="Zmień dostęp: {{ r.kto }}" title="Zmień dostęp">{{ ikony.olowek() }}</a>
                     {#- ⚠ Bez JavaScriptu kosz wysyła formularz; z `ui.js` otwiera okno

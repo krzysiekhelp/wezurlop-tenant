@@ -21,6 +21,7 @@ declare(strict_types=1);
 require dirname(__DIR__) . '/vendor/autoload.php';
 
 use Wezurlop\Service\KalendarzPracownika;
+use Wezurlop\Service\WidocznoscService as W;
 use Wezurlop\Service\ZakresWidocznosci as Z;
 
 (static function (): void {
@@ -222,6 +223,40 @@ use Wezurlop\Service\ZakresWidocznosci as Z;
     $check('reguła domyślna ma podpis bez zakresu (jest jedna, zmienia się jej zakres)',
         Z::podpis(Z::KTO_PRZELOZENI, 0, Z::CZYJE_PODWLADNI, [], Z::ZE_SZCZEGOLAMI)
         === Z::podpis(Z::KTO_PRZELOZENI, 0, Z::CZYJE_PODWLADNI, [], Z::BEZ_SZCZEGOLOW));
+
+    // ——— Z80 A1, A6: STANY OKNA, KTÓRYCH NIE WOLNO ZAPISAĆ ————————————————————
+    // ⚠ Od Z80 sekcja bez wskazanej pozycji jest w oknie stanem DOZWOLONYM („Osoby, nic nie
+    // wybrano" — bez tego „Całej firmy" nie da się odznaczyć, czyli nie da się przejść
+    // do pojedynczych osób). Skoro tak, musi istnieć miejsce, które nie pozwala takiego stanu
+    // ZAPISAć — i to jest ta funkcja. Sprawdzamy ją tu, bo jest czysta: bez bazy, bez HTTP.
+    $stanOkna = static fn (array $zmiany = []): array => array_merge([
+        'stala' => false,
+        'wybor_kto' => true,
+        'wybor_czyje' => true,
+        'cala_firma_zadana' => false,
+        'czyje' => Z::CZYJE_FIRMA,
+    ], $zmiany);
+    $check('Z80: stan z wskazanym podmiotem i celem wolno zapisać',
+        W::powodStanuOkna($stanOkna()) === null,
+        (string) W::powodStanuOkna($stanOkna()));
+    $check('Z80: bez wskazanego podmiotu (krok 1 pusty) → odmowa „podmiot"',
+        W::powodStanuOkna($stanOkna(['wybor_kto' => false])) === W::POWOD_PODMIOT);
+    $check('Z80: bez wskazanego celu (krok 2 pusty) → odmowa „cel"',
+        W::powodStanuOkna($stanOkna(['wybor_czyje' => false])) === W::POWOD_CEL);
+    $check('Z80: „cała firma" razem ze wskazanymi grupami → odmowa „cel"',
+        W::powodStanuOkna($stanOkna(['cala_firma_zadana' => true, 'czyje' => Z::CZYJE_GRUPY]))
+            === W::POWOD_CEL);
+    // ⚠ Druga strona tego samego twierdzenia: sam znacznik całej firmy przy celu „cała firma"
+    // jest stanem NORMALNYM, nie dwoma rodzajami naraz — inaczej odmowa zabrałaby zapis
+    // najczęściej nadawanej regule.
+    $check('Z80: „cała firma" przy celu „cała firma" wolno zapisać',
+        W::powodStanuOkna($stanOkna(['cala_firma_zadana' => true])) === null);
+    // ⚠ Reguła stała przechodzi zawsze: podmiot i cel ma z definicji, a zapisać w niej można
+    // wyłącznie zakres. Bez tego wyjątku zmiana zakresu reguły „Każdy przełożony" (gdzie żadne
+    // pole wyboru nie jedzie w żądaniu) byłaby odrzucana.
+    $check('Z80: reguła stała przechodzi bez żadnego wskazania',
+        W::powodStanuOkna($stanOkna(['stala' => true, 'wybor_kto' => false, 'wybor_czyje' => false]))
+            === null);
 
     echo $failures === 0 ? "Wszystkie sprawdzenia przeszły.\n" : "Nieudane: {$failures}\n";
     exit($failures === 0 ? 0 : 1);
