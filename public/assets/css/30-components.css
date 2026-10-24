@@ -176,6 +176,81 @@
 .table__num { text-align: right; font-variant-numeric: tabular-nums; }
 .table__mute { color: var(--c-text-3); }
 .table__name { color: var(--c-text); font-weight: var(--w-medium); text-decoration: none; }
+
+/* ══════════ Nagłówki kolumn: jeden kolor, stan przez strzałkę (zlecenie Z84 D2) ══════════
+   ⚠ Odnośnik sortowania DZIEDZICZY wygląd `th` — barwę, rozmiar, grubość i wersaliki. Do
+   24.10.2026 nosił `.table__name` (ciemny `--c-text`, półgruby), więc dwie z pięciu kolumn
+   wyglądały na ważniejsze od pozostałych; a różnica między nimi nie była rangą, tylko tym,
+   że dawały się sortować. Rangę pokazuje teraz STAN, nie sama możliwość. */
+.table__sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  text-decoration: none;
+}
+.table__sort--on { color: var(--c-text); }
+@media (hover: hover) {
+  .table__sort:hover { color: var(--c-text); text-decoration: none; }
+}
+/* Znak kierunku: przygaszony „w obie strony" przy kolumnach sortowalnych, barwny przy tej,
+   po której lista stoi. 14 px, bo napis ma 11 px — ikona w rozmiarze napisu gubi się w wersalikach. */
+.table__kierunek { display: inline-flex; color: var(--c-text-4); }
+.table__kierunek .ico { width: 14px; height: 14px; }
+.table__sort--on .table__kierunek { color: var(--c-accent-text); }
+/* „W górę" to TA SAMA ikona obrócona — nie drugi rysunek tej samej rzeczy. */
+.table__kierunek--gora { transform: rotate(180deg); }
+
+/* ══════════ Kolumna „Konto": równe plakietki, wspólna prawa krawędź (zlecenie Z84 B2 i D1) ══════════
+   ⚠ **Jedna szerokość dla wszystkich plakietek tej kolumny**, dobrana do najdłuższej etykiety
+   („niezaproszone"). Bez tego pięć różnych szerokości dawało pięć różnych lewych krawędzi
+   w jednej kolumnie i wzrok nie miał na czym się zatrzymać — a to kolumna, której się szuka.
+   ⚠ **Nagłówek stoi nad LEWĄ krawędzią plakietek** (D1), nie przy prawej krawędzi kolumny
+   i nie na środku: pudełko nagłówka ma tę samą szerokość co plakietka i jest wyrównane do
+   prawej razem z nią, a napis w nim zaczyna się od lewej. Dzięki temu „KONTO" i plakietki
+   mają jedną linię startu, policzoną z tej samej liczby. */
+/* ⚠ **Nagłówek nad kolumną, której treścią jest KONTROLKA** (zlecenie Z84 D1). Pole adresu
+   i przycisk dostępu mają `padding: 0 var(--s-3)` i 1 px obramowania, więc ich TEKST zaczyna
+   się 13 px dalej niż pudełko komórki — i dokładnie o tyle odstawał nagłówek (zmierzone
+   24.10.2026: „E-mail" i „Dostęp do firm" po +13 px). Liczymy to z TYCH SAMYCH tokenów,
+   którymi obie kontrolki są opisane, a nie z liczby 13: zmiana wyściółki pola przesunie
+   wtedy nagłówek razem z nią. */
+/* ⚠ Swoistość: `.table th` to (0,1,1), więc sama klasa (0,1,0) przegrywała z wyściółką
+   bazową — zmierzone, nagłówek nie drgnął. Selektor musi mieć `th` w środku. */
+.table th.cell--nad-polem { padding-left: calc(var(--s-4) + var(--s-3) + 1px); }
+
+.cell--konto { --konto-plakietka: 118px; }
+/* `text-align` osobno dla komórki i nagłówka — `.table th { text-align: left }` ma wyższą
+   swoistość niż sama klasa i wygrywał (zmierzone). */
+.table td.cell--konto,
+.table th.cell--konto { text-align: right; }
+.cell--konto .chip { min-width: var(--konto-plakietka); justify-content: center; }
+.table thead th.cell--konto .table__sort {
+  width: var(--konto-plakietka);
+  justify-content: flex-start;
+  text-align: left;
+}
+/* ⚠ Znak „do odblokowania" stoi PRZED plakietką i jest okrągły — inny kształt niż plakietka,
+   bo mówi o czymś innym: plakietka o stanie konta, znak o tym, że ten stan wymaga decyzji.
+   22 px, czyli tyle, ile wysokość plakietki, więc oba znaki siedzą w jednej linii optycznej. */
+.stan-konta { display: inline-flex; align-items: center; gap: var(--s-2); }
+.stan-konta__znak {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--c-warn-soft);
+  color: var(--c-warn-text);
+}
+.stan-konta__znak .ico { width: 14px; height: 14px; }
+/* Ognisko widoczne, bo znak jest osiągalny z klawiatury (jego treść jest tylko w podpowiedzi). */
+.stan-konta__znak:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
 @media (hover: hover) {
   .table__name:hover { text-decoration: underline; }
 }
@@ -218,7 +293,13 @@
 .col--osoba  { width: 26%; }
 .col--email  { width: 30%; }
 .col--dostep { width: 24%; }
-.col--konto  { width: 16%; }
+/* ⚠ **Szerokość z TREŚCI, nie z procentu** (zlecenie Z84 B2). Ta kolumna trzyma plakietkę
+   stałej szerokości (118 px) i — przy stanie „do odblokowania" — znak 22 px z odstępem 8 px
+   przed nią. Przy 16% wychodziło 168 px, czyli 128 px treści po odjęciu wyściółek (16 + 24):
+   plakietka sama się mieściła, ale plakietka ZE ZNAKIEM potrzebuje 148 px i wystawała
+   o 20 px poza wspólną prawą krawędź (zmierzone 24.10.2026: 1329 wobec 1309 w pozostałych
+   wierszach). Kolumna o stałej treści ma mieć stałą szerokość: 16 + 22 + 8 + 118 + 24 = 188. */
+.col--konto  { width: 188px; }
 /* ⚠ Dziennik zdarzeń: rozdanie zmierzone, nie wymyślone. Bez `colgroup` przeglądarka liczyła
    z treści i dała „Zdarzeniu" 874 px (potrzebuje ~300: plakietka plus kod), a „Kto" 141 px
    i „Czego dotyczy" 257 px — czyli ucinały się dwie kolumny, na które się patrzy.

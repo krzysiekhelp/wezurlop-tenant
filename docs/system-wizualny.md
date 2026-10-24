@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.20.7, 24.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.20.8, 24.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,46 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.20.7 → 1.20.8: tabela `/admin/konta` — nagłówki nad treścią, jeden kolor
+> nagłówków, równe plakietki stanu konta** (zlecenie Z84 cz. B i D; decyzje Krzysztofa
+> po prototypie w Chrome).
+> - **Nagłówek zaczyna się dokładnie tam, gdzie treść kolumny.** Zmierzone przed zmianą:
+>   „E-mail" i „Dostęp do firm" odstawały o **13 px**, bo w treści stoi KONTROLKA
+>   (`padding: 0 var(--s-3)` plus 1 px obramowania), a „Osoba" o **42 px** z powodu kółka
+>   z inicjałami. Po zmianie **0 px we wszystkich kolumnach na 1920 i 1366**. ⚠ Przesunięcie
+>   nagłówka liczone z TYCH SAMYCH tokenów, którymi opisane są kontrolki
+>   (`calc(var(--s-4) + var(--s-3) + 1px)`), a nie z liczby 13: zmiana wyściółki pola przesunie
+>   nagłówek razem z nią.
+> - **Bez kółka z inicjałami na LIŚCIE** (D3). Inicjały zostają w panelu osoby i w belce, gdzie
+>   zastępują zdjęcie; w kolumnie konkurowały z nagłówkiem o lewą krawędź. Przekreślenie byłych
+>   pracowników (Z32) bez zmian.
+> - **Jeden kolor nagłówków**: wszystkie `--c-text-3`, 11 px / 600, wersaliki. Odnośnik
+>   sortowania dziedziczy wygląd `th` i nie wnosi własnego — do tej pory nosił `.table__name`
+>   (ciemny `--c-text`, półgruby), więc dwie z pięciu kolumn wyglądały na ważniejsze, choć
+>   różnica dotyczyła tylko tego, że dają się sortować. Rangę pokazuje STAN: kolumna sortowana
+>   ma `--c-text` i strzałkę kierunku w `--c-accent-text`, pozostałe sortowalne — przygaszony
+>   znak „w obie strony" (`--c-text-4`). `aria-sort` na `th`.
+>   ⚠ **Znaki kierunku są SVG, nie strzałkami z czcionki**: „↑" i „↕" wychodzą w tym zestawie
+>   krojów pustym prostokątem. „W górę" to ta sama ikona obrócona arkuszem.
+> - **Kolumna „Konto": plakietki równej szerokości (118 px) z wspólną prawą krawędzią**, treść
+>   przy prawej krawędzi, a **nagłówek nad LEWĄ krawędzią plakietek** (D1) — nie przy prawej
+>   krawędzi kolumny i nie na środku. Pudełko nagłówka ma tę samą szerokość co plakietka,
+>   więc obie linie startu liczą się z jednej liczby.
+>   ⚠ **Szerokość kolumny wzięta z treści, nie z procentu**: 16% dawało 168 px, czyli 128 px
+>   treści — plakietka sama się mieściła, ale plakietka ZE ZNAKIEM potrzebuje 148 px i wystawała
+>   o 20 px poza wspólną krawędź (zmierzone: 1329 wobec 1309). Kolumna o stałej treści ma stałą
+>   szerokość: 16 + 22 + 8 + 118 + 24 = **188 px**.
+> - **Stan „do odblokowania" mówi słowem „zablokowane", a osobność stanu niesie ZNAK**: okrągły,
+>   22 px, tło `--c-warn-soft`, znak `--c-warn-text`, przed plakietką, z podpowiedzią
+>   „Do odblokowania — ta osoba pracuje, a konto jest zablokowane." w `title` i `aria-label`,
+>   osiągalny z klawiatury (`tabindex="0"`, widoczne ognisko). Plakietka „zablokowane" BEZ znaku
+>   znaczy „nie ma czego odblokowywać" (osoba nie pracuje). ⚠ Konto odblokowuje się w tym stanie
+>   wyłącznie ręcznie, bo synchronizacja zdejmuje tylko blokadę, którą sama założyła — automat
+>   zostaje bez zmian (decyzja Krzysztofa 24.10.2026). Kafel „do odblokowania" zostaje.
+>   Zmierzone na osobie PRÓBNEJ (konto zablokowane drogą produktu): znak 22×22, `border-radius`
+>   50%, `rgb(253,243,226)` na `rgb(138,83,0)`, przed plakietką, a wszystkie cztery plakietki
+>   w tym renderze mają prawą krawędź 1309 — także ta ze znakiem.
 
 > **Zmiana 1.20.6 → 1.20.7: `/admin/konta` ma filtr zatrudnienia** (zlecenie Z84 cz. A,
 > prototyp zatwierdzony przez Krzysztofa).

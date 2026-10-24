@@ -11,7 +11,6 @@
 {#- ⚠ Jedno pojęcie na cały wiersz: `przed_zaproszeniem` znaczy „nie ma konta ALBO konto jest
     w stanie `niezaproszone`". Trzy kontrolki w tym wierszu pytają o to samo, więc pytają raz —
     inaczej po wprowadzeniu stanu `niezaproszone` (§4) trzeba by pamiętać o trzech warunkach. -#}
-{% import 'partials/inicjaly.twig' as znak %}
 {% set przed_zaproszeniem = o.account_id is null or o.account_status == 'niezaproszone' %}
 <tr id="osoba-{{ o.person_id }}">
     {#- ⚠ Komórka z samą kontrolką NIE ucina wielokropkiem (`cell--kontrolka`). Zmierzone:
@@ -61,7 +60,10 @@
         {% set zwolniony = o.employments_total > 0 and o.employments_active == 0 %}
         <span class="osoba-wiersz{{ zwolniony ? ' osoba-wiersz--zwolniony' : '' }}"
               {%- if zwolniony %} title="Zatrudnienie zakończone"{% endif %}>
-        {{- znak.kolko(o.name, 'inicjaly--lista' ~ (zwolniony ? ' inicjaly--wygaszone' : '')) -}}
+        {#- ⚠ **Bez kółka z inicjałami na LIŚCIE** (zlecenie Z84 D3, decyzja Krzysztofa po
+            prototypie): kółko przesuwało nazwisko o 42 px w prawo, więc nagłówek „OSOBA"
+            nie stał nad treścią kolumny (zmierzone 24.10.2026). Inicjały zostają w panelu
+            osoby i w belce, gdzie zastępują zdjęcie, a nie konkurują z nagłówkiem. -#}
         <a class="table__name osoba-wiersz__nazwa" href="{{ url('/admin/konta/osoba/' ~ o.person_id) }}"
            data-modal-open="osoba-panel"
            hx-get="{{ url('/admin/konta/osoba/' ~ o.person_id) }}"
@@ -151,5 +153,8 @@
         w kolumnie, której się szuka wzrokiem, nie różnicowało niczego — a administrator czyta tę
         kolumnę właśnie po to, żeby zobaczyć, kto ma działające konto. Reszta ekranów zostaje
         przy regule „zieleń to działanie, nie stan". -#}
-    <td>{{ include('partials/stan-konta.twig', {'status': o.account_status}, with_context = false) }}</td>
+    {#- ⚠ Kolumna Konto: treść przy PRAWEJ krawędzi i plakietki równej szerokości (Z84 B2),
+        a nagłówek nad lewą krawędzią plakietek (Z84 D1). Geometria stoi w arkuszu
+        (`.cell--konto`), bo dotyczy też nagłówka — tu zostaje tylko klasa. -#}
+    <td class="cell--konto">{{ include('partials/stan-konta.twig', {'status': o.account_status}, with_context = false) }}</td>
 </tr>

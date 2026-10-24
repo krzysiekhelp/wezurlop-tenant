@@ -298,15 +298,42 @@
                                     znaków wokół formantu: inaczej obok pola wyboru siedzi kropka
                                     z `text-overflow` (zobaczone na zrzucie, nie w kodzie). -#}
                                 <th class="cell--kontrolka"><input type="checkbox" class="pick__box" data-selectbar-all aria-label="Zaznacz wszystkie osoby bez konta na tej stronie"></th>
-                                <th>
-                                    <a class="table__name" href="{{ adres_listy ~ '&sortuj=nazwisko&kierunek=' ~ (sortuj == 'nazwisko' and kierunek == 'asc' ? 'desc' : 'asc') }}">Osoba</a>
-                                </th>
-                                <th>
-                                    <a class="table__name" href="{{ adres_listy ~ '&sortuj=email&kierunek=' ~ (sortuj == 'email' and kierunek == 'asc' ? 'desc' : 'asc') }}">E-mail</a>
-                                </th>
-                                <th>Dostęp do firm</th>
-                                <th>
-                                    <a class="table__name" href="{{ adres_listy ~ '&sortuj=konto&kierunek=' ~ (sortuj == 'konto' and kierunek == 'asc' ? 'desc' : 'asc') }}">Konto</a>
+                                {#- ⚠ **Jeden kolor i jeden krój dla WSZYSTKICH nagłówków** (zlecenie Z84 D2):
+                                    odnośnik sortowania dziedziczy wygląd `th`, a nie wnosi własnego
+                                    (`.table__name` dawało „Osobie" i „E-mailowi" ciemny `--c-text`
+                                    przy szarych pozostałych — czytało się jak dwie różne rangi).
+                                    Kolumna aktualnie sortowana dostaje `--c-text` i strzałkę kierunku,
+                                    pozostałe sortowalne — przygaszony znak „w obie strony".
+                                    ⚠ `aria-sort` na `th`, nie na odnośniku: to komórka jest nagłówkiem
+                                    kolumny, a czytnik ekranu pyta o niego, nie o odnośnik w nim. -#}
+                                {% for kol, etykieta in {'nazwisko': 'Osoba', 'email': 'E-mail'} %}
+                                    {#- ⚠ Kolumna E-mail ma w treści POLE, więc jej tekst zaczyna się
+                                        o obramowanie i wyściółkę pola dalej niż pudełko komórki —
+                                        i o tyle samo przesuwa się nagłówek (Z84 D1). -#}
+                                    <th{{ kol == 'email' ? ' class="cell--nad-polem"' : '' }} {{ sortuj == kol ? 'aria-sort="' ~ (kierunek == 'asc' ? 'ascending' : 'descending') ~ '"' : 'aria-sort="none"' }}>
+                                        {{ include('partials/naglowek-sortowania.twig', {
+                                            'adres': adres_listy ~ '&sortuj=' ~ kol ~ '&kierunek='
+                                                ~ (sortuj == kol and kierunek == 'asc' ? 'desc' : 'asc'),
+                                            'etykieta': etykieta, 'wybrana': sortuj == kol,
+                                            'rosnaco': kierunek == 'asc',
+                                        }, with_context = false) }}
+                                    </th>
+                                {% endfor %}
+                                {#- „Dostęp do firm" nie jest sortowalny: kolumna pokazuje SKRÓT
+                                    („N z M firm"), a nie jedną daną, po której da się ustawić wiersze. -#}
+                                <th class="cell--nad-polem">Dostęp do firm</th>
+                                <th class="cell--konto" {{ sortuj == 'konto' ? 'aria-sort="' ~ (kierunek == 'asc' ? 'ascending' : 'descending') ~ '"' : 'aria-sort="none"' }}>
+                                    {#- ⚠ Nagłówek „Konto" stoi nad LEWĄ krawędzią plakietek, nie przy
+                                        prawej krawędzi kolumny i nie na środku (Z84 D1): plakietki są
+                                        wyrównane do prawej i mają równą szerokość, więc ich lewa krawędź
+                                        jest jedną linią — i to na niej ma się zaczynać napis. Szerokość
+                                        pudełka nagłówka jest ta sama, co plakietki (`--konto-plakietka`). -#}
+                                    {{ include('partials/naglowek-sortowania.twig', {
+                                        'adres': adres_listy ~ '&sortuj=konto&kierunek='
+                                            ~ (sortuj == 'konto' and kierunek == 'asc' ? 'desc' : 'asc'),
+                                        'etykieta': 'Konto', 'wybrana': sortuj == 'konto',
+                                        'rosnaco': kierunek == 'asc',
+                                    }, with_context = false) }}
                                 </th>
                             </tr>
                         </thead>
@@ -334,17 +361,28 @@
                 </colgroup>
                 <thead>
                     <tr>
-                        <th>
-                            <a class="table__name" href="{{ adres_listy ~ '&sortuj=nazwisko&kierunek=' ~ (sortuj == 'nazwisko' and kierunek == 'asc' ? 'desc' : 'asc') }}">Osoba</a>
-                        </th>
-                        <th>
-                            <a class="table__name" href="{{ adres_listy ~ '&sortuj=email&kierunek=' ~ (sortuj == 'email' and kierunek == 'asc' ? 'desc' : 'asc') }}">E-mail</a>
-                        </th>
+                        {#- Te same nagłówki, co w tabeli pracowników — jeden partial, bo obie
+                            tabele stoją na jednym ekranie pod dwiema zakładkami (Z84 D2). -#}
+                        {% for kol, etykieta in {'nazwisko': 'Osoba', 'email': 'E-mail'} %}
+                            <th {{ sortuj == kol ? 'aria-sort="' ~ (kierunek == 'asc' ? 'ascending' : 'descending') ~ '"' : 'aria-sort="none"' }}>
+                                {{ include('partials/naglowek-sortowania.twig', {
+                                    'adres': adres_listy ~ '&sortuj=' ~ kol ~ '&kierunek='
+                                        ~ (sortuj == kol and kierunek == 'asc' ? 'desc' : 'asc'),
+                                    'etykieta': etykieta, 'wybrana': sortuj == kol,
+                                    'rosnaco': kierunek == 'asc',
+                                }, with_context = false) }}
+                            </th>
+                        {% endfor %}
                         <th>Rola</th>
                         <th>2FA</th>
                         <th>Logowanie</th>
-                        <th>
-                            <a class="table__name" href="{{ adres_listy ~ '&sortuj=konto&kierunek=' ~ (sortuj == 'konto' and kierunek == 'asc' ? 'desc' : 'asc') }}">Konto</a>
+                        <th class="cell--konto" {{ sortuj == 'konto' ? 'aria-sort="' ~ (kierunek == 'asc' ? 'ascending' : 'descending') ~ '"' : 'aria-sort="none"' }}>
+                            {{ include('partials/naglowek-sortowania.twig', {
+                                'adres': adres_listy ~ '&sortuj=konto&kierunek='
+                                    ~ (sortuj == 'konto' and kierunek == 'asc' ? 'desc' : 'asc'),
+                                'etykieta': 'Konto', 'wybrana': sortuj == 'konto',
+                                'rosnaco': kierunek == 'asc',
+                            }, with_context = false) }}
                         </th>
                     </tr>
                 </thead>
@@ -380,7 +418,7 @@
                             „—" gdy nigdy (`Support\Strefa::logowanie()`). Jedno miejsce liczy
                             strefę i słowo „dziś" — w szablonie nie ma ani jednego warunku o dacie. -#}
                         <td>{{ czas_logowanie(o.last_login_at) }}</td>
-                        <td>{{ include('partials/stan-konta.twig', {'status': o.account_status}, with_context = false) }}</td>
+                        <td class="cell--konto">{{ include('partials/stan-konta.twig', {'status': o.account_status}, with_context = false) }}</td>
                     </tr>
                 {% else %}
                     <tr><td colspan="6" class="empty-state">{% if szukaj != '' %}Nikogo nie znaleziono dla „{{ szukaj }}".{% else %}Nie ma jeszcze żadnego konta administracyjnego.{% endif %}</td></tr>

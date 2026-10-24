@@ -1,0 +1,25 @@
+{#- **Nagłówek kolumny sortowalnej: napis plus znak kierunku** (zlecenie Z84 D2).
+
+    ⚠ Jeden plik na wszystkie takie nagłówki, bo inaczej tabela kont administracyjnych
+    i tabela pracowników rozjadą się przy pierwszej zmianie — a stoją obok siebie na jednym
+    ekranie, pod dwiema zakładkami.
+
+    ⚠ **Wygląd dziedziczy po `th`**: żadnej własnej barwy ani grubości. Do 24.10.2026 odnośnik
+    nosił `.table__name` (ciemny `--c-text`, półgruby), więc dwie z pięciu kolumn wyglądały
+    na ważniejsze od pozostałych — a to tylko te dwie dawały się sortować. Rangę pokazuje teraz
+    stan: kolumna sortowana jest ciemniejsza i ma strzałkę kierunku, pozostałe sortowalne mają
+    przygaszony znak „w obie strony".
+
+    ⚠ **Znak jest SVG, nie strzałką z czcionki**: „↑" i „↕" w tym zestawie krojów wychodzą
+    pustym prostokątem (zmierzone przy „→" w innym miejscu). Kierunek „w górę" to ta sama
+    ikona obrócona arkuszem, więc nie ma dwóch rysunków jednej rzeczy.
+
+    Zmienne: `adres`, `etykieta`, `wybrana` (bool), `rosnaco` (bool).
+    Renderowany `with_context = false`. -#}
+{% import 'partials/ikony.twig' as ikony %}
+<a class="table__sort{{ wybrana ? ' table__sort--on' : '' }}" href="{{ adres }}">{{ etykieta }}
+    {#- ⚠ `aria-hidden` na znaku: kierunek niesie `aria-sort` na komórce, a dwa źródła tej samej
+        informacji czytnik ekranu przeczytałby dwa razy. -#}
+    <span class="table__kierunek{{ wybrana and rosnaco ? ' table__kierunek--gora' : '' }}" aria-hidden="true">
+        {{- wybrana ? ikony.strzalka_w_dol() : ikony.sortowanie() -}}
+    </span></a>

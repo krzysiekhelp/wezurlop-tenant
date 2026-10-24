@@ -9,10 +9,36 @@
     w kolumnie, której szuka się wzrokiem, nie różnicowało niczego — a administrator czyta ją
     właśnie po to, żeby zobaczyć, kto ma działające konto.
 
-    Zmienne: `status` (`account.status` albo `null`). Renderowany `with_context = false`. -#}
+    ⚠ **`do_odblokowania` mówi od Z84 SŁOWEM „zablokowane", a osobność stanu niesie ZNAK**
+    (decyzja Krzysztofa z 24.10.2026 po prototypie). Powód: dla kogoś, kto czyta kolumnę,
+    stan konta jest jeden — zablokowane — a „do odblokowania" było opisem CZYNNOŚCI
+    administratora w kolumnie opisującej konto. Znak (okrągły, ostrzegawczy, przed plakietką)
+    mówi, że ta blokada dotyczy osoby, która pracuje, i że decyzja należy do człowieka.
+    ⚠ **Konto odblokowuje się TYLKO ręcznie w tym stanie** — i to nie jest przeoczenie:
+    synchronizacja zdejmuje sama wyłącznie blokadę, którą sama założyła (`blocked_reason = 'sync'`,
+    `SyncDomainRepository::unblockAccountAfterReturn()`), więc ten stan utrzymuje się przy
+    blokadzie RĘCZNEJ. Automat zostaje bez zmian (decyzja Krzysztofa z 24.10.2026).
+    ⚠ Znak jest osiągalny z klawiatury (`tabindex="0"`), bo jego treść istnieje wyłącznie
+    w podpowiedzi — element, którego nie da się ufokusować, nie pokaże `title` nikomu,
+    kto nie używa myszy.
+
+    ⚠ **Równa szerokość plakietek i wspólna prawa krawędź** (Z84 B2) stoją w arkuszu
+    (`.cell--konto .chip`), nie tutaj: ta sama plakietka renderuje się też w panelu osoby,
+    gdzie kolumny nie ma i geometria kolumny jej nie dotyczy.
+
+    Zmienne: `status` (`account.status`, `do_odblokowania` albo `null`).
+    Renderowany `with_context = false`. -#}
+{% import 'partials/ikony.twig' as ikony %}
 {% if status == 'do_odblokowania' %}
-    <span class="chip chip--warn"><span class="chip__kropka"></span>do odblokowania</span>
+    <span class="stan-konta">
+        <span class="stan-konta__znak" tabindex="0" role="img"
+              title="Do odblokowania — ta osoba pracuje, a konto jest zablokowane."
+              aria-label="Do odblokowania — ta osoba pracuje, a konto jest zablokowane.">{{ ikony.uwaga() }}</span>
+        <span class="chip chip--danger"><span class="chip__kropka"></span>zablokowane</span>
+    </span>
 {% elseif status == 'blocked' %}
+    {#- Blokada BEZ znaku: osoba nie ma dziś aktywnego zatrudnienia, więc nie ma czego odblokowywać
+        (konto zablokowała synchronizacja po zwolnieniu albo administrator ręcznie). -#}
     <span class="chip chip--danger"><span class="chip__kropka"></span>zablokowane</span>
 {% elseif status == 'niezaproszone' %}
     {#- Konto istnieje, żeby dostęp miał na czym stanąć, ale nie da się nim zalogować

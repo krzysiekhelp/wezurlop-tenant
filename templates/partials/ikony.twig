@@ -144,6 +144,10 @@
 {% macro kod() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M7.4 6.6 4 10l3.4 3.4M12.6 6.6 16 10l-3.4 3.4M11 5.6l-2 8.8"/></svg>{% endmacro %}
 {% macro katalog() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M3.4 6.4a1.4 1.4 0 0 1 1.4-1.4h2.6l1.6 1.9h5.2a1.4 1.4 0 0 1 1.4 1.4v6.1a1.4 1.4 0 0 1-1.4 1.4H4.8a1.4 1.4 0 0 1-1.4-1.4Z"/></svg>{% endmacro %}
 {% macro uwaga() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M10.9 4.2a1 1 0 0 0-1.8 0L3.3 15a1 1 0 0 0 .9 1.5h11.6a1 1 0 0 0 .9-1.5Z"/><path d="M10 8.3v3.2"/><circle cx="10" cy="13.8" r=".85" fill="currentColor" stroke="none"/></svg>{% endmacro %}
+{#- ⚠ **Znak sortowania jako SVG, nie „↕" z czcionki** (zlecenie Z84 D2). Strzałki
+    z Unicode wychodzą w tym zestawie krojów pustym prostokątem — zmierzone przy „→"
+    w innym miejscu i zapisane w pamięci sesji. Dwa szewrony: góra i dół. -#}
+{% macro sortowanie() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="m6.5 8.5 3.5-3.5 3.5 3.5"/><path d="m6.5 11.5 3.5 3.5 3.5-3.5"/></svg>{% endmacro %}
 {% macro strzalka_w_dol() %}<svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M10 4.4v11.2"/><path d="m5.6 11.2 4.4 4.4 4.4-4.4"/></svg>{% endmacro %}
 
 {#- ⚠ **Cztery ikony dopisane dla „Mojego konta"** (zlecenie Z69, 21.10.2026). Ten sam układ
