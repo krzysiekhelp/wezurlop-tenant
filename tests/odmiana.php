@@ -39,6 +39,13 @@ use Wezurlop\Support\Odmiana;
         $check("osoby({$ile})", Odmiana::osoby($ile), $oczekiwane);
     }
 
+    // „N dostęp/dostępy/dostępów do firm" w wyniku wysyłki zaproszeń. ⚠ Zdanie stało tam
+    // bez odmiany („2 dostępów do spółek") i miało jeszcze zakazane słowo.
+    foreach ([1 => 'dostęp', 2 => 'dostępy', 4 => 'dostępy', 5 => 'dostępów',
+              12 => 'dostępów'] as $ile => $oczekiwane) {
+        $check("dostepy({$ile})", Odmiana::dostepy($ile), $oczekiwane);
+    }
+
     // ⚠ Biernik „N osobę/osoby/osób pominięto": mianownik różni się tylko w pojedynczej,
     // więc błąd wychodzi w najczęstszym zdaniu — i wyszedł („1 osoba pominięto").
     foreach ([1 => 'osobę', 2 => 'osoby', 4 => 'osoby', 5 => 'osób', 12 => 'osób',

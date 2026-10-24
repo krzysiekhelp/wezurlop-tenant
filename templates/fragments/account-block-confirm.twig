@@ -43,9 +43,13 @@
     </div>
 
     {#- ══════════ Co się stanie ══════════ -#}
-    <section class="pane blok-skutki">
-        <div class="pane__head">
-            <span class="pane__title">{{ odblokowanie ? 'Co się stanie po odblokowaniu' : 'Co się stanie po zablokowaniu' }}</span>
+    {#- ⚠ **Blok w ramce z paskiem nagłówka**, a nie `pane` z napisem nad treścią (poprawka po
+        odbiorze prototypu 24.10.2026): cztery skutki czytają się jako JEDNA rzecz, więc mają
+        jedną obwódkę, a kreski między wierszami mówią, gdzie kończy się jeden skutek. Bez ramki
+        nagłówek wisiał nad listą i wyglądał jak podpis całej szuflady. -#}
+    <section class="blok-ramka blok-skutki">
+        <div class="blok-ramka__pasek">
+            <span class="blok-ramka__nazwa">{{ odblokowanie ? 'Co się stanie po odblokowaniu' : 'Co się stanie po zablokowaniu' }}</span>
         </div>
         <ul class="blok-lista">
             {% if odblokowanie %}
@@ -138,8 +142,8 @@
     {#- ══════════ Licencje ══════════
         ⚠ Trzecia kolumna jest tym, po co ten blok stoi na ekranie: mówi, co administrator
         będzie miał PO decyzji, a nie co ma teraz. -#}
-    <section class="pane blok-licencje{{ panel.licencje.zdanie_braku != '' ? ' blok-licencje--brak' : '' }}">
-        <div class="pane__head"><span class="pane__title">Licencje</span></div>
+    <section class="blok-ramka blok-licencje{{ panel.licencje.zdanie_braku != '' ? ' blok-licencje--brak' : '' }}">
+        <div class="blok-ramka__pasek"><span class="blok-ramka__nazwa">Licencje</span></div>
         {#- ⚠ Nazwy kolumn przychodzą Z KONTROLERA razem z liczbami: przy licencji bez limitu
             trzecia kolumna pokazuje liczbę dostępów, nie liczbę wolnych miejsc, więc nazwa
             musi się zmienić razem z wielkością. W szablonie nie ma tu ani jednego warunku. -#}

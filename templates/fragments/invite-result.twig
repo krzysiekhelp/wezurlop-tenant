@@ -16,7 +16,9 @@
         </div>
         <div>
             <div class="defs__term">Osób z nadanym dostępem</div>
-            <div class="defs__value">{{ z_dostepem }}{% if dostepow != z_dostepem %} <span class="table__mute">({{ dostepow }} dostępów do spółek)</span>{% endif %}</div>
+            {#- ⚠ Liczba dostępów w nawiasie przychodzi jako GOTOWE ZDANIE z kontrolera: jest
+                odmieniona przez liczbę i mówi „do firm", nie „do spółek" (zlecenie Z86). -#}
+            <div class="defs__value">{{ z_dostepem }}{% if zdanie_dostepow != '' %} <span class="table__mute">{{ zdanie_dostepow }}</span>{% endif %}</div>
         </div>
     </div>
 

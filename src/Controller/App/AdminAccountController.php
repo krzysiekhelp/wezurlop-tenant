@@ -1313,6 +1313,9 @@ final class AdminAccountController
                 'zaproszono' => 0,
                 'z_dostepem' => 0,
                 'dostepow' => 0,
+                // ⚠ Ten sam klucz, co w wyniku udanej partii: `strict_variables` w Twigu
+                // wywala render na brakującej zmiennej, a ten fragment jest jeden dla obu dróg.
+                'zdanie_dostepow' => '',
                 'pominieto' => array_map(static fn (array $o): array => [
                     'osoba' => $o['name'], 'powod' => AccessService::POWOD_BRAK_LICENCJI,
                 ], $podglad['osoby']),
@@ -1377,6 +1380,12 @@ final class AdminAccountController
             'zaproszono'  => $zaproszono,
             'z_dostepem'  => $osobyZDostepem,
             'dostepow'    => $dostepow,
+            // ⚠ Zdanie w nawiasie składa KONTROLER (CLAUDE.md §5): odmienia „dostęp" przez
+            // liczbę, a w szablonie stało bez odmiany — „2 dostępów do spółek" miało i złą
+            // formę, i słowo zakazane w interfejsie (zlecenie Z86).
+            'zdanie_dostepow' => $dostepow === $osobyZDostepem
+                ? ''
+                : '(' . $dostepow . ' ' . Odmiana::dostepy($dostepow) . ' do firm)',
             'pominieto'   => $pominieto,
             'wybranych'   => count($wybrane),
             'powrot'      => $this->urls->to('/admin/konta'),

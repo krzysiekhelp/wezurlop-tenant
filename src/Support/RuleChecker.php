@@ -139,6 +139,28 @@ final class RuleChecker
      * na nazwy `NN-*.css`. Nowy arkusz dodany pod dowolną nazwą jest sprawdzany od pierwszego
      * dnia, a nie „gdy ktoś go dopisze do wzorca".
      */
+    /**
+     * ⚠ **Zakazane słowo „spółka" w tekście widocznym** (zlecenie Z86; rozstrzygnięcie
+     * Krzysztofa z 11.10.2026: „nie każda firma jest spółką", w interfejsie stoi „firma").
+     *
+     * ⚠ **Rdzeń musi mieć GRANICĘ WYRAZU, a nie tylko litery**: bez niej wzorzec zapala
+     * „zeSPÓŁ", „wSPÓLny" i „SPÓJność" — a to zwykłe polskie słowa, które na ekranach stoją
+     * („Zespół" jest nazwą widoku, „spójność" komunikatem diagnostyki). Zmierzone: pierwszy
+     * przebieg bez lookbehind dał 9 trafień w szablonach, z czego 7 to słowo „Zespół".
+     *
+     * ⚠ **Dwa warianty rdzenia, bo odmiana rozbija sam rdzeń.** Kryterium bramki ekranowej
+     * szukało `spółk` i przegapiło „spółce" (miejscownik: `k` → `c`), a po poprawce na dwa
+     * rdzenie przegapiło „spółek" — dopełniacz mnogi dzieli się na `spół-ek`. Dlatego tutaj
+     * stoi `spó[łl]`, czyli sam rdzeń bez końcówki, i łapie WSZYSTKIE odmiany naraz.
+     * Wariant bez ogonków (`spol…`) **jest tu nieobecny świadomie**: tak pisze się nazwy
+     * techniczne (`$spolka`, pole `name="spolka"`, parametr `?spolka=`, plik
+     * `spolka-ekranu.twig`), których ta reguła nie dotyczy.
+     */
+    private const SLOWO_ZAKAZANE = '/(?<![\p{L}])spó[łl]/iu';
+    private const SLOWO_ZAKAZANE_OPIS = 'słowo „spółka" w tekście widocznym — w interfejsie '
+        . 'stoi „firma" (rozstrzygnięcie z 11.10.2026). Nazwy techniczne (`spolka` bez ogonków) '
+        . 'i nazwy firm z programu kadrowego są poza regułą';
+
     private const CSS_TOKENS = '00-tokens.css';
 
     /**
@@ -239,6 +261,17 @@ final class RuleChecker
                 $this->checkPatterns($file, self::PHP_PATTERNS + self::DATA_PATTERNS + $ddl);
                 $this->checkWywolania($file);
                 $this->checkMetodyRazem($file);
+                // ⚠ Zakazane słowo liczy się tylko w `src/`, i to są dwa osobne wyłączenia.
+                // **`dev/`**: te skrypty mówią do dewelopera w terminalu („potrzebne dwie spółki
+                // z zatrudnieniami"), nigdy do użytkownika, i nie jadą do paczki klienta —
+                // zakres Z86 to tekst widoczny dla użytkownika.
+                // **Ten plik**: nosi w literale OPIS reguły, więc sprawdzany sam przez siebie
+                // zapalałby się zawsze. Reguła nie może być własnym naruszeniem, a RuleChecker
+                // nie wytwarza ani jednego napisu dla użytkownika.
+                if ($this->isUnder($file, 'src')
+                    && $this->relative($file) !== 'src/Support/RuleChecker.php') {
+                    $this->checkSlowoWTekstach($file);
+                }
             }
         }
         // ⚠ **Dwa przebiegi po arkuszach, nie jeden**: żeby sprawdzić, czy użyty token istnieje,
@@ -338,6 +371,11 @@ final class RuleChecker
         // e-mail w komentarzu jest w repozytorium tak samo jak w znaczniku.
         $this->matchAll($file, $this->withoutTwigComments($content), $wzorce);
         $this->matchAll($file, $content, self::DATA_PATTERNS);
+        // ⚠ Zakazane słowo liczy się w KAŻDYM szablonie, także w poczcie: wiadomość do
+        // pracownika jest interfejsem tak samo jak ekran. Komentarze pominięte — w nich stoi
+        // właśnie wyjaśnienie reguły (ten plik jest tego dowodem).
+        $this->matchAll($file, $this->withoutTwigComments($content),
+            [self::SLOWO_ZAKAZANE => self::SLOWO_ZAKAZANE_OPIS]);
 
         // |raw — wyjątek tylko z komentarzem {# raw-ok: ... #} w wierszu wyżej
         $lines = explode("\n", $content);
@@ -660,6 +698,41 @@ final class RuleChecker
      * musi dalej wskazywać to samo miejsce w pliku, inaczej bramka mówi „coś jest nie tak"
      * i podaje zły wiersz, co jest gorsze niż brak numeru.
      */
+    /**
+     * **Zakazane słowo w TEKSTACH PHP** — czyli w literałach, nie w kodzie i nie w komentarzach
+     * (zlecenie Z86).
+     *
+     * ⚠ **Tokenizer PHP, nie wyrażenie regularne.** Komentarz odpada tu sam z siebie
+     * (`T_COMMENT`, `T_DOC_COMMENT` nie są literałami), a wyrażenie musiałoby go najpierw
+     * wyciąć — i wycinałoby też `//` wewnątrz adresu w literale. Reguła ma dotyczyć zdań, które
+     * widzi człowiek, a te w PHP są wyłącznie napisami.
+     *
+     * ⚠ **Literały z SQL są pomijane świadomie.** Zapytanie to kod, nie interfejs, a komentarze
+     * SQL (`-- …`) siedzą W ŚRODKU napisu, więc tokenizer widzi je jako tekst. Bez tego wyjątku
+     * reguła zapalałaby pięć komentarzy w `PersonRepository`, które opisują kolumnę `company_id`
+     * — a zlecenie Z86 wyłącza komentarze z zakresu. Rozpoznajemy po słowach kluczowych, bo
+     * zdanie dla człowieka nie zawiera `SELECT … FROM`.
+     */
+    private function checkSlowoWTekstach(SplFileInfo $file): void
+    {
+        $tokeny = @token_get_all($this->read($file));
+        foreach ($tokeny as $token) {
+            if (!is_array($token)) {
+                continue;
+            }
+            [$typ, $tekst, $linia] = $token;
+            if (!in_array($typ, [T_CONSTANT_ENCAPSED_STRING, T_ENCAPSED_AND_WHITESPACE], true)) {
+                continue;
+            }
+            if (preg_match('/\b(SELECT|INSERT\s+INTO|UPDATE|DELETE\s+FROM|FROM|WHERE|JOIN)\b/i', $tekst) === 1) {
+                continue;
+            }
+            if (preg_match(self::SLOWO_ZAKAZANE, $tekst) === 1) {
+                $this->hit($file, $linia, self::SLOWO_ZAKAZANE_OPIS);
+            }
+        }
+    }
+
     private function withoutTwigComments(string $content): string
     {
         return (string) preg_replace_callback(

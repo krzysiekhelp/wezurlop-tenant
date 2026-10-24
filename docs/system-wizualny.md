@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.20.11, 24.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.20.12, 24.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,57 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Przy okazji 1.20.12 — dwa bloki panelu blokady dostały ramkę z paskiem nagłówka**
+> (porównanie z prototypem po odbiorze; dotyczy też ekranu odblokowania):
+> - **Wspólny kształt `blok-ramka`** dla „Co się stanie…" i „Licencje": obwódka `1px --c-line`,
+>   promień 10, `overflow: hidden` (bez niego pasek wychodzi za promień), tło `--c-surface`.
+>   Pasek nagłówka: tło `--c-bg`, kreska pod nim, padding 10/14, napis **11 px**, odstęp liter
+>   `.05em`, wersaliki, `--c-text-3`. Jedna para klas dla obu bloków — stoją jeden pod drugim,
+>   więc dwie kopie rozjechałyby się przy pierwszej zmianie.
+> - **Wiersze skutków**: padding 12/14, kreska `--c-line` MIĘDZY wierszami (pierwszy bez niej,
+>   bo pod paskiem nagłówka jest już jedna), znak 28 px na `--c-bg` z promieniem 8.
+>   ⚠ `--c-surface-mute` (#FCFCFD) na białej karcie jest praktycznie niewidoczne — znak wyglądał
+>   jak ikona bez tła.
+> - **Trzy kolumny licencji** rozdziela **pionowa kreska** `--c-line` (padding 10/12), a zdanie
+>   pod nimi ma własny wiersz z kreską u góry (padding 8/14, 12 px `--c-text-3`). Odstęp bez
+>   kreski czytał się jak trzy luźne akapity, a zdanie jak czwarta kolumna.
+> - **Stan ostrzegawczy obejmuje CAŁY blok licencji**: ramka i tło ostrzegawcze, pasek nagłówka
+>   przezroczysty (żeby tło szło przez niego bez dziury), a wszystkie kreski wewnątrz w barwie
+>   ostrzeżenia. Przedtem ostrzegawcze było samo pudełko z liczbami.
+> - Na telefonie (karta ≤ 420 px) kolumny stoją jedna pod drugą, więc kreska idzie **w poprzek**,
+>   nie w pionie.
+> - Zmierzone 1920 i 375: ramka 1 px 230/232/236 z promieniem 10 i `overflow: hidden`, pasek
+>   245/246/248 z kreską 230/232/236 i paddingiem 10/14, napis 11 px / 0,55 px / wersaliki /
+>   107/114/128; wiersze 12/14 (pierwszy bez kreski), znak na 245/246/248 z promieniem 8;
+>   kolumny 10/12 z kreską po lewej u drugiej i trzeciej (na 375: kreska u góry, lewa zero);
+>   zdanie 8/14 z kreską u góry, 12 px, 107/114/128; przewijanie w bok 0 px. Stan ostrzegawczy:
+>   ramka i tło 240/216/168 na 253/243/226, pasek przezroczysty, napis i zdanie 138/83/0,
+>   kreski kolumn i zdania 240/216/168, przycisk wyłączony, serwer odmawia.
+
+> **Zmiana 1.20.11 → 1.20.12: słowo „spółka" znika z interfejsu, a pilnuje tego reguła**
+> (zlecenie Z86).
+> - Rozstrzygnięcie słownikowe z 11.10.2026 („to, co widzi użytkownik, nazywa się **firmą**")
+>   dostało bramkę w check-rules: szablony (także poczty) i **literały** w `src/`.
+> - ⚠ **W tekstach interfejsu było jedno wystąpienie, nie 67.** Pierwszy, zgrubny przegląd
+>   (`grep 'spół'`) dał 26 plików i 67 trafień w szablonach oraz 332 w `src/` — po odsianiu
+>   komentarzy, nazw technicznych (`spolka` bez ogonków: zmienne, pola `name=`, parametry
+>   `?spolka=`, nazwy plików) i **zwykłych polskich słów** („zespół", „wspólny", „spójność")
+>   zostało **jedno zdanie**: „(N dostępów do spółek)" w wyniku wysyłki zaproszeń. Jest
+>   „(N dostępów do firm)" — i przy okazji z odmianą, bo liczba stała tam bez niej
+>   („2 dostępów"). Pozostałe pięć trafień to komentarze SQL w `PersonRepository`, wyłączone
+>   z zakresu zlecenia.
+> - ⚠ **Rdzeń reguły to `spó[łl]` z granicą wyrazu** — i to jest trzecia wersja tego kryterium:
+>   `spółk` nie łapie „spółce" (`k` → `c`), a `spółk` + `spółc` nie łapią „spółek", bo
+>   dopełniacz mnogi dzieli się na `spół-ek` i odmiana rozbija sam rdzeń. Bez granicy wyrazu
+>   wzorzec zapala „zeSPÓŁ", czyli nazwę widoku „Zespół". Kryterium bramki ekranowej dostało
+>   tę samą poprawkę.
+> - Poza regułą świadomie: komentarze, nazwy techniczne, literały z SQL, narzędzia w `dev/`
+>   (mówią do dewelopera w terminalu i nie jadą do klienta) oraz **nazwy firm z programu
+>   kadrowego** — „ALFA SPÓŁKA Z O.O." to dana, nie interfejs, i nie wolno jej przepisywać.
+> - Kontrole: „spółek" w szablonie zapala, „spółce" w literale `src/` zapala, szablon poczty
+>   zapala; komentarz Twiga, komentarz PHP, literał `'spolka'` i literał SQL z `-- spółek`
+>   nie zapalają; „Zespół", „spójność" i `name="spolka"` nie zapalają.
 
 > **Zmiana 1.20.10 → 1.20.11: panel „Zablokować konto?" mówi skutek, a odblokowanie pyta
 > o licencję** (zlecenie Z85).

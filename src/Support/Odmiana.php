@@ -223,6 +223,15 @@ final class Odmiana
     }
 
     /**
+     * „1 dostęp", „2 dostępy", „5 dostępów" — wynik wysyłki zaproszeń liczy dostępy do firm
+     * obok liczby osób, bo jedna osoba może dostać dostęp do kilku firm.
+     */
+    public static function dostepy(int $ile): string
+    {
+        return abs($ile) === 1 ? 'dostęp' : (self::mnoga($ile) ? 'dostępy' : 'dostępów');
+    }
+
+    /**
      * „1 **osobę** pominięto", „2 **osoby** pominięto", „5 **osób** pominięto" — BIERNIK,
      * bo zdanie ma orzeczenie nieosobowe („pominięto kogo?").
      *

@@ -4306,10 +4306,41 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 .blok-kafel__nazwa { font-weight: var(--w-semibold); color: var(--c-text); }
 .blok-kafel__opis { font-size: var(--t-caption); color: var(--c-text-3); }
 
+/* ⚠ **Ramka z paskiem nagłówka** — wspólna dla obu bloków panelu (skutki i licencje), bo to
+   ten sam kształt: pasek mówi, o czym jest blok, a treść siedzi w jednej obwódce. Jedna para
+   klas, nie dwie kopie: bloki stoją jeden pod drugim i rozjechałyby się przy pierwszej zmianie.
+   `overflow: hidden` jest konieczny — bez niego pasek nagłówka wychodzi za promień ramki. */
+.blok-ramka {
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background: var(--c-surface);
+}
+.blok-ramka__pasek {
+  padding: 10px 14px;
+  background: var(--c-bg);
+  border-bottom: 1px solid var(--c-line);
+}
+.blok-ramka__nazwa {
+  font-size: var(--t-label);
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--c-text-3);
+}
+
 /* Lista skutków: wiersz = znak + tytuł + zdanie. Znak jest 28 px, czyli mniejszy niż znak
-   karty (38) — to pozycja listy, nie nagłówek bloku. */
-.blok-lista { display: flex; flex-direction: column; gap: var(--s-3); }
-.blok-skutek { display: flex; align-items: flex-start; gap: var(--s-3); }
+   karty (38) — to pozycja listy, nie nagłówek bloku.
+   ⚠ Zero odstępu między wierszami: rozdzielają je KRESKI, a odstęp dałby przerwę w kresce. */
+.blok-lista { display: flex; flex-direction: column; }
+.blok-skutek {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+  padding: 12px 14px;
+  border-top: 1px solid var(--c-line);
+}
+/* Pierwszy wiersz stoi pod paskiem nagłówka, który ma własną kreskę — druga dałaby podwójną. */
+.blok-skutek:first-child { border-top: 0; }
 .blok-skutek__znak {
   flex: 0 0 auto;
   width: 28px;
@@ -4318,7 +4349,9 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   align-items: center;
   justify-content: center;
   border-radius: var(--radius);
-  background: var(--c-surface-mute);
+  /* ⚠ `--c-bg`, nie `--c-surface-mute`: to drugie (#FCFCFD) na białej karcie jest praktycznie
+     niewidoczne, więc znak wyglądał jak ikona bez tła. */
+  background: var(--c-bg);
   color: var(--c-text-3);
 }
 .blok-skutek__znak .ico { width: 16px; height: 16px; }
@@ -4327,9 +4360,12 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 .blok-skutek__opis { font-size: var(--t-caption); color: var(--c-text-3); line-height: var(--lh-body); }
 
 /* Trzy liczby obok siebie. ⚠ `minmax(0, 1fr)`, nie `1fr`: „bez limitu" w pierwszej kolumnie
-   jest napisem, a nie liczbą, i bez tego rozpychałby kolumnę ponad swoją trzecią część. */
-.blok-liczby { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-3); }
-.blok-liczba { display: grid; gap: var(--s-1); }
+   jest napisem, a nie liczbą, i bez tego rozpychałby kolumnę ponad swoją trzecią część.
+   ⚠ Kolumny rozdziela KRESKA, nie odstęp: trzy liczby to jedna tabelka, a odstęp bez kreski
+   czytał się jak trzy luźne akapity. */
+.blok-liczby { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.blok-liczba { display: grid; gap: var(--s-1); padding: 10px 12px; }
+.blok-liczba + .blok-liczba { border-left: 1px solid var(--c-line); }
 .blok-liczba__nazwa {
   font-size: var(--t-caption);
   letter-spacing: .04em;
@@ -4339,16 +4375,27 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 .blok-liczba__wartosc { font-size: var(--t-h2); font-weight: var(--w-semibold); color: var(--c-text); }
 /* Trzecia kolumna to odpowiedź na pytanie ekranu, więc jest jedyną w barwie akcentu. */
 .blok-liczba__wartosc--akcent { color: var(--c-accent-text); }
-.blok-licencje__zdanie { font-size: var(--t-caption); color: var(--c-text-2); }
-/* ⚠ **Stan ostrzegawczy całego bloku licencji**, nie samego zdania: gdy brakuje licencji,
-   trzecia kolumna przestaje być dobrą wiadomością („wolne po odblokowaniu: 0"), więc barwa
-   akcentu kłamałaby na niej tonem. Ramka obejmuje liczby, bo to one są powodem odmowy. */
-.blok-licencje--brak .blok-liczby {
-  padding: var(--s-3);
-  border: 1px solid var(--c-warn-line);
-  border-radius: var(--radius);
-  background: var(--c-warn-soft);
+/* Zdanie pod liczbami ma WŁASNY wiersz z kreską u góry: mówi o różnicy między kolumnami,
+   więc stoi pod nimi jako podsumowanie, a nie jako czwarta kolumna. */
+.blok-licencje__zdanie {
+  padding: var(--s-2) 14px;
+  border-top: 1px solid var(--c-line);
+  font-size: var(--t-caption);
+  color: var(--c-text-3);
 }
+/* ⚠ **Stan ostrzegawczy CAŁEGO bloku**, nie samych liczb: gdy brakuje licencji, trzecia
+   kolumna przestaje być dobrą wiadomością („wolne po odblokowaniu: 0"), a blok jest powodem,
+   dla którego przycisk nie działa. Pasek nagłówka staje się przezroczysty, żeby tło bloku szło
+   przez niego bez dziury, a wszystkie kreski wewnątrz przechodzą na barwę ostrzeżenia. */
+.blok-licencje--brak { border-color: var(--c-warn-line); background: var(--c-warn-soft); }
+.blok-licencje--brak .blok-ramka__pasek {
+  background: transparent;
+  border-bottom-color: var(--c-warn-line);
+}
+.blok-licencje--brak .blok-ramka__nazwa,
+.blok-licencje--brak .blok-licencje__zdanie { color: var(--c-warn-text); }
+.blok-licencje--brak .blok-liczba + .blok-liczba { border-left-color: var(--c-warn-line); }
+.blok-licencje--brak .blok-licencje__zdanie { border-top-color: var(--c-warn-line); }
 .blok-licencje--brak .blok-liczba__wartosc--akcent { color: var(--c-warn-text); }
 .blok-licencje__uwaga {
   display: flex;
@@ -4370,15 +4417,17 @@ body:has(dialog.modal[open]) { overflow: hidden; }
    łamie się wtedy na trzy wiersze i kolumny przestają być równe. Schodzą do jednej kolumny
    z linią rozdzielającą, bo to dalej jedna tabelka, a nie trzy luźne akapity. */
 @container karta (max-width: 420px) {
-  .blok-liczby { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .blok-liczby { grid-template-columns: minmax(0, 1fr); }
   .blok-liczba {
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: baseline;
     gap: var(--s-3);
-    padding: var(--s-2) 0;
-    border-bottom: 1px solid var(--c-line-soft);
+    padding: var(--s-2) 14px;
   }
-  .blok-liczba:last-child { border-bottom: 0; }
+  /* ⚠ Kolumny stoją teraz JEDNA POD DRUGĄ, więc kreska idzie w poprzek, a nie w pionie:
+     pionowa po zawinięciu rysowałaby się po lewej stronie każdego wiersza. */
+  .blok-liczba + .blok-liczba { border-left: 0; border-top: 1px solid var(--c-line); }
+  .blok-licencje--brak .blok-liczba + .blok-liczba { border-top-color: var(--c-warn-line); }
 }
 
 /* ⚠ „Osoby bez grupy" to KARTA, nie pasek z przerywaną ramką (Z31 §5): stała obok karty z grupami

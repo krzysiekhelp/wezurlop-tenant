@@ -1604,16 +1604,23 @@ def zatrudnienia_pracownika() -> dict:
 # do „spółki" — zapala. ⚠ Czytanie oczekiwanego tekstu z szablonu (druga rozważana droga) odpada:
 # kryterium porównujące kod z samym sobą przepuściłoby każde słowo, także „Zupa".
 SLOWO_UZYTKOWNIKA = "firm"
-# ⚠ **Dwa rdzenie, nie jeden**: „spółk" nie łapie „spółce" (miejscownik, `k` → `c`). Ta sama
-# poprawka co w `POMIAR_SLOWA` — i z tego samego powodu: zdanie w widoku zespołu przechodziło.
-RDZENIE_ZAKAZANE = ("spółk", "spółc", "spolk", "spolc")
+# ⚠ **Rdzeń bez końcówki plus granica wyrazu** (zlecenie Z86, 24.10.2026) — trzecia wersja tego
+# kryterium i warto wiedzieć, dlaczego dwie pierwsze były za wąskie:
+#   1. `spółk` nie łapie „spółce" (miejscownik: `k` → `c`),
+#   2. `spółk` + `spółc` nie łapią „spółek" — dopełniacz mnogi dzieli się na `spół-ek`, czyli
+#      odmiana rozbija SAM RDZEŃ. Zdanie „Dostępy do spółek wrócą razem z kontem" stało w panelu
+#      blokady konta i przechodziło na zielono.
+# Dlatego wzorcem jest `spół` bez końcówki — ale wtedy MUSI mieć granicę wyrazu, inaczej zapala
+# „zeSPÓŁ" (nazwa widoku „Zespół"), „wSPÓLny" i „SPÓJność" (komunikat diagnostyki). Lookbehind
+# na polskie litery robi dokładnie to.
+# ⚠ Wariant bez ogonków (`spol`) zostaje w rdzeniu, bo tekst z atrybutu `title` i `aria-label`
+# bywa składany w kodzie — ale granica wyrazu chroni tu „wspolny" tak samo jak „wspólny".
+WZOR_ZAKAZANY = re.compile(r"(?<![^\W\d_])sp[óo][łl]", re.IGNORECASE | re.UNICODE)
 
 
 def ma_slowo_spolka(tekst: str | None) -> bool:
     """Czy napis zawiera zakazane słowo w DOWOLNEJ odmianie (także bez ogonków)."""
-    maly = (tekst or "").lower()
-
-    return any(r in maly for r in RDZENIE_ZAKAZANE)
+    return WZOR_ZAKAZANY.search(tekst or "") is not None
 
 
 KONTRAST_TEKSTU_MIN = 4.5
