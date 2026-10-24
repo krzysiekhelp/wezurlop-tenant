@@ -1003,6 +1003,9 @@ a.access--btn .access__strzalka { font-size: 14px; line-height: 1; }
 .zapros__wiersz .chip { flex: none; }
 
 /* Przełącznik dostępu w ramce — razem z opisem, bo to jedna decyzja, nie dwie. */
+/* ⚠ **Ramka pola wyboru MÓWI O STANIE, nie tylko otacza pole.** Szara ramka bez tła wyglądała
+   tak samo przy nadanym dostępie i przy odebranym, a to jest decyzja o licencjach — jedyną jej
+   oznaką był kwadracik 13 px. Stan niesie klasa, nie styl w szablonie (CLAUDE.md §6). */
 .zapros__opcja {
   display: flex;
   align-items: flex-start;
@@ -1010,8 +1013,28 @@ a.access--btn .access__strzalka { font-size: 14px; line-height: 1; }
   padding: var(--s-3);
   border: 1px solid var(--c-line);
   border-radius: var(--radius);
+  background: var(--c-bg);
   cursor: pointer;
 }
+/* ⚠ `accent-color` na samym polu, bo natywny niebieski przeglądarki jest JEDYNYM miejscem
+   na tym ekranie, które nie pochodzi z naszej palety — i rzuca się w oczy obok zielonego
+   przycisku wysyłki. */
+.zapros__opcja input[type="checkbox"] { accent-color: var(--c-accent); }
+/* ⚠ Stan czyta `:has()` z SAMEGO POLA, a nie z klasy od serwera (ta sama postać, co zaznaczony
+   wiersz tabeli wyżej). Klasa wymagałaby obiegu do serwera, więc bez JavaScriptu ramka
+   zostawałaby w barwie akcentu przy polu już odznaczonym — zmierzone na ekranie bez skryptów. */
+.zapros__opcja:has(input[type="checkbox"]:checked) {
+  border-color: var(--c-accent);
+  background: var(--c-accent-soft);
+}
+/* Brak wolnych licencji stoi WYŻEJ niż zaznaczenie: to ta sama decyzja, ale z ostrzeżeniem.
+   Dlatego reguła stoi PO regule zaznaczenia i wygrywa kolejnością. */
+.zapros__opcja--brak,
+.zapros__opcja--brak:has(input[type="checkbox"]:checked) {
+  border-color: var(--c-warn-line);
+  background: var(--c-warn-soft);
+}
+.zapros__opcja--brak input[type="checkbox"] { accent-color: var(--c-warn-text); }
 .zapros__opcja-tresc { display: grid; gap: 2px; }
 .zapros__opcja-nazwa { font-weight: var(--w-medium); color: var(--c-text); }
 .zapros__opcja-opis { font-size: var(--t-small); color: var(--c-text-3); }

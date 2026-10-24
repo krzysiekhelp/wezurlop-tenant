@@ -1158,9 +1158,14 @@ final class AdminAccountController
             // (`Support\Odmiana`). Szablon z `? :` po liczbie byłby drugim takim miejscem.
             // ⚠ Liczba czasownika idzie z `Odmiana`, nie z `$ile === 1`: po dopełniaczu mnogim
             // („0 osób", „25 osób") orzeczenie jest POJEDYNCZE. Zmierzone na oknie wysyłki.
-            'zdanie_lead' => $ile . ' ' . Odmiana::osoby($ile)
-                . (Odmiana::czasownikMnogi($ile) ? ' dostaną' : ' dostanie')
-                . ' e-mail z odnośnikiem do ustawienia hasła.',
+            // ⚠ Przy zerze zdanie z liczbą nie jest zdaniem o niczym — jest zdaniem, które każe
+            // się domyślać („0 osób dostanie e-mail" brzmi jak stan przejściowy). Mówimy wprost,
+            // co z tego wynika, a liczby odsianych stoją w zdaniach niżej.
+            'zdanie_lead' => $ile === 0
+                ? 'Nikt z zaznaczonych nie dostanie zaproszenia.'
+                : $ile . ' ' . Odmiana::osoby($ile)
+                    . (Odmiana::czasownikMnogi($ile) ? ' dostaną' : ' dostanie')
+                    . ' e-mail z odnośnikiem do ustawienia hasła.',
             'zdanie_bez_adresu' => $bezAdresu === 0
                 ? ''
                 // „pominięto" jest nieosobowe, więc nie odmienia się przez liczbę wcale.

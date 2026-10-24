@@ -23,8 +23,16 @@
     stoi już w belce strony, a ten sam napis dwa razy na jednym ekranie to naruszenie wyłapywane
     przez bramkę ekranową (jeden `h1` w belce, jego tekst nigdzie więcej). -#}
 {% if w_oknie %}
-    <div class="modal__head">
-        <h3 id="zapros-modal-title">Wyślij zaproszenia</h3>
+    {#- ⚠ Ten sam kształt nagłówka, co okno widoczności i okno grupy (`modal__head--znak`
+        + `card__znak` + `card__tytuly`): trzy okna tej aplikacji mają jeden nagłówek, a nie
+        trzy podobne. Podtytuł stoi POD tytułem, bo jest podpisem tytułu — zdanie o tym, ile
+        osób dostanie pocztę, czyta się razem z nazwą czynności, nie dwa akapity niżej. -#}
+    <div class="modal__head modal__head--znak">
+        <span class="card__znak">{{ ikony.koperta() }}</span>
+        <div class="card__tytuly">
+            <h3 id="zapros-modal-title">Wyślij zaproszenia</h3>
+            <p class="card__opis">{{ zdanie_lead }}</p>
+        </div>
         <button type="button" class="modal__close" data-modal-close="zapros-modal" aria-label="Zamknij okno">{{ ikony.krzyzyk() }}</button>
     </div>
 {% endif %}
@@ -44,7 +52,12 @@
         odpowiedzi. Jedzie też przy wysyłce, gdzie jest nieszkodliwy. -#}
     <input type="hidden" name="dostep_widoczny" value="1" data-zapros-pole>
     <div class="modal__body zapros__body">
-        <p class="zapros__lead">{{ zdanie_lead }}</p>
+        {#- ⚠ Zdanie prowadzące stoi dokładnie RAZ: w oknie nosi je nagłówek, a na pełnym ekranie
+            nagłówka nie ma (nazwa jest w belce), więc wraca tutaj. Bez tego warunku ekran bez
+            JavaScriptu zgubiłby zdanie o liczbie osób zupełnie. -#}
+        {% if not w_oknie %}
+            <p class="zapros__lead">{{ zdanie_lead }}</p>
+        {% endif %}
         {#- ⚠ Zdania o odsianych stoją NAD listą, a nie w niej: mówią o kimś, kogo w liście nie ma,
             więc nie mieliby wiersza, przy którym mogłyby stanąć (C4). -#}
         {% if zdanie_bez_adresu != '' %}
@@ -92,7 +105,10 @@
             bo zmienia KAŻDY wiersz listy i zdanie o licencjach. Bez JavaScriptu przełącznik
             dalej działa — tylko opis odświeży się dopiero po wysyłce, a decyzję i tak czyta
             serwer z tego, co przyszło. -#}
-        <label class="zapros__opcja">
+        {#- ⚠ Klasa niesie TYLKO brak licencji — tego pole wyboru nie wie, bo to wiedza serwera.
+            Samo zaznaczenie czyta arkusz przez `:has()`, więc ramka zmienia się od razu i działa
+            też bez JavaScriptu, gdzie nie ma kto dociągnąć okna od nowa. -#}
+        <label class="zapros__opcja{{ brakuje > 0 ? ' zapros__opcja--brak' : '' }}">
             <input type="checkbox" name="nadaj_dostep" value="1"{{ nadaj_dostep ? ' checked' : '' }}
                    hx-get="{{ url('/admin/konta/zapros') }}"
                    hx-include="[data-zapros-pole], [name='nadaj_dostep']"

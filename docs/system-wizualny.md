@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.20.9, 24.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.20.10, 24.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,32 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.20.9 → 1.20.10: poprawki okna „Wyślij zaproszenia" po odbiorze w Chrome.**
+> - **Nagłówek okna dostał znak i podtytuł**: koperta w kwadracie `card__znak` (38 px,
+>   `--c-accent-soft` / `--c-accent-text`) i zdanie „N osób dostanie e-mail…" **pod tytułem**,
+>   a nie w treści. Ten sam kształt nagłówka noszą okno widoczności i okno grupy
+>   (`modal__head--znak`) — trzy okna, jeden nagłówek.
+>   ⚠ Zdanie prowadzące stoi dokładnie **raz**: w oknie w nagłówku, a na pełnym ekranie (bez
+>   JavaScriptu, gdzie nagłówka okna nie ma, bo nazwa jest w belce) w treści.
+> - **Ramka pola „Nadaj też dostęp…" mówi o stanie.** Zaznaczone: obwódka `--c-accent`, tło
+>   `--c-accent-soft`. Odznaczone: `--c-line` / `--c-bg`. Brak wolnych licencji: `--c-warn-line`
+>   / `--c-warn-soft` i ta reguła **wygrywa z zaznaczeniem**. Samo pole ma `accent-color`
+>   z palety (`--c-accent`, w stanie ostrzegawczym `--c-warn-text`) — natywny niebieski był
+>   jedyną barwą na tym ekranie spoza systemu.
+>   ⚠ Stan czyta `:has(input:checked)` z samego pola, **nie klasa od serwera**: klasa wymaga
+>   obiegu do serwera, więc bez JavaScriptu ramka zostawała akcentowa przy polu już odznaczonym.
+>   Zmierzone na ekranie bez skryptów: odznaczenie daje `--c-line`/`--c-bg` od razu, bez
+>   przeładowania.
+> - **Przy zerze osób do zaproszenia** zdanie nagłówka to „Nikt z zaznaczonych nie dostanie
+>   zaproszenia." zamiast „0 osób dostanie e-mail…" — liczba zero w zdaniu o wysyłce każe się
+>   domyślać, co z niej wynika.
+> - Zmierzone: znak 38 × 38 px, podtytuł 12 px pod tytułem, zdanie w treści zniknęło (okno)
+>   i zostało (pełny ekran); ramka akcentowa 18/135/74 na tle 232/244/236, po odznaczeniu
+>   230/232/236 na 245/246/248, przy braku licencji 240/216/168 na 253/243/226 i `accent-color`
+>   138/83/0; przy zaznaczeniu samych osób bez adresu podtytuł „Nikt z zaznaczonych…",
+>   zdanie „2 osoby pominięto — brak adresu e-mail.", stan pusty listy i przycisk wyłączony;
+>   serwer dalej odmawia partii bez licencji (0 kont, 0 zadań poczty).
 
 > **Zmiana 1.20.8 → 1.20.9: wysyłka zaproszeń ma okno potwierdzenia; poprawka filtra
 > zatrudnienia po odbiorze** (zlecenie Z84 cz. C i poprawka do cz. A).
