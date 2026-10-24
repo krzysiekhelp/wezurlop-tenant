@@ -18,7 +18,6 @@
     którą trzeba zaprosić. -#}
 {% block content %}
 {% import 'partials/ikony.twig' as ikony %}
-{% import 'partials/inicjaly.twig' as znak %}
 {#- ⚠ **Bez `.page__head`** (zlecenie Z30 §1): zdanie o zakresie listy przeszło do nagłówka karty,
     gdzie dotyczy tego, co pod nim stoi; nazwa firmy do podpisu pierwszego kafla, bo to ona mówi,
     czego dotyczy liczba; a „Konto administracyjne" do paska działań karty. Pusty nagłówek strony
@@ -411,12 +410,13 @@
                         przy 1920 px). Klasa układu komórki nie ma prawa stać na wierszu tabeli. -#}
                     <tr>
                         <td class="cell--osoba" title="{{ o.name }}">
-                            {#- ⚠ **Ten sam kształt komórki, co na liście pracowników**: kółko
-                                z inicjałami, nazwisko-odnośnik na panel osoby, plakietka „Ty".
-                                Bez JavaScriptu odnośnik prowadzi na pełny ekran panelu, ze
-                                skryptem otwiera szufladę — ta sama droga w obu zakładkach. -#}
+                            {#- ⚠ **Ten sam kształt komórki, co na liście pracowników**:
+                                nazwisko-odnośnik na panel osoby i plakietka „Ty". Bez JavaScriptu
+                                odnośnik prowadzi na pełny ekran panelu, ze skryptem otwiera
+                                szufladę — ta sama droga w obu zakładkach.
+                                ⚠ Kółko z inicjałami **znikło w Z88**: nazwa zaczyna się w linii
+                                nagłówka kolumny. -#}
                             <span class="osoba-wiersz">
-                                {{- znak.kolko(o.name, 'inicjaly--lista') -}}
                                 <a class="table__name osoba-wiersz__nazwa" href="{{ url('/admin/konta/osoba/' ~ o.person_id) }}"
                                    data-modal-open="osoba-panel"
                                    hx-get="{{ url('/admin/konta/osoba/' ~ o.person_id) }}"

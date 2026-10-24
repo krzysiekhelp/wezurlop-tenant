@@ -14,7 +14,6 @@
 
     Zmienne: `o`, `wiersz`, `panel`, `licencja`, `odblokowanie`, `w_szufladzie`. -#}
 {% import 'partials/ikony.twig' as ikony %}
-{% import 'partials/inicjaly.twig' as znak %}
 <div class="drawer__head drawer__head--znak">
     {#- Kwadrat w barwie niebezpieczeństwa także przy odblokowaniu: ekran dotyczy TEJ SAMEJ
         decyzji o dostępie do danych kadrowych, tylko w drugą stronę. -#}
@@ -35,7 +34,6 @@
         Ekran otwiera się z listy, więc musi powiedzieć, KOGO dotyczy — i to jest jedyne miejsce,
         gdzie stoi nazwa osoby. -#}
     <div class="blok-kafel">
-        {{ znak.kolko(o.name, 'inicjaly--kafel') }}
         <div class="blok-kafel__tresc">
             <span class="blok-kafel__nazwa">{{ o.name }}</span>
             <span class="blok-kafel__opis">{{ panel.zdanie_kafla }}</span>

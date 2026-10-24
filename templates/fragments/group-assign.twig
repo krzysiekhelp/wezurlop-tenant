@@ -39,7 +39,6 @@
     szukaj_w_grupie, poza, poza_pasujacych, poza_razem, szukaj, error, htmx, w_oknie. -#}
 {#- ⚠ Import makr jest LOKALNY dla szablonu: fragment dociągany htmx-em nie dziedziczy
     importów ze strony, która go wkłada. -#}
-{% import 'partials/inicjaly.twig' as znak %}
 {% import 'partials/ikony.twig' as ikony %}
 {%- set adres_dodaj = url('/admin/grupy/' ~ grupa.id ~ '/osoby/dodaj') -%}
 {%- set adres_usun = url('/admin/grupy/' ~ grupa.id ~ '/osoby/usun') -%}
@@ -112,7 +111,6 @@
                 <ul class="assign__list">
                     {% for o in czlonkowie %}
                         <li class="assign__row">
-                            {{ znak.kolko(o.osoba, 'inicjaly--assign') }}
                             <span class="assign__name" title="{{ o.osoba }}">{{ o.osoba }}</span>
                             {#- ⚠ `filter`+`map`, nie `{% for … if %}`: warunek w `for` zniknął
                                 w Twigu 3 i daje `SyntaxError` (zmierzone — 500 na tym ekranie). -#}
@@ -187,7 +185,6 @@
                 <ul class="assign__list">
                     {% for o in poza %}
                         <li class="assign__row">
-                            {{ znak.kolko(o.osoba, 'inicjaly--assign') }}
                             <span class="assign__name" title="{{ o.osoba }}">{{ o.osoba }}</span>
                             {#- ⚠ Plakietka z grupami osoby stoi **przy decyzji o dodaniu**,
                                 a nie w osobnej kolumnie wykazu: ta sama informacja, postawiona

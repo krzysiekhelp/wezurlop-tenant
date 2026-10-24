@@ -17,10 +17,8 @@
     (nagłówek i stopka nieruchome, treść przewijana). Nowy wygląd dokłada się modyfikatorami,
     zamiast budować drugi mechanizm. -#}
 {% import 'partials/ikony.twig' as ikony %}
-{% import 'partials/inicjaly.twig' as znak %}
 
 <div class="drawer__head op-glowa">
-    {{ znak.kolko(o.name, 'inicjaly--op') }}
     <div class="op-glowa__kto">
         {#- ⚠ Nazwisko w nagłówku panelu TYLKO w szufladzie: na pełnym ekranie stoi już w belce
             jako nazwa ekranu i nagłówek karty by je powtarzał (zmierzone bramką). -#}

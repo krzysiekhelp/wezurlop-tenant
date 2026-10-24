@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.20.13, 24.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.21.0, 24.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,44 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.20.13 → 1.21.0: kółka z inicjałami znikają z całej aplikacji** (zlecenie Z88,
+> decyzja Krzysztofa: spójność).
+> - **Zostaje JEDNO miejsce: awatar w prawym górnym rogu belki** (`user-menu__avatar`, 28 px).
+>   Tam inicjały oznaczają jedną osobę — czytającego — i nie zastępują nazwy, bo nazwy tam nie ma.
+>   Wszędzie indziej stały obok pełnego nazwiska, czyli mówiły to samo drugi raz, mniej czytelnie.
+> - **Zniknęły z dziesięciu miejsc**: lista kont administracyjnych, lista pracowników firmy
+>   (`/dane/firma`), karta hierarchii, wiersz grupy i kafel „bez grupy" (`/admin/grupy`), dwie
+>   listy w oknie członków grupy, lista osób w oknie reguły widoczności, kafel w panelu osoby,
+>   kafel w oknie blokady/odblokowania oraz nagłówek „Moje konto". Makro `partials/inicjaly.twig`
+>   i cała rodzina klas `.inicjaly*` (11 reguł) usunięte z repozytorium; pole `inicjaly`
+>   w `MojeKonto` i metoda, która je liczyła, też — martwa dana jest gorsza niż jej brak.
+> - **Nazwa zaczyna się tam, gdzie zaczyna się treść**: w tabeli w linii nagłówka kolumny,
+>   w karcie i w kaflu przy krawędzi treści. Zmierzony odstęp od krawędzi: **0 px** w każdym
+>   z ośmiu miejsc, na 1920 i 375.
+> - ⚠ **Dwie siatki trzymały kolumnę pod kółko i trzeba je było przebudować, bo samo usunięcie
+>   elementu nie zwalnia jego kolumny:**
+>   - `.wid-poz` (lista osób w oknie widoczności) miała `28px minmax(0,1fr) 22px`; treść wpadła
+>     w kolumnę **28 px** i nazwiska ucięły się do dwóch liter („D…", „Ja…") — **usterkę zgłosił
+>     Krzysztof z żywej strony, nie mój pomiar**, bo mierzyłem lewą krawędź nazwy (zgodną!),
+>     a nie jej szerokość. Teraz wiersz jest `flex`: treść `flex: 1 1 auto; min-width: 0`,
+>     znacznik i znak grupy `flex: none`. Zmierzona szerokość treści: **482 px** na 1920
+>     i **225 px** na 375, bez ucięcia.
+>   - `.group-list__row` miała sześć kolumn (`znak · treść · plakietka · Członkowie · ołówek ·
+>     kosz`) → pięć, a na telefonie `.group-list__main` dostaje `grid-column: 1 / -1` zamiast
+>     `2 / -1`: przedtem nazwa grupy odjeżdżała **74 px** w prawo, a przed nią stawała plakietka
+>     z liczbą. Zmierzona szerokość nazwy: 1190 px na 1920, 309 px na 375.
+>   - Karta hierarchii (panel i drzewo na telefonie) straciła kolumnę `znak`: `'tresc menu'
+>     'chipy chipy'`. Wysokość karty **98 px na obu szerokościach**, 39 kart, przeciąganie
+>     mierzy bramka ekranowa na osobach próbnych.
+> - **Stany zostają**: przekreślenie byłego pracownika (Z32) dalej działa — `line-through`
+>   w barwie `--c-text-4`, nazwa przy krawędzi komórki, podpowiedź wiersza na miejscu. Etykieta
+>   przy GRUPIE w oknie widoczności zostaje, bo nie jest skrótem nazwy, tylko mówi, że pozycja
+>   nie jest człowiekiem — i to jedyna rzecz, która odróżnia tam te dwie rodziny pozycji.
+> - Zmierzone: `.inicjaly` na ekranach `/dane/firma` (było 25), `/admin/grupy` (8),
+>   `/admin/hierarchia` (39), `/admin/konta`, `/admin/widocznosc`, `/konto` i w oknie
+>   widoczności — **wszędzie 0**, a awatar belki („KT", 28 px) obecny na każdym ekranie;
+>   przewijanie w bok 0 px na 1920 i 375.
 
 > **Zmiana 1.20.12 → 1.20.13: automat też odmawia odblokowania przy pełnej licencji, a lista
 > mówi dlaczego** (zlecenie Z87, decyzja Krzysztofa).

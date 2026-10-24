@@ -17,7 +17,6 @@
 
     Zmienne: okno, spolka, hx, krok, wybrane, wielokrotny; opcjonalnie `licznik_oob`. -#}
 {% import 'partials/ikony.twig' as ikony %}
-{% import 'partials/inicjaly.twig' as znak %}
 {% set lista = okno.listy %}
 {% set pokazano = lista.od + lista.pozycje|length %}
 {% set adres_dalej = url('/admin/widocznosc/pozycje') ~ '?spolka=' ~ spolka.id
@@ -57,14 +56,12 @@
                 <input type="radio" name="wybor" value="{{ lista.rodzaj == 'przelozony' ? 'supervisor' : (lista.rodzaj == 'grupa' ? 'group' : 'account') }}:{{ p.id }}"
                        class="visually-hidden" {{ zaznaczona ? 'checked' : '' }}>
             {% endif %}
-            {#- ⚠ **Kółko z INICJAŁAMI przy osobach, ikona tylko tam, gdzie osoby nie ma.**
-                Ikona człowieka przy dwudziestu wierszach to dwadzieścia razy ten sam rysunek —
-                nie odróżnia niczego. Inicjały odróżniają i są tym samym komponentem, co na liście
-                grup i w hierarchii. Grupa dostaje etykietę, bo grupa nie ma inicjałów. -#}
+            {#- ⚠ **Przy osobie nie ma już znaku** (Z88): inicjały zostały tylko w awatarze
+                belki. Grupa zachowuje etykietę, bo ona nie jest skrótem nazwy, tylko mówi, że
+                ta pozycja jest grupą, a nie człowiekiem — i to jedyna rzecz, która te dwie
+                rodziny pozycji odróżnia. -#}
             {% if lista.rodzaj == 'grupa' %}
                 <span class="wid-poz__znak wid-poz__znak--grupa">{{ ikony.etykieta() }}</span>
-            {% else %}
-                {{ znak.kolko(p.nazwa, 'inicjaly--wid') }}
             {% endif %}
             <span class="wid-poz__tresc">
                 <span class="wid-poz__nazwa">{{ p.nazwa }}</span>

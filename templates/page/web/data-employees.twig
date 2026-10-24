@@ -20,7 +20,6 @@
         bo to cecha TEJ SAMEJ danej, a nie druga dana obok. -#}
 {% block content %}
 {% import 'partials/ikony.twig' as ikony %}
-{% import 'partials/inicjaly.twig' as znak %}
 
     {#- ══════════ Pasek kafli (§2 zlecenia) ══════════ -#}
     <section class="kafle kafle--auto" aria-label="Firma z programu kadrowego">
@@ -114,7 +113,6 @@
                         <td class="table__grow">
                             <span class="osoba-wiersz{{ zakonczone ? ' osoba-wiersz--zwolniony' : '' }}"
                                   {%- if zakonczone %} title="Zatrudnienie zakończone{% if p.terminated_at %} {{ data_dnia(p.terminated_at) }}{% endif %}"{% endif %}>
-                                {{- znak.kolko(p.name, 'inicjaly--lista' ~ (zakonczone ? ' inicjaly--wygaszone' : '')) -}}
                                 {# ⚠ Nazwisko w formie źródłowej z R2 — bez text-transform i bez zamiany (§3.2). #}
                                 <a class="table__name osoba-wiersz__nazwa" href="{{ url('/dane/pracownik/' ~ p.person_id) }}">{{ p.name }}</a>
                                 {%- if zakonczone %}<span class="visually-hidden">Zatrudnienie zakończone{% if p.terminated_at %} {{ data_dnia(p.terminated_at) }}{% endif %}</span>{% endif %}

@@ -39,7 +39,6 @@
     ucięty krawędzią karty — dokładnie ta usterka, którą 10.10.2026 zmierzono na kontrolce
     wyboru osób (panel w karcie z `overflow: hidden`, przycisk zapisu nieosiągalny). -#}
 {% block content %}
-{% import 'partials/inicjaly.twig' as znak %}
 {#- ⚠ Adres odświeżania niesie spółkę TEGO ekranu, nie spółkę kontekstu: wszedłszy ze starego
     odnośnika z `?spolka=`, oglądasz inną firmę niż ta w belce (zdanie o tym stoi niżej),
     a odświeżenie bez tego parametru podmieniłoby liczby na liczby z innej firmy. -#}
@@ -152,9 +151,9 @@
             <ul class="group-list">
                 {% for g in grupy %}
                     <li class="group-list__row">
-                        {#- Znak grupy: pierwsza litera nazwy. Ten sam kształt co kółko osoby,
-                            inna barwa tła — grupa nie jest człowiekiem. -#}
-                        {{ znak.kolko(g.nazwa, 'inicjaly--grupa') }}
+                        {#- ⚠ **Znak grupy znikł w Z88** razem z kółkami osób: nazwa grupy
+                            zaczyna się od lewej krawędzi wiersza. Pierwsza litera nazwy i tak
+                            nie odróżniała grup o wspólnym początku. -#}
                         <div class="group-list__main">
                             {#- ⚠ **Cały wiersz klikalny** — odnośnik rozpięty na wiersz
                                 pseudoelementem (`.group-list__name::after`), a nie `<a>` wokół
@@ -263,7 +262,6 @@
                 <ul class="bez-grupy__siatka">
                     {% for osoba in bez_grupy.sklad %}
                         <li class="bez-grupy__osoba">
-                            {{ znak.kolko(osoba, 'inicjaly--bez-grupy') }}
                             <span class="bez-grupy__imie" title="{{ osoba }}">{{ osoba }}</span>
                         </li>
                     {% endfor %}

@@ -12,7 +12,6 @@ use Wezurlop\Repository\GroupRepository;
 use Wezurlop\Repository\PermissionRepository;
 use Wezurlop\Repository\PersonRepository;
 use Wezurlop\Security\BackupCodes;
-use Wezurlop\Support\NazwaOsoby;
 use Wezurlop\Support\Odmiana;
 use Wezurlop\Support\Telefon;
 
@@ -66,7 +65,6 @@ final class MojeKonto
         return [
             'osoba' => [
                 'nazwa'     => $user->displayName,
-                'inicjaly'  => self::inicjaly($user->displayName),
                 'email'     => $konto === null ? '' : (string) $konto['email'],
                 'telefon'   => Telefon::doWyswietlenia($this->people->phone($personId)),
                 'konto_od'  => $konto === null ? null : ($konto['created_at'] ?? null),
@@ -188,19 +186,5 @@ final class MojeKonto
         $grupy = $this->groups->grupyZatrudnienia((int) $etat['id'], $companyId);
 
         return $grupy === [] ? 'pracownik' : 'pracownik · ' . implode(', ', $grupy);
-    }
-
-    /** Dwie pierwsze litery imienia i nazwiska — ten sam skrót, co w menu konta w belce. */
-    private static function inicjaly(string $nazwa): string
-    {
-        $czesci = preg_split('/\s+/u', trim($nazwa)) ?: [];
-        $litery = '';
-        foreach ($czesci as $czesc) {
-            if ($czesc !== '') {
-                $litery .= mb_substr($czesc, 0, 1);
-            }
-        }
-
-        return mb_strtoupper(mb_substr($litery === '' ? NazwaOsoby::doWyswietlenia($nazwa) : $litery, 0, 2));
     }
 }

@@ -1,5 +1,4 @@
 {%- import 'partials/ikony.twig' as ikony -%}
-{%- import 'partials/inicjaly.twig' as znak -%}
 {#- Karta jednego zatrudnienia w drzewie hierarchii.
 
     ⚠ **Karta to ZATRUDNIENIE, nie człowiek.** Osoba pracująca w dwóch spółkach ma dwie karty,
@@ -27,9 +26,9 @@
          wnioskowanie o stanie z jego własnego obrazu. -#}
      data-hier-zablokowane="{{ w.zablokowane ? '1' : '0' }}"
      data-hier-brak-roli="{{ w.brak_roli ? '1' : '0' }}">
-    {#- ⚠ Kółko z inicjałami (Z34 §6) stoi PRZED nazwiskiem i jest wyłącznie znakiem graficznym —
-        pełna nazwa czyta się obok, więc czytnik ekranu inicjałów nie dostaje. -#}
-    {{ znak.kolko(w.osoba, 'inicjaly--hier') }}
+    {#- ⚠ **Kółko z inicjałami znikło w Z88** (decyzja Krzysztofa: inicjały zostają wyłącznie
+        w awatarze belki, bo tylko tam oznaczają JEDNĄ osobę — czytającego). Karta zaczyna się
+        od nazwiska; siatka panelu i drzewa straciła razem z nim kolumnę `znak`. -#}
     <div class="hier__card-main">
         <span class="hier__osoba">{{ w.osoba }}</span>
         <span class="hier__fakty">

@@ -1868,34 +1868,6 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 
 /* ——— lista osób i kont (zlecenie Z30) ————————————————————————————————————— */
 
-/* ⚠ **Kółko z inicjałami** — jeden znak w czterech rozmiarach (lista 30 px, kontrolka dostępu
-   34 px, okno członków 26 px, wiersz grupy 24 px). Bok idzie zmienną, a nie czterema klasami
-   z własnymi wartościami: inaczej przy zmianie kroju trzeba by poprawiać cztery liczby.
-   ⚠ Litery nie mogą się zwężać ani zawijać — stąd `flex: none` i stały rozmiar pisma. */
-.inicjaly {
-  --inicjaly-bok: 30px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  width: var(--inicjaly-bok);
-  height: var(--inicjaly-bok);
-  border-radius: 50%;
-  background: var(--c-neutral-soft);
-  color: var(--c-text-2);
-  font-size: var(--t-label);
-  font-weight: var(--w-semibold);
-  letter-spacing: 0;
-  line-height: 1;
-  user-select: none;
-}
-.inicjaly--lista { --inicjaly-bok: 30px; }
-/* W kontrolce dostępu znak jest większy i w barwie akcji — to głowa panelu, nie wiersz listy. */
-.inicjaly--dostep {
-  --inicjaly-bok: 34px;
-  background: var(--c-accent-soft);
-  color: var(--c-accent-text);
-}
 
 /* Nazwisko z inicjałami w jednej linii; nazwa zwęża się i ucina, znak nigdy. */
 .osoba-wiersz { display: flex; align-items: center; gap: var(--s-3); min-width: 0; }
@@ -1925,8 +1897,6 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   text-decoration: line-through;
   text-decoration-color: var(--c-text-4);
 }
-/* Znak przygaszony, a nie przemalowany: ten sam kształt i ta sama barwa tła, mniej kontrastu. */
-.inicjaly--wygaszone { color: var(--c-text-5); }
 
 /* ⚠ Pole wyszukiwania z ikoną W ŚRODKU: ikona jest siostrą pola i leży na nim, a wyściółka pola
    z lewej robi jej miejsce. Tło pod ikoną nie jest potrzebne — pole ma własne. */
@@ -3696,7 +3666,6 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 
 /* ——— hierarchia: karta osoby i panele (zlecenie Z34) ——————————————————————————— */
 
-.inicjaly--hier { --inicjaly-bok: 30px; }
 /* Znak panelu „Bez przełożonego" — barwa ostrzeżenia, bo panel jest listą zadań, nie zestawieniem. */
 .card__znak--uwaga { background: var(--c-warn-soft); color: var(--c-warn-text); }
 .hier__licznik { flex: none; }
@@ -3725,12 +3694,13 @@ body:has(dialog.modal[open]) { overflow: hidden; }
    linie o różnej wysokości. W drzewie zostaje jeden wiersz — tam karta ma całą szerokość. */
 .hier__panel .hier__card {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  grid-template-areas: 'znak tresc menu' '. chipy chipy';
+  /* ⚠ Dwie kolumny, nie trzy: kolumna `znak` znikła w Z88 razem z kółkiem inicjałów.
+     Zostawiona dawałaby puste 30 px przed nazwiskiem na każdej karcie. */
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: 'tresc menu' 'chipy chipy';
   align-items: start;
   gap: var(--s-2) var(--s-3);
 }
-.hier__panel .hier__card > .inicjaly { grid-area: znak; }
 .hier__panel .hier__card-main { grid-area: tresc; }
 .hier__panel .hier__card-chips { grid-area: chipy; }
 .hier__panel .hier__card-chips > .menu { position: absolute; top: var(--s-2); right: var(--s-2); }
@@ -3791,12 +3761,12 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   .hier__card {
     display: grid;
     position: relative;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    grid-template-areas: 'znak tresc menu' '. chipy chipy';
+    /* ⚠ Dwie kolumny, nie trzy (Z88) — tak samo jak w panelu wyżej. */
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: 'tresc menu' 'chipy chipy';
     align-items: start;
     gap: var(--s-2) var(--s-3);
   }
-  .hier__card > .inicjaly { grid-area: znak; }
   .hier__card-main { grid-area: tresc; }
   .hier__card-chips { grid-area: chipy; }
   .hier__card-chips > .menu { position: absolute; top: var(--s-2); right: var(--s-2); }
@@ -4202,24 +4172,20 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 /* Znak grupy: pierwsza litera nazwy w kwadracie, nie w kółku — grupa nie jest człowiekiem.
    ⚠ 16 px zamiast 15 px z prototypu: zestaw tokenów nie ma piętnastki, a `--t-lead` to jedyny
    rozmiar między treścią (14) a daną (20). Jedna litera w kwadracie 38 px wygląda tak samo. */
-.inicjaly--grupa {
-  --inicjaly-bok: var(--control-h);
-  border-radius: var(--radius);
-  font-size: var(--t-lead);
-}
 /* ⚠ Stos nakładających się kółek (`.stos`, `.inicjaly--stos`) **usunięty w Z33**, nie zostawiony
    „na wszelki wypadek": kółka powtarzały to, co mówią nazwiska obok, a przy czterech osobach
    zajmowały ćwierć wiersza. Martwy CSS jest gorszy niż brak CSS-u — następna osoba szuka, gdzie
    ten stos stoi na ekranie. */
-.inicjaly--bez-grupy { --inicjaly-bok: 26px; font-size: 10px; }
 
 /* ⚠ Wiersz grupy ma teraz CZTERY obszary: znak, treść, plakietkę i dwa działania. `grid` zamiast
    `flex`, bo na telefonie dwa ostatnie schodzą pod spód i mają zająć całą szerokość — a tego
    `flex-wrap` nie umie bez sztucznych rozpiętości. */
 .group-list__row {
   display: grid;
-  /* znak · treść · plakietka · „Członkowie" · ołówek · kosz */
-  grid-template-columns: auto minmax(0, 1fr) auto auto auto auto;
+  /* treść · plakietka · „Członkowie" · ołówek · kosz
+     ⚠ Pięć kolumn, nie sześć: kolumna `znak` znikła w Z88 razem z kółkiem. Zostawiona
+     przesuwałaby cały wiersz o jej szerokość i zostawiała puste miejsce na końcu siatki. */
+  grid-template-columns: minmax(0, 1fr) auto auto auto auto;
   align-items: center;
   gap: var(--s-3);
   padding: var(--s-3) var(--s-4);
@@ -4301,7 +4267,6 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   border-radius: var(--radius-card);
   background: var(--c-bg);
 }
-.inicjaly--kafel { --inicjaly-bok: 40px; font-size: var(--t-body); }
 .blok-kafel__tresc { display: grid; gap: 2px; min-width: 0; }
 .blok-kafel__nazwa { font-weight: var(--w-semibold); color: var(--c-text); }
 .blok-kafel__opis { font-size: var(--t-caption); color: var(--c-text-3); }
@@ -4496,7 +4461,10 @@ body:has(dialog.modal[open]) { overflow: hidden; }
     grid-template-columns: auto minmax(0, 1fr) auto auto;
     gap: var(--s-2) var(--s-3);
   }
-  .group-list__main { grid-column: 2 / -1; }
+  /* ⚠ `1 / -1`, nie `2 / -1`: druga kolumna zaczynała się tam, gdzie stało kółko, więc po
+     jego usunięciu nazwa grupy odjechała o 74 px w prawo, a przed nią stanęła plakietka
+     z liczbą (zmierzone na 375 px). Nazwa bierze teraz cały pierwszy rząd. */
+  .group-list__main { grid-column: 1 / -1; }
   .group-list__count { grid-column: 1 / 2; grid-row: 2; }
   .group-list__czlonkowie { grid-column: 2 / 3; grid-row: 2; width: auto; }
   .ikona-akcja--edycja { grid-column: 3 / 4; grid-row: 2; }
@@ -4506,7 +4474,6 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 
 /* ——— okno członków grupy (zlecenie Z31 §8) ——————————————————————————————————— */
 
-.inicjaly--assign { --inicjaly-bok: 26px; font-size: 10px; }
 /* Plakietka nazwy innej grupy: 11 px, bo stoi w wierszu obok nazwiska 14 px i nie ma być
    drugą daną tej samej wagi. Wysokość niższa niż zwykła plakietka z tego samego powodu. */
 .chip--mala { height: 18px; padding: 0 var(--s-1); font-size: var(--t-label); }
@@ -6321,8 +6288,10 @@ body:has(dialog.modal[open]) { overflow: hidden; }
    ⚠ **Rodzina `wid-*` powstała, bo nie było czego użyć** — a nie dlatego, że ekran chciał własnego
    wyglądu. Wiersz reguły to trzy człony rozdzielone strzałką („kto › czyje · zakres"), czyli
    kształt, którego nie ma ani `.group-list__row`, ani `.settings-list__row`. Wszystko, co dało
-   się wziąć gotowe, jest wzięte: kółko inicjałów to `.inicjaly`, plakietka zakresu to `.chip`,
-   zdanie wiodące karty to `.card__opis--lead`, wskaźnik doczytywania to `.htmx-indicator`.
+   się wziąć gotowe, jest wzięte: plakietka zakresu to `.chip`, zdanie wiodące karty
+   to `.card__opis--lead`, wskaźnik doczytywania to `.htmx-indicator`.
+   ⚠ Kółko inicjałów stało tu do Z88 (24.10.2026) — zniknęło razem ze wszystkimi listami osób,
+   bo inicjały zostały wyłącznie w awatarze belki.
 
    ⚠ Reguły stoją na KOŃCU arkusza, bo o pierwszeństwie decyduje kolejność w pliku (§1 systemu
    wizualnego) — rodzina dopisana wcześniej przegrywałaby z `.card` i `.chip`. */
@@ -6595,9 +6564,14 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 
 /* ⚠ **Wiersz ma 50 px** (§4 zlecenia) i to jest wysokość liczona, nie wzięta z oka: dwie linie
    (14 px/500 i 12 px) plus wyściółka `--s-2` z góry i z dołu dają dokładnie tyle. */
+/* ⚠ **FLEX, nie siatka ze stałymi kolumnami** (poprawka Z88, zgłoszenie z żywej strony).
+   Siatka miała `28px minmax(0, 1fr) 22px`, gdzie pierwsza kolumna była kółkiem inicjałów.
+   Po usunięciu kółka treść wiersza wpadła w tę kolumnę 28 px i nazwiska ucięły się do dwóch
+   liter („D…", „Ja…") — zmierzone: szerokość treści 28 px przy pełnej nazwie w środku.
+   Siatka wymagałaby DWÓCH szablonów kolumn, bo wiersz grupy ma znak, a wiersz osoby nie;
+   flex liczy to sam i nie trzeba pamiętać o drugim szablonie. */
 .wid-poz {
-  display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) 22px;
+  display: flex;
   align-items: center;
   gap: var(--s-3);
   min-height: 50px;
@@ -6617,7 +6591,7 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 /* „Wszyscy przełożeni" jest PIERWSZĄ pozycją listy, oddzieloną mocniejszą kreską — wyborem
    innego rodzaju (reguła firmy), a nie pierwszym nazwiskiem. */
 .wid-poz--wszyscy { border-top: 0; border-bottom: 1px solid var(--c-line); }
-.wid-poz__znak { display: flex; align-items: center; justify-content: center; color: var(--c-text-3); }
+.wid-poz__znak { flex: none; display: flex; align-items: center; justify-content: center; color: var(--c-text-3); }
 /* ⚠ Zielone tło pod drzewem: ta pozycja znaczy regułę obejmującą wszystkich, więc odróżnia się
    od nazwisk nie tylko rysunkiem. Zieleń znaczy tu AKCJĘ („to obejmuje każdego"), nie stan dobry. */
 .wid-poz__znak--wszyscy {
@@ -6633,8 +6607,9 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   border-radius: 999px;
   background: var(--c-neutral-soft);
 }
-.inicjaly--wid { --inicjaly-bok: 28px; }
-.wid-poz__tresc { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+/* ⚠ `flex: 1 1 auto` razem z `min-width: 0`: bez pierwszego treść zajęłaby tylko tyle, ile
+   napis, a bez drugiego nie dałaby się skrócić wielokropkiem i rozepchałaby wiersz. */
+.wid-poz__tresc { flex: 1 1 auto; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .wid-poz__nazwa {
   font-size: var(--t-body);
   font-weight: var(--w-medium);
@@ -6653,6 +6628,8 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 /* Znacznik: puste kółko albo kółko z ptaszkiem. ⚠ Zieleń ZNACZY TU AKCJĘ — „to wybrałem" —
    a nie stan dobry, więc jest zgodna z §2 systemu wizualnego. */
 .wid-poz__ptak {
+  /* `flex: none` — znacznik ma stałe 22 px i nigdy się nie zwęża, nawet przy długiej nazwie. */
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6924,8 +6901,6 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 
 /* ——— nagłówek panelu ———————————————————————————————————————————————————————— */
 .op-glowa { align-items: center; gap: var(--s-3); background: var(--c-surface); }
-/* Kółko 44 px — największy wariant inicjałów w aplikacji: to nagłówek, nie wiersz listy. */
-.inicjaly--op { --inicjaly-bok: 44px; font-size: 15px; }
 .op-glowa__kto { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
 .op-glowa__nazwa { font-size: var(--t-h2); font-weight: var(--w-semibold); color: var(--c-text); }
 .op-glowa__meta { display: flex; align-items: center; gap: var(--s-2); flex-wrap: wrap; }
@@ -7355,19 +7330,6 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   align-items: center;
   gap: var(--s-4);
   flex-wrap: wrap;
-}
-.konto-glowa__inicjaly {
-  flex: none;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: var(--c-accent-soft);
-  color: var(--c-accent-text);
-  font-size: var(--t-h2);
-  font-weight: 600;
-  letter-spacing: .5px;
 }
 /* ⚠ `min-width: 0` na kolumnie z danymi, bo inaczej długi adres e-mail rozpycha wiersz
    i „Wyloguj" wychodzi za kartę (ta sama pułapka co w belce przy nazwie ekranu, Z63 B). */
