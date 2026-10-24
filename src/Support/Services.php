@@ -129,7 +129,9 @@ final class Services
         );
         $this->settings = new TenantSettingRepository($this->db);
         $this->access = new AccessService($this->db, $this->permissions, $this->accounts, $this->employments, $this->events, $this->license);
-        $this->konta = new AccountService($this->db, $this->accounts, $this->events, $this->widocznosc());
+        // ⚠ `$this->access` POWYŻEJ tej linii nie jest przypadkiem: blokada konta pyta o limit
+        // licencji tą samą drogą, co nadanie dostępu (decyzja z 24.10.2026).
+        $this->konta = new AccountService($this->db, $this->accounts, $this->events, $this->widocznosc(), $this->access);
         $this->sessions = new SessionRepository($this->db);
         $this->devices = new DeviceService($this->sessions, $this->events);
         $this->limiter = new RateLimiter(new LoginAttemptRepository($this->db), $this->settings, $this->events, $this->jobs);

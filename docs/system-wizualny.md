@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.20.10, 24.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.20.11, 24.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,53 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.20.10 → 1.20.11: panel „Zablokować konto?" mówi skutek, a odblokowanie pyta
+> o licencję** (zlecenie Z85).
+> - **Nagłówek**: kłódka w kwadracie `card__znak--niebezpieczny` (38 px, `--c-danger-soft` /
+>   `--c-danger-text`) i sam tytuł „Zablokować konto?". Podtytuł z imieniem zniknął — nazwa osoby
+>   stoi w kaflu niżej, a dwa razy to samo imię w dwóch wierszach nad sobą to szum, nie nacisk.
+>   ⚠ Kwadrat ma 38 px, nie 28 z prototypu: tyle ma `card__znak` w pozostałych czterech oknach
+>   (rozstrzygnięcie z 24.10.2026 — spójność komponentu przed liczbą z makiety).
+> - **Kafel osoby**: tło `--c-bg`, ramka `--c-line`, promień 10, kółko z inicjałami 40 px, nazwa
+>   600, pod nią „konto aktywne · dostęp do N firm" (dopełniacz z `Odmiana::firmyDopelniacz()`).
+> - **Blok „Co się stanie po zablokowaniu"**: cztery wiersze ze znakiem 28 px, tytułem 14/600
+>   i zdaniem 12 px `--c-text-3`. Zamiast listy punktów, w której liczba licencji stała jako
+>   czwarty punkt od góry. ⚠ Wszystkie cztery zdania **sprawdzone z kodem przed napisaniem**:
+>   blokada unieważnia wszystkie sesje jednym zapisem, licznik licencji pomija konta zablokowane,
+>   automat synchronizacji zdejmuje tylko własną blokadę, a blokada nie rusza danych.
+> - **Blok „Licencje"**: trzy kolumny (20 px/600, trzecia w `--c-accent-text`) i zdanie pod nimi.
+>   ⚠ **Nazwy kolumn przychodzą z kontrolera razem z liczbami**: przy licencji bez limitu trzecia
+>   kolumna pokazuje liczbę dostępów („Zwolni się"), a nie liczbę wolnych miejsc — pierwsza wersja
+>   podpisywała ją „WOLNE PO ZABLOKOWANIU 1" na instalacji, gdzie wolnych jest bez liku.
+> - ⚠ **Odblokowanie przy pełnej licencji to ODMOWA** (decyzja Krzysztofa z 24.10.2026, wcześniej
+>   przechodziło zawsze): blok licencji wchodzi w stan ostrzegawczy (`--c-warn-soft` /
+>   `--c-warn-line`, trzecia liczba w `--c-warn-text`), zdanie brzmi „Brakuje N licencji — odbierz
+>   zbędne dostępy innym osobom albo rozszerz licencję, żeby odblokować to konto.", a przycisk jest
+>   wyłączony. Wyłączony przycisk **nie jest bramką** — odmawia serwer, tą samą liczbą, w transakcji
+>   z licznikiem `FOR UPDATE`. Konto bez dostępów i licencja bez limitu odblokowują się zawsze.
+> - **Puste pola „Powód blokady / Zablokowane od: —" zniknęły.** Przy blokadzie nie mają wartości,
+>   a przy odblokowaniu są zdaniem: „Zablokowane 24.10.2026, 16:28 decyzją administratora."
+> - **Stopka**: „Anuluj" (ghost, wraca do panelu osoby) + „Zablokuj konto" (danger).
+> - Zmierzone w Chrome na osobach próbnych (1920 i 375): znak 38 × 38 (253/236/234 na 159/33/21),
+>   kafel 245/246/248 z ramką 230/232/236 i promieniem 10 px, kółko 40 × 40, wiersze skutków
+>   28 × 28 ze zdaniem 12 px (107/114/128), liczby 20 px/600 z trzecią 14/110/60, trzy kolumny
+>   w jednym wierszu przy 1920 i jedna kolumna z linią przy 375, przewijanie w bok 0 px na obu
+>   szerokościach; przy licencji pełnej liczby na 253/243/226 z ramką 240/216/168 i trzecią
+>   liczbą 138/83/0, przycisk wyłączony, a żądanie złożone z ręki odrzucone („Nie ma wolnych
+>   licencji na odblokowanie tego konta") z kontem nadal zablokowanym.
+
+> **Przy okazji 1.20.11 — dwie poprawki okna zaproszeń z porównania z prototypem:**
+> - **Plakietka liczby firm w wierszu jest AKCENTOWA** (`chip--accent`, 12 px/600), nie szara:
+>   mówi, co zostanie NADANE, a szara czytała się jak metryka wiersza. Bez `chip--mala`, bo ten
+>   modyfikator zbija napis do 11 px. „bez dostępu" przy odznaczonym dostępie zostaje przygaszone.
+> - ⚠ **Trzy zdania z liczebnikiem miały złe przypadki i liczbę czasownika**: „1 osoba pominięto"
+>   zamiast biernika „1 **osobę** pominięto" (`Odmiana::osobyBiernik()`) i „2 osoby **ma** już
+>   konto" zamiast „2 osoby **mają**". Zmierzone na ekranie: „1 osobę pominięto — brak adresu
+>   e-mail.", „2 osoby pominięto…", „2 osoby mają już konto…".
+>   ⚠ Zdania o osobach z kontem **nie da się wywołać kliknięciem** — taki wiersz ma pole wyboru
+>   wyłączone, więc stan pochodzi z wyścigu (konto powstało między zaznaczeniem a potwierdzeniem)
+>   i mierzy się go żądaniem `GET` z listą osób, czyli drogą, którą ten stan dociera.
 
 > **Zmiana 1.20.9 → 1.20.10: poprawki okna „Wyślij zaproszenia" po odbiorze w Chrome.**
 > - **Nagłówek okna dostał znak i podtytuł**: koperta w kwadracie `card__znak` (38 px,

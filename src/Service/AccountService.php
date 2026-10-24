@@ -40,6 +40,10 @@ final class AccountService
         // ⚠ Blokada konta przelicza reguły widoczności (Z80 B3, droga 5): zablokowane konto
         // przestaje być kandydatem na podmiot, więc jego reguła nie daje już nic.
         private readonly WidocznoscService $widocznosc,
+        // ⚠ Limit licencji czyta `AccessService`, bo tam stoi reguła nadawania dostępu — ta sama,
+        // którą od 24.10.2026 stosuje odblokowanie. Drugi licznik znaczyłby dwie prawdy o tym,
+        // ile licencji zajmuje instalacja.
+        private readonly AccessService $access,
     ) {
     }
 
@@ -62,6 +66,18 @@ final class AccountService
      */
     public const POWOD_OSTATNI_ADMIN = 'to jedyne aktywne konto administratora tenanta';
     public const POWOD_NIE_MA = 'konta nie ma albo jest już w tym stanie';
+    /**
+     * ⚠ **Odmowa odblokowania przy pełnej licencji** — decyzja Krzysztofa z 24.10.2026.
+     *
+     * Do tego dnia odblokowanie nie pytało o limit wcale: konto wracało z dostępami i użycie
+     * przekraczało licencję, a panel mówił o tym tylko zdaniem. Teraz reguła jest ta sama, co
+     * przy nadaniu dostępu — bo to ta sama rzecz: dostęp, który zacznie się liczyć.
+     *
+     * ⚠ Konto BEZ dostępów do firm odblokowuje się zawsze (zero licencji do zajęcia), i tak
+     * samo licencja bez limitu. Inaczej nie dałoby się wpuścić z powrotem kogoś, kto licencji
+     * nie zajmuje w ogóle.
+     */
+    public const POWOD_BRAK_LICENCJI = 'brak wolnych licencji na odblokowanie';
 
     /**
      * Blokada konta przez człowieka.
@@ -129,8 +145,21 @@ final class AccountService
      */
     public function unblock(int $accountId, int $byAccountId, ?string $ipHash, ?string $actorLabel): ?string
     {
-        if (!$this->accounts->unblockManually($accountId)) {
-            return self::POWOD_NIE_MA;
+        // ⚠ Sprawdzenie limitu i zapis w JEDNEJ transakcji, z licznikiem `FOR UPDATE`: pytanie
+        // „czy jest wolne miejsce" i zajęcie tego miejsca muszą być jedną decyzją. Policzone
+        // przed transakcją przepuściłyby dwa odblokowania na jedno wolne miejsce.
+        $powod = $this->db->transaction(function () use ($accountId): ?string {
+            $brakuje = $this->access->brakujeNaOdblokowanie($accountId);
+            if ($brakuje > 0) {
+                return self::POWOD_BRAK_LICENCJI;
+            }
+
+            return $this->accounts->unblockManually($accountId) ? null : self::POWOD_NIE_MA;
+        });
+        if ($powod !== null) {
+            $this->odmowa('account.unblock_refused', $accountId, $byAccountId, $ipHash, $actorLabel, $powod);
+
+            return $powod;
         }
         $this->events->record('account.unblocked_manually', $byAccountId, $ipHash, $actorLabel, 'account', $accountId);
 

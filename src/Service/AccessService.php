@@ -212,6 +212,63 @@ final class AccessService
         return max(0, $potrzeba - max(0, $limit - $uzyte));
     }
 
+    /**
+     * **Trzy liczby panelu blokady**: ile licencji ma instalacja, ile jest wolnych teraz i ile
+     * będzie wolnych po zmianie (zlecenie Z85 pkt 4).
+     *
+     * ⚠ Czysta funkcja, z tego samego powodu co `brakujeLicencji()`: te trzy liczby stoją na
+     * ekranie obok siebie i muszą się zgadzać między sobą oraz ze zdaniem pod nimi. Policzone
+     * w szablonie byłyby trzema wyrażeniami do rozjechania się przy pierwszej zmianie.
+     *
+     * ⚠ `$zajmuje` to licencje TEGO konta liczone regułą licznika instalacji
+     * (`licensedAccessesOfAccount()`), a nie wszystkie jego przypisania do firm: dostęp bez
+     * aktywnego zatrudnienia licencji nie zajmuje, więc nie ma czego zwolnić.
+     *
+     * ⚠ `$limit === null` (licencja bez limitu) znaczy, że „wolne" nie istnieje jako liczba —
+     * wtedy obie pierwsze kolumny mówią słowem, a trzecia pokazuje, ile dostępów zmieni stan.
+     *
+     * @return array{limit: int|null, wolne_teraz: int|null, wolne_potem: int|null, zmiana: int}
+     */
+    public static function skutekNaLicencje(int $zajmuje, ?int $limit, int $uzyte, bool $odblokowanie): array
+    {
+        $zmiana = $odblokowanie ? $zajmuje : -$zajmuje;
+        if ($limit === null) {
+            return ['limit' => null, 'wolne_teraz' => null, 'wolne_potem' => null, 'zmiana' => $zajmuje];
+        }
+
+        return [
+            'limit' => $limit,
+            // ⚠ `max(0, …)`: użycie potrafi przekroczyć limit (odblokowanie go nie pilnuje),
+            // a „wolnych −3" nie jest liczbą wolnych miejsc, tylko przekroczeniem.
+            'wolne_teraz' => max(0, $limit - $uzyte),
+            'wolne_potem' => max(0, $limit - ($uzyte + $zmiana)),
+            'zmiana' => $zajmuje,
+        ];
+    }
+
+    /**
+     * **Ilu licencji brakuje, żeby ODBLOKOWAĆ to konto** (decyzja Krzysztofa z 24.10.2026).
+     *
+     * ⚠ Do wywołania WEWNĄTRZ transakcji odblokowania: licznik jest wariantem `FOR UPDATE`,
+     * dokładnie jak przy nadaniu dostępu. Bez tego dwa odblokowania w tej samej chwili widzą
+     * ten sam stan „jest jeszcze jedno miejsce" i oba przechodzą.
+     *
+     * ⚠ Licznik instalacji pomija konta zablokowane, a `licensedAccessesOfAccount()` pomija
+     * status — więc suma tych dwóch liczb to użycie PO odblokowaniu, a nie przed. To jest
+     * powód, dla którego te dwa liczniki różnią się jednym warunkiem.
+     *
+     * ⚠ Reguła jest ta sama, co przy nadaniu dostępu (`brakujeLicencji()`), bo to ta sama
+     * rzecz: dostęp, który zacznie się liczyć. Licencja bez limitu nie brakuje nigdy.
+     */
+    public function brakujeNaOdblokowanie(int $accountId): int
+    {
+        return self::brakujeLicencji(
+            $this->accounts->licensedAccessesOfAccount($accountId),
+            $this->license->limit(self::KLUCZ_LICENCJI),
+            $this->accounts->countLicensedAccessesForUpdate(),
+        );
+    }
+
     public const POWOD_BRAK_LICENCJI = 'brak wolnych licencji';
     // ⚠ „firmie", nie „spółce" — jedno słowo w całym interfejsie (rozstrzygnięcie Krzysztofa
     // z 11.10.2026: „nie każda firma jest spółką"). Ten napis wychodzi na ekran przy odmowie

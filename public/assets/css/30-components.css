@@ -999,6 +999,9 @@ a.access--btn .access__strzalka { font-size: 14px; line-height: 1; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Plakietka liczby firm w wierszu okna zaproszeń: ta sama barwa akcentu, co pigułki liczników,
+   ale półgruba — jest liczbą do przeczytania, a nie etykietą stanu. */
+.zapros__wiersz .chip { font-weight: var(--w-semibold); }
 .zapros__bez-dostepu { flex: none; font-size: var(--t-small); color: var(--c-text-4); }
 .zapros__wiersz .chip { flex: none; }
 
@@ -4278,6 +4281,105 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 .ikona-akcja:disabled { background: var(--c-surface-mute); color: var(--c-text-4); cursor: not-allowed; }
 /* Znak okna niebezpiecznego — ten sam kwadrat, inna barwa. */
 .card__znak--niebezpieczny { background: var(--c-danger-soft); color: var(--c-danger-text); }
+
+/* ═══ Panel „Zablokować konto?" (zlecenie Z85) ════════════════════════════════════════════
+   ⚠ Ekran mówi SKUTEK, więc jego trzy bloki mają trzy różne zadania: kafel odpowiada „kogo
+   to dotyczy", lista skutków „co się stanie", a trzy liczby „co będę miał po decyzji".
+   Dlatego nie jest to jedna lista punktów — nią był do 24.10.2026 i czytało się ją jak
+   regulamin, w którym liczba licencji stała jako czwarty punkt od góry. */
+.drawer__head--znak { align-items: flex-start; gap: var(--s-3); }
+.drawer__head--znak .card__tytuly { flex: 1 1 auto; }
+.drawer__head--znak h2 { font-size: var(--t-h2); font-weight: var(--w-semibold); color: var(--c-text); }
+
+/* Kafel osoby: JEDYNE miejsce z nazwą osoby na tym ekranie (nagłówek jej nie powtarza). */
+.blok-kafel {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-3);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
+  background: var(--c-bg);
+}
+.inicjaly--kafel { --inicjaly-bok: 40px; font-size: var(--t-body); }
+.blok-kafel__tresc { display: grid; gap: 2px; min-width: 0; }
+.blok-kafel__nazwa { font-weight: var(--w-semibold); color: var(--c-text); }
+.blok-kafel__opis { font-size: var(--t-caption); color: var(--c-text-3); }
+
+/* Lista skutków: wiersz = znak + tytuł + zdanie. Znak jest 28 px, czyli mniejszy niż znak
+   karty (38) — to pozycja listy, nie nagłówek bloku. */
+.blok-lista { display: flex; flex-direction: column; gap: var(--s-3); }
+.blok-skutek { display: flex; align-items: flex-start; gap: var(--s-3); }
+.blok-skutek__znak {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius);
+  background: var(--c-surface-mute);
+  color: var(--c-text-3);
+}
+.blok-skutek__znak .ico { width: 16px; height: 16px; }
+.blok-skutek__tresc { display: grid; gap: 2px; min-width: 0; }
+.blok-skutek__tytul { font-weight: var(--w-semibold); color: var(--c-text); }
+.blok-skutek__opis { font-size: var(--t-caption); color: var(--c-text-3); line-height: var(--lh-body); }
+
+/* Trzy liczby obok siebie. ⚠ `minmax(0, 1fr)`, nie `1fr`: „bez limitu" w pierwszej kolumnie
+   jest napisem, a nie liczbą, i bez tego rozpychałby kolumnę ponad swoją trzecią część. */
+.blok-liczby { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-3); }
+.blok-liczba { display: grid; gap: var(--s-1); }
+.blok-liczba__nazwa {
+  font-size: var(--t-caption);
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--c-text-3);
+}
+.blok-liczba__wartosc { font-size: var(--t-h2); font-weight: var(--w-semibold); color: var(--c-text); }
+/* Trzecia kolumna to odpowiedź na pytanie ekranu, więc jest jedyną w barwie akcentu. */
+.blok-liczba__wartosc--akcent { color: var(--c-accent-text); }
+.blok-licencje__zdanie { font-size: var(--t-caption); color: var(--c-text-2); }
+/* ⚠ **Stan ostrzegawczy całego bloku licencji**, nie samego zdania: gdy brakuje licencji,
+   trzecia kolumna przestaje być dobrą wiadomością („wolne po odblokowaniu: 0"), więc barwa
+   akcentu kłamałaby na niej tonem. Ramka obejmuje liczby, bo to one są powodem odmowy. */
+.blok-licencje--brak .blok-liczby {
+  padding: var(--s-3);
+  border: 1px solid var(--c-warn-line);
+  border-radius: var(--radius);
+  background: var(--c-warn-soft);
+}
+.blok-licencje--brak .blok-liczba__wartosc--akcent { color: var(--c-warn-text); }
+.blok-licencje__uwaga {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-2);
+  margin: 0;
+  padding: var(--s-3);
+  border: 1px solid var(--c-warn-line);
+  border-radius: var(--radius);
+  background: var(--c-warn-soft);
+  color: var(--c-warn-text);
+  font-size: var(--t-caption);
+}
+.blok-licencje__znak { flex: 0 0 auto; display: inline-flex; }
+.blok-licencje__znak .ico { width: 16px; height: 16px; }
+.blok-metryka { font-size: var(--t-caption); color: var(--c-text-3); }
+
+/* ⚠ Na wąskiej szufladzie trzy liczby nie mieszczą się obok siebie: „Wolne po zablokowaniu"
+   łamie się wtedy na trzy wiersze i kolumny przestają być równe. Schodzą do jednej kolumny
+   z linią rozdzielającą, bo to dalej jedna tabelka, a nie trzy luźne akapity. */
+@container karta (max-width: 420px) {
+  .blok-liczby { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .blok-liczba {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: var(--s-3);
+    padding: var(--s-2) 0;
+    border-bottom: 1px solid var(--c-line-soft);
+  }
+  .blok-liczba:last-child { border-bottom: 0; }
+}
 
 /* ⚠ „Osoby bez grupy" to KARTA, nie pasek z przerywaną ramką (Z31 §5): stała obok karty z grupami
    i czytało się ją jak jej stopkę. Teraz ma tę samą wagę, a że jest stanem, a nie grupą, mówi

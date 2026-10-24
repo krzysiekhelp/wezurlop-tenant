@@ -192,6 +192,34 @@ final class AccountRepository
     }
 
     /**
+     * **Ile licencji zajmuje (albo zajęłoby) JEDNO konto** — ta sama reguła, co licznik całej
+     * instalacji, zawężona do jednego konta.
+     *
+     * ⚠ **Bez warunku o statusie konta**, i to jest sedno: pytamy o konto, którego status
+     * właśnie zmieniamy. Przy blokadzie liczba mówi, ile się zwolni; przy odblokowaniu — ile
+     * się zajmie. Warunek `status <> 'blocked'` dawałby przy odblokowaniu zawsze zero.
+     *
+     * ⚠ **Nie licznik `dostepy` z wiersza listy.** Tamten liczy wszystkie przypisania do spółek,
+     * także te bez aktywnego zatrudnienia — a takie licencji nie zajmują. Panel blokady liczył
+     * nim skutek licencyjny do 24.10.2026 i przy osobie z wygasłym etatem w jednej firmie
+     * obiecywał zwolnienie licencji, której nikt nie zajmował.
+     */
+    public function licensedAccessesOfAccount(int $accountId): int
+    {
+        $stmt = $this->db->pdo()->prepare(
+            "SELECT COUNT(*) FROM role_assignment ra
+             JOIN account a ON a.id = ra.account_id
+             WHERE ra.account_id = :id AND ra.company_id >= 1
+               AND EXISTS (SELECT 1 FROM employment e
+                            WHERE e.person_id = a.person_id AND e.company_id = ra.company_id
+                              AND e.is_active = 1)"
+        );
+        $stmt->execute(['id' => $accountId]);
+
+        return (int) $stmt->fetchColumn();
+    }
+
+    /**
      * Ten sam licznik, ale z blokadą czytanych wierszy i luk — do użycia WEWNĄTRZ transakcji,
      * razem z zapisem nowego przypisania.
      *

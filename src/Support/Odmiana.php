@@ -223,6 +223,32 @@ final class Odmiana
     }
 
     /**
+     * „1 **osobę** pominięto", „2 **osoby** pominięto", „5 **osób** pominięto" — BIERNIK,
+     * bo zdanie ma orzeczenie nieosobowe („pominięto kogo?").
+     *
+     * ⚠ Mianownik różni się TYLKO w liczbie pojedynczej („1 osoba" wobec „1 osobę"), czyli
+     * w najczęstszym przypadku na ekranie — i dokładnie tak ta usterka wyszła na oknie
+     * zaproszeń: „1 osoba pominięto". Ta sama pułapka, co `reguly()` w pasku Hierarchii.
+     */
+    public static function osobyBiernik(int $ile): string
+    {
+        return abs($ile) === 1 ? 'osobę' : (self::mnoga($ile) ? 'osoby' : 'osób');
+    }
+
+    /**
+     * „dostęp do 1 **firmy**", „do 2 **firm**", „do 5 **firm**" — DOPEŁNIACZ, bo stoi po
+     * przyimku „do" (zlecenie Z85, kafel osoby w panelu blokady).
+     *
+     * ⚠ Osobno od `firmy()`, która jest w mianowniku: tam „2 firmy", tu „do 2 firm".
+     * Mnoga forma dopełniacza jest jedna dla wszystkich liczb poza jedynką — ta sama pułapka,
+     * co `osobyDopelniacz()`, gdzie „2 osób" było pierwszą wersją.
+     */
+    public static function firmyDopelniacz(int $ile): string
+    {
+        return abs($ile) === 1 ? 'firmy' : 'firm';
+    }
+
+    /**
      * Czy CZASOWNIK przy tej liczbie stoi w liczbie mnogiej („2 osoby dostaną”), a nie
      * pojedynczej („5 osób dostanie”, „1 osoba dostanie”).
      *

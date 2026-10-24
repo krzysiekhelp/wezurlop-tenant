@@ -39,6 +39,19 @@ use Wezurlop\Support\Odmiana;
         $check("osoby({$ile})", Odmiana::osoby($ile), $oczekiwane);
     }
 
+    // ⚠ Biernik „N osobę/osoby/osób pominięto": mianownik różni się tylko w pojedynczej,
+    // więc błąd wychodzi w najczęstszym zdaniu — i wyszedł („1 osoba pominięto").
+    foreach ([1 => 'osobę', 2 => 'osoby', 4 => 'osoby', 5 => 'osób', 12 => 'osób',
+              22 => 'osoby'] as $ile => $oczekiwane) {
+        $check("osobyBiernik({$ile})", Odmiana::osobyBiernik($ile), $oczekiwane);
+    }
+
+    // ⚠ Dopełniacz „do N firm" ma JEDNĄ formę mnogą — „do 2 firmy" i „do 2 firm" różnią się
+    // tak samo jak „2 osób" od „2 osoby", czyli w najczęstszym zdaniu panelu blokady.
+    foreach ([1 => 'firmy', 2 => 'firm', 4 => 'firm', 5 => 'firm', 12 => 'firm'] as $ile => $oczekiwane) {
+        $check("firmyDopelniacz({$ile})", Odmiana::firmyDopelniacz($ile), $oczekiwane);
+    }
+
     // ⚠ Czasownik przy liczbie: mnogi TYLKO dla 2–4 (bez nastu). Zero i 25 biorą dopełniacz
     // mnogi rzeczownika i orzeczenie POJEDYNCZE — „0 osób dostanie", nie „0 osób dostaną".
     // Oba te zdania stały na ekranie wysyłki zaproszeń, zanim ta funkcja powstała.

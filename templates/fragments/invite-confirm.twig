@@ -87,8 +87,11 @@
                             <span class="zapros__adres">{{ o.email }}</span>
                         </span>
                         {% if nadaj_dostep %}
-                            {#- Liczba firm z zatrudnienia — tyle licencji zajmie ta osoba. -#}
-                            <span class="chip chip--mala">{{ o.firm_opis }}</span>
+                            {#- Liczba firm z zatrudnienia — tyle licencji zajmie ta osoba.
+                                ⚠ Plakietka jest AKCENTOWA, nie szara: mówi, co zostanie NADANE,
+                                a nie opisuje stanu zastanego. Szara czytała się jak metryka
+                                wiersza. Bez `chip--mala`, bo ta zbija napis do 11 px. -#}
+                            <span class="chip chip--accent">{{ o.firm_opis }}</span>
                         {% else %}
                             <span class="zapros__bez-dostepu">bez dostępu</span>
                         {% endif %}

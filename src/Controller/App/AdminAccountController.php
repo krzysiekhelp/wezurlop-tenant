@@ -99,6 +99,11 @@ final class AdminAccountController
             . 'zablokować. Najpierw utwórz drugie konto i poczekaj, aż jego właściciel ustawi hasło: '
             . 'konto zaproszone, które nigdy nie zostało aktywowane, nie jest zabezpieczeniem.',
         AccountService::POWOD_NIE_MA => 'Stan tego konta zmienił się w trakcie — odśwież panel.',
+        // ⚠ Odmowa odblokowania mówi, CZEGO brakuje i co z tym zrobić — liczbę dokłada panel,
+        // bo tylko on wie, ile dostępów ma to konto. Sam komunikat nie może kłamać liczbą,
+        // której serwis nie policzył w tej samej transakcji.
+        AccountService::POWOD_BRAK_LICENCJI => 'Nie ma wolnych licencji na odblokowanie tego konta. '
+            . 'Odbierz zbędne dostępy innym osobom albo rozszerz licencję.',
     ];
 
     /** Rozmiar strony — ten sam co na `/dane` (`DataController::PAGE`), żeby nie były dwie prawdy. */
@@ -350,7 +355,88 @@ final class AdminAccountController
             // ⚠ Skutek licencyjny liczony PRZED decyzją: odblokowanie zajmuje dostępy z powrotem
             // i może przekroczyć limit, a blokada je zwalnia.
             'licencja'     => $this->access->licenceUsage(),
+            'panel'        => $this->skutekBlokady((int) $dane['o']['account_id'],
+                (string) $dane['o']['account_status'], $odblokowanie),
         ]);
+    }
+
+    /** Nazwy stanów konta słowami — jedno miejsce, bo stoją w zdaniu, nie w plakietce. */
+    private const STAN_SLOWAMI = [
+        AccountRepository::STAN_AKTYWNE => 'konto aktywne',
+        AccountRepository::STAN_ZAPROSZONE => 'konto zaproszone',
+        AccountRepository::STAN_NIEZAPROSZONE => 'konto bez zaproszenia',
+        AccountRepository::STAN_ZABLOKOWANE => 'konto zablokowane',
+        'do_odblokowania' => 'konto zablokowane',
+    ];
+
+    /**
+     * **Liczby i zdania panelu blokady** (zlecenie Z85): kafel osoby, trzy kolumny licencji
+     * i zdanie pod nimi.
+     *
+     * ⚠ Wszystko składa się TUTAJ, nie w szablonie: każde z tych zdań odmienia rzeczownik przez
+     * liczbę, a polska odmiana ma w tym repozytorium jedno miejsce (`Support\Odmiana`).
+     *
+     * ⚠ Licencje tego konta liczy `licensedAccessesOfAccount()` — ta sama reguła, co licznik
+     * na `/licencja`. Panel brał do 24.10.2026 licznik `dostepy` z wiersza listy, który liczy
+     * też dostępy bez aktywnego zatrudnienia: u osoby z wygasłym etatem obiecywał zwolnienie
+     * licencji, której nikt nie zajmował.
+     *
+     * @return array{stan_slowami: string, zdanie_kafla: string, licencje: array<string, mixed>}
+     */
+    private function skutekBlokady(int $accountId, string $stan, bool $odblokowanie): array
+    {
+        $zajmuje = $this->accounts->licensedAccessesOfAccount($accountId);
+        $licencja = $this->access->licenceUsage();
+        $skutek = AccessService::skutekNaLicencje($zajmuje, $licencja['limit'], $licencja['uzyte'], $odblokowanie);
+        $firmy = $zajmuje . ' ' . Odmiana::firmyDopelniacz($zajmuje);
+        // ⚠ Ta sama funkcja, którą serwer odmawia odblokowania (`brakujeNaOdblokowanie()` liczy
+        // nią w transakcji) — więc wyłączony przycisk i odmowa serwera to jedna liczba, nie dwie.
+        $brakuje = $odblokowanie
+            ? AccessService::brakujeLicencji($zajmuje, $licencja['limit'], $licencja['uzyte'])
+            : 0;
+        // ⚠ Zdanie „nic się nie zmieni" to NIE uprzejmość, tylko odpowiedź na pytanie, które
+        // ekran zadaje trzema kolumnami: przy zerze dostępów wszystkie trzy liczby są równe
+        // i bez tego zdania administrator szukałby, czego nie doczytał.
+        $zdanie = $zajmuje === 0
+            ? ($odblokowanie
+                ? 'Odblokowanie nie zmieni liczby wolnych licencji.'
+                : 'Zablokowanie nie zmieni liczby wolnych licencji.')
+            : ($odblokowanie
+                ? 'Odblokowanie zajmie ' . $zajmuje . ' ' . Odmiana::licencje($zajmuje) . ' (dostęp do ' . $firmy . ').'
+                : 'Zablokowanie zwolni ' . $zajmuje . ' ' . Odmiana::licencje($zajmuje) . ' (dostęp do ' . $firmy . ').');
+
+        // ⚠ **Nazwy kolumn składa kontroler razem z liczbami**, a nie szablon warunkiem:
+        // przy licencji bez limitu trzecia kolumna pokazuje LICZBĘ DOSTĘPÓW, więc nazwa „wolne
+        // po zablokowaniu" byłaby wtedy podpisem pod inną wielkością. Zmierzone: kolumna mówiła
+        // „WOLNE PO ZABLOKOWANIU 1" przy licencji bez limitu, gdzie wolnych jest bez liku.
+        $bezLimitu = $skutek['limit'] === null;
+        $trzecia = $bezLimitu
+            ? ($odblokowanie ? 'Zajmie się' : 'Zwolni się')
+            : ($odblokowanie ? 'Wolne po odblokowaniu' : 'Wolne po zablokowaniu');
+        $kolumny = [
+            ['nazwa' => 'W licencji', 'wartosc' => $bezLimitu ? 'bez limitu' : (string) $skutek['limit']],
+            ['nazwa' => 'Wolne teraz', 'wartosc' => $bezLimitu ? 'bez limitu' : (string) $skutek['wolne_teraz']],
+            ['nazwa' => $trzecia,
+                'wartosc' => (string) ($bezLimitu ? $skutek['zmiana'] : $skutek['wolne_potem']), 'akcent' => true],
+        ];
+
+        return [
+            'stan_slowami' => self::STAN_SLOWAMI[$stan] ?? 'konto',
+            'zdanie_kafla' => (self::STAN_SLOWAMI[$stan] ?? 'konto') . ' · dostęp do ' . $firmy,
+            'licencje' => $skutek + [
+                'zdanie' => $zdanie,
+                'odblokowanie' => $odblokowanie,
+                'kolumny' => $kolumny,
+                'brakuje' => $brakuje,
+                'zdanie_braku' => $brakuje === 0
+                    ? ''
+                    // ⚠ Po „brakuje" stoi DOPEŁNIACZ i jest niezmienny: „brakuje 1 licencji",
+                    // „brakuje 5 licencji". Odmiana przez liczbę dałaby tu „brakuje 1 licencję"
+                    // — ta sama pułapka, co „Potrzeba 23 licencji" w oknie zaproszeń.
+                    : 'Brakuje ' . $brakuje . ' licencji — odbierz zbędne dostępy innym osobom '
+                        . 'albo rozszerz licencję, żeby odblokować to konto.',
+            ],
+        ];
     }
 
     /**
@@ -389,7 +475,9 @@ final class AdminAccountController
 
         $dane = $this->panelData($personId, $companyId, $admin);
         $dane['notice'] = $zablokowane
-            ? 'Konto odblokowane. Dostępy do spółek wróciły razem z nim.'
+            // ⚠ „firm", nie „spółek" (rozstrzygnięcie z 11.10.2026) — a kryterium bramki
+            // nie łapało tej odmiany, bo „spółek" nie zawiera rdzenia „spółk".
+            ? 'Konto odblokowane. Dostępy do firm wróciły razem z nim.'
             : 'Konto zablokowane. Sesje zakończone, dostępy zwolnione z licencji.';
 
         return $request->isHtmx()
@@ -1168,12 +1256,17 @@ final class AdminAccountController
                     . ' e-mail z odnośnikiem do ustawienia hasła.',
             'zdanie_bez_adresu' => $bezAdresu === 0
                 ? ''
-                // „pominięto" jest nieosobowe, więc nie odmienia się przez liczbę wcale.
-                : $bezAdresu . ' ' . Odmiana::osoby($bezAdresu) . ' pominięto — brak adresu e-mail.',
+                // ⚠ BIERNIK, nie mianownik: „pominięto kogo?". Pierwsza wersja składała
+                // „1 osoba pominięto" — mianownik różni się właśnie w liczbie pojedynczej.
+                // Samo „pominięto" jest nieosobowe i nie odmienia się wcale.
+                : $bezAdresu . ' ' . Odmiana::osobyBiernik($bezAdresu) . ' pominięto — brak adresu e-mail.',
             'zdanie_z_kontem' => $zKontem === 0
                 ? ''
+                // ⚠ Mianownik (to podmiot) plus liczba czasownika z `Odmiana`: „1 osoba ma",
+                // „2 osoby mają", „5 osób ma". Warunek po `=== 1` dawał „2 osoby ma".
                 : $zKontem . ' ' . Odmiana::osoby($zKontem)
-                    . ($zKontem === 1 ? ' ma' : ' ma') . ' już konto — zaproszenia nie wysyła się drugi raz.',
+                    . (Odmiana::czasownikMnogi($zKontem) ? ' mają' : ' ma')
+                    . ' już konto — zaproszenia nie wysyła się drugi raz.',
             // Zaznaczony: ile zajmie i ile zostanie (resztę pokazujemy TYLKO przy limicie).
             'zdanie_licencji' => $nadajDostep
                 ? 'Zajmie ' . $potrzeba . ' ' . Odmiana::licencje($potrzeba)

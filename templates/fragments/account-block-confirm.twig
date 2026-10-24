@@ -1,63 +1,190 @@
-{#- Potwierdzenie blokady albo odblokowania konta (etap 5, system wizualny §5.6).
+{#- **Potwierdzenie blokady albo odblokowania konta** (zlecenie Z85, prototyp zatwierdzony
+    przez Krzysztofa; wcześniej etap 5 i system wizualny §5.6).
 
     ⚠ Ekran pokazuje SKUTEK, a nie pyta „czy na pewno": pytanie bez skutku każe administratorowi
-    domyślać się, co się stanie, a to jest operacja na cudzym dostępie do danych kadrowych. -#}
-<div class="drawer__head">
-    <div>
-        <div class="drawer__title">
-            <h2>{{ odblokowanie ? 'Odblokować konto?' : 'Zablokować konto?' }}</h2>
-        </div>
-        <div class="drawer__sub">{{ o.name }}</div>
+    domyślać się, co się stanie, a to jest operacja na cudzym dostępie do danych kadrowych.
+
+    ⚠ **Trzy liczby licencji i wszystkie zdania z liczebnikiem przychodzą Z KONTROLERA**
+    (`skutekBlokady()`), policzone regułą licznika z `/licencja`. W szablonie nie ma ani jednego
+    warunku po liczbie i ani jednej odmiany — inaczej kolumny i zdanie pod nimi miałyby dwa
+    źródła i rozjechałyby się przy pierwszej zmianie.
+
+    ⚠ **Słowo „firma", nigdy „spółka"** (rozstrzygnięcie Krzysztofa z 11.10.2026) — także
+    w dopełniaczu mnogim („firm"), gdzie kryterium bramki miało lukę do 24.10.2026.
+
+    Zmienne: `o`, `wiersz`, `panel`, `licencja`, `odblokowanie`, `w_szufladzie`. -#}
+{% import 'partials/ikony.twig' as ikony %}
+{% import 'partials/inicjaly.twig' as znak %}
+<div class="drawer__head drawer__head--znak">
+    {#- Kwadrat w barwie niebezpieczeństwa także przy odblokowaniu: ekran dotyczy TEJ SAMEJ
+        decyzji o dostępie do danych kadrowych, tylko w drugą stronę. -#}
+    <span class="card__znak card__znak--niebezpieczny">{{ ikony.klodka() }}</span>
+    <div class="card__tytuly">
+        {#- ⚠ Bez podtytułu z imieniem: nazwa osoby stoi w kaflu niżej, razem ze stanem konta
+            i liczbą firm. Dwa razy to samo imię w dwóch wierszach nad sobą to nie podkreślenie,
+            tylko szum. -#}
+        <h2>{{ odblokowanie ? 'Odblokować konto?' : 'Zablokować konto?' }}</h2>
     </div>
     {% if w_szufladzie %}
-        <button type="button" class="modal__close" data-modal-close="osoba-panel" aria-label="Zamknij panel">×</button>
+        <button type="button" class="modal__close" data-modal-close="osoba-panel" aria-label="Zamknij panel">{{ ikony.krzyzyk() }}</button>
     {% endif %}
 </div>
 
 <div class="drawer__body">
-    <section class="pane">
-        <div class="pane__head"><span class="pane__title">Co się stanie</span></div>
-        <ul class="confirm__list measure">
+    {#- ══════════ Kafel osoby ══════════
+        Ekran otwiera się z listy, więc musi powiedzieć, KOGO dotyczy — i to jest jedyne miejsce,
+        gdzie stoi nazwa osoby. -#}
+    <div class="blok-kafel">
+        {{ znak.kolko(o.name, 'inicjaly--kafel') }}
+        <div class="blok-kafel__tresc">
+            <span class="blok-kafel__nazwa">{{ o.name }}</span>
+            <span class="blok-kafel__opis">{{ panel.zdanie_kafla }}</span>
+        </div>
+    </div>
+
+    {#- ══════════ Co się stanie ══════════ -#}
+    <section class="pane blok-skutki">
+        <div class="pane__head">
+            <span class="pane__title">{{ odblokowanie ? 'Co się stanie po odblokowaniu' : 'Co się stanie po zablokowaniu' }}</span>
+        </div>
+        <ul class="blok-lista">
             {% if odblokowanie %}
-                <li>Konto wróci do stanu sprzed blokady i {{ o.account_status == 'blocked' ? 'będzie mogło się zalogować' : 'odzyska dostęp' }}.</li>
-                {#- ⚠ Dostępy wracają SAME: blokada nigdy ich nie usunęła, bo historia jest
-                    potrzebna kadrom. Dlatego odblokowanie z powrotem zajmuje licencje. -#}
-                <li>Dostępy do spółek wrócą razem z kontem — blokada ich nie usunęła, tylko przestały się liczyć.</li>
-                <li>Zajętych dostępów po tej zmianie: <strong>{{ licencja.uzyte + wiersz.dostepy }}</strong>{% if licencja.limit is not null %} z {{ licencja.limit }}{% endif %}.</li>
-                {% if licencja.limit is not null and licencja.uzyte + wiersz.dostepy > licencja.limit %}
-                    <li class="access--odchylenie">To przekroczy limit licencji. Odblokowania nie wstrzymujemy — ale odbierz zbędne dostępy albo podnieś licencję.</li>
-                {% endif %}
+                <li class="blok-skutek">
+                    <span class="blok-skutek__znak">{{ ikony.komputer() }}</span>
+                    <span class="blok-skutek__tresc">
+                        <span class="blok-skutek__tytul">Osoba znów się zaloguje</span>
+                        <span class="blok-skutek__opis">Konto wróci do stanu sprzed blokady i będzie mogło się
+                            zalogować tym samym adresem. Sesje zakończone przy blokadzie nie wracają —
+                            trzeba zalogować się od nowa.</span>
+                    </span>
+                </li>
+                <li class="blok-skutek">
+                    <span class="blok-skutek__znak">{{ ikony.licencja() }}</span>
+                    <span class="blok-skutek__tresc">
+                        <span class="blok-skutek__tytul">Licencja zostanie zajęta z powrotem</span>
+                        <span class="blok-skutek__opis">Dostęp tej osoby do firm znów będzie zajmował licencję.
+                            Ustawień nie trzeba podawać od nowa — blokada ich nie usunęła, tylko przestały
+                            się liczyć.</span>
+                    </span>
+                </li>
                 {% if o.powod_blokady == 'sync' %}
-                    <li>Blokadę założyła synchronizacja (wygasły wszystkie zatrudnienia). Jeśli R2 nadal ich nie ma, najbliższy przebieg zablokuje konto ponownie.</li>
+                    {#- ⚠ Zdanie stoi TYLKO przy blokadzie z synchronizacji i jest prawdą o mechanizmie:
+                        automat nie cofa decyzji człowieka, ale swoją własną założy ponownie. -#}
+                    <li class="blok-skutek">
+                        <span class="blok-skutek__znak">{{ ikony.odswiezenie() }}</span>
+                        <span class="blok-skutek__tresc">
+                            <span class="blok-skutek__tytul">Synchronizacja może zablokować ponownie</span>
+                            <span class="blok-skutek__opis">Tę blokadę założył program kadrowy, bo wygasły wszystkie
+                                zatrudnienia. Jeśli nadal ich nie przysyła, najbliższy przebieg zablokuje konto
+                                jeszcze raz.</span>
+                        </span>
+                    </li>
+                {% else %}
+                    <li class="blok-skutek">
+                        <span class="blok-skutek__znak">{{ ikony.klucz() }}</span>
+                        <span class="blok-skutek__tresc">
+                            <span class="blok-skutek__tytul">To decyzja administratora</span>
+                            <span class="blok-skutek__opis">Konto zostało zablokowane ręcznie, więc i odblokowanie
+                                jest decyzją człowieka. Program kadrowy sam go nie odblokuje.</span>
+                        </span>
+                    </li>
                 {% endif %}
+                <li class="blok-skutek">
+                    <span class="blok-skutek__znak">{{ ikony.dane() }}</span>
+                    <span class="blok-skutek__tresc">
+                        <span class="blok-skutek__tytul">Dane były w systemie przez cały czas</span>
+                        <span class="blok-skutek__opis">Wnioski, nieobecności i historia zmian tej osoby nie
+                            zostały usunięte przy blokadzie i nie trzeba ich odtwarzać.</span>
+                    </span>
+                </li>
             {% else %}
-                <li>Konto natychmiast przestanie się logować, a wszystkie jego sesje zostaną zakończone.</li>
-                <li>Dostępy do spółek <strong>zostaną w bazie</strong>, ale przestaną się liczyć do licencji — po odblokowaniu wrócą.</li>
-                <li>Zajętych dostępów po tej zmianie: <strong>{{ licencja.uzyte - wiersz.dostepy }}</strong>{% if licencja.limit is not null %} z {{ licencja.limit }}{% endif %}.</li>
-                <li>Synchronizacja <strong>nie zdejmie</strong> tej blokady — to decyzja człowieka i cofa ją tylko człowiek.</li>
+                <li class="blok-skutek">
+                    <span class="blok-skutek__znak">{{ ikony.komputer() }}</span>
+                    <span class="blok-skutek__tresc">
+                        <span class="blok-skutek__tytul">Osoba zostanie od razu wylogowana</span>
+                        <span class="blok-skutek__opis">Nie zaloguje się, dopóki konto nie zostanie odblokowane.
+                            Jeśli jest teraz zalogowana na telefonie lub komputerze, zostanie wylogowana.</span>
+                    </span>
+                </li>
+                <li class="blok-skutek">
+                    <span class="blok-skutek__znak">{{ ikony.licencja() }}</span>
+                    <span class="blok-skutek__tresc">
+                        <span class="blok-skutek__tytul">Licencja zostanie zwolniona</span>
+                        <span class="blok-skutek__opis">Dostęp tej osoby do firm nie będzie zajmował licencji.
+                            Ustawienia dostępu zostaną zapamiętane — po odblokowaniu wrócą same i nie trzeba
+                            ich ustawiać od nowa.</span>
+                    </span>
+                </li>
+                <li class="blok-skutek">
+                    <span class="blok-skutek__znak">{{ ikony.klucz() }}</span>
+                    <span class="blok-skutek__tresc">
+                        <span class="blok-skutek__tytul">Odblokować może tylko administrator</span>
+                        <span class="blok-skutek__opis">Konto zablokowane ręcznie nie odblokuje się samo, nawet
+                            jeśli program kadrowy nadal pokazuje tę osobę jako zatrudnioną.</span>
+                    </span>
+                </li>
+                <li class="blok-skutek">
+                    <span class="blok-skutek__znak">{{ ikony.dane() }}</span>
+                    <span class="blok-skutek__tresc">
+                        <span class="blok-skutek__tytul">Dane zostają w systemie</span>
+                        <span class="blok-skutek__opis">Wnioski, nieobecności i historia zmian tej osoby nie
+                            zostaną usunięte.</span>
+                    </span>
+                </li>
             {% endif %}
         </ul>
-        <div class="defs">
-            <div><div class="defs__term">Stan konta</div><div class="defs__value">{{ o.account_status }}</div></div>
-            <div><div class="defs__term">Powód blokady</div><div class="defs__value">{{ o.powod_blokady == 'sync' ? 'synchronizacja' : (o.powod_blokady == 'manual' ? 'decyzja administratora' : '—') }}</div></div>
-            <div><div class="defs__term">Zablokowane od</div><div class="defs__value">{{ o.blokada_od is null ? '—' : czas_ze_strefa(o.blokada_od) }}</div></div>
-            <div><div class="defs__term">Dostępy tego konta</div><div class="defs__value">{{ wiersz.dostepy }}</div></div>
-        </div>
     </section>
+
+    {#- ══════════ Licencje ══════════
+        ⚠ Trzecia kolumna jest tym, po co ten blok stoi na ekranie: mówi, co administrator
+        będzie miał PO decyzji, a nie co ma teraz. -#}
+    <section class="pane blok-licencje{{ panel.licencje.zdanie_braku != '' ? ' blok-licencje--brak' : '' }}">
+        <div class="pane__head"><span class="pane__title">Licencje</span></div>
+        {#- ⚠ Nazwy kolumn przychodzą Z KONTROLERA razem z liczbami: przy licencji bez limitu
+            trzecia kolumna pokazuje liczbę dostępów, nie liczbę wolnych miejsc, więc nazwa
+            musi się zmienić razem z wielkością. W szablonie nie ma tu ani jednego warunku. -#}
+        <div class="blok-liczby">
+            {% for k in panel.licencje.kolumny %}
+                <div class="blok-liczba">
+                    <span class="blok-liczba__nazwa">{{ k.nazwa }}</span>
+                    <span class="blok-liczba__wartosc{{ k.akcent is defined ? ' blok-liczba__wartosc--akcent' : '' }}">{{ k.wartosc }}</span>
+                </div>
+            {% endfor %}
+        </div>
+        <p class="blok-licencje__zdanie">{{ panel.licencje.zdanie }}</p>
+        {% if panel.licencje.zdanie_braku != '' %}
+            {#- ⚠ **Blok w stanie ostrzegawczym i przycisk wyłączony — ale to NIE jest bramka**:
+                odmawia serwer, tą samą liczbą (`brakujeNaOdblokowanie()` w transakcji). Decyzja
+                Krzysztofa z 24.10.2026: odblokowanie przy pełnej licencji z limitem jest odmową,
+                bo dostęp, który zacznie się liczyć, podlega tej samej regule co nadanie. -#}
+            <p class="blok-licencje__uwaga" role="status">
+                <span class="blok-licencje__znak" aria-hidden="true">{{ ikony.uwaga() }}</span>
+                <span>{{ panel.licencje.zdanie_braku }}</span>
+            </p>
+        {% endif %}
+    </section>
+
+    {% if odblokowanie and o.blokada_od is not null %}
+        {#- Jedno zdanie zamiast pustych pól „Powód blokady / Zablokowane od: —", które przy
+            blokadzie nie mają wartości, a przy odblokowaniu mają — i wtedy są zdaniem. -#}
+        <p class="blok-metryka">Zablokowane {{ czas_ze_strefa(o.blokada_od) }}{{
+            o.powod_blokady == 'sync' ? ' przez synchronizację' : ' decyzją administratora' }}.</p>
+    {% endif %}
 </div>
 
 <div class="drawer__foot">
     {#- Powrót wraca do panelu tą samą trasą, którą panel się otwiera — bez wychodzenia z listy. -#}
-    <button type="button" class="btn btn--quiet"
+    <button type="button" class="btn btn--ghost"
             hx-get="{{ url('/admin/konta/osoba/' ~ o.person_id) }}"
-            hx-target="#osoba-tresc" hx-swap="innerHTML">Wróć</button>
+            hx-target="#osoba-tresc" hx-swap="innerHTML">Anuluj</button>
     <form class="inline-form" method="post" action="{{ url('/admin/konta/osoba/' ~ o.person_id ~ '/blokada') }}"
           hx-post="{{ url('/admin/konta/osoba/' ~ o.person_id ~ '/blokada') }}"
           hx-target="#osoba-tresc" hx-swap="innerHTML">
         {% include 'partials/csrf.twig' %}
         {#- ⚠ Przycisk nieodwracalnej operacji NIE jest ogniskiem domyślnym (§5.6): Enter nie może
             być przypadkowym kliknięciem. -#}
-        <button type="submit" class="btn {{ odblokowanie ? 'btn--primary' : 'btn--danger' }}">
+        <button type="submit" class="btn {{ odblokowanie ? 'btn--primary' : 'btn--danger' }}"
+                {{- panel.licencje.brakuje > 0 ? ' disabled' : '' }}>
             {{ odblokowanie ? 'Odblokuj konto' : 'Zablokuj konto' }}</button>
     </form>
 </div>
