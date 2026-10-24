@@ -206,6 +206,8 @@ final class RuleChecker
 
     private int $filesChecked = 0;
 
+    private ?\Twig\Environment $twig = null;
+
     public function __construct(private readonly string $root)
     {
     }
@@ -346,6 +348,8 @@ final class RuleChecker
             }
         }
 
+        $this->checkTwigSklada($file, $content);
+
         // <script> z treścią; dozwolony jedynie blok type="application/json" (CLAUDE.md §6)
         if (preg_match_all('/<script\b([^>]*)>(.*?)<\/script>/is', $content, $m, PREG_OFFSET_CAPTURE) > 0) {
             foreach ($m[0] as $i => [$tag, $offset]) {
@@ -356,6 +360,48 @@ final class RuleChecker
                 }
             }
         }
+    }
+
+    /**
+     * **Czy szablon w ogóle da się przeczytać Twigowi** (zlecenie Z80 D pkt 3).
+     *
+     * ⚠ Powód jest zmierzony, nie teoretyczny. Komentarz `{# … #}` postawiony WEWNĄTRZ wyrażenia
+     * Twiga (np. w `include … with { … }`) nie jest komentarzem — lekser widzi w nim zwykłe znaki
+     * i wywraca się na nich. Objaw u człowieka: **500 na ekranie**, bez ani jednego trafienia
+     * w regułach, bo wzorce tekstowe widzą tam poprawny komentarz (zmierzone 23.10.2026, Z80 A).
+     * Ta sama klasa błędu to niezamknięty `{%`, zły cudzysłów i `{{` bez `}}`.
+     *
+     * ⚠ **Lekser, nie kompilacja.** `tokenize()` sprawdza SKŁADNIĘ i nie potrzebuje ani
+     * konfiguracji, ani bazy, ani listy naszych funkcji — a check-rules musi dać się puścić
+     * na czystym katalogu. Pełne `parse()` złapałoby też nieznany znacznik, filtr i funkcję,
+     * ale wymaga środowiska z zarejestrowanymi `url()`, `asset()`, `csrf_token()` i resztą
+     * (patrz dwie listy funkcji w `Kernel`); bez nich zapaliłoby KAŻDY nasz szablon. Granica
+     * jest więc tu, i to jest decyzja, nie przeoczenie: tokenizacja łapie błędy, których
+     * nie widzi żaden wzorzec tekstowy, i nie zgłasza nic poza nimi.
+     *
+     * ⚠ Nazwa pliku idzie do `Source`, żeby komunikat Twiga mówił, GDZIE pękło — bez niej
+     * błąd brzmi „in an unknown template".
+     */
+    private function checkTwigSklada(SplFileInfo $file, string $content): void
+    {
+        try {
+            $this->twig()->tokenize(new \Twig\Source($content, $this->relative($file)));
+        } catch (\Twig\Error\SyntaxError $e) {
+            $linia = $e->getTemplateLine();
+            $this->hit($file, $linia > 0 ? $linia : 1,
+                'szablonu nie da się ztokenizować: ' . $e->getRawMessage() . ' (CLAUDE.md §5)');
+        }
+    }
+
+    /**
+     * Środowisko Twiga **tylko do leksera** — jedno na przebieg, bez ładowarki plików.
+     *
+     * ⚠ `ArrayLoader` z pustą tablicą wystarcza, bo tokenizujemy treść PODANĄ, a nie wczytywaną
+     * po nazwie. Prawdziwa ładowarka kazałaby trzymać tu drugą ścieżkę do `templates/`.
+     */
+    private function twig(): \Twig\Environment
+    {
+        return $this->twig ??= new \Twig\Environment(new \Twig\Loader\ArrayLoader([]));
     }
 
     /** @param array<string, string> $patterns */

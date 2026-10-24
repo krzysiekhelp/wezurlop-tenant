@@ -118,7 +118,14 @@
     odlicz(toast, toast.zostalo || CZAS_MS);
   }
 
-  function pokaz(tekst, rodzaj) {
+  /* ⚠ **Jeden odnośnik, składany przez `createElement`** (zlecenie Z80 D pkt 7). Komunikat
+     o skutku, którego nikt nie zamawiał („zapis wyłączył regułę widoczności"), musi dawać drogę
+     do obejrzenia tego skutku. Treść i napis odnośnika idą przez `textContent`, adres przez
+     `setAttribute` — w tym pliku nadal nie ma ani jednego miejsca, w którym tekst z serwera
+     stawałby się HTML-em (CLAUDE.md §6).
+     ⚠ Odnośnik jest ZWYKŁYM `<a href>`, bez nasłuchu: kliknięcie ma przenieść na ekran,
+     a nie wymagać, żeby ten plik się wczytał. */
+  function pokaz(tekst, rodzaj, odnosnik) {
     var cel = kontener();
     if (!cel || typeof tekst !== 'string' || tekst.trim() === '') { return null; }
     var typ = rodzajZnany(rodzaj);
@@ -142,6 +149,14 @@
     var tresc = document.createElement('p');
     tresc.className = 'toast__tresc';
     wypelnijTresc(tresc, tekst.trim());
+    if (odnosnik && odnosnik.adres && odnosnik.tekst) {
+      var link = document.createElement('a');
+      link.className = 'toast__odnosnik';
+      link.setAttribute('href', odnosnik.adres);
+      link.textContent = odnosnik.tekst + ' ›';
+      tresc.appendChild(document.createTextNode(' '));
+      tresc.appendChild(link);
+    }
     toast.appendChild(tresc);
 
     var zamknij = document.createElement('button');
@@ -269,10 +284,16 @@
     var lista = korzen.querySelectorAll ? korzen.querySelectorAll('[data-komunikat]') : [];
     Array.prototype.forEach.call(lista, function (el) {
       if (el.classList.contains('komunikat--w-toascie')) { return; }
-      var tekst = (el.textContent || '').replace(/\s+/g, ' ').trim();
+      /* ⚠ Treść bierzemy z `[data-komunikat-tresc]`, gdy jest: komunikat z odnośnikiem ma
+         w akapicie także słowo „Pokaż", a ono nie jest częścią zdania (Z80 D pkt 7). */
+      var zrodlo = el.querySelector('[data-komunikat-tresc]') || el;
+      var tekst = (zrodlo.textContent || '').replace(/\s+/g, ' ').trim();
       if (tekst === '') { return; }
       el.classList.add('komunikat--w-toascie');
-      pokaz(tekst, el.getAttribute('data-komunikat'));
+      pokaz(tekst, el.getAttribute('data-komunikat'), {
+        adres: el.getAttribute('data-komunikat-adres'),
+        tekst: el.getAttribute('data-komunikat-odnosnik')
+      });
     });
   }
 

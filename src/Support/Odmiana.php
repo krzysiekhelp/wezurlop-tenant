@@ -183,6 +183,20 @@ final class Odmiana
     }
 
     /**
+     * „1 zmiana", „2 zmiany", „5 zmian" — licznik niezapisanych zmian na pasku Hierarchii
+     * (zlecenie Z80 D pkt 5).
+     *
+     * ⚠ Licznik składa PRZEGLĄDARKA (partia zmienia się bez żądania do serwera), ale **słowa
+     * zostają tutaj**: do `modules/hierarchia.js` jadą atrybutem `data-formy-zmiany`, a skrypt
+     * wybiera z nich formę po liczbie. Tak samo jak przy „wybrano N osób" w oknie widoczności —
+     * polska odmiana ma w tym repozytorium jedno miejsce, nie dwa.
+     */
+    public static function zmiany(int $ile): string
+    {
+        return abs($ile) === 1 ? 'zmiana' : (self::mnoga($ile) ? 'zmiany' : 'zmian');
+    }
+
+    /**
      * Czy liczba bierze formę mnogą „lekką” (2, 3, 4), a nie dopełniacz (5 i więcej).
      *
      * ⚠ Wyjątek nastu (12, 13, 14) jest konieczny: bez niego wychodzi „13 dni robocze”

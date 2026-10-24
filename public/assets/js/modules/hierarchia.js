@@ -83,7 +83,17 @@
         dodajPole('zmiany[' + j + '][supervisor]', zmiany[j].supervisor);
       }
     }
-    licznik.textContent = zmiany.length === 1 ? '1 zmiana' : zmiany.length + ' zmian';
+    /* ⚠ **Odmiana przez liczbę, nie „1 zmiana albo N zmian"** (zlecenie Z80 D pkt 5): pasek
+       pisał „2 zmian" i „3 zmian", czyli formę poprawną wyłącznie od pięciu — zmierzone
+       przy pomiarze części C. Słowa przysyła PHP (`data-formy-zmiany`), formę wybiera
+       wspólny `modules/odmiana.js`; tutaj nie ma ani jednego polskiego słowa. */
+    var formy = window.WezurlopOdmiana
+      ? window.WezurlopOdmiana.zAtrybutu(licznik, 'data-formy-zmiany')
+      : ['', '', ''];
+    var slowo = window.WezurlopOdmiana
+      ? window.WezurlopOdmiana.forma(zmiany.length, formy)
+      : (formy[2] || '');
+    licznik.textContent = zmiany.length + (slowo === '' ? '' : ' ' + slowo);
     bar.hidden = zmiany.length === 0;
     odswiezOstrzezenie();
   }

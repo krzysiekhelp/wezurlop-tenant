@@ -1,6 +1,11 @@
 {#- ⚠ htmx tylko tam, gdzie jest używany (docs/system-wizualny.md §5.8). Ekrany uwierzytelnienia
     nie mają ani jednego atrybutu `hx-*`, więc nie pobierają biblioteki — to koszt bez pożytku. -#}
 {% if htmx ?? true %}<script src="{{ asset('js/vendor/htmx.min.js') }}" defer></script>{% endif %}
+{#- ⚠ `odmiana.js` idzie PRZED modułami, które z niej korzystają (widoczność, hierarchia) —
+    choć kolejność nie jest tu warunkiem działania: wszystkie wołają ją ze zdarzeń, czyli
+    długo po wczytaniu. Stoi wysoko dlatego, że jest wspólna dla kilku ekranów, tak samo
+    jak `flash.js`. Słów polskich nie zawiera — przysyła je PHP atrybutem `data-formy-*`. -#}
+<script src="{{ asset('js/modules/odmiana.js') }}" defer></script>
 <script src="{{ asset('js/modules/flash.js') }}" defer></script>
 <script src="{{ asset('js/modules/ui.js') }}" defer></script>
 <script src="{{ asset('js/modules/bridge.js') }}" defer></script>

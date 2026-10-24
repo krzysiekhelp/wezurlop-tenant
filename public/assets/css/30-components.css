@@ -3628,6 +3628,11 @@ body:has(dialog.modal[open]) { overflow: hidden; }
    na pasku liczy się między WSZYSTKIMI elementami, także pustymi, więc pusty pojemnik
    dokładałby 16 px przerwy pod przyciskami na każdym ekranie bez ostrzeżenia. */
 .hier__ostrzezenie-pojemnik { flex: 1 0 100%; }
+/* ⚠ Odnośnik w komunikacie i w toaście (zlecenie Z80 D pkt 7) — podkreślony, bo w toaście
+   nie ma obok niczego, co by go odróżniało od zdania; barwę bierze z komunikatu, żeby
+   nie wprowadzać trzeciego koloru do pięciosekundowego paska. */
+.notice__odnosnik,
+.toast__odnosnik { color: inherit; text-decoration: underline; white-space: nowrap; }
 .hier__ostrzezenie-pojemnik:empty { display: none; }
 .hier__ostrzezenie {
   display: flex;
@@ -3652,6 +3657,24 @@ body:has(dialog.modal[open]) { overflow: hidden; }
      połowę szerokości zdania. */
   .hier__ostrzezenie { flex-wrap: wrap; }
   .hier__ostrzezenie-link { margin-left: 28px; }
+  /* ⚠ **Pasek zmian w PIONIE, a przyciski zawijane** (zlecenie Z80 D pkt 4). Rząd trzech
+     przycisków ma `flex: none` i napisy `white-space: nowrap`, więc jego własna szerokość to
+     415 px — przy oknie 375 px dawał 73 px przewijania poziomego CAŁEJ STRONY (zmierzone
+     24.10.2026), a przewijanie w poprzek jest w tej aplikacji zakazane. Samo `flex-wrap`
+     na pasku tego nie naprawiało: rząd schodził do swojego wiersza i dalej był za szeroki.
+     ⚠ `flex: 1 1 auto` na przyciskach, nie szerokość 100%: trzy przyciski jeden pod drugim
+     zajęłyby pół ekranu, a dwa w rzędzie mieszczą się bez skracania napisów. */
+  .hier__bar { flex-direction: column; align-items: stretch; }
+  .hier__bar-actions { flex-wrap: wrap; }
+  .hier__bar-actions .btn { flex: 1 1 auto; }
+  /* ⚠ **`flex: 1 0 100%` ZNACZY CO INNEGO po obróceniu kierunku — i to był błąd, nie szczegół.**
+     W rzędzie „100%" to cała szerokość, czyli „zajmij własny wiersz"; w kolumnie `flex-basis`
+     opisuje WYSOKOŚĆ, więc pojemnik żądał całej wysokości paska, nie zmieścił się razem
+     z tekstem i przyciskami, a `flex-wrap: wrap` przeniósł go do DRUGIEJ KOLUMNY — w prawo,
+     poza ekran (zmierzone 24.10.2026: prawa krawędź 667 px przy oknie 375 px, 292 px
+     przewijania strony). W kolumnie pełną szerokość daje samo `align-items: stretch`,
+     więc tutaj pojemnik wraca do `flex: none`. */
+  .hier__ostrzezenie-pojemnik { flex: none; }
 }
 .hier__bar-list { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--s-1); }
 /* ⚠ `--t-small`, nie `--fs-sm`: tokena `--fs-sm` nie ma w zestawie, więc wiersze paska brały

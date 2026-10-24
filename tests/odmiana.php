@@ -47,6 +47,13 @@ use Wezurlop\Support\Odmiana;
         $check("reguly({$ile})", Odmiana::reguly($ile), $oczekiwane);
     }
 
+    // ⚠ Licznik paska Hierarchii pisał „2 zmian" i „3 zmian" — formę poprawną wyłącznie od pięciu
+    // (zgłoszone z pomiaru Z80 cz. C). Słowa stoją tu, wybór formy robi `modules/hierarchia.js`.
+    foreach ([1 => 'zmiana', 2 => 'zmiany', 3 => 'zmiany', 4 => 'zmiany', 5 => 'zmian',
+              12 => 'zmian', 13 => 'zmian', 22 => 'zmiany', 25 => 'zmian'] as $ile => $oczekiwane) {
+        $check("zmiany({$ile})", Odmiana::zmiany($ile), $oczekiwane);
+    }
+
     // Kafel kolejki na `/ustawienia/poczta` (Z43): prototyp miał „N zadania", czyli formę
     // poprawną wyłącznie dla 2–4, a kafel pokazuje liczbę prosto z bazy.
     foreach ([0 => 'zadań', 1 => 'zadanie', 2 => 'zadania', 5 => 'zadań', 13 => 'zadań',

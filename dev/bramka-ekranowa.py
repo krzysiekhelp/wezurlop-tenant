@@ -3335,7 +3335,7 @@ def spolki_pracownika() -> list[dict]:
     return json.loads(wyn.stdout or "[]")
 
 
-def sprawdz_nazwe_wyswietlana(b) -> dict:
+def sprawdz_nazwe_wyswietlana(b, usterka: str | None = None) -> dict:
     """Nazwa wyświetlana spółki podstawiona w zakładkach — i **sortowanie po niej** (06.10.2026).
 
     Prośba Krzysztofa: „jak jest wpisana nazwa spółki, która ma być wyświetlana, to będzie ona
@@ -3351,9 +3351,15 @@ def sprawdz_nazwe_wyswietlana(b) -> dict:
       2. `kolejnosc` — spółka z nazwą sortującą się pierwsza faktycznie stoi pierwsza, choć
          po nazwie z R2 była ostatnia. `SELECT` z nazwą wyświetlaną przy `ORDER BY c.name`
          przechodzi kryterium 1 i oblewa to — i dokładnie taki był stan przed tą zmianą,
-      3. `wyjatek_kadry` — `/dane` dalej pokazuje nazwę z R2. To nie przeoczenie, a reguła
-         (`NazwaSpolki`): tam nazwa z R2 jest treścią do porównania z programem kadrowym.
-         Bez tego kryterium „podmień wszędzie" przeszłoby jako poprawka.
+      3. `wyjatek_kadry` — `/dane` pokazuje nazwę WYŚWIETLANĄ w treści wiersza, a nazwę z R2
+         w **podpowiedzi** tej nazwy. ⚠ Tak brzmi decyzja Krzysztofa z Z76 (22.10.2026)
+         i ZASTĘPUJE ona dawne „na `/dane` zostaje nazwa z R2 w treści": powód tamtej reguły
+         się nie zmienił — nazwa z kadr jest tu treścią do porównania z programem kadrowym,
+         więc zniknąć nie może — ale 46 znaków wersalikami w kolumnie wiersza rozpychało
+         tabelę wobec sześcioznakowej nazwy własnej (zmierzone). Dlatego zostaje, tylko
+         w `title`. Kryterium pilnuje OBU połówek: nazwa z R2 jest osiągalna i nie stoi
+         w treści, a w treści stoi nazwa wyświetlana. Pominięcie którejkolwiek przepuściłoby
+         albo „podmień wszędzie", albo powrót do rozpychania.
 
     ⚠ Dwa ekrany, dwie różne kontrolki i dwa różne repozytoria: `/kontekst` (wybór firmy przy
     logowaniu, `EmploymentRepository`) i kontrolka spółki w `/kalendarz`
@@ -3382,8 +3388,13 @@ def sprawdz_nazwe_wyswietlana(b) -> dict:
         return {"ok": False, "powod": f"brak hasła konta {LOGIN3} — ekranu wyboru firmy "
                                       "NIE zmierzono (hasła nie ma w repozytorium, §14)"}
 
-    ctx = b.new_context(viewport={"width": SZEROKOSC_LAPTOPA, "height": 900}, ignore_https_errors=True)
-    ctx2 = b.new_context(viewport={"width": SZEROKOSC_LAPTOPA, "height": 900}, ignore_https_errors=True)
+    # ⚠ Usterkę kontrolną wstrzykujemy do OBU kontekstów: pomiar chodzi dwoma kontami
+    # (administrator nadaje nazwę, pracownik ją widzi), a twierdzenie o `/dane` mierzy się
+    # w drugim z nich.
+    ctx = nowy_kontekst(b, usterka, viewport={"width": SZEROKOSC_LAPTOPA, "height": 900},
+                        ignore_https_errors=True)
+    ctx2 = nowy_kontekst(b, usterka, viewport={"width": SZEROKOSC_LAPTOPA, "height": 900},
+                         ignore_https_errors=True)
     nadane = False
     poziomy: list[tuple[int, int]] = []
     try:
@@ -3487,9 +3498,13 @@ def sprawdz_nazwe_wyswietlana(b) -> dict:
           tekst: document.querySelector('main').innerText
         })""")
 
-        # `/dane` to podgląd tego, co przysłał connector — tam nazwa z R2 ZOSTAJE.
+        # `/dane` to podgląd tego, co przysłał connector — nazwa z R2 ZOSTAJE, ale od Z76
+        # w podpowiedzi nazwy, nie w treści wiersza.
         pg.goto(BAZA + "/dane", wait_until="networkidle")
         dane_tekst = pg.evaluate("() => document.querySelector('main').innerText")
+        dane_nazwy = pg.evaluate(
+            "() => [...document.querySelectorAll('.dane-firma__nazwa')].map((e) => ({"
+            " tekst: (e.textContent || '').trim(), title: e.getAttribute('title') || ''}))")
 
         podstawienie = (
             nadana in kontekst["tekst"] and nazwa_r2 not in kontekst["tekst"]
@@ -3503,7 +3518,12 @@ def sprawdz_nazwe_wyswietlana(b) -> dict:
             len(kontekst["pozycje"]) >= 2 and kontekst["pozycje"][0] == nadana
             and len(kal["lista"]) >= 2 and kal["lista"][0] == nadana
         )
-        wyjatek_kadry = nazwa_r2 in dane_tekst and nadana not in dane_tekst
+        # ⚠ Szukamy WIERSZA TEJ spółki, a nie „czy nazwa gdzieś jest": na liście stoją wszystkie
+        # firmy tenanta, więc obecność dowolnej nazwy nie mówi nic o tej jednej.
+        wiersz_celu = next((w for w in dane_nazwy if w["tekst"] == nadana), None)
+        wyjatek_kadry = (wiersz_celu is not None
+                         and wiersz_celu["title"] == nazwa_r2
+                         and nazwa_r2 not in dane_tekst)
 
         # Sprzątanie w ścieżce normalnej, żeby jego WYNIK trafił do raportu; `finally` zostaje
         # jako ścieżka awaryjna (pomiar padł w połowie) — tam wyniku nie ma już gdzie zapisać.
@@ -3529,7 +3549,10 @@ def sprawdz_nazwe_wyswietlana(b) -> dict:
             "pulpit_naglowek": pulpit_tekst.split("\n")[2] if len(pulpit_tekst.split("\n")) > 2 else "",
             "kalendarz_przycisk": kal["przycisk"],
             "kalendarz_lista": kal["lista"],
-            "dane_ma_nazwe_r2": nazwa_r2 in dane_tekst,
+            # ⚠ Dwa pola, nie jedno: „nazwa z R2 w treści" (ma być `false` od Z76) i wiersz
+            # tej spółki z `/dane` razem z podpowiedzią (tam ma stać nazwa z R2).
+            "dane_nazwa_r2_w_tresci": nazwa_r2 in dane_tekst,
+            "dane_wiersz_celu": wiersz_celu,
             "stan_przed_pomiarem": stan_przed,
             # ⚠ Pokazane obok siebie świadomie: różnica znaczy, że ktoś zmienił nazwę MIĘDZY
             # odczytem bazy a wejściem na ekran — i że to ekran, a nie baza, jest tu prawdą.
@@ -7014,6 +7037,284 @@ def powody_nakladki(n: dict) -> list[str]:
 # ⚠ **Rejestr kontroli negatywnych**: nazwa usterki → kryterium, które ma się na niej złamać.
 # Wpis tutaj jest częścią przepięcia kryterium, nie dodatkiem — kryterium bez wpisu nikt nigdy
 # nie złamał i nie wiadomo, czy potrafi zapalić się z właściwego powodu (tura Z22).
+# ⚠ **Usterka kontrolna: okno znów wybiera za człowieka** — dokładnie stan sprzed Z81 (24.10.2026).
+# Podstawia zakres, wypełnia podpisy kafelków i odgasza przycisk zapisu, czyli odwraca wszystkie
+# trzy twierdzenia o pustym starcie naraz. Nie przez `DOMContentLoaded`, a przez odpytywanie:
+# treść okna wymienia htmx przy każdym kroku, więc jednorazowe podstawienie zniknęłoby
+# po pierwszym kliknięciu „Dalej".
+_usterka("okno_widocznosci", """
+    window.setInterval(() => {
+      const pierwszy = document.querySelector('.wid-zakres input');
+      if (pierwszy && !document.querySelector('.wid-zakres input:checked')) { pierwszy.checked = true; }
+      document.querySelectorAll('[data-wid-zapis][aria-disabled]').forEach(
+        (b) => b.removeAttribute('aria-disabled'));
+      document.querySelectorAll('.wid-krok__podpis--pusty').forEach((p) => {
+        p.textContent = 'Bez szczegółów';
+        p.classList.remove('wid-krok__podpis--pusty');
+      });
+    }, 120);
+""")
+
+# ⚠ **Usterka kontrolna dla `nazwa_wyswietlana`: powrót do stanu sprzed Z76** — nazwa z R2
+# wraca do TREŚCI wiersza na `/dane`. Dotąd to kryterium nie miało ani jednej usterki, czyli
+# nie było dowodu, że w ogóle potrafi świecić; przy przepisywaniu trzeciego twierdzenia
+# (24.10.2026) dokładamy ją razem ze zmianą.
+_usterka("nazwa_wyswietlana", """
+    window.setInterval(() => {
+      document.querySelectorAll('.dane-firma__nazwa').forEach((e) => {
+        const r2 = e.getAttribute('title') || '';
+        if (r2 !== '' && e.textContent.trim() !== r2) { e.textContent = r2; }
+      });
+    }, 120);
+""")
+
+# Stan okna reguły widoczności — jeden odczyt na wszystkie twierdzenia tego kryterium.
+OKNO_WIDOCZNOSCI = r"""() => {
+  const w = document.querySelector('#widocznosc-okno-tresc') || document.body;
+  const txt = (el) => el ? (el.textContent || '').trim().replace(/\s+/g, ' ') : null;
+  return {
+    kroki: [...w.querySelectorAll('.wid-krok')].map((k) => ({
+      nazwa: txt(k.querySelector('.wid-krok__nazwa')),
+      podpis: txt(k.querySelector('.wid-krok__podpis')),
+      gotowy: k.classList.contains('wid-krok--gotowy'),
+      wylaczony: k.classList.contains('wid-krok--wylaczony'),
+      odnosnik: k.tagName === 'A',
+      biezacy: k.getAttribute('aria-current') === 'step',
+    })),
+    stopka: [...w.querySelectorAll('.modal__foot .btn')].map((b) => ({
+      tekst: txt(b),
+      glowny: b.classList.contains('btn--primary'),
+      martwy: !!b.disabled,
+      przygaszony: b.getAttribute('aria-disabled') === 'true',
+      zapis: b.hasAttribute('data-wid-zapis'),
+    })),
+    sekcje: [...w.querySelectorAll('.wid-seg__poz')].map((p) => ({
+      sekcja: p.getAttribute('data-sekcja'),
+      on: p.classList.contains('wid-seg__poz--on'),
+      zablokowana: p.getAttribute('aria-disabled') === 'true',
+    })),
+    zakresow_wybranych: w.querySelectorAll('.wid-zakres input:checked').length,
+    zakresow: w.querySelectorAll('.wid-zakres input').length,
+  };
+}"""
+
+LISTA_WIDOCZNOSCI = r"""() => {
+  const txt = (el) => el ? (el.textContent || '').trim().replace(/\s+/g, ' ') : null;
+  return [...document.querySelectorAll('.wid-wiersz')].map((e) => ({
+    tekst: (txt(e) || '').slice(0, 90),
+    separator: e.classList.contains('wid-wiersz--separator'),
+    nieaktywna: e.classList.contains('wid-wiersz--nieaktywna'),
+    plakietka: txt(e.querySelector('.wid-wiersz__plakietka')),
+    ma_przelacznik: !!e.querySelector('.wid-stan'),
+  }));
+}"""
+
+
+def sprawdz_okno_widocznosci(b, usterka: str | None = None) -> dict:
+    """**Okno reguły widoczności: nic nie jest wybrane z góry, stopka ma dwa przyciski, a reguła
+    bez skutku widnieje jako nieaktywna** (zlecenia Z78, Z79, Z80 i Z81).
+
+    ⚠ To kryterium powstało, bo cztery decyzje z tych zleceń są **niewidoczne w kodzie
+    i niewidoczne w testach**: żyją w tym, co pokazuje okno. Zmierzone w trakcie Z80 i Z81:
+    reguła stała dawała się przestawić na krok 1 adresem z ręki, wybór w sekcji nie blokował
+    pozostałych, a krok 3 startował z wybranym zakresem — i każda z tych rzeczy wyglądała
+    w kodzie poprawnie.
+
+    Siedem twierdzeń, każde łamane osobno:
+      1. `stala_bez_krokow` — w regule stałej kroki 1 i 2 są WYŁĄCZONE (nie są odnośnikami),
+         bo podmiotu ani celu nie da się w niej wskazać (Z78, Z79),
+      2. `stala_stopka` — jej stopka to dokładnie „Anuluj" i „Zapisz zmiany": jeden krok nie ma
+         gdzie wracać, a okno zmieniające dostęp całej firmy musi mieć wyjście bez zapisu,
+      3. `nowa_pusty_start` — w nowej regule WSZYSTKIE trzy kafelki mówią „nie wybrano", żaden
+         zakres nie jest zaznaczony i żadna sekcja nie jest zablokowana (Z81 pkt 1),
+      4. `stopka_krokow` — na kroku 1 „Wstecz" jest martwy, a obok stoi „Dalej"; na kroku 3
+         w miejscu „Dalej" stoi przycisk zapisu i NIE MA osobnego zapisu w krokach 1–2 (Z81 pkt 2),
+      5. `zapis_przygaszony` — przy niewskazanym zakresie przycisk zapisu jest przygaszony
+         (`aria-disabled`), a po wskazaniu karty odżywa (Z81 pkt 2, rozstrzygnięcie o drodze
+         bez JavaScriptu: przygaszony, ale działający),
+      6. `blokada_sekcji` — wybór w jednej sekcji blokuje pozostałe (Z80 A1),
+      7. `separator_nieaktywnych` — po wyłączeniu reguły lista pokazuje wiersz „NIEAKTYWNE · …",
+         a sam wiersz reguły ma plakietkę „wyłączona" (Z80 B6).
+
+    ⚠ **Regułę zakładamy i kasujemy PRZEZ OKNO, a jej podmiotem jest osoba próbna.** Przez okno,
+    bo to właśnie droga, którą to kryterium mierzy — zapis SQL-em sprawdziłby listę, a nie
+    kreator. Na osobie próbnej (`dev/probka-zespolu.php`), bo nadanie i odebranie wglądu
+    w cudze nieobecności prawdziwej osobie na czas pomiaru jest zmianą w danych kadrowych,
+    a nie pomiarem (ta sama zasada co w `przelacznik_zespolu`).
+
+    ⚠ Pomiar oddaje spółkę kontekstu, którą zastał — stan jest trwały
+    (`account.context_company_id`), więc zostawiony wędruje do następnych sprawdzeń.
+    """
+    haslo = HASLO or haslo_dev(LOGIN)
+    if not haslo:
+        return {"ok": False, "powod": f"brak hasła konta {LOGIN} — pomiaru NIE wykonano"}
+    probka_zespolu("sprzataj")
+    probka = probka_zespolu("utworz")
+    spolka = int(probka.get("spolka") or 0)
+    if spolka == 0:
+        return {"ok": False, "powod": "próbka nie podała spółki — pomiaru NIE wykonano"}
+    ctx = None
+    spolka_przed = ""
+    wynik: dict = {"probka_spolka": spolka}
+    try:
+        ctx = nowy_kontekst(b, usterka, viewport={"width": SZEROKOSC_LAPTOPA, "height": 900},
+                            ignore_https_errors=True)
+        pg = ctx.new_page()
+        pg.goto(BAZA + "/logowanie", wait_until="networkidle")
+        pg.fill("#login-email", LOGIN)
+        pg.fill("#login-password", haslo)
+        pg.click("button[type=submit]")
+        pg.wait_for_load_state("networkidle")
+        pg.goto(BAZA + "/kalendarz?widok=firma", wait_until="networkidle")
+        spolka_przed = pg.evaluate(
+            "() => ((document.querySelector('.spolka') || {}).dataset || {}).spolka || ''")
+        ustaw_spolke_w_belce(pg, spolka)
+        pg.goto(BAZA + "/admin/widocznosc", wait_until="networkidle")
+
+        # ——— 1 i 2: reguła stała ———————————————————————————————————————————————
+        pg.locator(".wid-wiersz a.ikona-akcja--edycja").first.click()
+        pg.wait_for_timeout(700)
+        stala = pg.evaluate(OKNO_WIDOCZNOSCI)
+        wynik["stala"] = stala
+        stala_bez_krokow = (len(stala["kroki"]) == 3
+                            and stala["kroki"][0]["wylaczony"] and not stala["kroki"][0]["odnosnik"]
+                            and stala["kroki"][1]["wylaczony"] and not stala["kroki"][1]["odnosnik"]
+                            and stala["kroki"][2]["biezacy"])
+        stala_stopka = [p["tekst"] for p in stala["stopka"]] == ["Anuluj", "Zapisz zmiany"]
+
+        # ——— 3 i 4: nowa reguła, krok 1 ————————————————————————————————————————
+        pg.keyboard.press("Escape")
+        pg.goto(BAZA + "/admin/widocznosc", wait_until="networkidle")
+        pg.locator("a.btn--akcja", has_text="Dodaj dostęp").first.click()
+        pg.wait_for_timeout(700)
+        krok1 = pg.evaluate(OKNO_WIDOCZNOSCI)
+        wynik["krok1"] = krok1
+        nowa_pusty_start = (
+            [k["podpis"] for k in krok1["kroki"]] == ["nie wybrano"] * 3
+            and not any(k["gotowy"] for k in krok1["kroki"])
+            and not any(s["zablokowana"] for s in krok1["sekcje"])
+        )
+        stopka1 = [(p["tekst"], p["martwy"], p["zapis"]) for p in krok1["stopka"]]
+
+        # ——— 6: wybór blokuje pozostałe sekcje ————————————————————————————————
+        pg.fill(".wid-szukanie__pole", "__probka_zespolu")
+        pg.keyboard.press("Enter")
+        pg.wait_for_timeout(800)
+        pg.locator(".wid-poz", has_text="__probka_zespolu").first.click()
+        pg.wait_for_timeout(500)
+        po_wyborze = pg.evaluate(OKNO_WIDOCZNOSCI)
+        wynik["po_wyborze_podmiotu"] = po_wyborze
+        blokada_sekcji = (po_wyborze["kroki"][0]["gotowy"]
+                          and sum(1 for s in po_wyborze["sekcje"] if s["zablokowana"]) == 2)
+
+        # ——— krok 2: cel ———————————————————————————————————————————————————————
+        # ⚠ Pole szukania czyścimy PRZED przejściem: tekst jedzie z formularzem, a w kroku 2
+        # odsiewa pozycję „Cała firma" (szukanie znaczy „chcę konkretne osoby").
+        pg.fill(".wid-szukanie__pole", "")
+        pg.locator(".modal__foot .btn", has_text="Dalej").first.click()
+        pg.wait_for_timeout(700)
+        krok2 = pg.evaluate(OKNO_WIDOCZNOSCI)
+        wynik["krok2"] = krok2
+        pg.locator("label[for=wid-cala-firma], #wid-cala-firma").first.click(force=True)
+        pg.wait_for_timeout(500)
+
+        # ——— 4 i 5: krok 3 ———————————————————————————————————————————————————
+        pg.locator(".modal__foot .btn", has_text="Dalej").first.click()
+        pg.wait_for_timeout(700)
+        krok3 = pg.evaluate(OKNO_WIDOCZNOSCI)
+        wynik["krok3_bez_zakresu"] = krok3
+        pg.locator("label:has(#wid-zakres-pelny), #wid-zakres-pelny").first.click(force=True)
+        pg.wait_for_timeout(500)
+        krok3_po = pg.evaluate(OKNO_WIDOCZNOSCI)
+        wynik["krok3_po_zakresie"] = krok3_po
+        zapis_przygaszony = (
+            krok3["zakresow_wybranych"] == 0
+            and any(p["zapis"] and p["przygaszony"] for p in krok3["stopka"])
+            and krok3_po["zakresow_wybranych"] == 1
+            and any(p["zapis"] and not p["przygaszony"] and not p["martwy"] for p in krok3_po["stopka"])
+        )
+        stopka3 = [(p["tekst"], p["glowny"], p["zapis"]) for p in krok3["stopka"]]
+        # ⚠ Krotki, nie same napisy: „Wstecz" w kroku 1 ma być MARTWY, a „Dalej" żywy. Pierwsza
+        # wersja tego warunku oczekiwała `martwy` u obu i kryterium świeciło na poprawnym ekranie.
+        # Oba zestawy jadą do wyniku, żeby czerwień mówiła, co zobaczyła, a nie tylko „false".
+        wynik["stopka_krok1"] = stopka1
+        wynik["stopka_krok3"] = stopka3
+        stopka_krokow = (
+            stopka1 == [("Wstecz", True, False), ("Dalej", False, False)]
+            and [p["tekst"] for p in krok2["stopka"]] == ["Wstecz", "Dalej"]
+            and not any(p["martwy"] for p in krok2["stopka"])
+            and stopka3 == [("Wstecz", False, False), ("Nadaj dostęp", True, True)]
+        )
+
+        # ——— 7: zapis, wyłączenie, separator ————————————————————————————————
+        pg.locator("[data-wid-zapis]").first.click(force=True)
+        pg.wait_for_load_state("networkidle")
+        pg.wait_for_timeout(600)
+        wynik["lista_po_zapisie"] = pg.evaluate(LISTA_WIDOCZNOSCI)
+        wiersz = pg.locator(".wid-wiersz", has_text="__probka_zespolu").first
+        dodana = wiersz.count() > 0
+        if dodana:
+            wiersz.locator(".wid-stan").first.click()
+            pg.wait_for_load_state("networkidle")
+            pg.wait_for_timeout(600)
+        lista = pg.evaluate(LISTA_WIDOCZNOSCI)
+        wynik["lista_po_wylaczeniu"] = lista
+        separator = next((w for w in lista if w["separator"]), None)
+        wiersz_nieaktywny = next((w for w in lista
+                                  if w["nieaktywna"] and "__probka_zespolu" in w["tekst"]), None)
+        separator_nieaktywnych = (
+            dodana and separator is not None and "NIEAKTYWNE" in (separator["tekst"] or "")
+            and wiersz_nieaktywny is not None and wiersz_nieaktywny["plakietka"] == "wyłączona"
+        )
+
+        # ——— sprzątanie reguły TĄ SAMĄ drogą, którą ją nadaliśmy ———————————————
+        usunieta = None
+        if dodana:
+            kosz = pg.locator(".wid-wiersz", has_text="__probka_zespolu").first.locator(
+                ".ikona-akcja--usun").first
+            kosz.click()
+            pg.wait_for_timeout(500)
+            potwierdz = pg.locator("dialog[open] button[type=submit]").first
+            if potwierdz.count() > 0:
+                potwierdz.click()
+            pg.wait_for_load_state("networkidle")
+            pg.wait_for_timeout(500)
+            usunieta = pg.locator(".wid-wiersz", has_text="__probka_zespolu").count() == 0
+        wynik["regula_usunieta"] = usunieta
+
+        wynik.update({
+            "ok": bool(stala_bez_krokow and stala_stopka and nowa_pusty_start and stopka_krokow
+                       and zapis_przygaszony and blokada_sekcji and separator_nieaktywnych
+                       and usunieta),
+            "stala_bez_krokow": stala_bez_krokow,
+            "stala_stopka": stala_stopka,
+            "nowa_pusty_start": nowa_pusty_start,
+            "stopka_krokow": stopka_krokow,
+            "zapis_przygaszony": zapis_przygaszony,
+            "blokada_sekcji": blokada_sekcji,
+            "separator_nieaktywnych": separator_nieaktywnych,
+        })
+
+        return wynik
+    except Exception as e:  # noqa: BLE001
+        wynik.update({"ok": False, "powod": f"{type(e).__name__}: {e}"})
+
+        return wynik
+    finally:
+        # ⚠ Kolejność: najpierw oddajemy spółkę (czyta ją ekran), potem kasujemy próbkę.
+        try:
+            if ctx is not None and spolka_przed not in ("", str(spolka)):
+                strona = ctx.new_page()
+                strona.goto(BAZA + "/kalendarz?widok=firma", wait_until="networkidle")
+                ustaw_spolke_w_belce(strona, int(spolka_przed))
+                strona.close()
+        except Exception:  # noqa: BLE001 — sprzątanie nie ma prawa przewrócić pomiaru
+            pass
+        wynik["probka_sprzatanie"] = probka_zespolu("sprzataj")
+        if ctx is not None:
+            ctx.close()
+
+
 KONTROLE: dict[str, object] = {
     "znacznik_dzis": sprawdz_znacznik_dzis,
     "przelacznik_zespolu": sprawdz_przelacznik_zespolu,
@@ -7038,6 +7339,11 @@ KONTROLE: dict[str, object] = {
     # Druga jest konieczna, bo pierwsza łamie kryterium na geometrii pasa, a nie na tym, czy
     # zmierzona liczba nadąża za wysokością karty — a to był właśnie zgłoszony objaw.
     "pasy_szczelin_bez_obserwatora": sprawdz_pasy_szczelin,
+    # ⚠ Usterka odwraca pusty start kroków 2 i 3 — czyli to, co Z81 wprost zdjęło.
+    "okno_widocznosci": sprawdz_okno_widocznosci,
+    # ⚠ Dokładane razem z przepisaniem trzeciego twierdzenia na decyzję z Z76: nazwa z R2
+    # wraca do treści wiersza `/dane`, czyli do stanu, który tamta decyzja zdjęła.
+    "nazwa_wyswietlana": sprawdz_nazwe_wyswietlana,
 }
 
 
@@ -7069,6 +7375,7 @@ KRYTERIA: dict[str, object] = {
     "dziennik_i_zdania": sprawdz_dziennik_i_zdania,
     "grupy": sprawdz_grupy,
     "liczniki_nieobecnosci": sprawdz_liczniki_nieobecnosci,
+    "okno_widocznosci": sprawdz_okno_widocznosci,
 }
 
 

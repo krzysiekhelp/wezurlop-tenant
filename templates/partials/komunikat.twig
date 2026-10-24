@@ -8,10 +8,24 @@
     „connector milczy"), objaśnienia i wszystko, co ma zostać po pięciu sekundach, zostaje
     zwykłym `.notice` w treści — toast znika, a wyjaśnienie ma zostać.
 
+    ⚠ **Jeden odnośnik, opcjonalny** (zlecenie Z80 D pkt 7): komunikat o skutku, którego człowiek
+    nie zamawiał („zapis wyłączył regułę widoczności"), musi dawać drogę do obejrzenia tego
+    skutku — inaczej zostaje mu szukanie po ekranach. Odnośnik jedzie też do toasta, bo tam
+    komunikat ląduje ze skryptem; `flash.js` składa go przez `createElement`, nigdy z napisu.
+    ⚠ Treść komunikatu stoi w osobnym `span[data-komunikat-tresc]` właśnie dlatego, że jest
+    odnośnik: bez tego `textContent` całego akapitu wciągnąłby do toasta także słowo „Pokaż"
+    i toast przeczytałby „…widoczności. Pokaż" jako jedno zdanie.
+
     `rodzaj`: `sukces` | `blad` | `uwaga` | `info`.
     `klasa`: dodatkowa klasa układu, gdy komunikat stoi w siatce i musi zająć cały wiersz
-    (bez JavaScriptu zostaje w treści, więc dalej musi się w niej mieścić). -#}
+    (bez JavaScriptu zostaje w treści, więc dalej musi się w niej mieścić).
+    `adres`, `odnosnik`: opcjonalny odnośnik — oba muszą być niepuste, żeby się pojawił. -#}
 {% if tekst is not empty %}
+    {% set ma_odnosnik = adres is defined and adres and odnosnik is defined and odnosnik %}
     <p class="notice{{ rodzaj == 'blad' ? ' notice--danger' : (rodzaj == 'uwaga' ? ' notice--warn' : '') }}{{ klasa is defined and klasa ? ' ' ~ klasa : '' }}"
-       data-komunikat="{{ rodzaj }}" role="{{ rodzaj == 'blad' ? 'alert' : 'status' }}">{{ tekst }}</p>
+       data-komunikat="{{ rodzaj }}"
+       {%- if ma_odnosnik %} data-komunikat-adres="{{ adres }}"
+       data-komunikat-odnosnik="{{ odnosnik }}"{% endif %}
+       role="{{ rodzaj == 'blad' ? 'alert' : 'status' }}"><span data-komunikat-tresc>{{ tekst }}</span>
+        {%- if ma_odnosnik %} <a class="notice__odnosnik" href="{{ adres }}">{{ odnosnik }} ›</a>{% endif %}</p>
 {% endif %}

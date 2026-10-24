@@ -57,21 +57,33 @@ final class HierarchyController
             // Brak choćby jednej spółki w zakresie to nie awaria — to konto, które nie ma
             // czego ustawiać. Pokazujemy ekran z tym zdaniem, nie 403 bez wyjaśnienia.
             return $this->view->render('page/web/hierarchy.twig', [
+                'formy_zmian' => self::formyZmian(),
+                'licznik_zmian' => '0 ' . Odmiana::zmiany(0),
                 'spolki' => [], 'spolka' => null, 'struktura' => null,
                 'z_adresu' => false, 'fallback' => false,
-                'notice' => null, 'error' => null, 'caly_tenant' => false,
+                'notice' => null, 'notice_adres' => null, 'notice_odnosnik' => 'Pokaż',
+                'error' => null, 'caly_tenant' => false,
             ]);
         }
         $wybor = $this->wybranaSpolka($admin, $request, $spolki);
         $wybrana = $wybor['spolka'];
 
         return $this->view->render('page/web/hierarchy.twig', [
+            'formy_zmian' => self::formyZmian(),
+            'licznik_zmian' => '0 ' . Odmiana::zmiany(0),
             'spolki'    => $spolki,
             'spolka'    => $wybrana,
             'z_adresu'  => $wybor['z_adresu'],
             'fallback'  => $wybor['fallback'],
             'struktura' => $this->hierarchia->struktura($wybrana['id']),
-            'notice'    => $request->query('ok') === null ? null : 'Zmiany zapisane.',
+            'notice'    => self::komunikatZapisu($request),
+            // ⚠ Odnośnik „Pokaż" w komunikacie — tylko gdy zapis COŚ wyłączył (Z80 D pkt 7).
+            // Prowadzi na listę reguł, bo tam widać, która przestała dawać wgląd i dlaczego.
+            'notice_adres' => $request->queryString('wylaczone', 6) === ''
+                || (int) $request->queryString('wylaczone', 6) < 1
+                ? null
+                : $this->urls->to('/admin/widocznosc') . '?spolka=' . $wybrana['id'],
+            'notice_odnosnik' => 'Pokaż',
             'error'     => null,
             // ⚠ Zdanie o zasięgu, nie nowe uprawnienie (zlecenie 08.10 §4, wariant a).
             // Kontrolka spółek na tym ekranie pokazuje WSZYSTKIE spółki tenanta, bo
@@ -100,7 +112,13 @@ final class HierarchyController
         if ($employmentId === false || $spolki === []) {
             return $this->errors->errorPage(404, null, $request->isHtmx());
         }
-        $wiersz = $this->repo->doZapisu($employmentId);
+        // ⚠ **`false` = bez blokady wiersza, bo to ODCZYT** (zlecenie Z80 D pkt 6). Do 24.10.2026
+        // zwykłe otwarcie okna „Zmień przełożonego" brało `FOR UPDATE` na wierszu zatrudnienia,
+        // choć niczego nie zapisuje — a okno otwiera się przy każdym kliknięciu w kartę.
+        // Blokada ma sens wyłącznie tam, gdzie po odczycie następuje zapis w tej samej
+        // transakcji (`Hierarchia::zapisz()`), bo tylko tam chroni przed cyklem ułożonym
+        // przez dwóch administratorów naraz.
+        $wiersz = $this->repo->doZapisu($employmentId, false);
         // ⚠ IDOR: zatrudnienie musi leżeć w spółce, do której wołający MA dostęp — nie
         // wystarczy, że zna identyfikator (`CLAUDE.md` §10). Brak dostępu to 404, nie 403:
         // nie potwierdzamy, że takie zatrudnienie istnieje.
@@ -211,18 +229,22 @@ final class HierarchyController
             // jest gorsze od niezapisanej, bo administrator widzi, że „coś się stało",
             // i nie wie co.
             return $this->view->render('page/web/hierarchy.twig', [
+                'formy_zmian' => self::formyZmian(),
+                'licznik_zmian' => '0 ' . Odmiana::zmiany(0),
                 'spolki'    => $spolki,
                 'spolka'    => $wybrana,
                 'z_adresu'  => false,
                 'fallback'  => false,
                 'struktura' => $this->hierarchia->struktura($wybrana['id']),
                 'notice'    => null,
+                'notice_adres' => null,
+                'notice_odnosnik' => 'Pokaż',
                 'error'     => 'Nie zapisano żadnej zmiany: ' . $wynik['powod'] . '.',
                 'caly_tenant' => count($spolki) > 1 && $this->permissions->hasTenantWideRole($admin->accountId()),
             ], 422);
         }
 
-        return Response::redirect($this->adres($wybrana['id'], true));
+        return Response::redirect($this->adres($wybrana['id'], true, $wynik['wylaczonych_regul']));
     }
 
     /**
@@ -231,11 +253,58 @@ final class HierarchyController
      * tej samej prawdy. Identyfikator zostaje w podpisie, bo wywołania go podają — i czyta się
      * z niego, dla której spółki zapis się udał.
      */
-    private function adres(int $companyId, bool $ok = false): string
+    private function adres(int $companyId, bool $ok = false, int $wylaczone = 0): string
     {
         unset($companyId);
+        if (!$ok) {
+            return $this->urls->to('/admin/hierarchia');
+        }
 
-        return $this->urls->to('/admin/hierarchia') . ($ok ? '?ok=1' : '');
+        // ⚠ Liczba wyłączonych reguł jedzie W ADRESIE, a nie w sesji (Z80 D pkt 7): po zapisie
+        // leci przekierowanie (POST/Redirect/GET), więc komunikat musi przeżyć zmianę żądania.
+        // Sesja znaczyłaby komunikat pokazany w innej karcie przeglądarki niż ta, która
+        // zapisywała — a adres jest widoczny, odświeżalny i nie trzyma stanu po odczytaniu.
+        return $this->urls->to('/admin/hierarchia') . '?ok=1'
+            . ($wylaczone > 0 ? '&wylaczone=' . $wylaczone : '');
+    }
+
+    /**
+     * **Zdanie po udanym zapisie — z liczbą wyłączonych reguł, gdy jakieś były** (Z80 D pkt 7).
+     *
+     * ⚠ Zdanie jest JEDNO, złożone z dwóch części: „Zapisano." mówi o tym, o co człowiek prosił,
+     * a „Wyłączono N reguł widoczności." o skutku, którego nie zamawiał. Rozbicie na dwa
+     * komunikaty dałoby dwa toasty jeden nad drugim, z czego pierwszy zniknąłby pierwszy.
+     * ⚠ Przy zerze zostaje zdanie, które stało tu dotąd — brak wyłączeń nie jest wiadomością.
+     */
+    private static function komunikatZapisu(Request $request): ?string
+    {
+        if ($request->query('ok') === null) {
+            return null;
+        }
+        $wylaczone = (int) $request->queryString('wylaczone', 6);
+        if ($wylaczone < 1) {
+            return 'Zmiany zapisane.';
+        }
+
+        // ⚠ Bez dopisku „bo bez podwładnych": powód bywa inny dla każdej z wyłączonych reguł,
+        // a jedno zdanie na kilka powodów musiałoby zgadywać. Powód stoi przy wierszu reguły,
+        // dokąd prowadzi odnośnik „Pokaż".
+        return 'Zapisano. Wyłączono ' . $wylaczone . ' ' . Odmiana::reguly($wylaczone)
+            . ' widoczności.';
+    }
+
+    /**
+     * Formy słowa „zmiana" dla licznika paska — **słowa z PHP, wybór formy w przeglądarce**
+     * (zlecenie Z80 D pkt 5).
+     *
+     * ⚠ Licznik przelicza się bez żądania do serwera (partia zmienia się w przeglądarce), więc
+     * formę musi wybrać skrypt — ale nie wolno mu znać polskich słów, bo wtedy brzmienie
+     * mieszkałoby w dwóch miejscach. Jadą więc wszystkie trzy, atrybutem, w jednym porządku:
+     * liczba pojedyncza | 2–4 | 5 i więcej.
+     */
+    private static function formyZmian(): string
+    {
+        return implode('|', [Odmiana::zmiany(1), Odmiana::zmiany(2), Odmiana::zmiany(5)]);
     }
 
     /**

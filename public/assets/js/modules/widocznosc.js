@@ -75,13 +75,13 @@
     }
   }
 
-  /* Forma słowa po liczbie — ta sama reguła, co `Odmiana::mnoga()` w PHP (1 / 2–4 / 5+,
-     z wyjątkiem 12–14). Same słowa przychodzą z serwera. */
+  /* ⚠ Forma słowa po liczbie mieszka od Z80 D w `modules/odmiana.js`, bo tej samej reguły
+     potrzebuje licznik paska zmian w Hierarchii — a dwie kopie wyjątku nastu rozjechałyby się
+     przy pierwszej poprawce. Same słowa przychodzą z serwera, tak jak dotąd. */
   function forma(ile, formy) {
-    var ostatnia = Math.abs(ile) % 10;
-    var dwie = Math.abs(ile) % 100;
-    if (Math.abs(ile) === 1) { return formy[0]; }
-    return (ostatnia >= 2 && ostatnia <= 4 && (dwie < 12 || dwie > 14)) ? formy[1] : formy[2];
+    return window.WezurlopOdmiana
+      ? window.WezurlopOdmiana.forma(ile, formy)
+      : (formy[2] || '');
   }
 
   function zaznaczone(ramka) {

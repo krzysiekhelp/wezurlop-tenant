@@ -16,7 +16,10 @@
     teraz w nagłówku prawego panelu, przy strukturze, której dotyczy. -#}
 
     {% include 'partials/komunikat.twig' with {'tekst': error, 'rodzaj': 'blad'} only %}
-    {% include 'partials/komunikat.twig' with {'tekst': notice, 'rodzaj': 'sukces'} only %}
+    {#- ⚠ Odnośnik pojawia się TYLKO wtedy, gdy zapis coś wyłączył (`notice_adres`): komunikat
+        o zwykłym zapisie nie ma po co nikogo nigdzie odsyłać (zlecenie Z80 D pkt 7). -#}
+    {% include 'partials/komunikat.twig' with {'tekst': notice, 'rodzaj': 'sukces',
+        'adres': notice_adres, 'odnosnik': notice_odnosnik} only %}
 
     {% if spolka is null %}
         <p class="empty-state">To konto nie ma firmy, w której mogłoby ustawiać strukturę. Hierarchię prowadzi się w obrębie firmy, do której masz dostęp.</p>
@@ -178,7 +181,11 @@
             {% include 'partials/csrf.twig' %}
             <input type="hidden" name="spolka" value="{{ spolka.id }}" id="hier-spolka">
             <div class="hier__bar-text">
-                <strong id="hier-bar-count">0 zmian</strong>
+                {#- ⚠ **Formy odmiany jadą atrybutem, bo licznik przelicza PRZEGLĄDARKA** (Z80 D
+                    pkt 5): partia zmienia się bez żądania do serwera, więc napis składa skrypt —
+                    ale słowa zostają w PHP (`Support\Odmiana`), żeby brzmienie miało jedno
+                    miejsce. Napis początkowy renderuje serwer tą samą funkcją. -#}
+                <strong id="hier-bar-count" data-formy-zmiany="{{ formy_zmian }}">{{ licznik_zmian }}</strong>
                 <ul class="hier__bar-list" id="hier-bar-list"></ul>
             </div>
             <div class="hier__bar-actions">

@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.20.5, 24.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.20.6, 24.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,35 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.20.5 → 1.20.6: komunikat może mieć odnośnik, pasek zmian mieści się na telefonie,
+> a licznik odmienia się przez liczbę** (zlecenie Z80 D pkt 4, 5 i 7).
+> - **Komunikat o wyniku operacji dostaje JEDEN opcjonalny odnośnik.** `partials/komunikat.twig`
+>   przyjmuje `adres` i `odnosnik`, a `modules/flash.js` przenosi je do toasta, składając
+>   `<a>` przez `createElement` i `textContent` — w tym pliku nadal nie ma miejsca, w którym
+>   tekst z serwera stawałby się HTML-em. Odnośnik jest podkreślony i bierze barwę komunikatu
+>   (`color: inherit`), bo w pięciosekundowym pasku trzeci kolor nie ma czego wyjaśniać.
+>   ⚠ Treść komunikatu stoi od teraz w `span[data-komunikat-tresc]`: bez tego `textContent`
+>   całego akapitu wciągnąłby do toasta także słowo „Pokaż" i przeczytał je jako część zdania.
+>   Pierwsze użycie: po zapisie hierarchii, która wyłączyła reguły widoczności — „Zapisano.
+>   Wyłączono 1 regułę widoczności." plus „Pokaż ›" na `/admin/widocznosc`. Przy zerze
+>   wyłączonych reguł zostaje zdanie, które stało tam dotąd.
+> - **Pasek niezapisanych zmian na telefonie idzie w PION, a przyciski się zawijają**
+>   (`@media (max-width: 700px)`): rząd trzech przycisków ma `flex: none` i napisy bez zawijania,
+>   więc jego własna szerokość to 415 px i przy oknie 375 px dawał **73 px przewijania całej
+>   strony**. Teraz przyciski dostają `flex: 1 1 auto` i stają po dwa w rzędzie.
+>   ⚠ **`flex: 1 0 100%` znaczy co innego po obróceniu kierunku — i to był drugi błąd tej samej
+>   zmiany.** W rzędzie „100%" to cała szerokość („zajmij własny wiersz"); w kolumnie
+>   `flex-basis` opisuje WYSOKOŚĆ, więc pojemnik ostrzeżenia żądał całej wysokości paska,
+>   nie zmieścił się i `flex-wrap` przeniósł go do **drugiej kolumny** — w prawo, poza ekran
+>   (zmierzone: prawa krawędź 667 px przy oknie 375 px, 292 px przewijania). W kolumnie pełną
+>   szerokość daje samo `align-items: stretch`, więc pojemnik wraca tam do `flex: none`.
+>   Po poprawce: **0 px przewijania na 1920, 1366 i 375**, przyciski w dwóch wierszach.
+> - **Licznik paska odmienia się przez liczbę**: „1 zmiana", „2 zmiany", „5 zmian" — do tej pory
+>   pisał „2 zmian". Formy składa `Support\Odmiana` i jadą atrybutem `data-formy-zmiany`;
+>   wybór formy po liczbie mieszka od teraz we wspólnym `modules/odmiana.js` (wyciągniętym
+>   z `modules/widocznosc.js`, nie dopisanym obok). ⚠ Ten plik nie zna ani jednego polskiego
+>   słowa i nie ma prawa poznać: brzmienie ma jedno miejsce, w PHP.
 
 > **Zmiana 1.20.4 → 1.20.5: pasek niezapisanych zmian w Hierarchii ostrzega, że zapis odbierze
 > komuś wgląd** (zlecenie Z80 cz. C).
