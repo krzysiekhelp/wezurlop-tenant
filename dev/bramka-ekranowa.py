@@ -1316,8 +1316,9 @@ def _ostrzezenie_w_przegladarce(b, usterka, haslo, spolka_probki: int,
             }
 
         pierwsze = przeciagnij(etaty_probki[0])
+        # ⚠ Ta sama funkcja, co w `cykl` i `zasieg` — jedno pytanie, jedna odpowiedź.
         tylko_probne = (pierwsze["partia"] != []
-                        and all(int(x) in etaty_probki for x in pierwsze["partia"]))
+                        and tylko_etaty_probki(pierwsze["partia"], etaty_probki))
         if not tylko_probne:
             # ⚠ **Przerwanie PRZED zapisem** (Z82): niezgodność znaczy, że pociągnęliśmy kogoś
             # innego, a zapis zostawiłby po nim wpis w dzienniku.
@@ -1365,7 +1366,80 @@ def _ostrzezenie_w_przegladarce(b, usterka, haslo, spolka_probki: int,
         ctx.close()
 
 
-def sprawdz_odrzucenie_cyklu(b) -> dict:
+def etaty_poza_probka(spolka: int, pomin: list[int]) -> dict:
+    """Identyfikatory zatrudnień **tylko do czytania**: jedno z tej samej firmy spoza próbki
+    i jedno z innej firmy (zlecenie Z83).
+
+    ⚠ Te dwa identyfikatory jadą WYŁĄCZNIE jako parametr adresu, żeby sprawdzić, że nic nie
+    dają — nigdy nie są zapisywane ani przestawiane. Dlatego wolno im być prawdziwe: „cudzy
+    identyfikator nie pokazuje cudzych danych" trzeba sprawdzić na identyfikatorze, który
+    naprawdę do kogoś należy. Podstawienie tu etatu próbnego osłabiłoby twierdzenie do
+    „nieistniejący identyfikator nic nie daje".
+    """
+    import subprocess
+    kod = (
+        'require "vendor/autoload.php";'
+        'Dotenv\\Dotenv::createImmutable(__DIR__)->load();'
+        '$e = $_ENV;'
+        '$db = new Wezurlop\\Db\\Connection(["host" => (string) $e["DB_HOST"],'
+        '  "port" => (int) $e["DB_PORT"], "name" => (string) $e["DB_NAME"],'
+        '  "user" => (string) $e["DB_USER"], "password" => (string) $e["DB_PASS"]]);'
+        '$pdo = $db->pdo();'
+        '$spolka = (int) $argv[1];'
+        '$pomin = array_values(array_filter(array_map("intval", explode(",", (string) ($argv[2] ?? "")))));'
+        '$lista = $pomin === [] ? "0" : implode(",", $pomin);'
+        '$obcy = (int) $pdo->query("SELECT id FROM employment WHERE company_id = " . $spolka'
+        '  . " AND is_active = 1 AND id NOT IN (" . $lista . ") ORDER BY id LIMIT 1")->fetchColumn();'
+        '$inna = (int) $pdo->query("SELECT id FROM employment WHERE company_id <> " . $spolka'
+        '  . " AND is_active = 1 ORDER BY id LIMIT 1")->fetchColumn();'
+        'echo json_encode(["obcy" => $obcy ?: null, "inna_spolka" => $inna ?: null]);'
+    )
+    wyn = subprocess.run(["php", "-r", kod, str(int(spolka)),
+                          ",".join(str(int(x)) for x in pomin)],
+                         cwd=KORZEN, capture_output=True, text=True, check=True)
+
+    return json.loads(wyn.stdout or "{}")
+
+
+def tylko_etaty_probki(co: dict | list, etaty: list[int]) -> bool:
+    """Czy ten zapis hierarchii dotyczy **wyłącznie** zatrudnień próbki (zlecenia Z82, Z83).
+
+    ⚠ Bezpiecznik, nie formalność: `drag_to` chwyta środek prostokąta, a listy kart potrafią się
+    przesunąć — 24.10.2026 pomiar przestawił tak trzy PRAWDZIWE osoby i zostawił po nich wpisy
+    w dzienniku, których nie da się wycofać. Każde kryterium, które zapisuje hierarchię, pyta
+    o to PRZED zapisem i przerywa na czerwono, jeśli odpowiedź jest przecząca.
+
+    ⚠ **Dwa kształty wejścia, jedna reguła.** `ostrzezenie` czyta POLA PARTII z ekranu (zapis
+    idzie formularzem, więc tylko tam widać, co pojedzie), a `cykl` i `zasieg` podają ŁADUNEK
+    żądania (zapisują `fetch`-em). Dwie funkcje na to samo pytanie rozjechałyby się przy
+    pierwszej zmianie — a to jest pytanie, od którego zależy, czy pomiar dotknie cudzych danych.
+    """
+    wartosci = (
+        [str(x) for x in co]
+        if isinstance(co, list)
+        else [str(co.get(pole) or "") for pole in ("employment", "supervisor")]
+    )
+    for wartosc in wartosci:
+        if wartosc != "" and int(wartosc) not in etaty:
+            return False
+
+    return True
+
+
+# ⚠ **Usterka kontrolna: ekran podaje zapisowi zły token.** Kryterium `cykl` ma dowieść, że zapis
+# odmawia DOKŁADNIE z powodu pętli — a nie że „jakiś błąd wyszedł". Pod tą usterką żądanie wraca
+# 419 (wygasły formularz), więc kryterium musi zaświecić: inaczej przyjmowałoby każdą odmowę
+# za odmowę pętli i było ozdobą.
+_usterka("cykl_zly_token", """
+    window.setInterval(() => {
+      document.querySelectorAll('input[name="_csrf"]').forEach((e) => {
+        if (e.value !== 'nie-ten-token') { e.value = 'nie-ten-token'; }
+      });
+    }, 100);
+""")
+
+
+def sprawdz_odrzucenie_cyklu(b, usterka: str | None = None) -> dict:
     """Hierarchia: żądanie układające PĘTLĘ musi wrócić błędem, a stan zostać NIETKNIĘTY.
 
     ⚠ To jest dowód przez złamanie, nie sprawdzenie wyglądu (warunek ze zlecenia §11).
@@ -1373,66 +1447,94 @@ def sprawdz_odrzucenie_cyklu(b) -> dict:
     a rzecz, na której ten ekran stoi, to odmowa zapisu: cykl `A -> B -> A` zawiesiłby
     eskalację w nieskończonej pętli (znalezisko L2).
 
-    ⚠ **Sprawdzenie samo przygotowuje sobie warunek i samo po sobie sprząta.** Pierwsza wersja
-    wymagała gotowej krawędzi w danych roboczych i poszła na czerwono w dniu, w którym Krzysztof
-    wyczyścił hierarchię ręcznie — czyli **fałszywy alarm z powodu stanu danych, nie kodu**.
-    Bramka krzycząca bez powodu przestaje być czytana dokładnie tak samo jak lista odchyleń
-    świecąca przy każdym wierszu. Zapis idzie ścieżką aplikacji i zostaje wycofany na końcu.
+    ⚠ **Od Z83 krawędź daje PRÓBKA, a nie dane robocze** (zasada „pomiar dotyka wyłącznie osób
+    próbnych", bez wyjątków). Dawna wersja brała dwie pierwsze karty spółki — czyli prawdziwych
+    ludzi — podwieszała jedną pod drugą ZWYKŁYM ZAPISEM, żeby mieć krawędź do zapętlenia,
+    i wycofywała ją na końcu. Wycofanie działało, ale w dzienniku zostawały dwa wpisy o cudzych
+    osobach, a dziennika nie wycofuje nic.
+    ⚠ Skutek uboczny jest lepszy niż sama zasada: próbka **przychodzi z gotową krawędzią**
+    (podwładni są podwieszeni pod przełożonego), więc kryterium nie wykonuje już ANI JEDNEGO
+    udanego zapisu. Jedyne żądanie, które wysyła, jest tym, które ma zostać odrzucone — a odmowa
+    nie zapisuje nic. Krok przygotowawczy zniknął razem z całą klasą błędów, którą mógł wnieść.
+
+    ⚠ Przed żądaniem sprawdzamy, że dotyczy wyłącznie etatów próbki (`tylko_etaty_probki()`) —
+    bezpiecznik z Z82. Tutaj identyfikatory bierzemy z próbki, a nie z ekranu, więc nie ma czego
+    pomylić; sprawdzenie zostaje, bo to ono pilnuje, żeby następna wersja tego kryterium nie
+    wróciła do czytania kart z ekranu.
     """
-    ctx = b.new_context(viewport={"width": 1280, "height": 900}, ignore_https_errors=True)
+    haslo = HASLO or haslo_dev(LOGIN)
+    if not haslo:
+        return {"ok": False, "powod": f"brak hasła konta {LOGIN} — pomiaru NIE wykonano"}
+    probka_zespolu("sprzataj")
+    probka = probka_zespolu("utworz")
+    spolka = int(probka.get("spolka") or 0)
+    szef = int(probka.get("szef_etat") or 0)
+    podwladni = [int(p["etat"]) for p in probka.get("podwladni", [])]
+    etaty_probki = [szef] + podwladni
+    if spolka == 0 or szef == 0 or podwladni == []:
+        probka_zespolu("sprzataj")
+
+        return {"ok": False, "powod": "próbka nie dała gałęzi — pomiaru NIE wykonano"}
+    ctx = nowy_kontekst(b, usterka, viewport={"width": 1280, "height": 900},
+                        ignore_https_errors=True)
     pg = ctx.new_page()
-    przygotowane = None
+    spolka_przed = ""
     try:
         pg.goto(BAZA + "/logowanie", wait_until="networkidle")
         pg.fill("#login-email", LOGIN)
-        pg.fill("#login-password", HASLO)
+        pg.fill("#login-password", haslo)
         pg.click("button[type=submit]")
         pg.wait_for_load_state("networkidle")
         pg.goto(BAZA + "/admin/hierarchia", wait_until="networkidle")
-        dane = pg.evaluate("""() => {
-          const karty = Array.from(document.querySelectorAll('.hier__card'));
-          const csrf = document.querySelector('input[name="_csrf"]');
-          const spolka = document.querySelector('input[name="spolka"]');
-          if (karty.length < 2 || !csrf || !spolka) { return null; }
-          return {a: karty[0].getAttribute('data-hier-id'),
-                  b: karty[1].getAttribute('data-hier-id'),
-                  csrf: csrf.value, spolka: spolka.value};
+        spolka_przed = pg.evaluate(
+            "() => ((document.querySelector('.spolka') || {}).dataset || {}).spolka || ''")
+        # ⚠ Spółkę USTAWIAMY na spółkę próbki: ekran bierze ją z kontekstu, a stan po ekranie
+        # (przełożony przełożonego) czytamy właśnie z niego.
+        ustaw_spolke_w_belce(pg, spolka)
+        pg.goto(BAZA + "/admin/hierarchia", wait_until="networkidle")
+        csrf = pg.evaluate("""() => {
+          const c = document.querySelector('input[name="_csrf"]');
+          return c ? c.value : null;
         }""")
-        if dane is None:
-            return {"ok": False, "powod": "mniej niz dwa zatrudnienia w spolce - nie ma z czego zrobic krawedzi"}
-        # 1. Warunek: `a` podlega `b` — zwykłą ścieżką zapisu aplikacji.
-        krok1 = pg.evaluate(POST_HIERARCHII, {**dane, "employment": dane["a"],
-                                              "cel": "przelozony", "supervisor": dane["b"]})
-        if krok1["kod"] not in (200, 303):
-            return {"ok": False, "powod": "nie udalo sie przygotowac krawedzi", "kod": krok1["kod"]}
-        przygotowane = dane
-        # 2. Pętla: `b` ma od teraz podlegać swojemu własnemu podwładnemu.
-        wynik = pg.evaluate(POST_HIERARCHII, {**dane, "employment": dane["b"],
-                                              "cel": "przelozony", "supervisor": dane["a"]})
-        # 3. Stan po próbie — z ekranu wczytanego PO niej, nie ze starego DOM-u.
-        pg.goto(BAZA + "/admin/hierarchia?spolka=" + dane["spolka"], wait_until="networkidle")
+        if csrf is None:
+            return {"ok": False, "powod": "brak tokenu CSRF na ekranie hierarchii"}
+        # Pętla: przełożony próbki ma od teraz podlegać swojemu własnemu podwładnemu.
+        zadanie = {"csrf": csrf, "spolka": str(spolka), "employment": str(szef),
+                   "cel": "przelozony", "supervisor": str(podwladni[0])}
+        if not tylko_etaty_probki(zadanie, etaty_probki):
+            return {"ok": False, "powod": "żądanie dotyczy etatu spoza próbki — "
+                                          "przerwano PRZED zapisem",
+                    "zadanie": {k: v for k, v in zadanie.items() if k != "csrf"},
+                    "etaty_probki": etaty_probki}
+        wynik = pg.evaluate(POST_HIERARCHII, zadanie)
+        # Stan po próbie — z ekranu wczytanego PO niej, nie ze starego DOM-u.
+        pg.goto(BAZA + "/admin/hierarchia", wait_until="networkidle")
         po = pg.evaluate("""(id) => {
           const k = document.querySelector('.hier__card[data-hier-id="' + id + '"]');
           return k ? (k.getAttribute('data-hier-przelozony') || '') : null;
-        }""", dane["b"])
+        }""", str(szef))
+
         return {
             "ok": wynik["kod"] == 422 and "pętlę w hierarchii" in wynik["tresc"] and po == "",
             "kod": wynik["kod"],
             "komunikat_o_petli": "pętlę w hierarchii" in wynik["tresc"],
             "przelozony_szefa_po_probie": po,
-            "para": dane["b"] + " <- " + dane["a"],
+            "para": f"{szef} <- {podwladni[0]} (etaty próbne)",
+            "zapisow_przygotowujacych": 0,
         }
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "powod": str(e)}
     finally:
-        # Wycofanie przygotowanej krawędzi — bramka nie zostawia po sobie struktury.
-        if przygotowane is not None:
-            try:
-                pg.evaluate(POST_HIERARCHII, {**przygotowane, "employment": przygotowane["a"],
-                                              "cel": "zdejmij", "supervisor": ""})
-            except Exception:  # noqa: BLE001
-                pass
+        # ⚠ Wycofania zapisu NIE MA i nie jest potrzebne: jedyne żądanie tego kryterium zostało
+        # odrzucone, a próbkę i tak kasujemy. Spółka kontekstu wraca pierwsza, bo czyta ją ekran.
+        try:
+            if spolka_przed not in ("", str(spolka)):
+                pg.goto(BAZA + "/admin/hierarchia", wait_until="networkidle")
+                ustaw_spolke_w_belce(pg, int(spolka_przed))
+        except Exception:  # noqa: BLE001
+            pass
         ctx.close()
+        probka_zespolu("sprzataj")
 
 
 def zatrudnienia_pracownika() -> dict:
@@ -2225,21 +2327,56 @@ def sprawdz_zasieg_podgladu(b, usterka: str | None = None) -> dict:
     i wtedy trzeba je zapytać o regułę firmy, a nie o napis. Dziś takiej reguły nie ma
     i sprawdzenie tego nie zgaduje: liczy napisy, które widzi.
 
-    ⚠ Sprawdzenie samo przygotowuje sobie gałąź (ścieżką aplikacji, jako administrator)
-    i **samo ją wycofuje** — dane robocze po przebiegu wyglądają tak jak przed nim.
+    ⚠ Sprawdzenie samo przygotowuje sobie gałąź (ścieżką aplikacji, jako administrator).
     Dwa poziomy, nie jeden: `wnuk` pod `dziecko`, żeby zasięg „cała gałąź w dół" był naprawdę
     sprawdzony w głąb, a nie tylko na bezpośrednich podwładnych.
+
+    ⚠ **Od Z83 cała gałąź i KONTO WIDZA pochodzą z próbki** (`dev/probka-zespolu.php`), a nie
+    z danych roboczych — zasada „pomiar dotyka wyłącznie osób próbnych", bez wyjątków. Dawna
+    wersja budowała gałąź na dwóch prawdziwych zatrudnieniach zwykłym zapisem i wycofywała ją
+    na końcu; wycofanie działało, ale w dzienniku zostawały cztery wpisy o cudzych osobach,
+    a dziennika nie wycofuje nic. Teraz wycofania nie ma, bo **sprzątanie kasuje te
+    zatrudnienia**: przedmiot zmiany przestaje istnieć.
+
+    ⚠ **Zmienił się przedmiot pomiaru i to jest świadome** (rozstrzygnięcie zarządcy
+    z 24.10.2026): kryterium mierzy zasięg KONTA PRÓBNEGO, nie konta `LOGIN3`. Przedmiotem
+    twierdzenia jest REGUŁA — „przełożony widzi swoją gałąź i nic poza nią" — a nie konkretne
+    konto; konto jest tylko sposobem, żeby ją zobaczyć. Zysk jest podwójny: pomiar nie zależy
+    od tego, czy ktoś akurat przestawił hierarchię prawdziwych ludzi (dwa fałszywe alarmy
+    w październiku), i nie zostawia śladu w cudzych danych.
+
+    ⚠ Identyfikatory `obcy` i `inna_spolka` zostają PRAWDZIWE i to też jest świadome: jadą
+    wyłącznie jako parametr adresu, żeby sprawdzić, że nic nie dają. Podstawienie tam etatu
+    próbnego osłabiłoby twierdzenie do „nieistniejący identyfikator nic nie daje".
+
+    ⚠ Nieobecności do pomiaru pasków zakłada próbka — bez nich sprawdzenie „cudzy pasek mówi
+    tylko »nieobecny«" przechodziło NA PUSTO (zero pasków spełnia każdy warunek o ich treści),
+    a dotąd brało paski prawdziwych ludzi, czyli mierzyło cudze dane kadrowe.
     """
-    haslo3 = HASLO3 or haslo_dev(LOGIN3)
-    if not haslo3:
-        return {"ok": False, "powod": f"brak hasła konta {LOGIN3} (BRAMKA_HASLO3 albo ~/.wezurlop-dev-konta)"}
-    try:
-        ids = zatrudnienia_pracownika()
-    except Exception as e:  # noqa: BLE001
-        return {"ok": False, "powod": f"nie udalo sie odczytac identyfikatorow: {e}"}
-    if not ids or len(ids.get("wolni", [])) < 2 or ids.get("obcy") is None:
-        return {"ok": False, "powod": "dane robocze nie dają gałęzi do pomiaru", "ids": ids}
-    ja, dziecko, wnuk = ids["ja"], ids["wolni"][0], ids["wolni"][1]
+    if not (HASLO or haslo_dev(LOGIN)):
+        return {"ok": False, "powod": f"brak hasła konta {LOGIN} — pomiaru NIE wykonano"}
+    probka_zespolu("sprzataj")
+    probka = probka_zespolu("utworz")
+    spolka_probki = int(probka.get("spolka") or 0)
+    szef = int(probka.get("szef_etat") or 0)
+    podwladni = [int(p["etat"]) for p in probka.get("podwladni", [])]
+    if spolka_probki == 0 or szef == 0 or len(podwladni) < 2:
+        probka_zespolu("sprzataj")
+
+        return {"ok": False, "powod": "próbka nie dała gałęzi do pomiaru", "probka": probka}
+    etaty_probki = [szef] + podwladni
+    poza = etaty_poza_probka(spolka_probki, etaty_probki)
+    if poza.get("obcy") is None:
+        probka_zespolu("sprzataj")
+
+        return {"ok": False, "powod": "w firmie próbki nie ma ani jednego innego zatrudnienia — "
+                                      "nie ma czym sprawdzić identyfikatora spoza gałęzi"}
+    ids = {"spolka": spolka_probki, "ja": szef, "obcy": poza["obcy"],
+           "inna_spolka": poza.get("inna_spolka"), "miesiac": probka.get("miesiac")}
+    # ⚠ Widzem jest KONTO PRÓBKI, nie `LOGIN3` — patrz uwaga o zmianie przedmiotu pomiaru.
+    login_widza = str(probka.get("login") or "")
+    haslo3 = str(probka.get("haslo") or "")
+    ja, dziecko, wnuk = szef, podwladni[0], podwladni[1]
 
     ctx_adm = b.new_context(viewport={"width": SZEROKOSC_LAPTOPA, "height": 900}, ignore_https_errors=True)
     adm = ctx_adm.new_page()
@@ -2260,9 +2397,18 @@ def sprawdz_zasieg_podgladu(b, usterka: str | None = None) -> dict:
         if csrf is None:
             return {"ok": False, "powod": "brak tokenu CSRF na ekranie hierarchii"}
         wspolne = {"csrf": csrf, "spolka": str(ids["spolka"])}
-        for podwladny, szef in ((dziecko, ja), (wnuk, dziecko)):
-            w = adm.evaluate(POST_HIERARCHII, {**wspolne, "employment": str(podwladny),
-                                               "cel": "przelozony", "supervisor": str(szef)})
+        for podwladny, przelozony in ((dziecko, ja), (wnuk, dziecko)):
+            zadanie = {**wspolne, "employment": str(podwladny),
+                       "cel": "przelozony", "supervisor": str(przelozony)}
+            # ⚠ Bezpiecznik z Z82: przed KAŻDYM zapisem sprawdzamy, że dotyczy wyłącznie etatów
+            # próbki. Tu identyfikatory pochodzą z próbki, więc sprawdzenie ma pilnować, żeby
+            # następna wersja tego kryterium nie wróciła do danych roboczych.
+            if not tylko_etaty_probki(zadanie, etaty_probki):
+                return {"ok": False, "powod": "żądanie dotyczy etatu spoza próbki — "
+                                              "przerwano PRZED zapisem",
+                        "zadanie": {k: v for k, v in zadanie.items() if k != "csrf"},
+                        "etaty_probki": etaty_probki}
+            w = adm.evaluate(POST_HIERARCHII, zadanie)
             if w["kod"] not in (200, 303):
                 return {"ok": False, "powod": "nie udalo sie przygotowac galezi", "kod": w["kod"]}
         przygotowane = True
@@ -2271,7 +2417,7 @@ def sprawdz_zasieg_podgladu(b, usterka: str | None = None) -> dict:
         pg = ctx.new_page()
         try:
             pg.goto(BAZA + "/logowanie", wait_until="networkidle")
-            pg.fill("#login-email", LOGIN3)
+            pg.fill("#login-email", login_widza)
             pg.fill("#login-password", haslo3)
             pg.click("button[type=submit]")
             pg.wait_for_load_state("networkidle")
@@ -2447,15 +2593,12 @@ def sprawdz_zasieg_podgladu(b, usterka: str | None = None) -> dict:
                 filtr_kalendarza(ids['spolka'], filtr_przed)
         except Exception:  # noqa: BLE001
             pass
-        # ⚠ Wycofanie gałęzi — bramka nie zostawia po sobie zmienionej struktury (§7 zlecenia).
-        if przygotowane:
-            for podwladny in (wnuk, dziecko):
-                try:
-                    adm.evaluate(POST_HIERARCHII, {**wspolne, "employment": str(podwladny),
-                                                   "cel": "zdejmij", "supervisor": ""})
-                except Exception:  # noqa: BLE001
-                    pass
+        # ⚠ **Gałęzi NIE wycofujemy i nie trzeba** (Z83): `sprzataj` kasuje te zatrudnienia,
+        # więc przedmiot zmiany przestaje istnieć. Dawne wycofanie wysyłało dwa żądania zapisu
+        # i zostawiało po sobie dwa kolejne wpisy w dzienniku — czyli płaciło za porządek
+        # w strukturze śladem w dzienniku o tych samych osobach.
         ctx_adm.close()
+        probka_zespolu("sprzataj")
 
 
 def spolki_dla_admina() -> dict:
@@ -7466,6 +7609,9 @@ KONTROLE: dict[str, object] = {
     "ostrzezenie_na_zapisie": sprawdz_ostrzezenie_wyjscia,
     # ⚠ Druga usterka: bezpiecznik pomiaru (partia spoza próbki) musi przerwać PRZED zapisem.
     "ostrzezenie_obca_osoba": sprawdz_ostrzezenie_wyjscia,
+    # ⚠ `cykl` ma dowodzić, że odmowa jest odmową PĘTLI, a nie „jakimś błędem" — pod złym
+    # tokenem żądanie wraca 419 i kryterium musi zaświecić (zlecenie Z83).
+    "cykl_zly_token": sprawdz_odrzucenie_cyklu,
 }
 
 

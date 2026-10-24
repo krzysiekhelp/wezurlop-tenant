@@ -27,6 +27,15 @@ declare(strict_types=1);
  * przebiegu, gdy `finally` nie zdążyło się wykonać. Dzięki temu śmieć po zabitym pomiarze
  * usuwa następne uruchomienie, a nie człowiek ręcznie (lekcja z testu „Mojego konta", 21.10).
  *
+ * ⚠ **Nieobecności dołożone 24.10.2026 (zlecenie Z83) i są warunkiem, nie ozdobą.** Kryterium
+ * `zasieg` sprawdza NAJWAŻNIEJSZĄ rzecz na siatce zespołu: że pasek CUDZEJ osoby mówi tylko
+ * „nieobecny" i nie wypuszcza nazwy rodzaju ze słownika kadr, czyli danej o zdrowiu. Bez ani
+ * jednego paska to sprawdzenie przechodzi NA PUSTO i nie dowodzi niczego — a dotąd brało paski
+ * prawdziwych ludzi, czyli mierzyło cudze dane kadrowe. Jedna nieobecność na osobę wystarcza:
+ * mierzymy treść paska, nie ich liczbę.
+ * ⚠ Rodzaj bierzemy **pierwszy z listy rodzajów nieobecności** (`leave_type.is_absence = 1`),
+ * bo nazwa rodzaju jest tu nieistotna — istotne, że NIE WOLNO jej zobaczyć u cudzej osoby.
+ *
  * ⚠ **Niczego istniejącego nie ruszamy**: osoby, zatrudnienia i hierarchia prawdziwych ludzi
  * nie są czytane do zapisu ani przestawiane. Przełożony próbki jest korzeniem swojej własnej
  * gałęzi (`supervisor_employment_id = NULL`), więc nie podwiesza się pod niczyją strukturę.
@@ -34,6 +43,7 @@ declare(strict_types=1);
  * Tryby:
  *   utworz    — osoba-przełożony z etatem, kontem (hasło losowe) i rolą `employee`
  *               plus trzech podwładnych z etatami podwieszonymi pod jego etat
+ *               oraz po jednej NIEOBECNOŚCI dla każdego z nich i dla przełożonego
  *   sprzataj  — usunięcie wszystkiego, co próbka założyła (po znaczniku nazwiska)
  *   liczniki  — same liczby wierszy w tabelach, których próbka dotyka (stan przed i po)
  *
@@ -77,6 +87,7 @@ $liczniki = static function () use ($pdo): array {
         'hierarchia' => $jedna('SELECT COUNT(*) FROM employment WHERE supervisor_employment_id IS NOT NULL'),
         'sesje' => $jedna('SELECT COUNT(*) FROM session'),
         'role' => $jedna('SELECT COUNT(*) FROM role_assignment'),
+        'nieobecnosci' => $jedna('SELECT COUNT(*) FROM external_absence'),
     ];
 };
 
@@ -133,6 +144,12 @@ $sprzataj = static function () use ($pdo, $osobyProbki): array {
         }
         $kont += $krok('DELETE FROM account WHERE id = :k', ['k' => $konto]);
     }
+    // ⚠ Nieobecności PRZED etatami — wskazują i etat, i osobę, więc klucz obcy nie pozwoliłby
+    // usunąć żadnego z nich pierwszym. Kasujemy po OSOBIE próbki, nie po znaczniku w treści:
+    // `r2_record_id` da się przeoczyć przy zmianie formatu, a osoba jest tą samą kotwicą,
+    // co dla całego sprzątania.
+    $krok('DELETE FROM external_absence WHERE person_id IN (' . implode(',', $miejsca) . ')',
+        $parametry);
     // ⚠ Podwieszenie zdejmujemy PRZED usunięciem etatów: etat przełożonego jest wskazywany
     // przez etaty podwładnych, a klucz obcy nie pozwoliłby go usunąć pierwszym.
     $krok('UPDATE employment SET supervisor_employment_id = NULL WHERE person_id IN ('
@@ -230,6 +247,37 @@ foreach (range(1, PODWLADNYCH) as $nr) {
     $podwladni[] = ['osoba' => $osoba, 'etat' => $nowyEtat($osoba, $spolka, $szefEtat)];
 }
 
+// ⚠ **Nieobecności: po jednej na każdy etat próbki, w BIEŻĄCYM miesiącu.** Bieżący, bo widok
+// zespołu otwiera się na nim domyślnie — nieobecność w innym miesiącu byłaby niewidoczna,
+// dopóki pomiar nie przestawi okresu, a wtedy „pasek jest ogólny" zależałoby od nawigacji.
+// ⚠ Trzy dni z rzędu, od 10. do 12.: mieszczą się w każdym miesiącu i w żadnym nie wypadają
+// na samej krawędzi siatki.
+$rodzaj = (int) $pdo->query('SELECT id FROM leave_type WHERE is_absence = 1 ORDER BY id LIMIT 1')
+    ->fetchColumn();
+$nieobecnosci = [];
+if ($rodzaj > 0) {
+    $wstawNieobecnosc = static function (int $osoba, int $etat, int $spolka, int $rodzaj) use ($pdo): int {
+        $st = $pdo->prepare(
+            'INSERT INTO external_absence (company_id, employment_id, person_id, leave_type_id,
+                                           r2_record_id, date_from, date_to, days, minutes,
+                                           entry_source, out_of_window, fetched_at)
+             VALUES (:spolka, :etat, :osoba, :rodzaj, :znak,
+                     DATE_FORMAT(UTC_DATE(), "%Y-%m-10"), DATE_FORMAT(UTC_DATE(), "%Y-%m-12"),
+                     3, 0, "kadry", 0, UTC_TIMESTAMP())'
+        );
+        // ⚠ Znacznik w `r2_record_id` jest jawnie próbny: wiersz z `entry_source = "kadry"`
+        // bez takiego znacznika wyglądałby jak dana przysłana przez connector.
+        $st->execute(['spolka' => $spolka, 'etat' => $etat, 'osoba' => $osoba,
+            'rodzaj' => $rodzaj, 'znak' => NAZWISKO . ':' . $etat]);
+
+        return (int) $pdo->lastInsertId();
+    };
+    $nieobecnosci[] = $wstawNieobecnosc($szefOsoba, $szefEtat, $spolka, $rodzaj);
+    foreach ($podwladni as $kto) {
+        $nieobecnosci[] = $wstawNieobecnosc($kto['osoba'], $kto['etat'], $spolka, $rodzaj);
+    }
+}
+
 $st = $pdo->prepare('SELECT COUNT(*) FROM employment WHERE company_id = :spolka AND is_active = 1');
 $st->execute(['spolka' => $spolka]);
 $wFirmie = (int) $st->fetchColumn();
@@ -244,6 +292,10 @@ echo json_encode([
     'podwladni' => $podwladni,
     // Gałąź = przełożony + jego podwładni; tyle wierszy ma pokazać widok „Zespół".
     'galaz' => PODWLADNYCH + 1,
+    // Miesiąc nieobecności w postaci, którą rozumie adres kalendarza (`&miesiac=YYYY-MM`).
+    'miesiac' => gmdate('Y-m'),
+    'nieobecnosci' => $nieobecnosci,
+    'rodzaj_nieobecnosci' => $rodzaj,
     'etatow_w_firmie' => $wFirmie,
     'liczniki_przed' => $przed,
     'liczniki_po' => $liczniki(),
