@@ -1016,6 +1016,182 @@ final class AdminAccountController
      *
      * @param array<string, string> $params
      */
+    /**
+     * **Okno potwierdzenia wysyłki zaproszeń** (zlecenie Z84 cz. C) — `GET`, bo niczego
+     * nie zmienia.
+     *
+     * ⚠ **Wysyłka przestaje być jednym kliknięciem w pasku** i to jest sedno tej zmiany:
+     * zaproszenie zakłada konta, zajmuje licencje i wysyła pocztę na prawdziwe adresy —
+     * czyli robi trzy rzeczy nieodwracalne, a decyzja o dostępie siedziała dotąd w polu wyboru
+     * nad tabelą, gdzie łatwo jej nie zauważyć. Okno pokazuje KOGO to dotyczy, ILE licencji
+     * zajmie i co się stanie, gdy dostępu nie nadać.
+     *
+     * ⚠ Ten sam model i ten sam szablon treści idą do okna (htmx) i na pełny ekran (bez
+     * JavaScriptu) — wzorzec z `fragments/confirm.twig`.
+     *
+     * @param array<string, string> $params
+     */
+    public function inviteConfirm(Request $request, array $params): Response
+    {
+        $admin = $request->attribute(Authenticate::USER);
+        assert($admin instanceof CurrentUser);
+        $companyId = $this->scope($admin);
+        // ⚠ Wybór i przełącznik dostępu czytamy z ADRESU: to krok potwierdzenia, więc musi dać
+        // się odświeżyć i wrócić do niego przyciskiem „wstecz". Token CSRF nie jedzie tą drogą
+        // — niesie go dopiero formularz wysyłki w oknie (zlecenie Z55: sekretów nie ma w adresach).
+        $wybrane = self::selectedIds($request);
+        // ⚠ **Towarzysz pola wyboru: „to żądanie przyszło Z OKNA"** — ta sama sztuczka, co
+        // `firma_widoczna` w oknie widoczności (Z80 A4), i z tego samego powodu. Odznaczone pole
+        // wyboru nie jedzie w żądaniu WCALE, więc bez tego znacznika „człowiek odznaczył dostęp"
+        // jest nieodróżnialne od „okno otwiera się pierwszy raz" — a te dwa stany mają dać
+        // przeciwne odpowiedzi: pierwszy OFF, drugi ON (zaznaczone domyślnie, zlecenie C2).
+        // Zmierzone przed poprawką: odznaczenie przełącznika nie zmieniało nic, bo brak pola
+        // czytaliśmy jako „włączone".
+        $zOkna = $request->queryString('dostep_widoczny', 2) === '1';
+        $nadajDostep = $zOkna
+            ? $request->queryString('nadaj_dostep', 4) === '1'
+            : true;
+        $dane = $this->podgladZaproszen($wybrane, $companyId, $nadajDostep)
+            + ['powrot' => $this->urls->to('/admin/konta')];
+
+        // ⚠ `w_oknie` mówi fragmentowi, czy ma własny nagłówek. W oknie modalnym musi go mieć
+        // (okno nie ma belki), a na pełnym ekranie nazwa stoi już w belce strony — ten sam napis
+        // dwa razy na jednym ekranie wyłapała bramka ekranowa, nie oko.
+        return $request->isHtmx()
+            ? $this->view->render('fragments/invite-confirm.twig', $dane + ['w_oknie' => true])
+            : $this->view->render('page/web/invite-confirm.twig', $dane + ['w_oknie' => false]);
+    }
+
+    /**
+     * **Model okna potwierdzenia — i jednocześnie bramka licencji** (zlecenie Z84 cz. C).
+     *
+     * ⚠ Jedna funkcja na okno i na odmowę serwera: liczba „zajmie X licencji" w oknie i liczba,
+     * którą serwer sprawdza przy wysyłce, muszą być TĄ SAMĄ liczbą. Policzone osobno rozjechałyby
+     * się przy pierwszej zmianie warunku, a objawem byłoby okno obiecujące wysyłkę, którą serwer
+     * odrzuca (albo odwrotnie — co gorsze).
+     *
+     * ⚠ **Do okna wchodzą tylko osoby, które DA SIĘ zaprosić** — te same warunki, co w `inviteBatch()`:
+     * w zakresie, z adresem e-mail i bez konta (albo z kontem `niezaproszone`, bo zaproszenie
+     * takiego konta nie zakłada, tylko przestawia jego stan). Osoby odsiane są policzone i mają
+     * swoje zdanie nad listą — inaczej „N osób dostanie e-mail" nie zgadzałoby się z zaznaczeniem
+     * i nikt by nie wiedział, gdzie zniknęła różnica.
+     *
+     * ⚠ **Licencje liczy `AccessService::licenceUsage()`, czyli ta sama funkcja, co `/licencja`**
+     * (zlecenie C3, decyzja z 21.09.2026): licencja liczy DOSTĘPY, nie konta — więc osoba
+     * z dwoma zatrudnieniami zajmuje dwie. Dlatego „zajmie X" to suma firm z zatrudnienia
+     * po wybranych osobach, a nie ich liczba.
+     *
+     * @param list<int> $wybrane
+     * @return array<string, mixed>
+     */
+    private function podgladZaproszen(array $wybrane, ?int $companyId, bool $nadajDostep): array
+    {
+        $osoby = $this->people->forInvitation($wybrane, $companyId);
+        $doWysylki = [];
+        $bezAdresu = 0;
+        $zKontem = 0;
+        foreach ($wybrane as $personId) {
+            $osoba = $osoby[$personId] ?? null;
+            if ($osoba === null) {
+                // Spoza zakresu albo osoby nie ma — do okna nie wchodzi i nie liczy się nigdzie.
+                continue;
+            }
+            if ($osoba['konto_status'] !== null
+                && $osoba['konto_status'] !== AccountRepository::STAN_NIEZAPROSZONE) {
+                $zKontem++;
+                continue;
+            }
+            if ((string) ($osoba['email'] ?? '') === '') {
+                $bezAdresu++;
+                continue;
+            }
+            $firm = count($osoba['spolki']);
+            $doWysylki[] = [
+                'person_id' => $personId,
+                'name' => $osoba['name'],
+                'email' => (string) $osoba['email'],
+                // ⚠ Sama LICZBA firm, bez nazw (zlecenie C2): nazwy rozpychałyby wiersz okna,
+                // a pytanie brzmi „ile licencji", nie „które firmy".
+                'firm' => $firm,
+                'firm_opis' => $firm . ' ' . Odmiana::firmy($firm),
+            ];
+        }
+        $potrzeba = 0;
+        if ($nadajDostep) {
+            foreach ($doWysylki as $w) {
+                $potrzeba += $w['firm'];
+            }
+        }
+        $licencja = $this->access->licenceUsage();
+        $wolne = $licencja['limit'] === null
+            ? null
+            : max(0, (int) $licencja['limit'] - (int) $licencja['uzyte']);
+
+        $ile = count($doWysylki);
+        // ⚠ `null` w `wolne` znaczy licencję BEZ limitu — wtedy nie brakuje nigdy i ostrzeżenia
+        // nie ma (zlecenie C2). Zero to inna rzecz niż brak limitu i nie wolno ich zlepić.
+        $brakuje = AccessService::brakujeLicencji(
+            $potrzeba,
+            $licencja['limit'] === null ? null : (int) $licencja['limit'],
+            (int) $licencja['uzyte'],
+        );
+
+        return [
+            'osoby' => $doWysylki,
+            // ⚠ **W ukrytych polach okna jedzie CAŁE zaznaczenie, nie tylko osoby z listy** —
+            // i to jest poprawka z pomiaru, nie ozdoba. Przełącznik dostępu dociąga okno od nowa
+            // tymi polami; przy samych „do wysyłki" osoby bez adresu wypadały z żądania, więc
+            // zdanie „2 osoby pominięto — brak adresu e-mail" ZNIKAŁO po pierwszym kliknięciu
+            // (zmierzone 24.10.2026). Przy wysyłce te osoby i tak odsiewa `inviteBatch()`
+            // z własnym powodem — a ekran wyniku mówi o nich tak jak dotąd.
+            'wybrane' => $wybrane,
+            'ile' => $ile,
+            'bez_adresu' => $bezAdresu,
+            'z_kontem' => $zKontem,
+            'nadaj_dostep' => $nadajDostep,
+            'potrzeba' => $potrzeba,
+            'licencja' => $licencja,
+            'wolne' => $wolne,
+            'brakuje' => $brakuje,
+            // ⚠ **Zdania składa KONTROLER, nie szablon** (CLAUDE.md §5): każde z nich odmienia
+            // rzeczownik przez liczbę, a polska odmiana ma w tym repozytorium jedno miejsce
+            // (`Support\Odmiana`). Szablon z `? :` po liczbie byłby drugim takim miejscem.
+            // ⚠ Liczba czasownika idzie z `Odmiana`, nie z `$ile === 1`: po dopełniaczu mnogim
+            // („0 osób", „25 osób") orzeczenie jest POJEDYNCZE. Zmierzone na oknie wysyłki.
+            'zdanie_lead' => $ile . ' ' . Odmiana::osoby($ile)
+                . (Odmiana::czasownikMnogi($ile) ? ' dostaną' : ' dostanie')
+                . ' e-mail z odnośnikiem do ustawienia hasła.',
+            'zdanie_bez_adresu' => $bezAdresu === 0
+                ? ''
+                // „pominięto" jest nieosobowe, więc nie odmienia się przez liczbę wcale.
+                : $bezAdresu . ' ' . Odmiana::osoby($bezAdresu) . ' pominięto — brak adresu e-mail.',
+            'zdanie_z_kontem' => $zKontem === 0
+                ? ''
+                : $zKontem . ' ' . Odmiana::osoby($zKontem)
+                    . ($zKontem === 1 ? ' ma' : ' ma') . ' już konto — zaproszenia nie wysyła się drugi raz.',
+            // Zaznaczony: ile zajmie i ile zostanie (resztę pokazujemy TYLKO przy limicie).
+            'zdanie_licencji' => $nadajDostep
+                ? 'Zajmie ' . $potrzeba . ' ' . Odmiana::licencje($potrzeba)
+                    . ($licencja['limit'] === null
+                        ? '.'
+                        : ' — zostanie ' . max(0, ($wolne ?? 0) - $potrzeba)
+                            . ' z ' . $licencja['limit'] . '.')
+                : 'Osoby zalogują się, ale nie zobaczą żadnych danych, dopóki nie nadasz '
+                    . 'dostępu ręcznie.',
+            'zdanie_braku' => $brakuje === 0
+                ? ''
+                // ⚠ **„Potrzeba" rządzi DOPEŁNIACZEM, a ten jest niezmienny: „licencji"** —
+                // i dlatego nie ma tu `Odmiana::licencje()`, choć liczba stoi obok. Biernik
+                // („Potrzeba 23 licencje") jest błędem, który widać na ostrzeżeniu o licencjach,
+                // czyli w zdaniu czytanym najuważniej. Ta sama pułapka, co `osobyDopelniacz()`:
+                // o formie decyduje POZYCJA W ZDANIU, nie liczebnik.
+                : 'Potrzeba ' . $potrzeba . ' licencji, wolnych jest '
+                    . ($wolne ?? 0) . '. Brakuje ' . $brakuje . ' — zmniejsz wybór, wyślij bez '
+                    . 'dostępu albo rozszerz licencję.',
+            'przycisk' => 'Wyślij ' . $ile . ' ' . Odmiana::zaproszenia($ile),
+        ];
+    }
+
     public function inviteBatch(Request $request, array $params): Response
     {
         $admin = $request->attribute(Authenticate::USER);
@@ -1026,6 +1202,31 @@ final class AdminAccountController
         // czyta się z tego, co PRZYSZŁO. Brak pola znaczy „nie nadawaj" (CLAUDE.md §10:
         // domyślnie odmawiaj), a nie „weź domyślną wartość z szablonu".
         $nadajDostep = $request->postString('nadaj_dostep', 4) === '1';
+
+        // ⚠ **Bramka licencji PRZED pierwszym zaproszeniem** (zlecenie Z84 C2: „serwer też
+        // odmawia"). Bez niej partia przechodziłaby do połowy: konta powstają i poczta wychodzi,
+        // a dostępy zaczynają się odbijać od limitu w środku pętli — człowiek dostaje wtedy
+        // zaproszonych ludzi BEZ dostępu i musi odkręcać to ręcznie. Liczy to samo, co okno
+        // potwierdzenia (`podgladZaproszen()`), bo to musi być jedna liczba.
+        // ⚠ Wyłączony przełącznik dostępu nie zajmuje licencji, więc wtedy bramki nie ma.
+        $podglad = $this->podgladZaproszen($wybrane, $companyId, $nadajDostep);
+        if ($podglad['brakuje'] > 0) {
+            $odmowa = [
+                'zaproszono' => 0,
+                'z_dostepem' => 0,
+                'dostepow' => 0,
+                'pominieto' => array_map(static fn (array $o): array => [
+                    'osoba' => $o['name'], 'powod' => AccessService::POWOD_BRAK_LICENCJI,
+                ], $podglad['osoby']),
+                'wybranych' => count($wybrane),
+                'powrot' => $this->urls->to('/admin/konta'),
+                'termin' => $this->termin->stan(),
+            ];
+
+            return $request->isHtmx()
+                ? $this->view->render('fragments/invite-result.twig', $odmowa)
+                : $this->view->render('page/web/invite-result.twig', $odmowa);
+        }
 
         $osoby = $this->people->forInvitation($wybrane, $companyId);
         $zaproszono = 0;
@@ -1100,7 +1301,11 @@ final class AdminAccountController
      */
     private static function selectedIds(Request $request): array
     {
-        $surowe = $request->post('osoby');
+        // ⚠ **Ta sama biała lista dla `POST`-a wysyłki i dla `GET`-a potwierdzenia** (Z84 C1):
+        // krok potwierdzenia musi rozumieć wybór DOKŁADNIE tak samo jak wysyłka, bo pokazuje
+        // liczby, które wysyłka ma potem osiągnąć. Drugi parser znaczyłby okno liczące z innego
+        // zestawu osób niż ten, który pójdzie do zapisu.
+        $surowe = $request->method() === 'POST' ? $request->post('osoby') : $request->query('osoby');
         if (!is_array($surowe)) {
             return [];
         }

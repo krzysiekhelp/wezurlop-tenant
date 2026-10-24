@@ -12,6 +12,7 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
+use Wezurlop\Service\AccessService;
 use Wezurlop\Service\InvitationService;
 
 (static function (): void {
@@ -46,6 +47,23 @@ use Wezurlop\Service\InvitationService;
     //     jako string w starszych sterownikach) — porównanie musi być liczbowe, nie luźne
     $check('identyfikatory jako tekst działają tak samo',
         !$zajety(['id' => '12', 'person_id' => '107'], 107, null));
+
+    // ——— Z84 cz. C: ILE LICENCJI BRAKUJE NA PARTIĘ ZAPROSZEŃ ————————————————————
+    // ⚠ Ta jedna liczba rozstrzyga DWIE rzeczy: ostrzeżenie w oknie potwierdzenia i to, czy
+    // serwer przyjmie wysyłkę. Dlatego jest czystą funkcją i dlatego ma test bez bazy:
+    // policzona w dwóch miejscach rozjechałaby się przy pierwszej zmianie, a wtedy okno
+    // obiecywałoby wysyłkę, którą serwer odrzuca — albo, co gorsze, odwrotnie.
+    $brakuje = AccessService::brakujeLicencji(...);
+    $check('Z84: przy wolnych miejscach nie brakuje nic', $brakuje(3, 25, 20) === 0);
+    $check('Z84: brakuje dokładnie tyle, ile nie mieści się w limicie', $brakuje(8, 25, 20) === 3);
+    $check('Z84: pełny limit znaczy, że brakuje całej partii', $brakuje(4, 25, 25) === 4);
+    // ⚠ **Licencja BEZ limitu nie brakuje NIGDY** — zero wolnych miejsc to inna rzecz niż brak
+    // limitu, a zlepienie ich dałoby ostrzeżenie na instalacji, która limitu nie ma.
+    $check('Z84: licencja bez limitu nie brakuje nigdy', $brakuje(1000, null, 999) === 0);
+    // ⚠ Stan zastany gorszy od limitu (licencja zmniejszona po nadaniu dostępów) nie może dać
+    // liczby ujemnej ani „ujemnych wolnych miejsc", które zmniejszyłyby brak.
+    $check('Z84: przekroczony limit nie daje liczb ujemnych', $brakuje(2, 20, 25) === 2);
+    $check('Z84: zero potrzebnych licencji to zero braku', $brakuje(0, 20, 25) === 0);
 
     echo $failures === 0 ? "\nWSZYSTKO PRZESZŁO\n" : "\nBŁĘDÓW: {$failures}\n";
     exit($failures === 0 ? 0 : 1);

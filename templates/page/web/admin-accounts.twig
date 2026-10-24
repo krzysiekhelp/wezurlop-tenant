@@ -171,6 +171,39 @@
                 się drugi raz i dawałby parametr o nazwie `amp;sortuj` (zmierzone w Z80). -#}
             {% set adres_listy = url('/admin/konta') ~ '?rodzaj=' ~ rodzaj
                 ~ '&szukaj=' ~ szukaj|url_encode ~ '&zatrudnienie=' ~ zatrudnienie %}
+            {#- ══════════ Filtr zatrudnienia (zlecenie Z84 A1) ══════════
+                ⚠ **Ten sam komponent, co zakładki obok (`.zak`), a nie nowy** — rozstrzygnięcie
+                po odbiorze Krzysztofa z 24.10.2026: „nowy komponent tam, gdzie wystarczy
+                istniejący, to nie ulepszenie". Pierwsza wersja stała na `.segmented`
+                (przełącznik widoku kalendarza) i wyglądała o kilka pikseli inaczej niż zakładki
+                tuż obok — ta sama ramka, tło i wysokość 40 px biorą się teraz z jednego miejsca
+                w arkuszu, więc nie mają jak się rozjechać.
+                ⚠ **Trzy ODNOŚNIKI `GET`, nie przyciski** — i stąd `aria-current="true"` zamiast
+                `aria-pressed` z litery zlecenia: `aria-pressed` jest atrybutem widgetu
+                przyciskowego i na odnośniku nie znaczy nic, a przycisk w formularzu szukania
+                wysyłałby DWIE wartości pola `zatrudnienie` (ukryte pole + własna) — stan,
+                o który potknęliśmy się już przy `krok` w Z79.
+                ⚠ `role="group"`, nie `tablist`: zakładki obok PRZEŁĄCZAJĄ ZBIÓR (dwie różne
+                listy), a te trzy pozycje ZAWĘŻAJĄ ten sam — to filtr, nie zakładki, choć wygląda
+                tak samo.
+                ⚠ Odnośnik niesie CAŁY adres listy, więc segment zachowuje szukanie i sortowanie,
+                a stronicowanie wraca na pierwszą stronę: zawężenie zbioru unieważnia numer strony.
+                ⚠ Liczby liczy JEDNO zapytanie razem z listą (`employmentCounters()`).
+                ⚠ **Kolejność w nagłówku: zakładki › filtr › wyszukiwarka** (poprawka Krzysztofa
+                po odbiorze w Chrome). Filtr bierze wolne miejsce (`margin-left: auto`),
+                a wyszukiwarka zostaje przy prawej krawędzi — przełącznik postawiony ZA nią czytał
+                się jak część wyszukiwania, a nie jak zawężenie listy. -#}
+            <div class="zak zak--zatrudnienie" role="group" aria-label="Filtr zatrudnienia">
+                {% for kod, etykieta in {'pracujacy': 'Pracujący', 'byli': 'Byli pracownicy', 'wszyscy': 'Wszyscy'} %}
+                    <a class="zak__poz{{ zatrudnienie == kod ? ' zak__poz--on' : '' }}"
+                       href="{{ url('/admin/konta') ~ '?rodzaj=' ~ rodzaj ~ '&szukaj=' ~ szukaj|url_encode
+                           ~ '&sortuj=' ~ sortuj ~ '&kierunek=' ~ kierunek ~ '&zatrudnienie=' ~ kod }}"
+                       {% if zatrudnienie == kod %}aria-current="true"{% endif %}>
+                        <span class="zak__nazwa">{{ etykieta }}</span>
+                        <span class="zak__licznik">{{ zatrudnienie_liczniki[kod] }}</span>
+                    </a>
+                {% endfor %}
+            </div>
             {#- Pasek działań. ⚠ Etykieta „Szukaj" zniknęła WIZUALNIE, nie z dokumentu: pole z lupą
                 i podpowiedzią mówi widzącemu wszystko, a czytnik ekranu dalej dostaje etykietę. -#}
             <form class="card__akcje" method="get" action="{{ url('/admin/konta') }}">
@@ -217,27 +250,6 @@
                        hx-target="#konto-adm-tresc" hx-swap="innerHTML">{{ ikony.plus() }}Nowe konto administracyjne</a>
                 {% endif %}
             </form>
-            {#- ══════════ Filtr zatrudnienia (zlecenie Z84 A1) ══════════
-                ⚠ **Trzy ODNOŚNIKI `GET`, nie przyciski formularza** — i to jest różnica wobec
-                litery zlecenia (`aria-pressed`), zgłoszona w raporcie. Powody: `.segmented`
-                jest w tym arkuszu komponentem ODNOŚNIKÓW (ten sam, co przełącznik widoku
-                kalendarza), `aria-pressed` jest atrybutem widgetu przyciskowego i na odnośniku
-                nie znaczy nic, a przycisk w formularzu szukania wysyłałby DWIE wartości pola
-                `zatrudnienie` (ukryte pole + własna) — stan, o który potknęliśmy się już przy
-                `krok` w Z79. Stan wybrany niesie więc `aria-current="true"`.
-                ⚠ Odnośnik niesie CAŁY adres listy, więc segment zachowuje szukanie i sortowanie,
-                a stronicowanie wraca na pierwszą stronę: zawężenie zbioru unieważnia numer strony.
-                ⚠ Liczby są przygaszone i liczone JEDNYM zapytaniem razem z listą — patrz
-                `PersonRepository::employmentCounters()`. -#}
-            <div class="segmented segmented--zatrudnienie" role="group" aria-label="Filtr zatrudnienia">
-                {% for kod, etykieta in {'pracujacy': 'Pracujący', 'byli': 'Byli pracownicy', 'wszyscy': 'Wszyscy'} %}
-                    <a class="segmented__item{{ zatrudnienie == kod ? ' segmented__item--on' : '' }}"
-                       href="{{ url('/admin/konta') ~ '?rodzaj=' ~ rodzaj ~ '&szukaj=' ~ szukaj|url_encode
-                           ~ '&sortuj=' ~ sortuj ~ '&kierunek=' ~ kierunek ~ '&zatrudnienie=' ~ kod }}"
-                       {% if zatrudnienie == kod %}aria-current="true"{% endif %}>{{ etykieta }}
-                        <span class="segmented__licznik">{{ zatrudnienie_liczniki[kod] }}</span></a>
-                {% endfor %}
-            </div>
         </div>
         {#- ══════════ zakładka „Pracownicy z kadr" ══════════ -#}
         {% if rodzaj == 'pracownicy' %}
@@ -249,17 +261,20 @@
                 ⚠ Bez JavaScriptu pasek jest widoczny od razu i działa: zaznaczenie + „Wyślij"
                 to zwykły POST, a licznik po prostu nie liczy. Z JS pasek pokazuje się dopiero
                 przy pierwszym zaznaczeniu i mówi, ilu zaznaczonym brakuje adresu. -#}
-            <form class="selectbar" id="konta-partia" method="post" action="{{ url('/admin/konta/zapros') }}"
-                  hx-post="{{ url('/admin/konta/zapros') }}" hx-target="#wynik-tresc" hx-swap="innerHTML"
+            {#- ⚠ **Pasek już nie wysyła — OTWIERA potwierdzenie** (zlecenie Z84 C1). Dlatego
+                jest `GET`-em: krok potwierdzenia niczego nie zmienia, daje się odświeżyć i wrócić
+                do niego „wstecz", a bez JavaScriptu prowadzi na pełny ekran z tą samą treścią.
+                ⚠ **Token CSRF zniknął z paska i to jest poprawka, nie przeoczenie**: jechał dotąd
+                z każdym wysłaniem tego formularza, a od teraz formularz jest `GET`-em i token
+                lądowałby w pasku adresu, w historii przeglądarki i w logach serwera (CLAUDE.md §13,
+                ta sama pułapka co w Z55). Token niesie formularz wysyłki W OKNIE.
+                ⚠ **Pole „nadaj też dostęp" zniknęło z paska** (C1): decyzja o dostępie czyta się
+                razem z wysyłką, a nie nad tabelą, gdzie jej nie widać. Stoi teraz w oknie,
+                obok zdania o licencjach. -#}
+            <form class="selectbar" id="konta-partia" method="get" action="{{ url('/admin/konta/zapros') }}"
+                  hx-get="{{ url('/admin/konta/zapros') }}" hx-target="#zapros-tresc" hx-swap="innerHTML"
                   data-selectbar>
-                {% include 'partials/csrf.twig' %}
                 <p class="selectbar__count" data-selectbar-count>Zaznacz osoby, którym chcesz wysłać zaproszenie.</p>
-                <label class="selectbar__opt">
-                    {#- Domyślnie WŁĄCZONY, ale decyzja jest jedna dla całej partii i widoczna —
-                        a serwer czyta to, co przyszło, nie domyślną wartość z tego szablonu. -#}
-                    <input type="checkbox" name="nadaj_dostep" value="1" checked>
-                    Nadaj też dostęp do firm z zatrudnienia
-                </label>
                 <button type="button" class="btn btn--quiet btn--sm" data-selectbar-clear hidden>Wyczyść</button>
                 <button type="submit" class="btn btn--primary btn--sm">Wyślij zaproszenia</button>
             </form>
@@ -469,6 +484,14 @@
     {#- Okno wyniku wysyłki. Treść wstawia htmx po odpowiedzi serwera; okno otwiera JS przy
         podmianie (`htmx:afterSwap`), a nie klik — bo klik ma wysłać formularz, nie otworzyć okno.
         Bez JS serwer zwraca ten sam wynik jako pełny ekran i okno nie jest potrzebne. -#}
+    {#- ⚠ Okno POTWIERDZENIA jest osobne od okna WYNIKU: wynik ma własny, stały nagłówek
+        i stopkę („Wróć do listy"), a potwierdzenie — swoją stopkę z „Anuluj" i wysyłką.
+        Jedno okno na oba stany kazałoby podmieniać nagłówek i stopkę razem z treścią.
+        ⚠ Okno otwiera `modules/selectbar.js` po PODMIANIE treści (nie na klik — klik ma wysłać
+        formularz), tą samą drogą, którą od Z64 otwiera się okno wyniku. -#}
+    <dialog id="zapros-modal" class="modal modal--zapros" aria-labelledby="zapros-modal-title">
+        <div id="zapros-tresc"></div>
+    </dialog>
     <dialog id="wynik-modal" class="modal" aria-labelledby="wynik-modal-title">
         <div class="modal__head">
             <h3 id="wynik-modal-title">Wynik wysyłki zaproszeń</h3>

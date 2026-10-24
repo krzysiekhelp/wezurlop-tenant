@@ -195,6 +195,10 @@ $webOnly = [
     ['POST', '/admin/widocznosc/{id:\d+}/przestaw',      [VisibilityController::class, 'przestaw'],    'permission' => 'calendar.visibility_manage', 'zakres' => 'spolka'],
     ['GET',  '/admin/dziennik',                          [EventLogController::class, 'index'],         'permission' => 'admin.event_log', 'zakres' => 'tenant'],
     ['GET',  '/admin/konta',                             [AdminAccountController::class, 'index'],     'permission' => 'admin.users', 'zakres' => 'spolka'],
+    // ⚠ **Potwierdzenie wysyłki zaproszeń jest `GET`-em pod TYM SAMYM adresem** (zlecenie Z84 C1):
+    // niczego nie zmienia, więc daje się odświeżyć i wrócić do niego „wstecz", a bez JavaScriptu
+    // jest zwykłym krokiem pośrednim na pełnym ekranie. Wysyłka zostaje `POST`-em (CLAUDE.md §3).
+    ['GET',  '/admin/konta/zapros',                      [AdminAccountController::class, 'inviteConfirm'], 'permission' => 'admin.users', 'zakres' => 'spolka'],
     ['POST', '/admin/konta/zapros',                      [AdminAccountController::class, 'inviteBatch'],   'permission' => 'admin.users', 'zakres' => 'spolka'],
     ['POST', '/admin/konta/osoba/{id:\d+}/adres',        [AdminAccountController::class, 'saveEmail'],     'permission' => 'admin.users', 'zakres' => 'spolka'],
     ['GET',  '/admin/konta/administracyjne',             [AdminAccountController::class, 'adminAccountForm'], 'permission' => 'admin.users', 'zakres' => 'spolka'],

@@ -1,0 +1,123 @@
+{#- **Okno potwierdzenia wysyłki zaproszeń** (zlecenie Z84 cz. C, prototyp zatwierdzony
+    przez Krzysztofa).
+
+    ⚠ **Po co krok pośredni.** Wysyłka robi trzy rzeczy nieodwracalne naraz: zakłada konta,
+    zajmuje licencje i wysyła pocztę na prawdziwe adresy. Decyzja o dostępie siedziała dotąd
+    w polu wyboru nad tabelą — tam, gdzie się jej nie czyta. Okno mówi KOGO to dotyczy, ILE
+    licencji zajmie i co się stanie, jeśli dostępu nie nadać.
+
+    ⚠ **Wszystkie zdania i odmiany składa KONTROLER** (`podgladZaproszen()`), tą samą funkcją,
+    którą serwer sprawdza przy wysyłce — więc „zajmie X licencji" w oknie i warunek odmowy to
+    jedna liczba, nie dwie. W tym szablonie nie ma ani jednego warunku po liczbie.
+
+    ⚠ **Bez nazw firm przy osobie, tylko liczba** (C2): pytanie brzmi „ile licencji", a nazwy
+    rozpychałyby wiersz okna 520 px i zmuszały do wielokropka na tym, co ma być policzalne.
+
+    ⚠ Ten sam plik treści idzie do okna i na pełny ekran (`page/web/invite-confirm.twig`),
+    więc potwierdzenie działa tak samo z JavaScriptem i bez niego.
+
+    Zmienne: `w_oknie`, `osoby`, `ile`, `nadaj_dostep`, `brakuje`, `zdanie_lead`, `zdanie_bez_adresu`,
+    `zdanie_z_kontem`, `zdanie_licencji`, `zdanie_braku`, `przycisk`, `powrot`. -#}
+{% import 'partials/ikony.twig' as ikony %}
+{#- ⚠ Nagłówek TYLKO w oknie modalnym (`w_oknie`): na pełnym ekranie nazwa „Wyślij zaproszenia"
+    stoi już w belce strony, a ten sam napis dwa razy na jednym ekranie to naruszenie wyłapywane
+    przez bramkę ekranową (jeden `h1` w belce, jego tekst nigdzie więcej). -#}
+{% if w_oknie %}
+    <div class="modal__head">
+        <h3 id="zapros-modal-title">Wyślij zaproszenia</h3>
+        <button type="button" class="modal__close" data-modal-close="zapros-modal" aria-label="Zamknij okno">{{ ikony.krzyzyk() }}</button>
+    </div>
+{% endif %}
+<form class="modal__wrap zapros" method="post" action="{{ url('/admin/konta/zapros') }}"
+      hx-post="{{ url('/admin/konta/zapros') }}" hx-target="#wynik-tresc" hx-swap="innerHTML">
+    {% include 'partials/csrf.twig' %}
+    {#- ⚠ Całe zaznaczenie w ukrytych polach — także osoby, których w liście nie ma (bez adresu,
+        z kontem). Bez nich przełączenie dostępu gubiłoby zdania o pominiętych, a wysyłka
+        przestawałaby wiedzieć, o kim nie powiedzieć w wyniku. Znacznik `data-zapros-pole`
+        pozwala dociągnąć okno BEZ tokenu CSRF w adresie (zlecenie Z55). -#}
+    {% for id in wybrane %}
+        <input type="hidden" name="osoby[]" value="{{ id }}" data-zapros-pole>
+    {% endfor %}
+    {#- ⚠ **Znacznik „żądanie z okna"** (ta sama sztuczka, co `firma_widoczna` w Z80 A4):
+        odznaczone pole wyboru nie jedzie w żądaniu wcale, więc bez tego serwer nie odróżnia
+        „odznaczyłem dostęp" od „otwieram okno pierwszy raz" — a te stany mają dać przeciwne
+        odpowiedzi. Jedzie też przy wysyłce, gdzie jest nieszkodliwy. -#}
+    <input type="hidden" name="dostep_widoczny" value="1" data-zapros-pole>
+    <div class="modal__body zapros__body">
+        <p class="zapros__lead">{{ zdanie_lead }}</p>
+        {#- ⚠ Zdania o odsianych stoją NAD listą, a nie w niej: mówią o kimś, kogo w liście nie ma,
+            więc nie mieliby wiersza, przy którym mogłyby stanąć (C4). -#}
+        {% if zdanie_bez_adresu != '' %}
+            <p class="zapros__pominieto">{{ zdanie_bez_adresu }}</p>
+        {% endif %}
+        {#- ⚠ Drugie zdanie dołożone poza literą zlecenia i zgłoszone w raporcie: bez niego
+            „N osób dostanie e-mail" nie zgadzałoby się z liczbą zaznaczonych wierszy, a różnica
+            nie miałaby wyjaśnienia. -#}
+        {% if zdanie_z_kontem != '' %}
+            <p class="zapros__pominieto">{{ zdanie_z_kontem }}</p>
+        {% endif %}
+
+        {#- ⚠ Lista w ramce z PRZYKLEJONYM nagłówkiem i własnym przewijaniem: przy trzydziestu
+            osobach okno bez tego rośnie na całą wysokość ekranu i stopka z przyciskiem wysyłki
+            znika pod krawędzią — a to ona jest decyzją. Wysokość `min(300px, 40vh)`, czyli
+            na niskim oknie lista oddaje miejsce stopce. -#}
+        <div class="zapros__lista">
+            <div class="zapros__naglowek">
+                <span>Osoba i adres e-mail · {{ ile }}</span>
+                <span>Dostęp</span>
+            </div>
+            <ul class="zapros__wiersze">
+                {% for o in osoby %}
+                    <li class="zapros__wiersz">
+                        <span class="zapros__osoba">
+                            <span class="zapros__nazwa">{{ o.name }}</span>
+                            <span class="zapros__adres">{{ o.email }}</span>
+                        </span>
+                        {% if nadaj_dostep %}
+                            {#- Liczba firm z zatrudnienia — tyle licencji zajmie ta osoba. -#}
+                            <span class="chip chip--mala">{{ o.firm_opis }}</span>
+                        {% else %}
+                            <span class="zapros__bez-dostepu">bez dostępu</span>
+                        {% endif %}
+                    </li>
+                {% else %}
+                    <li class="zapros__wiersz zapros__wiersz--pusty">Nie ma kogo zaprosić — zaznaczone
+                        osoby nie mają adresu e-mail albo mają już konto.</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        {#- ⚠ Przełącznik dostępu stoi W OKNIE, a nie nad tabelą (C1): to ta sama decyzja,
+            co wysyłka, i czyta się ją razem z nią. Zmiana przełącznika dociąga okno od nowa,
+            bo zmienia KAŻDY wiersz listy i zdanie o licencjach. Bez JavaScriptu przełącznik
+            dalej działa — tylko opis odświeży się dopiero po wysyłce, a decyzję i tak czyta
+            serwer z tego, co przyszło. -#}
+        <label class="zapros__opcja">
+            <input type="checkbox" name="nadaj_dostep" value="1"{{ nadaj_dostep ? ' checked' : '' }}
+                   hx-get="{{ url('/admin/konta/zapros') }}"
+                   hx-include="[data-zapros-pole], [name='nadaj_dostep']"
+                   hx-target="#zapros-tresc" hx-swap="innerHTML" hx-trigger="change">
+            <span class="zapros__opcja-tresc">
+                <span class="zapros__opcja-nazwa">Nadaj też dostęp do firm z zatrudnienia</span>
+                <span class="zapros__opcja-opis">{{ zdanie_licencji }}</span>
+            </span>
+        </label>
+
+        {% if zdanie_braku != '' %}
+            {#- ⚠ Ramka ostrzegawcza, nie komunikat: ma zostać na ekranie razem z decyzją,
+                a toast znika po pięciu sekundach. Przycisk wysyłki jest wyłączony, ale to NIE
+                jest bramka — serwer odmawia niezależnie (`inviteBatch()` liczy to samo). -#}
+            <p class="zapros__brak" role="status">
+                <span class="zapros__brak-znak" aria-hidden="true">{{ ikony.uwaga() }}</span>
+                <span>{{ zdanie_braku }}</span>
+            </p>
+        {% endif %}
+    </div>
+    <div class="modal__foot">
+        <div class="btn-row btn-row--jedna-linia">
+            <a class="btn btn--ghost" href="{{ powrot }}" data-modal-close="zapros-modal">Anuluj</a>
+            <button type="submit" class="btn btn--primary"
+                    {{- brakuje > 0 or ile == 0 ? ' disabled' : '' }}>{{ przycisk }}</button>
+        </div>
+    </div>
+</form>

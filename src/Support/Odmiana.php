@@ -197,6 +197,46 @@ final class Odmiana
     }
 
     /**
+     * „1 zaproszenie", „2 zaproszenia", „5 zaproszeń" — przycisk wysyłki w oknie potwierdzenia
+     * (zlecenie Z84 cz. C).
+     *
+     * ⚠ Rodzaj nijaki, więc po 2–4 końcówka `-a`, a od 5 dopełniacz `-ń` — tak samo jak
+     * `zatrudnienia()`. „Wyślij 2 zaproszeń" i „Wyślij 5 zaproszenia" to dwa błędy, które
+     * widać na przycisku, czyli w miejscu, w które się patrzy przed nieodwracalną czynnością.
+     */
+    public static function zaproszenia(int $ile): string
+    {
+        return abs($ile) === 1 ? 'zaproszenie' : (self::mnoga($ile) ? 'zaproszenia' : 'zaproszeń');
+    }
+
+    /**
+     * „zajmie 1 licencję", „zajmie 2 licencje", „zajmie 5 licencji" — zdanie o licencjach
+     * w oknie potwierdzenia (zlecenie Z84 cz. C).
+     *
+     * ⚠ **Biernik**, bo zdanie zawsze ma czasownik przechodni („zajmie…"). Mianownik dałby
+     * „zajmie 1 licencja". Forma po 2–4 („licencje") różni się od dopełniacza („licencji"),
+     * więc trzy formy są tu potrzebne naprawdę.
+     */
+    public static function licencje(int $ile): string
+    {
+        return abs($ile) === 1 ? 'licencję' : (self::mnoga($ile) ? 'licencje' : 'licencji');
+    }
+
+    /**
+     * Czy CZASOWNIK przy tej liczbie stoi w liczbie mnogiej („2 osoby dostaną”), a nie
+     * pojedynczej („5 osób dostanie”, „1 osoba dostanie”).
+     *
+     * ⚠ Czasownik nie idzie za „jeden kontra więcej”, tylko za przypadkiem rzeczownika:
+     * przy dopełniaczu mnogim (0, 5–21, 25…) orzeczenie wraca do liczby pojedynczej.
+     * Zmierzone na ekranie zaproszeń 24.10.2026 — warunek `$ile === 1` dawał
+     * „0 osób dostaną e-mail” i „25 osób dostaną e-mail”.
+     */
+    public static function czasownikMnogi(int $ile): bool
+    {
+        return self::mnoga($ile);
+    }
+
+    /**
      * Czy liczba bierze formę mnogą „lekką” (2, 3, 4), a nie dopełniacz (5 i więcej).
      *
      * ⚠ Wyjątek nastu (12, 13, 14) jest konieczny: bez niego wychodzi „13 dni robocze”

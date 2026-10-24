@@ -930,20 +930,110 @@ a.access--btn .access__strzalka { font-size: 14px; line-height: 1; }
   .segmented__item:hover { color: var(--c-text-2); text-decoration: none; }
 }
 .segmented__item--on { background: var(--c-surface); color: var(--c-text); font-weight: var(--w-medium); box-shadow: var(--shadow-card); }
-/* ══════════ Filtr zatrudnienia na `/admin/konta` (zlecenie Z84 A1) ══════════
-   ⚠ Ten sam komponent `.segmented`, co przełącznik widoku kalendarza — nie nowy. Dochodzi
-   wyłącznie licznik: PRZYGASZONY, bo jest podpisem segmentu, a nie jego treścią. Liczby
-   w jednej szerokości (`tabular-nums`), inaczej przełączanie segmentów przesuwa napisy. */
-.segmented__licznik { color: var(--c-text-4); font-variant-numeric: tabular-nums; }
-/* W segmencie wybranym licznik ma o stopień więcej kontrastu — tło jest tam jaśniejsze. */
-.segmented__item--on .segmented__licznik { color: var(--c-text-3); }
-.segmented--zatrudnienie { flex: none; }
-@container glowa (max-width: 760px) {
-  /* Na telefonie segmenty biorą całą szerokość pod wyszukiwarką — trzy pozycje obok pola
-     300 px nie mieszczą się bez przewijania w bok, a przewijanie w poprzek jest zakazane. */
-  .segmented--zatrudnienie { width: 100%; }
-  .segmented--zatrudnienie .segmented__item { flex: 1 1 auto; justify-content: center; }
+/* ══════════ Okno potwierdzenia wysyłki zaproszeń (zlecenie Z84 cz. C) ══════════
+   ⚠ Okno jest WĄSKIE (520 px): jego treścią jest lista nazwisk z adresami i jedno zdanie
+   o licencjach, a nie tabela — szersze okno rozciągałoby wiersze na pół ekranu i zostawiało
+   adres daleko od nazwiska, do którego należy. */
+.modal--zapros { max-width: 520px; }
+.zapros__body { display: grid; gap: var(--s-4); }
+.zapros__lead { margin: 0; color: var(--c-text-2); }
+/* Zdanie o odsianych osobach jest przygaszone: mówi o kimś, kogo w liście nie ma. */
+.zapros__pominieto { margin: 0; font-size: var(--t-small); color: var(--c-text-3); }
+
+/* ⚠ **Lista ma WŁASNE przewijanie i przyklejony nagłówek.** Przy trzydziestu osobach okno bez
+   tego rośnie na całą wysokość ekranu i stopka z przyciskiem wysyłki znika pod krawędzią —
+   a to ona jest decyzją. `min(300px, 40vh)`: na niskim oknie lista oddaje miejsce stopce,
+   zamiast ją wypychać. */
+.zapros__lista {
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius);
+  overflow: hidden;
 }
+.zapros__naglowek {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-3);
+  background: var(--c-surface-mute);
+  border-bottom: 1px solid var(--c-line);
+  font-size: var(--t-label);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--c-text-3);
+}
+.zapros__wiersze {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: min(300px, 40vh);
+  overflow-y: auto;
+}
+.zapros__wiersz {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding: var(--s-2) var(--s-3);
+  border-bottom: 1px solid var(--c-line-soft);
+}
+.zapros__wiersz:last-child { border-bottom: 0; }
+.zapros__wiersz--pusty { color: var(--c-text-3); font-size: var(--t-small); }
+/* ⚠ `min-width: 0` na pudełku osoby: bez niego wielokropek nie ma na czym się zatrzymać
+   i długie nazwisko rozpycha wiersz, wypychając plakietkę za krawędź okna. */
+.zapros__osoba { display: grid; min-width: 0; }
+.zapros__nazwa {
+  font-weight: var(--w-semibold);
+  color: var(--c-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.zapros__adres {
+  font-size: var(--t-small);
+  color: var(--c-text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.zapros__bez-dostepu { flex: none; font-size: var(--t-small); color: var(--c-text-4); }
+.zapros__wiersz .chip { flex: none; }
+
+/* Przełącznik dostępu w ramce — razem z opisem, bo to jedna decyzja, nie dwie. */
+.zapros__opcja {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+  padding: var(--s-3);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.zapros__opcja-tresc { display: grid; gap: 2px; }
+.zapros__opcja-nazwa { font-weight: var(--w-medium); color: var(--c-text); }
+.zapros__opcja-opis { font-size: var(--t-small); color: var(--c-text-3); }
+
+/* ⚠ Ramka ostrzegawcza, nie komunikat: zostaje na ekranie razem z decyzją (toast znika
+   po pięciu sekundach, a brak licencji nie znika sam). */
+.zapros__brak {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-2);
+  margin: 0;
+  padding: var(--s-3);
+  border: 1px solid var(--c-warn-line);
+  border-radius: var(--radius);
+  background: var(--c-warn-soft);
+  color: var(--c-warn-text);
+  font-size: var(--t-small);
+}
+.zapros__brak-znak { flex: none; display: flex; color: var(--c-warn); }
+/* Ekran zapasowy bez JavaScriptu: ta sama treść w karcie, więc i ta sama szerokość. */
+.zapros-ekran { max-width: 520px; }
+
 
 /* ——— zwijany blok (szczegóły techniczne) ——————————————————————————————— */
 
@@ -6955,6 +7045,44 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   color: var(--c-text-2);
 }
 .zak__poz--on .zak__licznik { background: var(--c-accent-soft); color: var(--c-accent-text); }
+
+/* ══════════ Filtr zatrudnienia na `/admin/konta` (zlecenie Z84 A1) ══════════
+   ⚠ **Komponent jest TEN SAM, co zakładki obok (`.zak`)**, więc tutaj nie ma ani ramki, ani tła,
+   ani wysokości — tylko POŁOŻENIE. Rozstrzygnięcie po odbiorze 24.10.2026: pierwsza wersja
+   stała na `.segmented` i różniła się od zakładek o kilka pikseli, bo brała wygląd z drugiego
+   miejsca w arkuszu. Jedno miejsce nie ma jak się rozjechać.
+   ⚠ Filtr bierze wolne miejsce, a wyszukiwarka zostaje przy prawej krawędzi: kolejność
+   w nagłówku to zakładki › filtr › szukanie. Przełącznik postawiony ZA wyszukiwarką czytał się
+   jak część wyszukiwania, a nie jak zawężenie listy.
+   ⚠ `.card__akcje` ma własne `margin-left: auto` (używane na innych ekranach), więc TUTAJ
+   zdejmujemy je sąsiedztwem: dwa automatyczne odstępy dzieliłyby wolne miejsce na pół
+   i rozsunęłyby filtr od wyszukiwarki na całą szerokość karty. */
+.zak--zatrudnienie { margin-left: auto; }
+.zak--zatrudnienie + .card__akcje { margin-left: var(--s-3); }
+/* ⚠ **Pasmo środkowe: filtr schodzi do drugiego wiersza, wyszukiwarka zostaje w pierwszym.**
+   Zmierzone 24.10.2026: zakładki (408 px) + filtr (383) + wyszukiwarka (372) + dwa odstępy
+   to 1195 px, więc w karcie węższej niż to trójka nie mieści się w jednym wierszu. Bez tej
+   reguły zawijała się OSTATNIA pozycja — wyszukiwarka spadała na drugi wiersz do LEWEJ
+   krawędzi, a filtr zostawał przy prawej, czyli dokładnie odwrotnie niż mówi rozstrzygnięcie
+   (zakładki › filtr › wyszukiwarka). Objawiało się przy 1366 px, czyli na typowym laptopie.
+   `order: 1` przenosi filtr na koniec kolejności ZAWIJANIA, więc wiersz pierwszy to zakładki
+   plus wyszukiwarka przy prawej krawędzi (jej własne `margin-left: auto` wraca), a filtr
+   staje pod zakładkami. */
+@container glowa (max-width: 1200px) {
+  .zak--zatrudnienie { order: 1; margin-left: 0; }
+  .zak--zatrudnienie + .card__akcje { margin-left: auto; }
+}
+@container glowa (max-width: 760px) {
+  /* Na wąskim ekranie filtr zawija się POD zakładki i bierze całą szerokość — trzy pozycje
+     obok pola 300 px nie mieszczą się bez przewijania w bok, a przewijanie w poprzek jest
+     w tej aplikacji zakazane. `margin-left: auto` znika, bo nie ma już czego wyrównywać.
+     ⚠ `order` wraca do zera: przy szerokości telefonu wyszukiwarka i tak ma własny wiersz,
+     więc filtr może stać tam, gdzie go szukamy — bezpośrednio pod zakładkami. */
+  .zak--zatrudnienie { order: 0; width: 100%; margin-left: 0; }
+  .zak--zatrudnienie .zak__poz { flex: 1 1 auto; justify-content: center; }
+  .zak--zatrudnienie + .card__akcje { margin-left: 0; }
+}
+
 
 /* Kolumny tabeli kont administracyjnych. Suma 100%: 26 / 28 / 14 / 10 / 12 / 10. */
 .col--rola      { width: 14%; }

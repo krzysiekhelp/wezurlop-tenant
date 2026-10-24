@@ -1,0 +1,23 @@
+{% extends 'layout/web.twig' %}
+
+{% block nazwa_ekranu %}Wyślij zaproszenia{% endblock %}
+
+{% block okruchy %}
+    <span>Administracja</span>
+    <span class="crumbs__sep">/</span>
+    <a href="{{ powrot }}">Osoby i konta</a>
+    <span class="crumbs__sep">/</span>
+{% endblock %}
+
+{% block content %}
+    {#- **Krok pośredni bez JavaScriptu** (zlecenie Z84 C1): ta sama treść, co w oknie modalnym.
+        Ekran jest pełnoprawną drogą, nie zapasem drugiej kategorii — wysyłka zaproszeń to
+        czynność nieodwracalna, więc potwierdzenie musi działać także wtedy, gdy skrypty
+        się nie wczytały.
+        ⚠ Nagłówek i stopka przychodzą Z FRAGMENTU, bo on je ma (okno modalne składa je tak
+        samo). Karta daje tylko ramkę — inaczej nagłówek „Wyślij zaproszenia" stałby na ekranie
+        dwa razy. -#}
+    <section class="card zapros-ekran">
+        {% include 'fragments/invite-confirm.twig' %}
+    </section>
+{% endblock %}

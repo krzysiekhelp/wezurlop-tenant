@@ -188,6 +188,30 @@ final class AccessService
         return ['uzyte' => $this->accounts->countLicensedAccesses(), 'limit' => $this->license->limit(self::KLUCZ_LICENCJI)];
     }
 
+    /**
+     * **Ilu licencji BRAKUJE na tę partię** — czysta funkcja, bo to ona rozstrzyga o odmowie
+     * (zlecenie Z84 cz. C).
+     *
+     * ⚠ Wydzielona po to, żeby dała się udowodnić testem bez bazy i bez pliku licencji:
+     * ta jedna liczba decyduje i o ostrzeżeniu w oknie, i o tym, czy serwer przyjmie wysyłkę.
+     * Policzona w dwóch miejscach rozjechałaby się przy pierwszej zmianie — a wtedy okno
+     * obiecywałoby wysyłkę, którą serwer odrzuca (albo, co gorsze, odwrotnie).
+     *
+     * ⚠ **`$limit === null` znaczy licencję BEZ limitu i wtedy nie brakuje NIGDY.** Zero wolnych
+     * miejsc to inna rzecz niż brak limitu i zlepienie ich dałoby ostrzeżenie na instalacji,
+     * która limitu nie ma.
+     * ⚠ Licencja liczy DOSTĘPY, nie konta (decyzja z 21.09.2026), więc `$potrzeba` to suma firm
+     * z zatrudnienia po wybranych osobach — nie ich liczba.
+     */
+    public static function brakujeLicencji(int $potrzeba, ?int $limit, int $uzyte): int
+    {
+        if ($limit === null) {
+            return 0;
+        }
+
+        return max(0, $potrzeba - max(0, $limit - $uzyte));
+    }
+
     public const POWOD_BRAK_LICENCJI = 'brak wolnych licencji';
     // ⚠ „firmie", nie „spółce" — jedno słowo w całym interfejsie (rozstrzygnięcie Krzysztofa
     // z 11.10.2026: „nie każda firma jest spółką"). Ten napis wychodzi na ekran przy odmowie

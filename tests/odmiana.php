@@ -39,6 +39,15 @@ use Wezurlop\Support\Odmiana;
         $check("osoby({$ile})", Odmiana::osoby($ile), $oczekiwane);
     }
 
+    // ⚠ Czasownik przy liczbie: mnogi TYLKO dla 2–4 (bez nastu). Zero i 25 biorą dopełniacz
+    // mnogi rzeczownika i orzeczenie POJEDYNCZE — „0 osób dostanie", nie „0 osób dostaną".
+    // Oba te zdania stały na ekranie wysyłki zaproszeń, zanim ta funkcja powstała.
+    foreach ([0 => false, 1 => false, 2 => true, 4 => true, 5 => false, 13 => false,
+              22 => true, 25 => false] as $ile => $oczekiwane) {
+        $check("czasownikMnogi({$ile})", Odmiana::czasownikMnogi($ile) ? 'mnogi' : 'pojedynczy',
+            $oczekiwane ? 'mnogi' : 'pojedynczy');
+    }
+
     // ⚠ `reguly()` jest w BIERNIKU, bo zdanie paska zmian w Hierarchii zawsze ma czasownik
     // przechodni („ta zmiana wyłączy…"). Mianownik różni się tylko w liczbie pojedynczej
     // („1 reguła" wobec „1 regułę"), więc błąd wyszedłby w najczęstszym przypadku na ekranie.
@@ -52,6 +61,19 @@ use Wezurlop\Support\Odmiana;
     foreach ([1 => 'zmiana', 2 => 'zmiany', 3 => 'zmiany', 4 => 'zmiany', 5 => 'zmian',
               12 => 'zmian', 13 => 'zmian', 22 => 'zmiany', 25 => 'zmian'] as $ile => $oczekiwane) {
         $check("zmiany({$ile})", Odmiana::zmiany($ile), $oczekiwane);
+    }
+
+    // ⚠ Przycisk wysyłki zaproszeń i zdanie o licencjach (Z84 C): oba stoją w oknie, które
+    // poprzedza czynność nieodwracalną, więc błąd formy widać dokładnie tam, gdzie człowiek
+    // czyta najuważniej. „Licencje" mają trzy RÓŻNE formy — biernik po 2–4 nie równa się
+    // dopełniaczowi od 5.
+    foreach ([1 => 'zaproszenie', 2 => 'zaproszenia', 4 => 'zaproszenia', 5 => 'zaproszeń',
+              12 => 'zaproszeń', 22 => 'zaproszenia'] as $ile => $oczekiwane) {
+        $check("zaproszenia({$ile})", Odmiana::zaproszenia($ile), $oczekiwane);
+    }
+    foreach ([1 => 'licencję', 2 => 'licencje', 4 => 'licencje', 5 => 'licencji',
+              12 => 'licencji', 22 => 'licencje'] as $ile => $oczekiwane) {
+        $check("licencje({$ile})", Odmiana::licencje($ile), $oczekiwane);
     }
 
     // Kafel kolejki na `/ustawienia/poczta` (Z43): prototyp miał „N zadania", czyli formę

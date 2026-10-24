@@ -91,7 +91,24 @@
     /* Okno z wynikiem otwieramy PO podmianie treści, a nie na klik: klik ma wysłać formularz.
        Gdyby okno otwierał `data-modal-open`, wspólna obsługa w ui.js zrobiłaby preventDefault
        i wysyłka nigdy by nie poszła. */
+    /* ⚠ Okno POTWIERDZENIA (Z84 cz. C) otwieramy tą samą drogą, co okno wyniku: po podmianie
+       treści, nie na klik. Przełącznik dostępu w oknie dociąga tę treść od nowa — wtedy okno
+       jest już otwarte i `showModal()` się nie powtarza. */
+    if (cel.id === 'zapros-tresc') {
+      var oknoZapros = document.getElementById('zapros-modal');
+      if (oknoZapros && typeof oknoZapros.showModal === 'function' && !oknoZapros.open) {
+        oknoZapros.showModal();
+      }
+      return;
+    }
     if (cel.id === 'wynik-tresc') {
+      /* ⚠ Potwierdzenie zamykamy, zanim pokażemy wynik: dwa okna modalne naraz znaczą, że
+         po zamknięciu wierzchniego człowiek wraca do listy osób, której już nie wyśle —
+         a wygląda to jak niewysłana partia. */
+      var doZamkniecia = document.getElementById('zapros-modal');
+      if (doZamkniecia && doZamkniecia.open && typeof doZamkniecia.close === 'function') {
+        doZamkniecia.close();
+      }
       var okno = document.getElementById('wynik-modal');
       if (okno && typeof okno.showModal === 'function' && !okno.open) {
         okno.showModal();

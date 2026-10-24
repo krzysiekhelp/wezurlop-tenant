@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.20.8, 24.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.20.9, 24.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,60 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.20.8 → 1.20.9: wysyłka zaproszeń ma okno potwierdzenia; poprawka filtra
+> zatrudnienia po odbiorze** (zlecenie Z84 cz. C i poprawka do cz. A).
+> - **Okno „Wyślij zaproszenia", 520 px.** Wysyłka robi trzy rzeczy nieodwracalne naraz:
+>   zakłada konta, zajmuje licencje i wysyła pocztę na prawdziwe adresy — a decyzja o dostępie
+>   siedziała w polu wyboru NAD TABELĄ, gdzie się jej nie czyta. Pole zniknęło z paska i stoi
+>   teraz w oknie, obok zdania o licencjach.
+> - **Lista w ramce z przyklejonym nagłówkiem**, `max-height: min(300px, 40vh)`, przewijana
+>   wewnątrz. Przy trzydziestu osobach okno bez tego rośnie na całą wysokość ekranu i stopka
+>   z przyciskiem wysyłki znika pod krawędzią — a to ona jest decyzją. `40vh` oddaje miejsce
+>   stopce na niskim oknie.
+> - **Wiersz**: nazwisko (600, wielokropek), pod nim adres (`--t-small`, `--c-text-3`), po prawej
+>   plakietka z LICZBĄ firm z zatrudnienia — bez nazw firm, bo pytanie brzmi „ile licencji".
+>   Przy odznaczonym dostępie plakietkę zastępuje przygaszone „bez dostępu".
+> - **Ramka ostrzegawcza przy braku wolnych licencji** (`--c-warn-soft` / `--c-warn-line`),
+>   przycisk wysyłki wyłączony — ale to NIE jest bramka: serwer odmawia niezależnie, tą samą
+>   liczbą, którą okno pokazuje. Przy licencji BEZ limitu ostrzeżenia nie ma wcale.
+> - **Wszystkie zdania i odmiany składa kontroler**, nie szablon: „23 osoby dostaną e-mail…",
+>   „Zajmie 23 licencje — zostanie 0 z 25.", „Wyślij 23 zaproszenia", „2 osoby pominięto — brak
+>   adresu e-mail." ⚠ W ostrzeżeniu stoi „Potrzeba 23 **licencji**" — dopełniacz po „potrzeba"
+>   jest niezmienny, więc tam NIE ma odmiany przez liczbę (ta sama pułapka, co `osobyDopelniacz()`).
+> - **Zmierzone na 1920 / 1366 / 375, ze skryptem i bez niego**: okno 520 px (311 px na telefonie),
+>   lista 23 wiersze z przewijaniem wewnątrz, przewijanie strony 0 px na każdej szerokości;
+>   krok potwierdzenia nie zakłada ani jednego konta i nie stawia ani jednego zadania poczty;
+>   przy limicie 25 i 15 wolnych miejscach ostrzeżenie „Potrzeba 23 licencji, wolnych jest 15.
+>   Brakuje 8…", przycisk wyłączony, a żądanie złożone z ręki odrzucone (0 kont, 0 zadań).
+> - **Poprawka do filtra zatrudnienia z 1.20.7** (dwa odbiory Krzysztofa w Chrome): licznik
+>   doklejał się do etykiety („Pracujący39"), bo `.segmented__item` nie ustawiał `display`.
+>   Filtr stoi teraz na **tym samym komponencie, co zakładki obok (`.zak`)**, a nie na własnym
+>   wariancie `.segmented` — „nowy komponent tam, gdzie wystarczy istniejący, to nie ulepszenie".
+>   Ramka, tło, wysokość 40 px, odstęp etykieta–licznik (**8 px**, `--s-2`) i rozmiar licznika
+>   (**11 px / 500**) biorą się więc z jednego miejsca w arkuszu i nie mają jak się rozjechać
+>   z zakładkami. ⚠ Liczby **8 px i 11 px zamiast 6 px i 12 px** z pierwszej poprawki to wynik
+>   drugiej: wspólny komponent znaczy wspólne wartości, a dwa piksele różnicy od zakładek tuż
+>   obok byłyby widoczne właśnie jako „coś tu nie pasuje".
+> - **Kolejność w nagłówku karty: zakładki › filtr › wyszukiwarka.** Filtr bierze wolne miejsce
+>   (`margin-left: auto`), wyszukiwarka zostaje przy prawej krawędzi.
+>   ⚠ **Trójka nie mieści się w jednym wierszu w karcie węższej niż 1200 px** (zmierzone:
+>   408 + 383 + 372 px plus dwa odstępy = 1195). Bez reguły na to pasmo zawijała się pozycja
+>   OSTATNIA — wyszukiwarka spadała do drugiego wiersza na lewą krawędź, a filtr zostawał przy
+>   prawej, czyli odwrotnie niż mówi rozstrzygnięcie; objawiało się przy **1366 px**, czyli na
+>   typowym laptopie. Od 1.20.9 w paśmie 760–1200 px filtr schodzi pod zakładki (`order: 1`),
+>   a wyszukiwarka zostaje w pierwszym wierszu przy prawej krawędzi. Poniżej 760 px filtr bierze
+>   całą szerokość pod zakładkami, jak dotąd.
+>   Zmierzone krawędzie: **1920** — jeden wiersz (zakładki 329–737, filtr 1056–1439,
+>   wyszukiwarka 1467–1839); **1366** — dwa wiersze (zakładki 305–713 i wyszukiwarka 937–1309
+>   w pierwszym, filtr 305–688 w drugim); 1100 / 760 / 375 — trzy wiersze, przewijanie w bok 0.
+> - ⚠ **Liczba czasownika w zdaniach z liczebnikiem** idzie teraz z `Odmiana::czasownikMnogi()`,
+>   nie z `$ile === 1`: po dopełniaczu mnogim orzeczenie jest pojedyncze. Na ekranie stało
+>   „0 osób **dostaną** e-mail" (i tak samo wyszłoby „25 osób dostaną"); jest „0 osób dostanie",
+>   „2 osoby dostaną", „25 osób dostanie".
+>   ⚠ Lekcja do pomiarów odbioru: zmierzyłem wtedy barwy, rozmiary i `aria`, ale **nie odstęp** —
+>   i dokładnie to przeszło. Odstęp etykieta–licznik i kolejność elementów nagłówka wchodzą
+>   od teraz do pomiaru tego ekranu.
 
 > **Zmiana 1.20.7 → 1.20.8: tabela `/admin/konta` — nagłówki nad treścią, jeden kolor
 > nagłówków, równe plakietki stanu konta** (zlecenie Z84 cz. B i D; decyzje Krzysztofa
