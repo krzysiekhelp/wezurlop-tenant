@@ -1128,7 +1128,63 @@ def przelacz_spolke_w_belce(pg) -> str | None:
     return None
 
 
-def sprawdz_ostrzezenie_wyjscia(b) -> dict:
+def wpisy_hierarchii_poza(pomin: list[int]) -> int:
+    """Ile wpisów `hierarchy.supervisor_changed` dotyczy zatrudnień **spoza podanej listy**
+    (zlecenie Z82).
+
+    ⚠ Po co: pomiar przeciągania w Hierarchii zapisuje i wycofuje zmianę, a zapis zostawia wpis
+    w dzienniku, którego nie da się cofnąć. Liczba policzona przed i po przebiegu jest jedynym
+    dowodem, że pomiar dotknął wyłącznie osób próbnych — „przeciągnąłem próbną" to zamiar,
+    a nie wynik (zmierzone 24.10.2026: `drag_to` złapał kartę zasłaniającą szukaną i pomiar
+    przestawił trzy prawdziwe osoby).
+
+    ⚠ Liczymy WPISY, nie wiersze hierarchii: zmianę w strukturze da się wycofać, wpis w dzienniku
+    nie — i właśnie dlatego to on jest miarą.
+    """
+    import subprocess
+    kod = (
+        'require "vendor/autoload.php";'
+        'Dotenv\\Dotenv::createImmutable(__DIR__)->load();'
+        '$e = $_ENV;'
+        '$db = new Wezurlop\\Db\\Connection(["host" => (string) $e["DB_HOST"],'
+        '  "port" => (int) $e["DB_PORT"], "name" => (string) $e["DB_NAME"],'
+        '  "user" => (string) $e["DB_USER"], "password" => (string) $e["DB_PASS"]]);'
+        '$pomin = array_values(array_filter(array_map("intval", explode(",", (string) ($argv[1] ?? "")))));'
+        '$sql = "SELECT COUNT(*) FROM event_log WHERE event_code = :kod";'
+        'if ($pomin !== []) { $sql .= " AND subject_id NOT IN (" . implode(",", $pomin) . ")"; }'
+        '$st = $db->pdo()->prepare($sql);'
+        '$st->execute(["kod" => "hierarchy.supervisor_changed"]);'
+        'echo (int) $st->fetchColumn();'
+    )
+    wyn = subprocess.run(["php", "-r", kod, ",".join(str(int(x)) for x in pomin)],
+                         cwd=KORZEN, capture_output=True, text=True, check=True)
+
+    return int((wyn.stdout or "0").strip() or 0)
+
+
+# ⚠ **Usterka kontrolna: `beforeunload` strzela także na własnym zapisie** — dokładnie usterka
+# blokująca z 22.09.2026, po której to kryterium powstało. Kto wtedy kliknął „Zostań", TRACIŁ
+# zapis, robiąc to, o co ekran prosił.
+_usterka("ostrzezenie_na_zapisie", """
+    window.addEventListener('beforeunload', (e) => { e.preventDefault(); e.returnValue = ''; });
+""")
+
+# ⚠ **Druga usterka tego samego kryterium: partia wskazuje osobę SPOZA próbki** (zlecenie Z82).
+# Nie reprodukuje usterki produktu — sprawdza BEZPIECZNIK POMIARU. Bez niej zdanie „jeśli pole
+# partii wskazuje inną osobę, pomiar przerywa się przed zapisem" byłoby obietnicą: gałąź
+# przerwania nie wykonałaby się ani razu w żadnym przebiegu. Zmierzone 24.10.2026, dlaczego
+# ten bezpiecznik istnieje: `drag_to` złapał kartę zasłaniającą szukaną i pomiar przestawił
+# trzy prawdziwe osoby, zostawiając po nich wpisy w dzienniku.
+_usterka("ostrzezenie_obca_osoba", """
+    window.setInterval(() => {
+      document.querySelectorAll('input[data-hier-pole]').forEach((e) => {
+        if (e.name.endsWith('[employment]') && e.value !== '1') { e.value = '1'; }
+      });
+    }, 100);
+""")
+
+
+def sprawdz_ostrzezenie_wyjscia(b, usterka: str | None = None) -> dict:
     """Hierarchia: ostrzeżenie o niezapisanych zmianach **przy wyjściu**, ale NIE przy zapisie.
 
     ⚠ Powstało po usterce blokującej z 22.09.2026: `beforeunload` strzelał na własnym zapisie
@@ -1140,69 +1196,146 @@ def sprawdz_ostrzezenie_wyjscia(b) -> dict:
     niesprawdzalne. To było nieprawdziwe: okna `beforeunload` **przychodzą** jako zdarzenie
     `dialog`, tylko trzeba założyć nasłuch. Luka nie była w narzędziu, a w moim pomiarze.
 
-    Dwa przypadki, bo jeden bez drugiego niczego nie dowodzi:
+    Cztery twierdzenia, bo dwa pierwsze bez siebie niczego nie dowodzą:
       - `zapis`  — po przeciągnięciu klik „Zapisz zmiany": okna BYĆ NIE MOŻE, a adres ma
         skończyć się na `ok=1`,
-      - `wyjscie` — po przeciągnięciu klik w menu boczne: okno MUSI być.
+      - `wyjscie` — po przeciągnięciu klik w menu boczne: okno MUSI być,
+      - `tylko_probne` — pole partii przed zapisem wskazuje WYŁĄCZNIE zatrudnienia próbne,
+      - `bez_sladu_po_prawdziwych` — po przebiegu w dzienniku nie ma ani jednego NOWEGO wpisu
+        `hierarchy.supervisor_changed` o kimś spoza próbki.
+
+    ⚠ **Od Z82 pomiar dotyka WYŁĄCZNIE osób próbnych** (zasada zarządcy z 24.10.2026, bez
+    wyjątków). Do tego dnia kryterium brało pierwszą kartę z panelu „nieustawieni" — czyli
+    prawdziwą osobę — przeciągało ją na kartę innej prawdziwej osoby, ZAPISYWAŁO (bez
+    dokończonego zapisu nie da się zmierzyć, że okno nie pada na własnym zapisie) i wycofywało
+    zmianę. Wycofanie działało, ale każdy przebieg bramki zostawiał w dzienniku dwa wpisy
+    o cudzej osobie — a dziennika nie wycofuje nic. Teraz gałąź zakłada `dev/probka-zespolu.php`,
+    a sprzątanie KASUJE te zatrudnienia, więc nie trzeba nawet wycofywać zapisu: przedmiot
+    zmiany przestaje istnieć.
+
+    ⚠ **Kontrola pola partii PRZED zapisem i przerwanie na czerwono** (Z82): `drag_to` chwyta
+    środek prostokąta, a ten bywa przykryty inną kartą — zmierzone 24.10.2026, gdy pomiar
+    przestawił trzy prawdziwe osoby zamiast próbnych. Zamiar („przeciągnąłem próbną") nie jest
+    wynikiem, więc przed kliknięciem „Zapisz zmiany" czytamy pola, które pojadą w żądaniu,
+    i porównujemy je z listą zatrudnień próbki. Niezgodność kończy pomiar BEZ zapisu.
+
+    ⚠ Spółka kontekstu jest stanem trwałym (`account.context_company_id`) i wraca w `finally`
+    do wartości, którą pomiar zastał — inaczej czerwienieją następne sprawdzenia.
     """
-    ctx = b.new_context(viewport={"width": SZEROKOSC_LAPTOPA, "height": 900}, ignore_https_errors=True)
+    haslo = HASLO or haslo_dev(LOGIN)
+    if not haslo:
+        return {"ok": False, "powod": f"brak hasła konta {LOGIN} — pomiaru NIE wykonano"}
+    probka_zespolu("sprzataj")
+    probka = probka_zespolu("utworz")
+    spolka_probki = int(probka.get("spolka") or 0)
+    etaty_probki = [int(p["etat"]) for p in probka.get("podwladni", [])]
+    etaty_wszystkie = etaty_probki + [int(probka.get("szef_etat") or 0)]
+    if spolka_probki == 0 or len(etaty_probki) < 2:
+        probka_zespolu("sprzataj")
+
+        return {"ok": False, "powod": "próbka nie dała gałęzi (spółka albo podwładni) — "
+                                      "pomiaru NIE wykonano"}
+    # ⚠ Liczba wpisów o PRAWDZIWYCH osobach, zdjęta przed pomiarem — dowód końcowy liczy się
+    # z różnicy, więc musi powstać przed pierwszym kliknięciem.
+    wpisy_przed = wpisy_hierarchii_poza(etaty_wszystkie)
+    wynik = _ostrzezenie_w_przegladarce(b, usterka, haslo, spolka_probki, etaty_probki)
+    # ⚠ Sprzątanie KASUJE zatrudnienia próbne, więc zapisu nie trzeba wycofywać: przedmiot
+    # zmiany przestaje istnieć. Dlatego stoi tutaj, a nie w `finally` pomiaru — i dlatego
+    # dowód z dziennika liczy się PO nim.
+    wynik["probka_sprzatanie"] = probka_zespolu("sprzataj")
+    wpisy_po = wpisy_hierarchii_poza(etaty_wszystkie)
+    wynik["slad_dziennika"] = {"przed": wpisy_przed, "po": wpisy_po}
+    wynik["bez_sladu_po_prawdziwych"] = wpisy_po == wpisy_przed
+    wynik["ok"] = bool(wynik.get("ok")) and wynik["bez_sladu_po_prawdziwych"]
+
+    return wynik
+
+
+def _ostrzezenie_w_przegladarce(b, usterka, haslo, spolka_probki: int,
+                                etaty_probki: list[int]) -> dict:
+    """Przeglądarkowa połowa kryterium `ostrzezenie` — bez próbki i bez dziennika.
+
+    ⚠ Osobno od warstwy zewnętrznej po to, żeby dowód „zero wpisów o prawdziwych osobach"
+    dał się policzyć PO skasowaniu próbki i trafił do wyniku. W `finally` tej funkcji nie
+    ma do czego go dopisać: wynik jest już wtedy zwrócony.
+    """
+    ctx = nowy_kontekst(b, usterka, viewport={"width": SZEROKOSC_LAPTOPA, "height": 900},
+                        ignore_https_errors=True)
     pg = ctx.new_page()
     okna: list[str] = []
-    # ⚠ Przed `try`, nie w środku: `finally` sięga po tę listę także wtedy, gdy wyjątek padnie
-    # przed pierwszym przeciągnięciem — a `NameError` w sprzątaniu zamaskowałby prawdziwy powód.
-    zapisane: list[str] = []
-    # ⚠ Spółka, którą ten pomiar przestawił w belce, wraca w `finally` — kontekst jest TRWAŁY,
-    # a zostawiona zmiana czerwieni następne sprawdzenia (zmierzone 10.10.2026).
-    przelaczone: list[str] = []
+    spolka_przed = ""
     pg.on("dialog", lambda d: (okna.append(d.type), d.accept()))
     try:
         pg.goto(BAZA + "/logowanie", wait_until="networkidle")
         pg.fill("#login-email", LOGIN)
-        pg.fill("#login-password", HASLO)
+        pg.fill("#login-password", haslo)
         pg.click("button[type=submit]")
         pg.wait_for_load_state("networkidle")
+        pg.goto(BAZA + "/admin/hierarchia", wait_until="networkidle")
+        spolka_przed = pg.evaluate(
+            "() => ((document.querySelector('.spolka') || {}).dataset || {}).spolka || ''")
+        # ⚠ Spółkę USTAWIAMY, nie zgadujemy: gałąź próbna stoi w jednej konkretnej, a ekran
+        # bierze spółkę z kontekstu, nie z adresu. Dawna wersja szukała spółki, w której jest
+        # „co przeciągnąć" — i trafiała w prawdziwych ludzi.
+        ustaw_spolke_w_belce(pg, spolka_probki)
 
-        # ⚠ Zapamiętujemy, KTO został przeciągnięty — bez tego nie da się wycofać zapisu,
-        # a sprawdzenie ostrzeżenia MUSI zapis dokończyć, żeby cokolwiek mierzyć. Do 22.09.2026
-        # bramka zostawiała po sobie przestawioną strukturę przy każdym przebiegu, więc zdanie
-        # „struktura z pomiaru stoi do obejrzenia" przestawało być prawdą (§7 zlecenia).
-        def przeciagnij() -> bool:
-            pg.goto(BAZA + "/admin/hierarchia", wait_until="networkidle")
-            zrodlo = pg.locator("#hier-nieustawieni .hier__card").first
-            cel = pg.locator("#hier-drzewo .hier__card").first
-            if zrodlo.count() == 0 or cel.count() == 0:
-                return False
-            przeciagany = zrodlo.get_attribute("data-hier-id")
-            zrodlo.drag_to(cel)
-            pg.wait_for_timeout(300)
-            if pg.locator(".hier__bar-item").count() == 0:
-                return False
-            if przeciagany:
-                zapisane.append(przeciagany)
-            return True
+        def przeciagnij(etat: int) -> dict:
+            """Przeciąga KONKRETNE zatrudnienie próbne na strefę „szczyt struktury".
 
-        if not przeciagnij():
-            # ⚠ Ten pomiar potrzebuje spółki, w której JEST co przeciągnąć — a od 10.10.2026
-            # ekran bierze spółkę z kontekstu, nie z adresu. Gdy w bieżącej spółce panel
-            # „nieustawieni" albo drzewo są puste, przełączamy spółkę **znacznikiem w belce**
-            # (tak jak człowiek) i próbujemy jeszcze raz. Która spółka dostarczy materiału,
-            # jest dla tego kryterium nieistotne — istotne, że ostrzeżenie pada przy wyjściu.
+            ⚠ **Strefa `szczyt`, a nie panel „nieustawieni"** — i to jest poprawka z pomiaru,
+            nie wybór. Panel jest listą KART, więc `drag_to` upuszcza w jego środku, czyli
+            w kartę prawdziwej osoby: upuszczenie nie zostało zapisane w pasku ani raz
+            (zmierzone 24.10.2026: trafienie w kartę potwierdzone, partia pusta), a gdyby
+            zostało, znaczyłoby „przełożonym tej osoby jest ten, kto akurat był w środku
+            panelu". Strefa `szczyt` jest jednym akapitem bez dzieci — nie ma czym zasłonić.
+            """
             pg.goto(BAZA + "/admin/hierarchia", wait_until="networkidle")
-            spolka_przed = pg.evaluate(
-                "() => ((document.querySelector('.spolka') || {}).dataset || {}).spolka || ''")
-            przelaczone.append(spolka_przed)
-            if przelacz_spolke_w_belce(pg) is None or not przeciagnij():
-                return {"ok": False,
-                        "powod": "nie ma z czego zrobic zmiany (pusty panel albo drzewo) "
-                                 "w zadnej dostepnej spolce"}
+            karta = pg.locator(f'.hier__card[data-hier-id="{etat}"]').first
+            panel = pg.locator('.hier__drop[data-hier-drop="szczyt"]').first
+            if karta.count() == 0 or panel.count() == 0:
+                return {"trafiony": None, "partia": [], "powod": f"nie ma karty {etat}"}
+            karta.scroll_into_view_if_needed()
+            # ⚠ Punkt chwytania sprawdzony PRZED pociągnięciem — patrz uwaga w opisie kryterium.
+            trafienie = karta.evaluate(
+                "(el) => { const r = el.getBoundingClientRect();"
+                " const pod = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);"
+                " const k = pod ? pod.closest('.hier__card') : null;"
+                " return k ? k.getAttribute('data-hier-id') : null; }")
+            if str(trafienie) != str(etat):
+                return {"trafiony": trafienie, "partia": [], "powod": "punkt chwytania zasłonięty"}
+            karta.drag_to(panel)
+            pg.wait_for_timeout(400)
+
+            return {
+                "trafiony": trafienie,
+                # Pola, które POJADĄ w żądaniu zapisu — jedyne miejsce, w którym widać,
+                # co faktycznie wpadło do partii.
+                "partia": pg.evaluate(
+                    "() => [...document.querySelectorAll('input[data-hier-pole]')]"
+                    ".filter((e) => e.name.endsWith('[employment]')).map((e) => e.value)"),
+            }
+
+        pierwsze = przeciagnij(etaty_probki[0])
+        tylko_probne = (pierwsze["partia"] != []
+                        and all(int(x) in etaty_probki for x in pierwsze["partia"]))
+        if not tylko_probne:
+            # ⚠ **Przerwanie PRZED zapisem** (Z82): niezgodność znaczy, że pociągnęliśmy kogoś
+            # innego, a zapis zostawiłby po nim wpis w dzienniku.
+            return {"ok": False, "powod": "partia wskazuje zatrudnienie spoza próbki — "
+                                          "przerwano PRZED zapisem",
+                    "pierwsze_przeciagniecie": pierwsze, "etaty_probki": etaty_probki,
+                    "tylko_probne": False}
+
         okna.clear()
         pg.click('#hier-bar button[type="submit"]')
         pg.wait_for_load_state("networkidle")
         zapis_okna = list(okna)
         zapis_adres = pg.url
 
-        if not przeciagnij():
-            return {"ok": False, "powod": "nie udalo sie powtorzyc zmiany"}
+        drugie = przeciagnij(etaty_probki[1])
+        if drugie["partia"] == []:
+            return {"ok": False, "powod": "nie udało się powtórzyć zmiany na drugim etacie próbnym",
+                    "drugie_przeciagniecie": drugie, "tylko_probne": True}
         okna.clear()
         pg.click('.nav-item[href$="/admin/konta"]')
         pg.wait_for_timeout(1500)
@@ -1213,39 +1346,22 @@ def sprawdz_ostrzezenie_wyjscia(b) -> dict:
             "zapis_okien": len(zapis_okna),
             "zapis_adres": zapis_adres.split("hierarchia")[-1],
             "wyjscie_okien": len(wyjscie_okna),
-            "wycofane": zapisane,
+            "tylko_probne": True,
+            "partia_pierwsza": pierwsze["partia"],
+            "partia_druga": drugie["partia"],
+            "etaty_probki": etaty_probki,
         }
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "powod": str(e)}
     finally:
-        # ⚠ Wycofanie zapisu wykonanego przez to sprawdzenie — tą samą ścieżką aplikacji,
-        # którą poszedł zapis. Zdejmujemy przełożonego z KAŻDEGO przeciągniętego zatrudnienia:
-        # ten drugi (z próby wyjścia) zapisu nie dokończył, więc `zdejmij` jest dla niego
-        # operacją bez skutku — a nie musimy zgadywać, który to był.
+        # ⚠ Kolejność: najpierw spółka (czyta ją ekran), potem skasowanie próbki. Zapisu NIE
+        # wycofujemy — `sprzataj` usuwa te zatrudnienia, więc przedmiot zmiany przestaje istnieć.
         try:
-            pg.goto(BAZA + "/admin/hierarchia", wait_until="networkidle")
-            dane = pg.evaluate("""() => {
-              const c = document.querySelector('input[name="_csrf"]');
-              const s = document.querySelector('input[name="spolka"]');
-              return c && s ? {csrf: c.value, spolka: s.value} : null;
-            }""")
-            for kogo in dict.fromkeys(zapisane):
-                if dane:
-                    pg.evaluate(POST_HIERARCHII, {**dane, "employment": kogo,
-                                                  "cel": "zdejmij", "supervisor": ""})
+            if spolka_przed not in ("", str(spolka_probki)):
+                pg.goto(BAZA + "/admin/hierarchia", wait_until="networkidle")
+                ustaw_spolke_w_belce(pg, int(spolka_przed))
         except Exception:  # noqa: BLE001
             pass
-        # ⚠ Wycofanie SPÓŁKI **na końcu**, już po wycofaniu zapisu: wycofanie zapisu czyta
-        # identyfikator spółki z ekranu, więc przestawiona wcześniej spółka kazałaby mu
-        # zdejmować przełożonego w cudzej spółce — czyli nie zdjąć go wcale.
-        for spolka_wracajaca in przelaczone:
-            if spolka_wracajaca == "":
-                continue
-            try:
-                pg.goto(BAZA + "/admin/hierarchia", wait_until="networkidle")
-                ustaw_spolke_w_belce(pg, int(spolka_wracajaca))
-            except Exception:  # noqa: BLE001
-                pass
         ctx.close()
 
 
@@ -7344,6 +7460,12 @@ KONTROLE: dict[str, object] = {
     # ⚠ Dokładane razem z przepisaniem trzeciego twierdzenia na decyzję z Z76: nazwa z R2
     # wraca do treści wiersza `/dane`, czyli do stanu, który tamta decyzja zdjęła.
     "nazwa_wyswietlana": sprawdz_nazwe_wyswietlana,
+    # ⚠ Usterka blokująca z 22.09.2026, po której to kryterium powstało: `beforeunload`
+    # strzela także na własnym zapisie aplikacji (zlecenie Z82 — kryterium nie miało dotąd
+    # ani jednej usterki, czyli nie było dowodu, że potrafi zaświecić).
+    "ostrzezenie_na_zapisie": sprawdz_ostrzezenie_wyjscia,
+    # ⚠ Druga usterka: bezpiecznik pomiaru (partia spoza próbki) musi przerwać PRZED zapisem.
+    "ostrzezenie_obca_osoba": sprawdz_ostrzezenie_wyjscia,
 }
 
 
