@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.20.3, 23.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.20.4, 24.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,46 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.20.3 → 1.20.4: okno „Dodaj dostęp" nie wybiera niczego za człowieka, a stopka ma
+> na każdym kroku dokładnie dwa przyciski** (zlecenie Z81; decyzja Krzysztofa z 24.10.2026:
+> „użytkownik musi świadomie wybrać").
+> - **Kroki 2 („Czyje nieobecności") i 3 („Zakres") startują PUSTE.** Oba kafelki mówią
+>   przygaszone „nie wybrano", nic nie jest zablokowane i nie ma ptaszka. ⚠ To ZASTĘPUJE
+>   domyślną „Całą firmę" i cały dobór celu z rodzaju podmiotu z 19.10.2026 — razem z dopiskiem,
+>   w którym wskazanie przełożonego z listy samo ustawiało „Podwładnych". Powód: domyślność
+>   w oknie nadającym wgląd w cudze nieobecności jest decyzją, tylko niczyją.
+> - **Serwer nie uzupełnia braków.** Zakres spoza białej listy (w tym brak zakresu) jest teraz
+>   PUSTKĄ, a nie najniższym poziomem, a zapis bez celu albo bez zakresu to odmowa z własnym
+>   powodem (`POWOD_ZAKRES`: „Wybierz w kroku 3, ile ma być widać…"). Dotąd brak zakresu wpadał
+>   do odmowy celu, czyli zdanie odsyłało do kroku 2, w którym wszystko było wybrane.
+> - **Ptaszek kafelka kroku 3 znaczy „zakres wybrany"**, a nie „reguła już istnieje".
+> - **Stopka ma zawsze dwa przyciski**: krok 1 „Wstecz" (`disabled`, opacity .5, `not-allowed`,
+>   z podpowiedzią „To jest pierwszy krok…") + „Dalej"; krok 2 „Wstecz" + „Dalej"; krok 3
+>   „Wstecz" + „Nadaj dostęp" (przy zmianie „Zapisz zmiany") w miejscu „Dalej". ⚠ Osobnego
+>   przycisku zapisu w krokach 1–2 **już nie ma** — to odwraca dopisek z 19.10.2026 („oba wyjścia
+>   na każdym kroku"), bo zapis z kroku 1 byłby zapisem reguły bez wskazanego celu. Przycisk
+>   do przodu jest **główny** na każdym kroku: to ten sam slot, tylko z inną treścią.
+> - **„Wstecz" jest przyciskiem `GET` z pól formularza, nie odnośnikiem.** Odnośnik niósł stan
+>   wyrenderowany, a wskazane grupy i osoby jadą polami formularza — więc „Wstecz" z kroku 2
+>   po zaznaczeniu grupy wracało bez niej (usterka zastana, naprawiona tą zmianą).
+> - **DWA stopnie niedostępności przycisku zapisu, bo braki są dwojakie**: brak w kroku 1 albo 2
+>   daje prawdziwy `disabled` z podpowiedzią wymieniającą WSZYSTKIE brakujące kroki („Brakuje
+>   wyboru w krokach 1 (Kto widzi) i 2 (Czyje nieobecności)…"); sam brak zakresu daje
+>   `aria-disabled="true"` i to samo przygaszenie, ale przycisk **działa**. ⚠ Tak jest, bo zakres
+>   wskazuje się polem radio na tym samym ekranie, a pole radio nie wysyła żądania: prawdziwy
+>   `disabled` z renderu zostałby na zawsze i **bez JavaScriptu nie dałoby się nadać dostępu
+>   nigdy**. Przygaszony przycisk wysyła formularz, a serwer odmawia i mówi, czego brakuje
+>   (zmierzone bez JavaScriptu: klik → „Wybierz w kroku 3, ile ma być widać…", potem wybór karty
+>   → „Dostęp nadany."). Ze skryptem kliknięcie zamienia się w komunikat, a przygaszenie znika
+>   w chwili wskazania karty — bez przeładowania.
+> - **Podglądu kalendarza w kroku 3 nie ma, dopóki zakres nie jest wybrany** — pokazuje SKUTEK
+>   wyboru, więc przy pustym kroku mówiłby o skutku, którego nikt nie wybrał (i akurat o tym
+>   niższym z dwóch). Robi to arkusz (`:not(:has(.wid-zakres input:checked))`), nie warunek
+>   w szablonie, żeby pojawiał się w chwili kliknięcia także bez skryptu.
+> - **Zmierzone w Chrome na 1920 / 1366 / 375**, ze skryptem i z wyłączonym JavaScriptem:
+>   stan obu przycisków na każdym kroku, pusty start kroków 2–3, przygaszenie i odżycie
+>   „Nadaj dostęp", zapis obiema drogami, przewijanie poziome 0 px na każdej szerokości.
 
 > **Zmiana 1.20.2 → 1.20.3: reguła widoczności ma status „aktywna", a lista — kolumnę
 > i część nieaktywną** (zlecenie Z80 cz. B; decyzje Krzysztofa z 23.10.2026).

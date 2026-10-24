@@ -233,6 +233,8 @@ use Wezurlop\Service\ZakresWidocznosci as Z;
         'stala' => false,
         'wybor_kto' => true,
         'wybor_czyje' => true,
+        // Od Z81 krok 3 też ma wybór — i też wolno go nie mieć (patrz blok niżej).
+        'wybor_zakres' => true,
         'cala_firma_zadana' => false,
         'czyje' => Z::CZYJE_FIRMA,
     ], $zmiany);
@@ -257,6 +259,35 @@ use Wezurlop\Service\ZakresWidocznosci as Z;
     $check('Z80: reguła stała przechodzi bez żadnego wskazania',
         W::powodStanuOkna($stanOkna(['stala' => true, 'wybor_kto' => false, 'wybor_czyje' => false]))
             === null);
+
+    // ——— Z81: KROK 3 STARTUJE PUSTY, WIĘC JEGO BRAK TEŻ JEST ODMOWĄ ————————————
+    // ⚠ Do 24.10.2026 ten stan nie istniał: serwer podstawiał „bez szczegółów" za każdą wartość
+    // spoza białej listy, w tym za brak wartości. Nowa reguła miała więc zakres, zanim ktokolwiek
+    // go wskazał — i to NAJNIŻSZY z dwóch, czyli domyślność rozstrzygała o wglądzie w cudze
+    // nieobecności bez niczyjej decyzji.
+    $check('Z81: bez wskazanego zakresu (krok 3 pusty) → odmowa „zakres"',
+        W::powodStanuOkna($stanOkna(['wybor_zakres' => false])) === W::POWOD_ZAKRES,
+        (string) W::powodStanuOkna($stanOkna(['wybor_zakres' => false])));
+    // ⚠ Powód MUSI być inny niż `POWOD_CEL`, bo zdanie na ekranie odsyła do konkretnego kroku:
+    // „wybierz, czyje nieobecności" przy wybranym celu kazałoby szukać w kroku 2 czegoś,
+    // co tam jest.
+    $check('Z81: brak zakresu to NIE jest odmowa celu',
+        W::POWOD_ZAKRES !== W::POWOD_CEL);
+    // ⚠ Reguła stała ma dokładnie jeden krok — zakres — więc tu wyjątku dla niej NIE MA.
+    // To jedyna odmowa, która jej dotyczy.
+    $check('Z81: reguła stała bez zakresu też jest odrzucana',
+        W::powodStanuOkna($stanOkna(['stala' => true, 'wybor_kto' => false,
+            'wybor_czyje' => false, 'wybor_zakres' => false])) === W::POWOD_ZAKRES);
+    // ⚠ Kolejność odmów idzie po NUMERACH KROKÓW: przy dwóch brakach ekran ma odesłać do
+    // pierwszego z nich, a nie do ostatniego sprawdzonego warunku.
+    $check('Z81: przy pustym kroku 1 i pustym kroku 3 odmowa mówi o podmiocie',
+        W::powodStanuOkna($stanOkna(['wybor_kto' => false, 'wybor_zakres' => false]))
+            === W::POWOD_PODMIOT);
+    $check('Z81: przy pustym kroku 2 i pustym kroku 3 odmowa mówi o celu',
+        W::powodStanuOkna($stanOkna(['wybor_czyje' => false, 'wybor_zakres' => false]))
+            === W::POWOD_CEL);
+    $check('Z81: pełny stan z wszystkimi trzema wyborami wolno zapisać',
+        W::powodStanuOkna($stanOkna()) === null);
 
     echo $failures === 0 ? "Wszystkie sprawdzenia przeszły.\n" : "Nieudane: {$failures}\n";
     exit($failures === 0 ? 0 : 1);

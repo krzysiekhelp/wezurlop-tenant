@@ -191,7 +191,25 @@ use Wezurlop\Service\ZasiegPodgladu;
             $service->zapisz(null, $firmy['ALFA'], Z::KTO_KONTO, $konta['widz'], Z::CZYJE_FIRMA,
                 [$etaty['cel1']], Z::ZE_SZCZEGOLAMI, $konta['widz'], 'test')
                 === WidocznoscService::POWOD_CEL);
-        $check('j, s: po siedmiu odmowach nie przybyła ani jedna reguła',
+        // ⚠ **Z81: pusty zakres odrzuca SERWIS, nie okno.** Od 24.10.2026 krok 3 startuje pusty
+        // i serwer nie podstawia już zakresu domyślnego, więc żądanie bez zakresu jest teraz
+        // stanem zwykłym, a nie podmienionym polem. Sprawdzamy tę samą drogę, którą idzie zapis
+        // z okna — bo wyszarzony przycisk nie jest bramką: żądanie da się złożyć z ręki.
+        $check('Z81: zapis bez zakresu → odmowa „zakres"',
+            $service->zapisz(null, $firmy['ALFA'], Z::KTO_KONTO, $konta['widz'], Z::CZYJE_FIRMA, [],
+                '', $konta['widz'], 'test') === WidocznoscService::POWOD_ZAKRES);
+        // ⚠ „brak" jest zakresem w rozumieniu osi widoczności, ale NIE JEST zakresem, który
+        // wolno zapisać w regule (reguła dająca „nic" to reguła bez sensu). Odmowa ma mówić
+        // o zakresie, a nie o celu — inaczej ekran odsyła do kroku 2.
+        $check('Z81: zapis z zakresem „brak" → odmowa „zakres"',
+            $service->zapisz(null, $firmy['ALFA'], Z::KTO_KONTO, $konta['widz'], Z::CZYJE_FIRMA, [],
+                Z::BRAK, $konta['widz'], 'test') === WidocznoscService::POWOD_ZAKRES);
+        // ⚠ Także w regule STAŁEJ — ma dokładnie jeden krok, więc to jedyna odmowa, jaka
+        // jej dotyczy, i musi działać tą samą drogą.
+        $check('Z81: zmiana reguły stałej bez zakresu → odmowa „zakres"',
+            $service->zapisz(null, $firmy['ALFA'], Z::KTO_PRZELOZENI, 0, Z::CZYJE_PODWLADNI, [],
+                '', $konta['widz'], 'test') === WidocznoscService::POWOD_ZAKRES);
+        $check('j, s, Z81: po dziesięciu odmowach nie przybyła ani jedna reguła',
             $ileRegul() === $przedOdmowami, (string) ($ileRegul() - $przedOdmowami));
         // ⚠ Druga strona tego samego twierdzenia — i dlatego stoi PO liczniku wyżej: ten zapis
         // się udaje, czyli dokłada regułę. Bez niego odmowa przechodziłaby także wtedy, gdyby

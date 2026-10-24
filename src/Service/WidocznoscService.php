@@ -41,6 +41,14 @@ final class WidocznoscService
     public const POWOD_SAM_SIEBIE = 'sam_siebie';
     /** Z80 B-e: zapis trafił w podpis reguły, która leży wyłączona. */
     public const POWOD_WYLACZONA = 'wylaczona';
+    /**
+     * ⚠ **Brak zakresu ma WŁASNY powód, a nie `POWOD_CEL`** (zlecenie Z81 pkt 1). Od Z81 krok 3
+     * startuje pusty i serwer nie podstawia już zakresu domyślnego, więc „nie wybrano zakresu"
+     * przestało być stanem niemożliwym i stało się najzwyklejszą odmową. Dotąd wpadało do
+     * powodu celu, czyli ekran mówił „wybierz, czyje nieobecności", kiedy cel był wybrany —
+     * zdanie kierowało do złego kroku.
+     */
+    public const POWOD_ZAKRES = 'zakres';
 
     /**
      * **Powody braku skutku — ZAPISYWANE w kolumnie `inactive_reason`** (zlecenie Z80 cz. B).
@@ -68,7 +76,7 @@ final class WidocznoscService
      * **Czy stan okna wolno zapisać** — `null` znaczy „wolno", kod powodu znaczy odmowę
      * (zlecenie Z80 A1 i A6).
      *
-     * ⚠ **Funkcja czysta, bo inaczej nie da się jej udowodnić testem.** Te trzy odmowy dotyczą
+     * ⚠ **Funkcja czysta, bo inaczej nie da się jej udowodnić testem.** Te odmowy dotyczą
      * stanów, które OKNO potrafi pokazać, a reguła nie potrafi znaczyć — rozstrzyga o nich kształt
      * żądania, nie baza. Postawione jako `if`-y w kontrolerze wymagałyby do sprawdzenia pełnego
      * żądania HTTP; tutaj sprawdza je `tests/widocznosc.php`, bez bazy i bez przeglądarki.
@@ -77,29 +85,38 @@ final class WidocznoscService
      * sprawdzić wyłącznie w bazie (cudza firma, zablokowane konto, brak etatu), tu — tego,
      * co wynika z samego żądania.
      *
-     * ⚠ Przy regule stałej pytanie nie powstaje: podmiot i cel ma z definicji
-     * (`CalendarAccessRepository::STALE`), a zapisać w niej można wyłącznie zakres.
+     * ⚠ Przy regule stałej pytania o podmiot i cel nie powstają: ma je z definicji
+     * (`CalendarAccessRepository::STALE`). Pytanie o ZAKRES powstaje w niej tak samo jak
+     * w każdej innej — to jedyny wybór, jaki w tym oknie ma (zlecenie Z81).
      *
-     * @param array{stala: bool, wybor_kto: bool, wybor_czyje: bool, cala_firma_zadana: bool,
-     *              czyje: string} $stan stan okna z `VisibilityController::stanOkna()`
+     * @param array{stala: bool, wybor_kto: bool, wybor_czyje: bool, wybor_zakres: bool,
+     *              cala_firma_zadana: bool, czyje: string} $stan stan okna
+     *        z `VisibilityController::stanOkna()`
      */
     public static function powodStanuOkna(array $stan): ?string
     {
-        if ($stan['stala']) {
-            return null;
-        }
-        if (!$stan['wybor_kto']) {
+        // ⚠ Reguła stała ma własny, JEDEN krok — zakres — więc jego brak odrzuca się także
+        // w niej (niżej, po wyjściu z tego skrótu). Podmiotu i celu nie ma po co sprawdzać:
+        // ma je z definicji.
+        if (!$stan['stala'] && !$stan['wybor_kto']) {
             return self::POWOD_PODMIOT;
         }
-        if (!$stan['wybor_czyje']) {
+        if (!$stan['stala'] && !$stan['wybor_czyje']) {
             return self::POWOD_CEL;
         }
         // ⚠ **Dwa rodzaje celu naraz: „cała firma" i wskazane grupy.** Druga wyrażalna
         // kombinacja („cała firma" + wskazane osoby) odrzuca się w `sprawdzCel()`, bo tam oba
         // rodzaje docierają do serwisu; przy grupach cel zapisuje się jako `groups` i znacznik
         // całej firmy zostaje tylko w żądaniu.
-        if ($stan['cala_firma_zadana'] && $stan['czyje'] === ZakresWidocznosci::CZYJE_GRUPY) {
+        if (!$stan['stala'] && $stan['cala_firma_zadana']
+            && $stan['czyje'] === ZakresWidocznosci::CZYJE_GRUPY) {
             return self::POWOD_CEL;
+        }
+        // ⚠ **Zakres sprawdzamy OSTATNI i także w regule stałej** (Z81): to jedyny wybór, który
+        // reguła stała ma, a kolejność odmów idzie po numerach kroków — inaczej okno z pustym
+        // krokiem 1 i pustym krokiem 3 odsyłałoby do trzeciego, zanim powie o pierwszym.
+        if (!$stan['wybor_zakres']) {
+            return self::POWOD_ZAKRES;
         }
 
         return null;
@@ -121,8 +138,11 @@ final class WidocznoscService
         ?int $accountId,
         ?string $aktor
     ): ?string {
+        // ⚠ Zakres niezapisywalny (pusty — bo krok 3 startuje pusty od Z81 — albo podmieniony
+        // w żądaniu) odrzuca się TYM powodem, a nie powodem celu: zdanie na ekranie ma
+        // odesłać do kroku, w którym czegoś brakuje.
         if (!ZakresWidocznosci::zapisywalny($zakres)) {
-            return self::POWOD_CEL;
+            return self::POWOD_ZAKRES;
         }
         $powod = $this->sprawdzPodmiot($companyId, $ktoRodzaj, $ktoId);
         if ($powod !== null) {

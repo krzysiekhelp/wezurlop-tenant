@@ -1,9 +1,18 @@
 /* Ekran „Widoczność kalendarza" — **jedna wygoda, zero warunków działania** (CLAUDE.md §6).
 
-   ⚠ Bez tego pliku ekran działa w całości: kroki okna to odnośniki `GET`, zapis to formularz
-   `POST`, a wybór to pola wyboru w liście. Plik robi trzy rzeczy, wszystkie natychmiastowe:
+   ⚠ Bez tego pliku ekran działa w całości: kroki okna to przyciski `GET`, zapis to formularz
+   `POST`, a wybór to pola wyboru w liście. Plik robi cztery rzeczy, wszystkie natychmiastowe:
    pilnuje, żeby „Cała firma" i wskazane osoby wykluczały się **od razu**, pokazuje blokadę
-   pozostałych sekcji kroku i mówi w stopce, co jest wybrane — zamiast czekać na odpowiedź serwera.
+   pozostałych sekcji kroku, mówi w stopce, co jest wybrane, i zdejmuje przygaszenie przycisku
+   zapisu w chwili wskazania zakresu — zamiast czekać na odpowiedź serwera.
+
+   ⚠ **Przygaszony przycisk zapisu DZIAŁA bez tego pliku** (zlecenie Z81, rozstrzygnięcie
+   zarządcy z 24.10.2026). Zakres wskazuje się polem radio, a pole radio nie wysyła żądania —
+   więc gdyby serwer dawał mu prawdziwy `disabled`, bez JavaScriptu nie dałoby się nadać dostępu
+   nigdy. Serwer przygasza go `aria-disabled`, a odmowa stoi w serwisie (`POWOD_ZAKRES`). Ten
+   plik przechwytuje kliknięcie i zamienia je na komunikat, czyli oszczędza okrągłe żądanie —
+   nie jest bramką. ⚠ Prawdziwy `disabled` zostaje tylko tam, gdzie braku NIE DA SIĘ naprawić
+   na tym ekranie (puste kroki 1 i 2), i tego przycisku ten plik nie dotyka.
 
    ⚠ **Rozstrzyga SERWER, ten plik tylko to pokazuje.** Każde żądanie wraca z sekcjami
    zablokowanymi tak samo (`VisibilityController::stanOkna()` → `wybor_kto`, `wybor_czyje`),
@@ -133,21 +142,25 @@
   /* ⚠ **Kafelek kroku musi nadążać za wyborem** (Z80 A3): wybór zmienia się bez żądania
      do serwera, więc podpis wyrenderowany przy ostatniej odpowiedzi kłamałby do następnej.
      Zmierzone 23.10.2026 przed poprawką: po wskazaniu osoby kafelek dalej mówił „nie wybrano".
-     ⚠ W kroku 3 podpisem jest nazwa ZAKRESU, nie sekcji — i tam `--gotowy` zostaje taki, jaki
-     przysłał serwer (ptaszek znaczy tam „reguła już istnieje", nie „zakres ma wartość"). */
+     ⚠ W kroku 3 podpisem jest nazwa ZAKRESU, nie sekcji — i od Z81 `--gotowy` liczy się tam
+     tak samo jak w pozostałych krokach, bo ptaszek znaczy „zakres wybrany", a nie „reguła już
+     istnieje" (do 24.10.2026 zakres miał wartość domyślną, więc nie było o co pytać). */
   function odswiezKafelek(zakres) {
     var biezacy = zakres.querySelector('.wid-krok[aria-current="step"]');
     var podpis = biezacy ? biezacy.querySelector('.wid-krok__podpis') : null;
     if (!podpis) { return; }
     var seg = zakres.querySelector('.wid-seg');
     if (!seg) {
+      /* Krok 3: podpisem jest nazwa z wybranej karty, a przy braku wyboru — „nie wybrano",
+         tak samo jak w krokach z sekcjami. Bez kart zakresu nie ma czego przeliczać. */
+      if (!zakres.querySelector('.wid-zakres')) { return; }
       var wybrany = zakres.querySelector('.wid-zakres input:checked');
       var karta = wybrany ? wybrany.closest('.wid-zakres') : null;
       var nazwaZakresu = karta ? karta.querySelector('.wid-zakres__nazwa') : null;
-      if (nazwaZakresu) {
-        podpis.textContent = nazwaZakresu.textContent.trim();
-        podpis.classList.remove('wid-krok__podpis--pusty');
-      }
+      var nazwaKarty = nazwaZakresu ? nazwaZakresu.textContent.trim() : '';
+      podpis.textContent = nazwaKarty !== '' ? nazwaKarty : 'nie wybrano';
+      podpis.classList.toggle('wid-krok__podpis--pusty', nazwaKarty === '');
+      biezacy.classList.toggle('wid-krok--gotowy', nazwaKarty !== '');
 
       return;
     }
@@ -156,6 +169,23 @@
     podpis.textContent = nazwa !== '' ? nazwa : 'nie wybrano';
     podpis.classList.toggle('wid-krok__podpis--pusty', nazwa === '');
     biezacy.classList.toggle('wid-krok--gotowy', jest && nazwa !== '');
+  }
+
+  /* ⚠ **Przygaszenie przycisku zapisu — za SAM brak zakresu, nie za cokolwiek** (zlecenie Z81
+     pkt 2). Przycisk z prawdziwym `disabled` (pusty krok 1 albo 2) nie należy do tego kodu:
+     jego braku nie da się naprawić na tym ekranie, więc nie ma zdarzenia, po którym miałby
+     odżyć. Stan liczymy z ŻYWEGO zaznaczenia, nie z atrybutu, który przyniósł serwer. */
+  function odswiezZapis(zakres) {
+    var przycisk = zakres.querySelector('[data-wid-zapis]');
+    if (!przycisk || przycisk.disabled || !zakres.querySelector('.wid-zakres')) { return; }
+    var brak = !zakres.querySelector('.wid-zakres input:checked');
+    if (brak) {
+      przycisk.setAttribute('aria-disabled', 'true');
+      przycisk.setAttribute('title', przycisk.getAttribute('data-brak-zakresu') || '');
+    } else {
+      przycisk.removeAttribute('aria-disabled');
+      przycisk.removeAttribute('title');
+    }
   }
 
   /* Napis „wybrano: …" — jeden element, jedno miejsce (`data-wybrano` w stopce ramki). */
@@ -217,6 +247,17 @@
       return;
     }
 
+    /* ⚠ Przygaszony przycisk zapisu: komunikat zamiast żądania, które i tak wróciłoby odmową.
+       Bez tego pliku to kliknięcie jedzie na serwer i odmowę mówi ekran — droga zostaje
+       otwarta, a tutaj tylko skracamy ją o jedno okrągłe żądanie. */
+    var zapis = cel.closest('[data-wid-zapis][aria-disabled="true"]');
+    if (zapis) {
+      event.preventDefault();
+      event.stopPropagation();
+      komunikat(zapis.getAttribute('data-brak-zakresu') || '');
+      return;
+    }
+
     var wierszBlokowany = cel.closest('.wid-poz--zablokowana');
     if (wierszBlokowany) {
       event.preventDefault();
@@ -268,6 +309,7 @@
          i podpis kafelka dotyczą ich tak samo. */
       odswiezBlokady(zakres);
       odswiezKafelek(zakres);
+      odswiezZapis(zakres);
       return;
     }
     var firma = ramka.querySelector('#wid-cala-firma');
@@ -291,5 +333,6 @@
     przepiszStopke(ramka);
     odswiezBlokady(zakres);
     odswiezKafelek(zakres);
+    odswiezZapis(zakres);
   });
 })();

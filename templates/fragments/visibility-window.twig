@@ -66,11 +66,14 @@
         {#- ⚠ **Ptaszek znaczy „ten krok ma WYBÓR", a nie „byłeś tu"** (Z80 A3; wcześniej liczył
             się z numeru kroku bieżącego). Od Z80 sekcja bez wskazanej pozycji jest stanem
             dozwolonym, więc „przeszedłem przez krok 2" i „wskazałem cel" to dwie różne rzeczy —
-            a ptaszek ma mówić o drugiej. Kafelek kroku 3 zostaje przy regule: zakres ma wartość
-            domyślną, więc sama jej obecność nie znaczy, że ktoś o niej rozstrzygnął. -#}
+            a ptaszek ma mówić o drugiej.
+            ⚠ **Kafelek kroku 3 też liczy WYBÓR, a nie „reguła już istnieje"** (zlecenie Z81).
+            Do 24.10.2026 pytał o `regula > 0`, bo zakres miał wartość domyślną i jej obecność
+            nic nie znaczyła. Od Z81 krok 3 startuje pusty, więc jest o co pytać — a stare
+            kryterium dawałoby nowej regule ptaszek nad napisem „nie wybrano". -#}
         {% set gotowy = (nr == 1 and okno.wybor_kto)
             or (nr == 2 and okno.wybor_czyje)
-            or (nr == 3 and okno.regula > 0) %}
+            or (nr == 3 and okno.wybor_zakres) %}
         {#- ⚠ **Druga linia kafelka to NAZWA SEKCJI, nie wskazana osoba** (Z80 A3, decyzja
             Krzysztofa po prototypie). Nazwisko w nagłówku byłoby trzecią kopią tego, co i tak stoi
             w kroku, i rozpychałoby pasek przy długim nazwisku — a nazwa sekcji mieści się zawsze
@@ -79,7 +82,7 @@
             ? (okno.wybor_kto ? {'account': 'Osoba', 'group': 'Grupa', 'supervisor': 'Przełożony'}[okno.sekcja_kto] : '')
             : (nr == 2
                 ? (okno.wybor_czyje ? {'persons': 'Osoby', 'groups': 'Grupy', 'subordinates': 'Podwładni'}[okno.sekcja_czyje] : '')
-                : nazwy_zakresow[okno.zakres]|capitalize) %}
+                : (okno.wybor_zakres ? nazwy_zakresow[okno.zakres]|capitalize : '')) %}
         {#- ⚠ **W regule STAŁEJ kroki 1 i 2 są WYŁĄCZONE**, a nie ukryte: taka reguła nie ma
             podmiotu do wskazania ani celu do wyboru, więc kliknięcie w krok 1 wyrzucałoby człowieka
             na listę, z której nie da się wybrać tego, co już jest wybrane — czyli w ślepą uliczkę.
@@ -428,15 +431,25 @@
     </div>
 
     <div class="modal__foot">
-        {#- ⚠ **Oba wyjścia są widoczne na KAŻDYM kroku** (dopisek z 19.10.2026): kreator
-            z ukrytym „Nadaj dostęp" kazałby klikać „Dalej" także wtedy, gdy wszystko jest już
-            wybrane — a przy zmianie istniejącej reguły człowiek zwykle poprawia jedną rzecz.
-            ⚠ **„Anuluj" jest TYLKO w regule stałej** (zlecenie Z78, decyzja Krzysztofa).
-            W oknie wielokrokowym go nie ma i to zostaje: wyjściem jest × w nagłówku, a drugi
-            przycisk zamykający obok „Wstecz" byłby trzecim wyjściem z tego samego okna. Reguła
-            stała ma jednak krok DOKŁADNIE JEDEN, więc „Wstecz" nie miałoby gdzie wracać, a stopka
-            z jednym przyciskiem zapisu nie pokazywała żadnego wyjścia bez zapisu — przy oknie,
-            które zmienia dostęp do danych kadrowych całej firmy. -#}
+        {#- ══════════ Stopka: dokładnie DWA przyciski na każdym kroku (zlecenie Z81 pkt 2) ══════════
+            ⚠ **ODWRACA to dopisek z 19.10.2026**, w którym „Nadaj dostęp" stał na każdym kroku
+            obok „Dalej". Powód odwrócenia: od Z81 kroki 2 i 3 startują puste, więc zapis z kroku 1
+            byłby zapisem reguły, o której nie wiadomo, czyje nieobecności odsłania — a przycisk
+            stojący obok „Dalej" przez trzy kroki zachęca do dokładnie tego. Kreator ma teraz
+            jedno wyjście do przodu na krok: „Dalej", „Dalej", „Nadaj dostęp".
+            ⚠ **„Wstecz" jest PRZYCISKIEM `GET`, nie odnośnikiem** — i to jest poprawka błędu,
+            nie porządki. Odnośnik niesie stan WYRENDEROWANY (`stan` + `stan_grup`), a wskazane
+            grupy i osoby jadą polami formularza, nie adresem: kliknięcie „Wstecz" w kroku 2
+            po zaznaczeniu grupy wracało więc do kroku 1 bez tej grupy, a po powrocie „Dalej"
+            pokazywał krok 2 z pustym wyborem. Przycisk zabiera ze sobą pola formularza —
+            dokładnie tak samo jak „Dalej", tą samą drogą i z tym samym `hx-include`.
+            ⚠ **W kroku 1 „Wstecz" jest `disabled`, a nie ukryty** (Z81 pkt 2 i 4): stopka ma mieć
+            ten sam kształt na wszystkich trzech krokach, żeby „Dalej" nie przeskakiwał w lewo
+            przy przejściu z kroku 1 do 2.
+            ⚠ **„Anuluj" jest TYLKO w regule stałej** (zlecenie Z78, decyzja Krzysztofa) — ma
+            dokładnie jeden krok, więc „Wstecz" nie miałoby gdzie wracać, a stopka z samym
+            zapisem nie pokazywałaby żadnego wyjścia bez zapisu przy oknie, które zmienia dostęp
+            do danych kadrowych całej firmy. W oknie wielokrokowym wyjściem jest × w nagłówku. -#}
         <div class="btn-row btn-row--jedna-linia">
             {% if okno.stala %}
                 {#- ⚠ „Anuluj" jest ODNOŚNIKIEM, nie przyciskiem: bez JavaScriptu zamknięciem okna
@@ -445,13 +458,18 @@
                     (ta sama droga, co w pozostałych oknach z „Anuluj"). -#}
                 <a class="btn btn--ghost" href="{{ url('/admin/widocznosc') }}?spolka={{ spolka.id }}"
                    data-modal-close="widocznosc-okno">Anuluj</a>
-            {% elseif okno.krok > 1 %}
-                <a class="btn btn--ghost" href="{{ strona }}&amp;{{ stan }}{{ stan_grup }}&amp;krok={{ okno.krok - 1 }}"
-                   {% if hx %}hx-get="{{ baza }}&amp;{{ stan }}{{ stan_grup }}&amp;krok={{ okno.krok - 1 }}"
-                   hx-target="#widocznosc-okno-tresc" hx-swap="innerHTML"{% endif %}>Wstecz</a>
+            {% else %}
+                <button type="submit" class="btn btn--ghost" formmethod="get"
+                        formaction="{{ url('/admin/widocznosc') }}"
+                        name="krok" value="{{ okno.krok - 1 }}"
+                        {%- if okno.krok == 1 %} disabled
+                        title="To jest pierwszy krok — nie ma czego cofać"
+                        {%- elseif hx %} hx-get="{{ url('/admin/widocznosc/okno') }}?spolka={{ spolka.id }}&amp;krok={{ okno.krok - 1 }}"
+                        hx-include="closest form"
+                        hx-target="#widocznosc-okno-tresc" hx-swap="innerHTML"{% endif %}>Wstecz</button>
             {% endif %}
             {% if okno.krok < 3 %}
-                <button type="submit" class="btn btn--ghost" formmethod="get" formaction="{{ url('/admin/widocznosc') }}"
+                <button type="submit" class="btn btn--primary" formmethod="get" formaction="{{ url('/admin/widocznosc') }}"
                         name="krok" value="{{ okno.krok + 1 }}"
                         {#- ⚠ Numer kroku jedzie w ADRESIE `hx-get`, nie w nazwie przycisku: htmx
                             zbiera wartości z `input`, `select` i `textarea`, a `<button>` do tego
@@ -459,12 +477,31 @@
                         {% if hx %}hx-get="{{ url('/admin/widocznosc/okno') }}?spolka={{ spolka.id }}&amp;krok={{ okno.krok + 1 }}"
                         hx-include="closest form"
                         hx-target="#widocznosc-okno-tresc" hx-swap="innerHTML"{% endif %}>Dalej</button>
+            {% else %}
+                {#- ⚠ Przycisk niesie **token**, a nie numer kroku — i numeru nie potrzebuje. Dawne
+                    `value="3"` nie znaczyło nic: zapis bierze podmiot, cel i zakres z pól formularza,
+                    a po udanym zapisie i tak leci przekierowanie, więc krok nie ma czego opisywać.
+                    `name` na przycisku jest jedno, a token musi dojechać — więc jedzie on. -#}
+                {#- ⚠ **DWA stopnie niedostępności, bo braki są dwojakiego rodzaju** (rozstrzygnięcie
+                    zarządcy z 24.10.2026, pytanie 2 do Z81):
+                      · brak w kroku 1 albo 2 → `disabled`. Tego nie da się naprawić na tym ekranie,
+                        więc przycisk ma nie działać, a podpowiedź odesłać wstecz;
+                      · brak zakresu → `aria-disabled` i przygaszenie, ale przycisk DZIAŁA. Zakres
+                        wskazuje się polem radio TU, a pole radio nie wysyła żadnego żądania:
+                        `disabled` policzony przy renderze kroku 3 zostałby na zawsze i bez
+                        JavaScriptu nie dałoby się nadać dostępu NIGDY. Tak przygaszony przycisk
+                        wysyła formularz, a serwer odmawia z `POWOD_ZAKRES` i mówi, czego brakuje.
+                    ⚠ Ze skryptem widać to samo, co w zleceniu: `widocznosc.js` przechwytuje
+                    kliknięcie przygaszonego przycisku (komunikat zamiast żądania) i zdejmuje
+                    przygaszenie w chwili wskazania karty zakresu — bez przeładowania. -#}
+                {% set brak_zakresu = 'Wybierz, ile ma być widać — bez tego nie ma czego ' ~ (okno.zmiana ? 'zapisać' : 'nadać') ~ '.' %}
+                <button type="submit" name="_csrf" value="{{ csrf_token() }}"
+                        class="btn btn--primary" data-wid-zapis
+                        data-brak-zakresu="{{ brak_zakresu|e('html_attr') }}"
+                        {%- if not okno.zapis_mozliwy %} disabled title="{{ okno.brak_wyboru_opis|e('html_attr') }}"
+                        {%- elseif not okno.wybor_zakres %} aria-disabled="true" title="{{ brak_zakresu|e('html_attr') }}"
+                        {%- endif %}>{{ okno.zmiana ? 'Zapisz zmiany' : 'Nadaj dostęp' }}</button>
             {% endif %}
-            {#- ⚠ Przycisk niesie **token**, a nie numer kroku — i numeru nie potrzebuje. Dawne
-                `value="3"` nie znaczyło nic: zapis bierze podmiot, cel i zakres z pól formularza,
-                a po udanym zapisie i tak leci przekierowanie, więc krok nie ma czego opisywać.
-                `name` na przycisku jest jedno, a token musi dojechać — więc jedzie on. -#}
-            <button type="submit" class="btn btn--primary" name="_csrf" value="{{ csrf_token() }}">{{ okno.zmiana ? 'Zapisz zmiany' : 'Nadaj dostęp' }}</button>
         </div>
     </div>
 </form>

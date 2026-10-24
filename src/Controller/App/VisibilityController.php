@@ -344,23 +344,26 @@ final class VisibilityController
             ZakresWidocznosci::KTO_GRUPA], true)
             ? $kto
             : ZakresWidocznosci::KTO_PRZELOZENI;
-        // ⚠ **Domyślny cel zależy od tego, KOGO wskazano** (decyzja Krzysztofa 19.10.2026).
-        // Dla osoby i grupy to „cała firma", bo tak nadaje się dostęp najczęściej; dla przełożonego
-        // — „podwładni", bo po to się go wskazuje. Domyślność to NIE to samo, co wymuszenie:
-        // wybrany jawnie cel wygrywa (poza „Wszystkimi przełożonymi", którzy innego mieć nie mogą).
+        // ⚠ **Krok 2 startuje PUSTY — nic nie jest wybrane z góry** (zlecenie Z81 pkt 1, decyzja
+        // Krzysztofa 24.10.2026: „użytkownik musi świadomie wybrać"). ZASTĘPUJE to decyzję
+        // z 19.10.2026, w której cel brał się domyślnie z rodzaju podmiotu („cała firma" dla
+        // osoby i grupy, „podwładni" dla przełożonego) RAZEM z jej dopiskiem, w którym wskazanie
+        // przełożonego z listy samo ustawiało „podwładnych". Obie znaczyły to samo: zapis mógł
+        // oddać komuś wgląd w cudze nieobecności w zakresie, którego nikt nie wskazał — a przy
+        // dostępie do danych kadrowych domyślność jest decyzją, tylko niczyją.
+        // ⚠ **Wartość domyślna mówi tu wyłącznie, NA CO CZŁOWIEK PATRZY** — sekcję „Osoby" —
+        // a nie co wybrał. To rozróżnienie stoi w `sekcja_czyje` obok `wybor_czyje` od Z80 A1
+        // i właśnie po to: pusta sekcja „Osoby" jest stanem dozwolonym, więc `wybor_czyje`
+        // zostaje `false`, kafelek mówi „nie wybrano", a zapis bez wskazania odrzuca serwis.
         $czyjeZadany = $wartosc('czyje', 16);
         $czyje = in_array($czyjeZadany, [ZakresWidocznosci::CZYJE_PODWLADNI, ZakresWidocznosci::CZYJE_FIRMA,
             ZakresWidocznosci::CZYJE_GRUPY, ZakresWidocznosci::CZYJE_OSOBY], true)
             ? $czyjeZadany
-            : ($kto === ZakresWidocznosci::KTO_PRZELOZONY || $kto === ZakresWidocznosci::KTO_PRZELOZENI
-                ? ZakresWidocznosci::CZYJE_PODWLADNI
-                : ZakresWidocznosci::CZYJE_FIRMA);
-        // ⚠ **Wskazanie przełożonego Z LISTY ustawia „Podwładnych"** — ale tylko w chwili
-        // wskazania (gdy w żądaniu jest `wybor`). Późniejsze kliknięcie „Cała firma" w kroku 2
-        // przychodzi bez `wybor` i zostaje uszanowane; inaczej tej pozycji nie dałoby się wybrać.
-        if (count($wybor) === 2 && $wybor[0] === ZakresWidocznosci::KTO_PRZELOZONY) {
-            $czyje = ZakresWidocznosci::CZYJE_PODWLADNI;
-        }
+            : ZakresWidocznosci::CZYJE_OSOBY;
+        // ⚠ Konto bez etatu w tej firmie nie ma gałęzi, więc jego `maEtat()` rozstrzyga dwie
+        // rzeczy naraz (sekcję kroku 2 i wyszarzenie „Podwładnych") — i dlatego pytamy RAZ.
+        $bezEtatu = $kto === ZakresWidocznosci::KTO_KONTO && $ktoId > 0
+            && !$this->maEtat($companyId, $ktoId);
         // ⚠ Obie reguły stałe mają dokładnie jeden możliwy cel — i rozstrzyga o tym serwer,
         // a nie wyszarzenie pozycji w oknie: „Wszyscy przełożeni" swoich podwładnych,
         // „Administratorzy" całą firmę.
@@ -368,13 +371,11 @@ final class VisibilityController
             $czyje = ZakresWidocznosci::CZYJE_PODWLADNI;
         } elseif ($kto === ZakresWidocznosci::KTO_ADMINI) {
             $czyje = ZakresWidocznosci::CZYJE_FIRMA;
-        } elseif ($czyje === ZakresWidocznosci::CZYJE_PODWLADNI
-            && $kto === ZakresWidocznosci::KTO_KONTO && $ktoId > 0
-            && !$this->maEtat($companyId, $ktoId)) {
-            // ⚠ Konto bez etatu w tej firmie nie ma gałęzi — krok 2 ustawia się na „całą firmę"
-            // (decyzja Krzysztofa 19.10.2026). Serwis i tak odrzuciłby taki zapis; tutaj
-            // chodzi o to, żeby okno nie pokazywało wyboru, który zawsze kończy się odmową.
-            $czyje = ZakresWidocznosci::CZYJE_FIRMA;
+        } elseif ($czyje === ZakresWidocznosci::CZYJE_PODWLADNI && $bezEtatu) {
+            // ⚠ Konto bez etatu nie ma czyjej gałęzi liczyć, więc okno pokazuje sekcję „Osoby" —
+            // BEZ wyboru. Do Z81 stało tu „całą firmę", czyli okno wybierało za człowieka
+            // najszerszy możliwy cel w jedynym przypadku, w którym on sam niczego nie wskazał.
+            $czyje = ZakresWidocznosci::CZYJE_OSOBY;
         }
         // ⚠ **Jedna lista celu na wszystkie rodzaje** — grupy i osoby jadą tym samym polem,
         // bo reguła ma dokładnie JEDEN rodzaj celu (`target_kind`), więc dwie listy naraz nie
@@ -399,7 +400,11 @@ final class VisibilityController
         // z 23.10.2026): to jedyna sekcja celu bez listy, więc bez tego pola jej wybór byłby
         // niewidoczny — nagłówek kroku nie miałby czego pokazać, a blokada pozostałych sekcji
         // nie miałaby czego odznaczyć. Wejście w zakładkę NIE jest wyborem.
-        $podwladni = $wartosc('podwladni', 2) === '1';
+        // ⚠ Znacznik liczy się WYŁĄCZNIE w sekcji „Podwładni": `podwladni=1` zostawione
+        // w adresie po przejściu do innej sekcji nie ma prawa dawać wyboru w sekcji, której
+        // nie dotyczy — a od Z81 to jedyna rzecz, która ten krok w tej sekcji wypełnia.
+        $podwladni = $wartosc('podwladni', 2) === '1'
+            && $czyje === ZakresWidocznosci::CZYJE_PODWLADNI;
         if ($czyje === ZakresWidocznosci::CZYJE_FIRMA || $czyje === ZakresWidocznosci::CZYJE_OSOBY) {
             // ⚠ **Pusta lista NIE znaczy już „cała firma"** — i to jest zdjęcie niezmiennika
             // z 19.10.2026 (Z80 A4, decyzja Krzysztofa po prototypie). Do tej pory stan „sekcja
@@ -433,6 +438,24 @@ final class VisibilityController
         // liczbami bez wyjaśnienia: to ta sama reguła, co „dwa liczniki jednej rzeczy".
         $pomin = $this->pominOsoby($companyId, $kto, $ktoId);
         $osobCelu = $krok === 2 ? $this->reguly->ileOsobFirmy($companyId, '', $pomin) : 0;
+        // ⚠ **Krok 3 startuje PUSTY, serwer NIE podstawia zakresu domyślnego** (zlecenie Z81
+        // pkt 1). Do 24.10.2026 `ZakresWidocznosci::zakres()` zamieniało każdą wartość spoza
+        // białej listy — w tym brak wartości — na „bez szczegółów", więc nowa reguła miała
+        // zakres wybrany, zanim ktokolwiek go wskazał. Biała lista zostaje, zmienia się to,
+        // czym jest wartość spoza niej: pustką, a nie najniższym poziomem.
+        // ⚠ Pusty napis, a nie `null`: ta wielkość jedzie w adresie, w ukrytym polu i w porównaniu
+        // z kodem karty w szablonie, więc wszędzie jest napisem. `null` wymagałby trzech
+        // dodatkowych warunków i pierwszy z nich byłby zapomniany.
+        $zakresZadany = $wartosc('zakres', 20);
+        $zakres = ZakresWidocznosci::zapisywalny($zakresZadany) ? $zakresZadany : '';
+        // ⚠ **Trzy wybory kroków liczymy RAZ**, bo pytają o nie cztery miejsca: kafelki, blokada
+        // sekcji, kryterium stopki i odmowa zapisu. Policzone po drugie raz w stopce rozjechałyby
+        // się przy pierwszej zmianie któregokolwiek z warunków („dwa liczniki jednej rzeczy").
+        $wyborKto = $kto === ZakresWidocznosci::KTO_PRZELOZENI || $ktoId > 0;
+        $wyborCzyje = $czyje === ZakresWidocznosci::CZYJE_FIRMA
+            || ($czyje === ZakresWidocznosci::CZYJE_PODWLADNI && $podwladni)
+            || (($czyje === ZakresWidocznosci::CZYJE_OSOBY || $czyje === ZakresWidocznosci::CZYJE_GRUPY)
+                && $cel !== []);
 
         return [
             'regula' => max(0, $regula),
@@ -454,8 +477,7 @@ final class VisibilityController
             'kto_id' => CalendarAccessRepository::stala($kto) ? 0 : max(0, $ktoId),
             // Czy wskazane konto ma etat w tej firmie — od tego zależy, czy wolno mu dać
             // „Podwładnych" (kroku 2 nie wolno zostawić ekranowi do rozstrzygnięcia).
-            'kto_bez_etatu' => $kto === ZakresWidocznosci::KTO_KONTO && $ktoId > 0
-                && !$this->maEtat($companyId, $ktoId),
+            'kto_bez_etatu' => $bezEtatu,
             'czyje' => $czyje,
             // ⚠ **Sekcja to NIE to samo, co wybór** (Z80 A1). Sekcja mówi, na co człowiek
             // patrzy; wybór — co wskazał. Blokada pozostałych sekcji napędza się WYBOREM, bo
@@ -467,11 +489,12 @@ final class VisibilityController
             'sekcja_czyje' => $czyje === ZakresWidocznosci::CZYJE_FIRMA
                 ? ZakresWidocznosci::CZYJE_OSOBY
                 : $czyje,
-            'wybor_kto' => $kto === ZakresWidocznosci::KTO_PRZELOZENI || $ktoId > 0,
-            'wybor_czyje' => $czyje === ZakresWidocznosci::CZYJE_FIRMA
-                || ($czyje === ZakresWidocznosci::CZYJE_PODWLADNI && $podwladni)
-                || (($czyje === ZakresWidocznosci::CZYJE_OSOBY || $czyje === ZakresWidocznosci::CZYJE_GRUPY)
-                    && $cel !== []),
+            'wybor_kto' => $wyborKto,
+            'wybor_czyje' => $wyborCzyje,
+            // ⚠ **Wybór zakresu to osobna wielkość od samego zakresu** (Z81): „bez szczegółów"
+            // wskazane przez człowieka i „nic nie wskazano" dawały dotąd tę samą wartość pola,
+            // więc nie dało się ich rozróżnić ani w kafelku, ani przy zapisie.
+            'wybor_zakres' => $zakres !== '',
             'podwladni_wybrany' => $podwladni,
             // ⚠ Surowy znacznik „cała firma" z żądania — potrzebny do odmowy z Z80 A6 w jednym
             // przypadku, którego serwis nie widzi: „cała firma" przy sekcji GRUP. Tam cel zapisuje
@@ -486,7 +509,20 @@ final class VisibilityController
             'podwladni_mozliwy' => ($kto === ZakresWidocznosci::KTO_PRZELOZENI || $ktoId > 0)
                 && !($kto === ZakresWidocznosci::KTO_KONTO && $ktoId > 0 && !$this->maEtat($companyId, $ktoId)),
             'grupy' => $cel,
-            'zakres' => ZakresWidocznosci::zakres($wartosc('zakres', 20)),
+            'zakres' => $zakres,
+            // ⚠ **Kryterium `disabled` na przycisku zapisu liczy WYŁĄCZNIE kroki 1 i 2** —
+            // i to jest rozstrzygnięcie zarządcy z 24.10.2026 (pytanie 2 do Z81), nie skrót.
+            // Powód: brakujący zakres wskazuje się POLEM RADIO na tym samym ekranie, a pole
+            // radio nie wywołuje żadnego żądania — więc `disabled` policzony przy renderze
+            // kroku 3 zostałby na zawsze i bez JavaScriptu przycisku NIE DAŁOBY SIĘ nacisnąć
+            // nigdy (zakres zawsze startuje pusty). Braku z kroków 1 i 2 nie da się naprawić
+            // na tym ekranie, więc tam wyszarzenie mówi prawdę i odsyła wstecz.
+            // ⚠ Brak zakresu łapią dwie inne rzeczy: przygaszenie przycisku (`aria-disabled`,
+            // zdejmowane skryptem w chwili wskazania karty) i ODMOWA SERWERA (`POWOD_ZAKRES`),
+            // która działa także bez skryptu. Reguła stała ma wyłącznie krok zakresu, więc
+            // jej stopki to kryterium nie dotyczy.
+            'zapis_mozliwy' => CalendarAccessRepository::stala($kto) || ($wyborKto && $wyborCzyje),
+            'brak_wyboru_opis' => self::opisBrakuWyboru($wyborKto, $wyborCzyje),
             'szukaj' => $szukaj,
             // ⚠ **Offset, nie rosnący limit.** Doczytywanie dopisuje kolejne dwadzieścia pozycji
             // do listy, która już stoi na ekranie — gdyby każde doczytanie pobierało całość
@@ -696,7 +732,14 @@ final class VisibilityController
                 return 'wybrano: cała firma · ' . $osobCelu . ' ' . Odmiana::osoby($osobCelu);
             }
             if ($czyje === ZakresWidocznosci::CZYJE_OSOBY) {
-                return 'wybrano ' . count($grupy) . ' ' . Odmiana::osoby(count($grupy));
+                // ⚠ **Zero wskazanych osób to PUSTY napis, nie „wybrano 0 osób"** — stopka wraca
+                // wtedy do podpowiedzi, dokładnie tak samo jak przy grupach niżej i tak samo,
+                // jak robi to `widocznosc.js` po odznaczeniu ostatniej pozycji. Dwa zdania na ten
+                // sam stan rozjeżdżały się widocznie: od Z81 to STAN POCZĄTKOWY każdej nowej
+                // reguły, więc krok 2 witał napisem „wybrano 0 osób" nad pustą listą wyborów.
+                return $grupy === []
+                    ? ''
+                    : 'wybrano ' . count($grupy) . ' ' . Odmiana::osoby(count($grupy));
             }
             if ($grupy === []) {
                 return '';
@@ -804,11 +847,6 @@ final class VisibilityController
     }
 
     /**
-     * Nazwy podmiotów do wierszy listy — **trzy zapytania na ekran**, nie trzy na wiersz.
-     *
-     * @return array<string, array<int, array{nazwa: string, opis: string}>>
-     */
-    /**
      * **Jedna linia o tym, dlaczego reguła nic nie daje** (zlecenie Z80 B6).
      *
      * ⚠ Zdanie składa się TUTAJ, a w bazie leży sam kod powodu — tak samo jak przy wpisach
@@ -839,6 +877,40 @@ final class VisibilityController
         return $data === null || $data === false
             ? $zdanie
             : $zdanie . ' od ' . date('j.m', $data);
+    }
+
+    /**
+     * Nazwy podmiotów do wierszy listy — **trzy zapytania na ekran**, nie trzy na wiersz.
+     *
+     * @return array<string, array<int, array{nazwa: string, opis: string}>>
+     */
+    /**
+     * **Czego brakuje do zapisu — jedno zdanie do podpowiedzi przy wyszarzonym przycisku**
+     * (zlecenie Z81 pkt 2).
+     *
+     * ⚠ Zdanie wymienia WSZYSTKIE brakujące kroki, nie pierwszy z nich: człowiek stoi w kroku 3
+     * i z podpowiedzi ma wiedzieć, ile razy musi wrócić — „brakuje wyboru w kroku 1" przy dwóch
+     * pustych krokach kazałoby odkrywać drugi brak po naprawieniu pierwszego.
+     *
+     * ⚠ Mowa tylko o krokach 1 i 2. Brak zakresu wskazuje się na tym samym ekranie i ma własne
+     * zdanie w szablonie — tu wymieniony byłby stanem, którego ta podpowiedź nigdy nie opisuje.
+     */
+    private static function opisBrakuWyboru(bool $wyborKto, bool $wyborCzyje): string
+    {
+        $braki = [];
+        if (!$wyborKto) {
+            $braki[] = '1 (Kto widzi)';
+        }
+        if (!$wyborCzyje) {
+            $braki[] = '2 (Czyje nieobecności)';
+        }
+        if ($braki === []) {
+            return '';
+        }
+
+        return count($braki) === 1
+            ? 'Brakuje wyboru w kroku ' . $braki[0] . ' — wróć do niego, żeby nadać dostęp.'
+            : 'Brakuje wyboru w krokach ' . implode(' i ', $braki) . ' — wróć do nich, żeby nadać dostęp.';
     }
 
     private function nazwy(int $companyId): array
@@ -1061,6 +1133,10 @@ final class VisibilityController
         WidocznoscService::POWOD_DUPLIKAT => 'Taka reguła już jest — ten sam odbiorca, ten sam zakres osób i ten sam poziom szczegółów.',
         WidocznoscService::POWOD_PODMIOT => 'Wybrana osoba lub grupa nie należy do tej firmy.',
         WidocznoscService::POWOD_CEL => 'Wybierz, czyje nieobecności mają być widoczne — przy „wybranych grupach" trzeba wskazać co najmniej jedną.',
+        // ⚠ Zdanie mówi „wybierz zakres", a nie „brak zakresu": od Z81 krok 3 startuje pusty,
+        // więc ta odmowa pada najczęściej tam, gdzie człowiek po prostu jeszcze nie wskazał
+        // karty — i ma go odesłać do kroku 3, a nie zostawić z komunikatem o błędzie.
+        WidocznoscService::POWOD_ZAKRES => 'Wybierz w kroku 3, ile ma być widać — „bez szczegółów" albo „ze szczegółami".',
         WidocznoscService::POWOD_BEZ_ETATU => 'Ta osoba nie jest zatrudniona w tej firmie, więc nie ma podwładnych — wybierz całą firmę albo wskazane grupy.',
         WidocznoscService::POWOD_DOMYSLNA => 'Reguły dla wszystkich przełożonych nie da się usunąć — można jej tylko zmienić zakres.',
         WidocznoscService::POWOD_BRAK => 'Tej reguły już nie ma.',

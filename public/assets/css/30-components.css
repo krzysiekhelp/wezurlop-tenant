@@ -439,7 +439,14 @@ a.access--btn .access__strzalka { font-size: 14px; line-height: 1; }
   .btn--akcja:hover { background: var(--c-accent-soft); border-color: var(--c-accent); color: var(--c-accent-text); }
 }
 
-.btn[disabled] { opacity: .5; cursor: not-allowed; }
+/* ⚠ **`aria-disabled` wygląda tu tak samo jak `disabled` — i to jest celowe** (zlecenie Z81).
+   Przycisk „Nadaj dostęp" bez wskazanego zakresu jest przygaszony, ale DZIAŁA: zakres wskazuje
+   się polem radio na tym samym ekranie, a pole radio nie wysyła żądania, więc prawdziwy
+   `disabled` z renderu serwera zostałby na zawsze i bez JavaScriptu nie dałoby się nadać
+   dostępu nigdy. Kliknięcie takiego przycisku jedzie na serwer, a ten odmawia i mówi, czego
+   brakuje. Wygląd jest jeden, bo dla patrzącego to jeden stan: „jeszcze nie teraz". */
+.btn[disabled],
+.btn[aria-disabled="true"] { opacity: .5; cursor: not-allowed; }
 
 /* ⚠ `flex-wrap: wrap` jest obowiązkowe, nie kosmetyczne. Stary `devices__actions` je miał,
    a przemianowanie na `.btn-row` je zgubiło — bramka zmierzyła `.card__body` 340 / 389 px
@@ -6434,6 +6441,13 @@ body:has(dialog.modal[open]) { overflow: hidden; }
    przełączyć samym stylem (a tekst w CSS to tekst poza Twigiem), więc przełączamy GOTOWE BLOKI.
    Kosztuje to pięć ukrytych elementów i daje podgląd, który zmienia się razem z kliknięciem,
    a nie po żądaniu do serwera. */
+/* ⚠ **Przy niewybranym zakresie podglądu NIE MA** (zlecenie Z81 pkt 1). Od Z81 krok 3 startuje
+   pusty, a ten blok pokazuje SKUTEK wyboru — więc wariant „bez szczegółów" widoczny domyślnie
+   mówiłby o skutku wyboru, którego nikt nie podjął, i to akurat o najniższym z dwóch możliwych.
+   ⚠ Robi to arkusz, a nie warunek w szablonie: wybór zmienia się bez żądania do serwera, więc
+   warunek w Twigu ukrywałby podgląd aż do przeładowania, a skrypt musiałby tworzyć znaczniki
+   (CLAUDE.md §6). `:has()` pyta o stan pola i reaguje natychmiast, bez ani jednej linii JS. */
+.wid-okno__body:not(:has(.wid-zakres input:checked)) .wid-podglad { display: none; }
 .wid-podglad__podpis--pelny,
 .wid-podglad__dni--pelny { display: none; }
 .wid-okno__body:has(#wid-zakres-pelny:checked) .wid-podglad__podpis--bez,
