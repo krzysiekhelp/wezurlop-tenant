@@ -155,6 +155,15 @@ final class AdminAccountController
             ? self::RODZAJ_ADMIN
             : self::RODZAJ_PRACOWNICY;
 
+        // ⚠ **Filtr zatrudnienia z ADRESU, z białej listy** (zlecenie Z84 A1): zwykły `GET`,
+        // więc działa bez JavaScriptu i łączy się z szukaniem, sortowaniem i stronicowaniem —
+        // wszystkie cztery jadą tym samym adresem. Wartość spoza listy znaczy „pracujący",
+        // czyli stan domyślny, a nie błąd (CLAUDE.md §11).
+        $zatrudnienie = in_array($request->queryString('zatrudnienie', 16),
+            [PersonRepository::ZATRUDNIENIE_PRACUJACY, PersonRepository::ZATRUDNIENIE_BYLI,
+                PersonRepository::ZATRUDNIENIE_WSZYSCY], true)
+            ? $request->queryString('zatrudnienie', 16)
+            : PersonRepository::ZATRUDNIENIE_PRACUJACY;
         $stany = $this->people->stateCounters($companyId, $filtr);
         // ⚠ Licznik w zakładce liczy TEN SAM zbiór, który ta zakładka pokazuje — bez szukanego
         // tekstu. Inaczej po wpisaniu nazwiska zakładka mówiłaby „Pracownicy 1", czyli o liście,
@@ -170,12 +179,13 @@ final class AdminAccountController
         // „Nikogo nie znaleziono").
         $total = $rodzaj === self::RODZAJ_ADMIN
             ? $this->people->ileAdministracyjnych($search)
-            : $this->people->countForAdmin($companyId, $search, $filtr);
+            : $this->people->countForAdmin($companyId, $search, $filtr, $zatrudnienie);
         $page = self::page($request, $total, self::PAGE);
 
         $osoby = $rodzaj === self::RODZAJ_ADMIN
             ? $this->people->listaAdministracyjnych($search, $sort, $asc, self::PAGE, $page['offset'])
-            : $this->people->listForAdmin($companyId, $search, $sort, $asc, self::PAGE, $page['offset'], $filtr);
+            : $this->people->listForAdmin($companyId, $search, $sort, $asc, self::PAGE,
+                $page['offset'], $filtr, $zatrudnienie);
 
         $utworzono = filter_var($request->query('utworzono'), FILTER_VALIDATE_INT);
         $reset = filter_var($request->query('zresetowano'), FILTER_VALIDATE_INT);
@@ -185,6 +195,16 @@ final class AdminAccountController
             'osoby'       => $osoby,
             'strona'      => $page,
             'szukaj'      => $search,
+            'zatrudnienie' => $zatrudnienie,
+            // ⚠ Liczby przy segmentach liczy JEDNO zapytanie, żeby się do siebie dodawały —
+            // i liczą ten sam zakres i to samo szukanie, co lista (patrz `employmentCounters()`).
+            // ⚠ Zakładka kont administracyjnych nie ma zatrudnień, więc filtr jej nie dotyczy:
+            // segmenty renderują się tylko przy zakładce pracowników.
+            'zatrudnienie_liczniki' => $rodzaj === self::RODZAJ_ADMIN
+                ? [PersonRepository::ZATRUDNIENIE_PRACUJACY => 0,
+                    PersonRepository::ZATRUDNIENIE_BYLI => 0,
+                    PersonRepository::ZATRUDNIENIE_WSZYSCY => 0]
+                : $this->people->employmentCounters($companyId, $search, $filtr),
             'sortuj'      => $sort,
             'kierunek'    => $asc ? 'asc' : 'desc',
             'stany'       => $stany,

@@ -123,6 +123,51 @@ final class PersonRepository
              WHERE ra5.account_id = a.id AND ra5.company_id = 0 AND r5.code = :rola_admin)
         AND NOT EXISTS (SELECT 1 FROM employment e5 WHERE e5.person_id = p.id))';
 
+    /**
+     * **Filtr zatrudnienia z nagłówka listy** — trzy wartości, biała lista (zlecenie Z84 A).
+     *
+     * ⚠ **„Pracujący" i „Byli" liczą się W OBRĘBIE FIRMY Z BELKI**, a nie globalnie: pytanie
+     * „kto u mnie pracuje" jest pytaniem o tę firmę. Przy braku firmy w belce (zakres
+     * tenantowy) „pracujący" znaczy „ma aktywne zatrudnienie w co najmniej jednej firmie".
+     *
+     * ⚠ **To NIE jest to samo, co przekreślenie z Z32** — i jest to świadome (rozstrzygnięcie
+     * zarządcy z 24.10.2026, wariant c). Przekreślenie mówi „nie pracuje NIGDZIE"
+     * (`employments_active == 0` bez warunku firmy, patrz `fragments/person-row.twig`),
+     * a segment „Byli pracownicy" — „nie pracuje W TEJ FIRMIE". Osoba zwolniona tutaj, ale
+     * zatrudniona w drugiej firmie, wpada więc do „Byli" i NIE jest przekreślona. Dwa znaki,
+     * dwa różne pytania; gdyby miały jedną definicję, trzeba by wybrać, które z tych dwóch
+     * pytań przestaje mieć odpowiedź.
+     */
+    public const ZATRUDNIENIE_PRACUJACY = 'pracujacy';
+    public const ZATRUDNIENIE_BYLI = 'byli';
+    public const ZATRUDNIENIE_WSZYSCY = 'wszyscy';
+
+    /**
+     * ⚠ **Własne nazwy placeholderów (`:zatr_*`), choć wartości są te same, co w `FILTR_SPOLKI`.**
+     * PDO bez emulacji (`ATTR_EMULATE_PREPARES => false`) nie pozwala użyć tego samego
+     * placeholdera dwa razy w jednym zapytaniu — wychodzi HY093. Dwa imiona dla jednej wartości
+     * są tu tańsze niż sklejanie warunków.
+     */
+    private const CZYNNE_W_FIRMIE = '(EXISTS (
+            SELECT 1 FROM employment e6
+             WHERE e6.person_id = p.id AND e6.is_active = 1
+               AND (:zatr_all = 1 OR e6.company_id = :zatr_company)))';
+
+    /**
+     * Segment filtra jako WARUNEK STAŁY, sterowany wartościami — nie składany ze zmiennej.
+     *
+     * ⚠ Pierwsza wersja wstawiała tu warunek z `$warunek` i `bin/check-rules.php` miał rację,
+     * że to konkatenacja zmiennej w SQL (CLAUDE.md §4): po zmiennej nie widać, czy niesie
+     * placeholdery, czy dane. Tutaj zapytanie jest jednym literałem, a o segmencie decydują
+     * dwie wartości: `:zatr_wszyscy` zdejmuje zawężenie, a `:zatr_czynne` (1 albo 0) mówi,
+     * po której stronie `EXISTS` ma stanąć wynik. `EXISTS` w MySQL daje 1 albo 0, więc
+     * porównanie z liczbą jest tu naturalne, a nie sztuczką.
+     * ⚠ Dzięki temu „pracujący" i „byli" są **jedną** definicją odwróconą wartością, a nie
+     * dwoma podzapytaniami, które mogłyby się rozjechać.
+     */
+    private const FILTR_ZATRUDNIENIA = '(:zatr_wszyscy = 1 OR '
+        . self::CZYNNE_W_FIRMIE . ' = :zatr_czynne)';
+
     private const SZUKANIE = "(:search = ''
             OR p.last_name LIKE :like OR p.first_name LIKE :like2 OR a.email LIKE :like3
             OR p.email_private LIKE :like4)";
@@ -139,6 +184,27 @@ final class PersonRepository
             ELSE a.status END";
 
     /**
+     * Wartości sterujące filtrem zatrudnienia — **jedno miejsce na definicję trzech segmentów**
+     * (zlecenie Z84 A).
+     *
+     * ⚠ Wartość spoza białej listy znaczy „wszyscy", czyli brak zawężenia: adres wklejony
+     * ze starym parametrem ma pokazać listę, nie ekran awarii (CLAUDE.md §11).
+     *
+     * @return array<string, int>
+     */
+    private static function wartosciZatrudnienia(string $zatrudnienie, ?int $filtrSpolki): array
+    {
+        $znane = [self::ZATRUDNIENIE_PRACUJACY, self::ZATRUDNIENIE_BYLI];
+
+        return [
+            'zatr_wszyscy' => in_array($zatrudnienie, $znane, true) ? 0 : 1,
+            'zatr_czynne' => $zatrudnienie === self::ZATRUDNIENIE_BYLI ? 0 : 1,
+            'zatr_all' => $filtrSpolki === null ? 1 : 0,
+            'zatr_company' => $filtrSpolki ?? 0,
+        ];
+    }
+
+    /**
      * @return list<OsobaRow>
      */
     public function listForAdmin(
@@ -149,8 +215,10 @@ final class PersonRepository
         int $limit,
         int $offset,
         ?int $filtrSpolki = null,
+        string $zatrudnienie = self::ZATRUDNIENIE_WSZYSCY,
     ): array {
-        return $this->listaZWarunkiem('1 = 1', [], $companyId, $search, $sort, $asc, $limit, $offset, $filtrSpolki);
+        return $this->listaZWarunkiem('1 = 1', [], $companyId, $search, $sort, $asc,
+            $limit, $offset, $filtrSpolki, $zatrudnienie);
     }
 
     /**
@@ -173,6 +241,7 @@ final class PersonRepository
         int $limit,
         int $offset,
         ?int $filtrSpolki = null,
+        string $zatrudnienie = self::ZATRUDNIENIE_WSZYSCY,
     ): array {
         $stmt = $this->db->pdo()->prepare(
             'SELECT p.id AS person_id, p.first_name, p.last_name,
@@ -217,11 +286,15 @@ final class PersonRepository
                              WHERE ra.account_id = a.id AND ra.company_id = 0) AS caly_tenant
              FROM person p
              LEFT JOIN account a ON a.person_id = p.id
-             WHERE " . $warunek . ' AND ' . self::ZAKRES . ' AND ' . self::FILTR_SPOLKI . ' AND ' . self::SZUKANIE . '
+             WHERE " . $warunek . ' AND ' . self::ZAKRES . ' AND ' . self::FILTR_SPOLKI
+            . ' AND ' . self::FILTR_ZATRUDNIENIA . ' AND ' . self::SZUKANIE . '
              ORDER BY ' . self::orderSql($sort, $asc) . ', p.id
              LIMIT :limit OFFSET :offset'
         );
         $this->bindScope($stmt, $companyId, $search, $filtrSpolki);
+        foreach (self::wartosciZatrudnienia($zatrudnienie, $filtrSpolki) as $nazwa => $wartosc) {
+            $stmt->bindValue($nazwa, $wartosc, PDO::PARAM_INT);
+        }
         foreach ($extra as $nazwa => $wartosc) {
             $stmt->bindValue($nazwa, $wartosc, is_int($wartosc) ? PDO::PARAM_INT : PDO::PARAM_STR);
         }
@@ -291,16 +364,68 @@ final class PersonRepository
         return (int) $stmt->fetchColumn();
     }
 
-    public function countForAdmin(?int $companyId, string $search, ?int $filtrSpolki = null): int
-    {
+    public function countForAdmin(
+        ?int $companyId,
+        string $search,
+        ?int $filtrSpolki = null,
+        string $zatrudnienie = self::ZATRUDNIENIE_WSZYSCY,
+    ): int {
         $stmt = $this->db->pdo()->prepare(
             'SELECT COUNT(*) FROM person p LEFT JOIN account a ON a.person_id = p.id
-             WHERE ' . self::ZAKRES . ' AND ' . self::FILTR_SPOLKI . ' AND ' . self::SZUKANIE
+             WHERE ' . self::ZAKRES . ' AND ' . self::FILTR_SPOLKI
+            . ' AND ' . self::FILTR_ZATRUDNIENIA . ' AND ' . self::SZUKANIE
         );
         $this->bindScope($stmt, $companyId, $search, $filtrSpolki);
+        foreach (self::wartosciZatrudnienia($zatrudnienie, $filtrSpolki) as $nazwa => $wartosc) {
+            $stmt->bindValue($nazwa, $wartosc, PDO::PARAM_INT);
+        }
         $stmt->execute();
 
         return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * **Liczby przy trzech segmentach filtra zatrudnienia — JEDNYM zapytaniem** (zlecenie Z84 A).
+     *
+     * ⚠ Jedno zapytanie, nie trzy, i nie przez trzykrotne wywołanie `countForAdmin()`: liczby
+     * stoją obok siebie, więc muszą się do siebie dodawać. Policzone osobno rozjadą się przy
+     * pierwszej zmianie, która trafi tylko do jednej z nich — a „Pracujący 51 | Byli 7 |
+     * Wszyscy 59" czyta się wtedy jak usterka w danych.
+     *
+     * ⚠ **Liczby uwzględniają szukany tekst**, bo segment stoi OBOK pola szukania i zachowuje
+     * je przy przełączeniu. Licznik ignorujący filtr, który właśnie zawęził listę do jednego
+     * wiersza, czytałby się jak pomyłka. ⚠ Świadomie inaczej niż liczniki ZAKŁADEK wyżej
+     * (te liczą zbiór, DO którego się przechodzi, bez szukania) — bo zakładka zmienia zbiór,
+     * a segment zawęża ten sam.
+     *
+     * @return array<string, int>
+     */
+    public function employmentCounters(
+        ?int $companyId,
+        string $search,
+        ?int $filtrSpolki = null,
+    ): array {
+        $stmt = $this->db->pdo()->prepare(
+            'SELECT COUNT(*) AS wszyscy,
+                    SUM(CASE WHEN ' . self::CZYNNE_W_FIRMIE . ' THEN 1 ELSE 0 END) AS pracujacy
+               FROM person p LEFT JOIN account a ON a.person_id = p.id
+              WHERE ' . self::ZAKRES . ' AND ' . self::FILTR_SPOLKI . ' AND ' . self::SZUKANIE
+        );
+        $this->bindScope($stmt, $companyId, $search, $filtrSpolki);
+        $stmt->bindValue('zatr_all', $filtrSpolki === null ? 1 : 0, PDO::PARAM_INT);
+        $stmt->bindValue('zatr_company', $filtrSpolki ?? 0, PDO::PARAM_INT);
+        $stmt->execute();
+        $r = $stmt->fetch();
+        $wszyscy = (int) ($r['wszyscy'] ?? 0);
+        $pracujacy = (int) ($r['pracujacy'] ?? 0);
+
+        return [
+            self::ZATRUDNIENIE_PRACUJACY => $pracujacy,
+            // ⚠ Odejmowanie, nie drugie zapytanie: „byli" to dopełnienie „pracujących"
+            // w tym samym zbiorze, więc trzecia liczba nie ma prawa się z nimi nie zgadzać.
+            self::ZATRUDNIENIE_BYLI => $wszyscy - $pracujacy,
+            self::ZATRUDNIENIE_WSZYSCY => $wszyscy,
+        ];
     }
 
     /**

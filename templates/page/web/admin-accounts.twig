@@ -162,6 +162,15 @@
                     </a>
                 {% endfor %}
             </div>
+            {#- ⚠ **Adres listy składany RAZ** (zlecenie Z84 A1): zakładka, szukanie i filtr
+                zatrudnienia jadą w KAŻDYM odnośniku tego ekranu — sortowanie, stronicowanie
+                i segmenty. Sześć kopii tego samego łańcucha rozjechałoby się przy pierwszym
+                nowym parametrze, a objawem byłby filtr gubiony po kliknięciu w nagłówek.
+                ⚠ Czysty `&`, nigdy `&amp;`: to napis w wyrażeniu, więc przy wypisaniu przechodzi
+                przez auto-escaping i zamienia się na `&amp;` sam. Wpisany tu `&amp;` escapowałby
+                się drugi raz i dawałby parametr o nazwie `amp;sortuj` (zmierzone w Z80). -#}
+            {% set adres_listy = url('/admin/konta') ~ '?rodzaj=' ~ rodzaj
+                ~ '&szukaj=' ~ szukaj|url_encode ~ '&zatrudnienie=' ~ zatrudnienie %}
             {#- Pasek działań. ⚠ Etykieta „Szukaj" zniknęła WIZUALNIE, nie z dokumentu: pole z lupą
                 i podpowiedzią mówi widzącemu wszystko, a czytnik ekranu dalej dostaje etykietę. -#}
             <form class="card__akcje" method="get" action="{{ url('/admin/konta') }}">
@@ -183,9 +192,16 @@
                 </div>
                 <input type="hidden" name="sortuj" value="{{ sortuj }}">
                 <input type="hidden" name="kierunek" value="{{ kierunek }}">
+                {#- ⚠ Filtr zatrudnienia jedzie z szukaniem w ukrytym polu: inaczej „Filtruj"
+                    gubiłby wybrany segment i wracał na „Pracujący". Segmenty niżej są
+                    odnośnikami, więc nie wysyłają tego formularza i nie powstaje stan
+                    z dwiema wartościami jednego pola (lekcja z Z79 o `krok`). -#}
+                <input type="hidden" name="zatrudnienie" value="{{ zatrudnienie }}">
                 <button class="btn btn--ghost btn--akcja" type="submit">Filtruj</button>
                 {% if szukaj != '' %}
-                    <a class="btn btn--quiet" href="{{ url('/admin/konta') }}?rodzaj={{ rodzaj }}">Wyczyść</a>
+                    {#- „Wyczyść" czyści TEKST, nie filtr zatrudnienia — to dwie różne rzeczy
+                        i przycisk stoi przy polu tekstowym. -#}
+                    <a class="btn btn--quiet" href="{{ url('/admin/konta') ~ '?rodzaj=' ~ rodzaj ~ '&zatrudnienie=' ~ zatrudnienie }}">Wyczyść</a>
                 {% endif %}
                 {#- ⚠ **„Nowe konto administracyjne" stoi TYLKO na swojej zakładce** (§1 zlecenia):
                     na liście pracowników był przyciskiem do czynności, której ta lista nie dotyczy.
@@ -201,6 +217,27 @@
                        hx-target="#konto-adm-tresc" hx-swap="innerHTML">{{ ikony.plus() }}Nowe konto administracyjne</a>
                 {% endif %}
             </form>
+            {#- ══════════ Filtr zatrudnienia (zlecenie Z84 A1) ══════════
+                ⚠ **Trzy ODNOŚNIKI `GET`, nie przyciski formularza** — i to jest różnica wobec
+                litery zlecenia (`aria-pressed`), zgłoszona w raporcie. Powody: `.segmented`
+                jest w tym arkuszu komponentem ODNOŚNIKÓW (ten sam, co przełącznik widoku
+                kalendarza), `aria-pressed` jest atrybutem widgetu przyciskowego i na odnośniku
+                nie znaczy nic, a przycisk w formularzu szukania wysyłałby DWIE wartości pola
+                `zatrudnienie` (ukryte pole + własna) — stan, o który potknęliśmy się już przy
+                `krok` w Z79. Stan wybrany niesie więc `aria-current="true"`.
+                ⚠ Odnośnik niesie CAŁY adres listy, więc segment zachowuje szukanie i sortowanie,
+                a stronicowanie wraca na pierwszą stronę: zawężenie zbioru unieważnia numer strony.
+                ⚠ Liczby są przygaszone i liczone JEDNYM zapytaniem razem z listą — patrz
+                `PersonRepository::employmentCounters()`. -#}
+            <div class="segmented segmented--zatrudnienie" role="group" aria-label="Filtr zatrudnienia">
+                {% for kod, etykieta in {'pracujacy': 'Pracujący', 'byli': 'Byli pracownicy', 'wszyscy': 'Wszyscy'} %}
+                    <a class="segmented__item{{ zatrudnienie == kod ? ' segmented__item--on' : '' }}"
+                       href="{{ url('/admin/konta') ~ '?rodzaj=' ~ rodzaj ~ '&szukaj=' ~ szukaj|url_encode
+                           ~ '&sortuj=' ~ sortuj ~ '&kierunek=' ~ kierunek ~ '&zatrudnienie=' ~ kod }}"
+                       {% if zatrudnienie == kod %}aria-current="true"{% endif %}>{{ etykieta }}
+                        <span class="segmented__licznik">{{ zatrudnienie_liczniki[kod] }}</span></a>
+                {% endfor %}
+            </div>
         </div>
         {#- ══════════ zakładka „Pracownicy z kadr" ══════════ -#}
         {% if rodzaj == 'pracownicy' %}
@@ -262,14 +299,14 @@
                                     z `text-overflow` (zobaczone na zrzucie, nie w kodzie). -#}
                                 <th class="cell--kontrolka"><input type="checkbox" class="pick__box" data-selectbar-all aria-label="Zaznacz wszystkie osoby bez konta na tej stronie"></th>
                                 <th>
-                                    <a class="table__name" href="{{ url('/admin/konta') }}?szukaj={{ szukaj|url_encode }}&amp;sortuj=nazwisko&amp;kierunek={{ sortuj == 'nazwisko' and kierunek == 'asc' ? 'desc' : 'asc' }}">Osoba</a>
+                                    <a class="table__name" href="{{ adres_listy ~ '&sortuj=nazwisko&kierunek=' ~ (sortuj == 'nazwisko' and kierunek == 'asc' ? 'desc' : 'asc') }}">Osoba</a>
                                 </th>
                                 <th>
-                                    <a class="table__name" href="{{ url('/admin/konta') }}?szukaj={{ szukaj|url_encode }}&amp;sortuj=email&amp;kierunek={{ sortuj == 'email' and kierunek == 'asc' ? 'desc' : 'asc' }}">E-mail</a>
+                                    <a class="table__name" href="{{ adres_listy ~ '&sortuj=email&kierunek=' ~ (sortuj == 'email' and kierunek == 'asc' ? 'desc' : 'asc') }}">E-mail</a>
                                 </th>
                                 <th>Dostęp do firm</th>
                                 <th>
-                                    <a class="table__name" href="{{ url('/admin/konta') }}?szukaj={{ szukaj|url_encode }}&amp;sortuj=konto&amp;kierunek={{ sortuj == 'konto' and kierunek == 'asc' ? 'desc' : 'asc' }}">Konto</a>
+                                    <a class="table__name" href="{{ adres_listy ~ '&sortuj=konto&kierunek=' ~ (sortuj == 'konto' and kierunek == 'asc' ? 'desc' : 'asc') }}">Konto</a>
                                 </th>
                             </tr>
                         </thead>
@@ -298,16 +335,16 @@
                 <thead>
                     <tr>
                         <th>
-                            <a class="table__name" href="{{ url('/admin/konta') }}?rodzaj=administracyjne&amp;szukaj={{ szukaj|url_encode }}&amp;sortuj=nazwisko&amp;kierunek={{ sortuj == 'nazwisko' and kierunek == 'asc' ? 'desc' : 'asc' }}">Osoba</a>
+                            <a class="table__name" href="{{ adres_listy ~ '&sortuj=nazwisko&kierunek=' ~ (sortuj == 'nazwisko' and kierunek == 'asc' ? 'desc' : 'asc') }}">Osoba</a>
                         </th>
                         <th>
-                            <a class="table__name" href="{{ url('/admin/konta') }}?rodzaj=administracyjne&amp;szukaj={{ szukaj|url_encode }}&amp;sortuj=email&amp;kierunek={{ sortuj == 'email' and kierunek == 'asc' ? 'desc' : 'asc' }}">E-mail</a>
+                            <a class="table__name" href="{{ adres_listy ~ '&sortuj=email&kierunek=' ~ (sortuj == 'email' and kierunek == 'asc' ? 'desc' : 'asc') }}">E-mail</a>
                         </th>
                         <th>Rola</th>
                         <th>2FA</th>
                         <th>Logowanie</th>
                         <th>
-                            <a class="table__name" href="{{ url('/admin/konta') }}?rodzaj=administracyjne&amp;szukaj={{ szukaj|url_encode }}&amp;sortuj=konto&amp;kierunek={{ sortuj == 'konto' and kierunek == 'asc' ? 'desc' : 'asc' }}">Konto</a>
+                            <a class="table__name" href="{{ adres_listy ~ '&sortuj=konto&kierunek=' ~ (sortuj == 'konto' and kierunek == 'asc' ? 'desc' : 'asc') }}">Konto</a>
                         </th>
                     </tr>
                 </thead>
@@ -361,11 +398,11 @@
             {% if strona.stron > 1 %}
                 <nav class="pager" aria-label="Strony listy osób">
                     {% if strona.numer > 1 %}
-                        <a class="btn btn--ghost btn--sm" href="{{ url('/admin/konta') }}?rodzaj={{ rodzaj }}&amp;szukaj={{ szukaj|url_encode }}&amp;sortuj={{ sortuj|url_encode }}&amp;kierunek={{ kierunek|url_encode }}&amp;strona={{ strona.numer - 1 }}">Poprzednia</a>
+                        <a class="btn btn--ghost btn--sm" href="{{ adres_listy ~ '&sortuj=' ~ sortuj ~ '&kierunek=' ~ kierunek ~ '&strona=' ~ (strona.numer - 1) }}">Poprzednia</a>
                     {% endif %}
                     <span class="pager__info">Strona {{ strona.numer }} z {{ strona.stron }}</span>
                     {% if strona.numer < strona.stron %}
-                        <a class="btn btn--ghost btn--sm" href="{{ url('/admin/konta') }}?rodzaj={{ rodzaj }}&amp;szukaj={{ szukaj|url_encode }}&amp;sortuj={{ sortuj|url_encode }}&amp;kierunek={{ kierunek|url_encode }}&amp;strona={{ strona.numer + 1 }}">Następna</a>
+                        <a class="btn btn--ghost btn--sm" href="{{ adres_listy ~ '&sortuj=' ~ sortuj ~ '&kierunek=' ~ kierunek ~ '&strona=' ~ (strona.numer + 1) }}">Następna</a>
                     {% endif %}
                 </nav>
             {% endif %}

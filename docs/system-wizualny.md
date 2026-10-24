@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.20.6, 24.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.20.7, 24.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,30 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.20.6 → 1.20.7: `/admin/konta` ma filtr zatrudnienia** (zlecenie Z84 cz. A,
+> prototyp zatwierdzony przez Krzysztofa).
+> - **Ten sam komponent `.segmented`, co przełącznik widoku kalendarza** — nie nowa kontrolka.
+>   Trzy pozycje „Pracujący N | Byli pracownicy N | Wszyscy N" w nagłówku karty, obok
+>   wyszukiwarki; wybrana ma białe tło i cień (`.segmented__item--on`, już istniało).
+> - **Liczby przygaszone** (`--c-text-4`, w wybranym segmencie `--c-text-3`) i w jednej
+>   szerokości (`tabular-nums`) — inaczej przełączanie segmentów przesuwa napisy.
+> - **Trzy ODNOŚNIKI `GET`, nie przyciski** — i stąd `aria-current="true"` zamiast
+>   `aria-pressed` z treści zlecenia: `.segmented` jest w tym arkuszu komponentem odnośników,
+>   `aria-pressed` jest atrybutem widgetu przyciskowego, a przycisk w formularzu szukania
+>   wysyłałby DWIE wartości pola `zatrudnienie` (ukryte pole + własna) — stan, o który
+>   potknęliśmy się już przy `krok` w Z79. Odnośnik niesie cały adres listy, więc segment
+>   zachowuje szukanie i sortowanie, a stronicowanie wraca na pierwszą stronę.
+> - ⚠ **Segment i przekreślenie mówią o DWÓCH różnych rzeczach i nie pokrywają się.**
+>   „Byli pracownicy" = nie pracuje W TEJ FIRMIE; przekreślenie (Z32) = nie pracuje NIGDZIE.
+>   Osoba zwolniona tutaj, a zatrudniona w drugiej firmie, wpada do segmentu „Byli" i NIE jest
+>   przekreślona — więc liczba przy segmencie nie musi równać się liczbie przekreślonych wierszy.
+>   Rozstrzygnięcie z 24.10.2026 (wariant c), opisane w komentarzu przy obu miejscach.
+> - **Zmierzone na 1920 / 1366 / 375, ze skryptem i z wyłączonym JavaScriptem** (zachowanie
+>   identyczne): domyślnie „Pracujący" (39 | 1 | 40 w firmie pomiaru), po kliknięciu „Byli"
+>   jeden wiersz przekreślony, po dołożeniu szukania liczby schodzą do 27 | 1 | 28 — czyli
+>   liczą cały zakres z szukaniem, a nie bieżącą stronę; sortowanie zachowuje segment i tekst;
+>   przewijanie poziome 0 px na każdej szerokości, na telefonie segmenty biorą całą szerokość.
 
 > **Zmiana 1.20.5 → 1.20.6: komunikat może mieć odnośnik, pasek zmian mieści się na telefonie,
 > a licznik odmienia się przez liczbę** (zlecenie Z80 D pkt 4, 5 i 7).

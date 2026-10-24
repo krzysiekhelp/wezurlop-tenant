@@ -849,6 +849,20 @@ a.access--btn .access__strzalka { font-size: 14px; line-height: 1; }
   .segmented__item:hover { color: var(--c-text-2); text-decoration: none; }
 }
 .segmented__item--on { background: var(--c-surface); color: var(--c-text); font-weight: var(--w-medium); box-shadow: var(--shadow-card); }
+/* ══════════ Filtr zatrudnienia na `/admin/konta` (zlecenie Z84 A1) ══════════
+   ⚠ Ten sam komponent `.segmented`, co przełącznik widoku kalendarza — nie nowy. Dochodzi
+   wyłącznie licznik: PRZYGASZONY, bo jest podpisem segmentu, a nie jego treścią. Liczby
+   w jednej szerokości (`tabular-nums`), inaczej przełączanie segmentów przesuwa napisy. */
+.segmented__licznik { color: var(--c-text-4); font-variant-numeric: tabular-nums; }
+/* W segmencie wybranym licznik ma o stopień więcej kontrastu — tło jest tam jaśniejsze. */
+.segmented__item--on .segmented__licznik { color: var(--c-text-3); }
+.segmented--zatrudnienie { flex: none; }
+@container glowa (max-width: 760px) {
+  /* Na telefonie segmenty biorą całą szerokość pod wyszukiwarką — trzy pozycje obok pola
+     300 px nie mieszczą się bez przewijania w bok, a przewijanie w poprzek jest zakazane. */
+  .segmented--zatrudnienie { width: 100%; }
+  .segmented--zatrudnienie .segmented__item { flex: 1 1 auto; justify-content: center; }
+}
 
 /* ——— zwijany blok (szczegóły techniczne) ——————————————————————————————— */
 
