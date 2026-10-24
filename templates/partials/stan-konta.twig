@@ -26,14 +26,27 @@
     (`.cell--konto .chip`), nie tutaj: ta sama plakietka renderuje się też w panelu osoby,
     gdzie kolumny nie ma i geometria kolumny jej nie dotyczy.
 
-    Zmienne: `status` (`account.status`, `do_odblokowania` albo `null`).
+    ⚠ **Podpowiedź przy braku wolnych licencji mówi, CZEGO brakuje** (zlecenie Z87): od
+    24.10.2026 automat nie zdejmuje blokady po powrocie do pracy, gdy licencja jest pełna, więc
+    stan „do odblokowania" ma wtedy inny powód — nie „nikt jeszcze nie kliknął", a „nie ma czym
+    odblokować". Bez tego zdania administrator klikałby „Odblokuj" i dostawał odmowę.
+
+    ⚠ `brak_licencji` jest faktem **CAŁEGO TENANTA**, nie tego wiersza: licencja ma jedną,
+    wspólną pulę dostępów, więc gdy wolnych miejsc nie ma, nie ma ich dla nikogo. Dokładność
+    co do wiersza wymagałaby śladu w bazie (nowa kolumna albo nowy powód blokady) — świadomie
+    nie, rozstrzygnięcie z 24.10.2026: ten sam wybór, co w Z85 B („wygląd zamiast nowego stanu").
+
+    Zmienne: `status` (`account.status`, `do_odblokowania` albo `null`), `brak_licencji` (bool).
     Renderowany `with_context = false`. -#}
+{% set podpowiedz_odblokowania = brak_licencji
+    ? 'Wróciła do pracy, ale brak wolnych licencji — zwolnij licencję i odblokuj konto.'
+    : 'Do odblokowania — ta osoba pracuje, a konto jest zablokowane.' %}
 {% import 'partials/ikony.twig' as ikony %}
 {% if status == 'do_odblokowania' %}
     <span class="stan-konta">
         <span class="stan-konta__znak" tabindex="0" role="img"
-              title="Do odblokowania — ta osoba pracuje, a konto jest zablokowane."
-              aria-label="Do odblokowania — ta osoba pracuje, a konto jest zablokowane.">{{ ikony.uwaga() }}</span>
+              title="{{ podpowiedz_odblokowania }}"
+              aria-label="{{ podpowiedz_odblokowania }}">{{ ikony.uwaga() }}</span>
         <span class="chip chip--danger"><span class="chip__kropka"></span>zablokowane</span>
     </span>
 {% elseif status == 'blocked' %}

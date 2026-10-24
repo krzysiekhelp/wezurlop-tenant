@@ -433,7 +433,7 @@
                             „—" gdy nigdy (`Support\Strefa::logowanie()`). Jedno miejsce liczy
                             strefę i słowo „dziś" — w szablonie nie ma ani jednego warunku o dacie. -#}
                         <td>{{ czas_logowanie(o.last_login_at) }}</td>
-                        <td class="cell--konto">{{ include('partials/stan-konta.twig', {'status': o.account_status}, with_context = false) }}</td>
+                        <td class="cell--konto">{{ include('partials/stan-konta.twig', {'status': o.account_status, 'brak_licencji': brak_licencji}, with_context = false) }}</td>
                     </tr>
                 {% else %}
                     <tr><td colspan="6" class="empty-state">{% if szukaj != '' %}Nikogo nie znaleziono dla „{{ szukaj }}".{% else %}Nie ma jeszcze żadnego konta administracyjnego.{% endif %}</td></tr>

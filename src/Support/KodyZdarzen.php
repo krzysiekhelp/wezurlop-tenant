@@ -47,6 +47,11 @@ final class KodyZdarzen
         'account.blocked_by_sync'       => 'Blokada konta (synchronizacja)',
         'account.unblocked_by_sync'     => 'Odblokowanie konta (powrót do pracy)',
         'account.block_refused'         => 'Odmowa blokady konta',
+        // ⚠ Dwie odmowy odblokowania, bo to dwie różne sytuacje dla czytającego dziennik:
+        // pierwsza to CZŁOWIEK, który kliknął i dostał odmowę (wie o niej od razu), druga to
+        // AUTOMAT, o którym nikt nie wie — pracownik wrócił do pracy i nie może się zalogować.
+        'account.unblock_refused'       => 'Odmowa odblokowania konta (brak licencji)',
+        'account.auto_unblock_refused'  => 'Nieodblokowane po powrocie do pracy (brak licencji)',
         // Rozdział „administrator tenanta ≠ pracownik" (etap3 §8c) złamany PRZEZ KADRY,
         // nie przez nadanie roli — zatrudnienie administratora przyszło z R2.
         'access.admin_employed'         => 'Administrator z zatrudnieniem (z kadr)',
@@ -155,6 +160,12 @@ final class KodyZdarzen
      */
     private const MOCNE = [
         'account.blocked_manually', 'account.blocked_by_sync', 'account.block_refused',
+        // ⚠ **Nieodblokowanie po powrocie do pracy jest wyróżnione MOCNO, a odmowa ręczna nie.**
+        // Przy ręcznej administrator stoi przed ekranem i widzi komunikat; przy automatycznej
+        // nie wie o niej nikt — pracownik wrócił, konto zostało zablokowane i człowiek dowie się
+        // telefonem od niego. To dokładnie ten rodzaj wpisu, który ma rzucać się w oczy
+        // (tą samą logiką, którą `account.block_refused` stoi tu obok blokady).
+        'account.auto_unblock_refused',
         'auth.login_failed', '2fa.failed', '2fa.disable_failed', '2fa.disabled', '2fa.reset_by_admin',
         'account.email_changed',
         // ⚠ Skasowanie klucza stoi obok unieważnienia, bo jest **nieodwracalne**: unieważniony

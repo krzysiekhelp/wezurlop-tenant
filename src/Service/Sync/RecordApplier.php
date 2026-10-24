@@ -11,6 +11,7 @@ use Wezurlop\Repository\JobRepository;
 use Wezurlop\Repository\SyncDomainRepository;
 use Wezurlop\Repository\SyncRepository;
 use Wezurlop\Repository\SyncTaskRepository;
+use Wezurlop\Service\AccessService;
 
 /**
  * Zastosowanie rekordów z R2 do danych aplikacji (docs/etap3-logika-urlopowa.md rozdz. 3b i 5b). STREFA JAWNA.
@@ -49,6 +50,10 @@ final class RecordApplier
         private readonly EventLogRepository $eventLog,
         private readonly JobRepository $jobs,
         private readonly SyncWindow $window,
+        // ⚠ Limit licencji czyta `AccessService` — ta sama droga, co nadanie dostępu
+        // i odblokowanie ręczne. Trzy liczniki tej samej rzeczy rozjechałyby się przy pierwszej
+        // zmianie reguły (zlecenie Z87).
+        private readonly AccessService $access,
     ) {
     }
 
@@ -224,11 +229,7 @@ final class RecordApplier
         // jest droga powrotna. Bez niej pracownik, który wrócił, zostawał bez dostępu na zawsze.
         // Odblokowanie zdejmuje wyłącznie blokadę z synchronizacji; ręcznej automat nie rusza.
         if ($r['aktualne'] === true) {
-            $accountId = $this->domain->unblockAccountAfterReturn($worker['local_id']);
-            if ($accountId !== null) {
-                $this->count('kontaOdblokowane');
-                $this->eventLog->record('account.unblocked_by_sync', null, null, 'sync', 'account', $accountId, $companyId);
-            }
+            $this->powrotDoPracy($worker['local_id'], $companyId);
             // ⚠ **TRZECIA DROGA łamania rozdziału z `etap3` §8c — jedyna, której nikt nie wywoła
             // ręcznie.** Konto wisi na osobie i zatrudnienie też wisi na osobie, więc gdy kadry
             // zatrudnią administratora (właściciel przechodzi na etat, księgowa z zewnątrz
@@ -542,6 +543,47 @@ final class RecordApplier
         $date = $worker['payload']['dataZwolnienia'] ?? null;
 
         return is_string($date) ? $date : null;
+    }
+
+    /**
+     * **Powrót do pracy: odblokowanie konta albo odmowa z braku licencji** (zlecenie Z87,
+     * decyzja Krzysztofa z 24.10.2026).
+     *
+     * ⚠ Do tego dnia automat zdejmował blokadę bez pytania o limit, więc powrót pracownika
+     * mógł wprowadzić instalację ponad licencję. Reguła jest teraz ta sama, co przy odblokowaniu
+     * ręcznym (Z85) i przy nadaniu dostępu — bo to ta sama rzecz: dostęp, który zacznie się
+     * liczyć. Pytamy O KONTO, więc najpierw trzeba wiedzieć, które to konto (`syncBlockedAccountOf()`).
+     *
+     * ⚠ **Licznik `FOR UPDATE` działa w transakcji paczki**, nie w osobnej: sprawdzenie wolnego
+     * miejsca i zajęcie go muszą być jedną decyzją, inaczej dwie firmy synchronizowane równolegle
+     * wpuściłyby dwie osoby na jedno miejsce.
+     *
+     * ⚠ **Automat NIE ponawia.** Odmowa zostaje w dzienniku, konto zostaje `blocked`/`sync`,
+     * a odblokowanie jest od tej chwili decyzją człowieka (ekran blokady, Z85). Wyłącza system,
+     * włącza człowiek.
+     *
+     * ⚠ Konto bez dostępów do firm i licencja bez limitu przechodzą jak dotąd — `brakujeNaOdblokowanie()`
+     * zwraca wtedy zero i nie ma czego odmawiać.
+     */
+    private function powrotDoPracy(int $personId, int $companyId): void
+    {
+        $accountId = $this->domain->syncBlockedAccountOf($personId);
+        if ($accountId === null) {
+            return;
+        }
+        if ($this->access->brakujeNaOdblokowanie($accountId) > 0) {
+            // ⚠ Licznik idzie do statystyk PRZEBIEGU (`sync_run.stats`), bo alert ma być jeden
+            // na przebieg, a przebieg to wiele żądań HTTP — licznik w pamięci ginie z żądaniem.
+            $this->count('kontaBezLicencji');
+            $this->eventLog->record('account.auto_unblock_refused', null, null, 'sync', 'account',
+                $accountId, $companyId);
+
+            return;
+        }
+        if ($this->domain->unblockAccountAfterReturn($personId) !== null) {
+            $this->count('kontaOdblokowane');
+            $this->eventLog->record('account.unblocked_by_sync', null, null, 'sync', 'account', $accountId, $companyId);
+        }
     }
 
     /** @return array{oPrace: bool, zlecenie: bool, oDzielo: bool} */

@@ -118,6 +118,10 @@ final class PrzykladyPanelu
                 ['company_id' => 5, 'name' => 'GAMMA sp. z o.o.', 'ma_etat' => true, 'ma_dostep' => false],
             ],
             'licencja' => ['uzyte' => 4, 'limit' => 10],
+            // ⚠ Nowy klucz z Z87 — atrapa też go potrzebuje, bo `strict_variables` wywala render
+            // na brakującej zmiennej. Fałsz, bo w tej atrapie licencja ma wolne miejsca (4 z 10);
+            // stan „brak wolnych licencji" mierzymy w przeglądarce, na pełnej licencji.
+            'brak_licencji' => false,
             'widocznosc' => ['spolka' => 'ALFA sp. z o.o.', 'adres' => '/admin/widocznosc',
                 'zrodla' => $p['zrodla']],
             'nazwy_zakresow' => Z::nazwy(),

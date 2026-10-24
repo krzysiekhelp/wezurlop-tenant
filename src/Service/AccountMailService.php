@@ -14,10 +14,11 @@ use Wezurlop\Repository\TenantSettingRepository;
 use Wezurlop\Security\OneTimeToken;
 use Wezurlop\Service\Mail\MailRenderer;
 use Wezurlop\Service\Mail\MailTransport;
+use Wezurlop\Support\Config;
 use Wezurlop\Support\NazwaOsoby;
+use Wezurlop\Support\Odmiana;
 use Wezurlop\Support\Strefa;
 use Wezurlop\Support\Wolacz;
-use Wezurlop\Support\Config;
 
 /**
  * Wiadomości z jednorazowymi linkami (reset hasła, zaproszenie).
@@ -316,6 +317,48 @@ final class AccountMailService
      *
      * @param array<string, mixed> $payload
      */
+    /**
+     * **Osoby wróciły do pracy, a kont nie dało się odblokować — brak wolnych licencji**
+     * (zlecenie Z87, decyzja Krzysztofa z 24.10.2026).
+     *
+     * ⚠ **Bez nazwisk i bez liczby licencji** — sama liczba osób. Alert idzie pocztą na skrzynkę,
+     * której adresata nie kontrolujemy tak jak ekranu: lista kto wrócił to dane kadrowe
+     * (CLAUDE.md §14), a kto to jest, mówi ekran kont po zalogowaniu.
+     *
+     * ⚠ Pierwsze zdanie mówi, co się NIE stało, a nie co się stało: adresat musi zrozumieć,
+     * że ktoś pracuje i nie może się zalogować, a nie że „synchronizacja zgłasza problem".
+     *
+     * @param array<string, mixed> $payload
+     */
+    public function deliverAutoUnblockAlert(array $payload, MailTransport $transport): bool
+    {
+        $osob = is_int($payload['osob'] ?? null) ? $payload['osob'] : 0;
+        $kogo = $osob . ' ' . Odmiana::osoby($osob);
+
+        return $this->alert(
+            $transport,
+            'konta nie odblokowały się po powrocie do pracy',
+            'Brak wolnych licencji zatrzymał odblokowanie kont.',
+            [
+                'Pracownicy wrócili do pracy, ale ich konta zostały zablokowane.',
+                'Program kadrowy przysłał z powrotem aktywne zatrudnienie dla ' . $kogo
+                    . ', więc konta powinny się odblokować same. Nie odblokowały się, bo w licencji '
+                    . 'nie ma wolnych miejsc — a odblokowane konto zajęłoby licencję.',
+                'Co to znaczy dla tych osób: nie zalogują się do systemu urlopowego, dopóki ktoś '
+                    . 'tego nie odwróci. Danych nie utraciły — wnioski i nieobecności są na miejscu.',
+                'Co zrobić: zwolnij licencje (odbierz dostęp osobom, które go już nie potrzebują) '
+                    . 'albo rozszerz licencję, a potem odblokuj konta na liście kont. '
+                    . 'System nie ponowi tego sam — po zwolnieniu miejsca trzeba kliknąć.',
+            ],
+            [['etykieta' => 'Osób czekających na odblokowanie', 'wartosc' => (string) $osob]],
+            [],
+            true,
+            'Kolejna taka wiadomość najwcześniej po dobie, nawet jeśli synchronizacja powtórzy się '
+                . 'wcześniej — brak licencji nie znika sam.',
+            ['napis' => 'Otwórz listę kont', 'link' => $this->config->absoluteUrl('/admin/konta')],
+        );
+    }
+
     public function deliverIdentitySplitAlert(array $payload, MailTransport $transport): bool
     {
         $klucz = is_string($payload['klucz'] ?? null) ? $payload['klucz'] : '—';

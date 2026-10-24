@@ -35,6 +35,10 @@ final class SyncService
     public const EVENT_SPLIT_GONE = 'sync.identity_split_resolved';
     /** Wiadomość do skrzynki alertowej tenanta — wysyłana przez kolejkę, nie w żądaniu API. */
     public const JOB_SPLIT_ALERT = 'integration.identity_split_alert';
+    /** Osoby wróciły do pracy, a kont nie dało się odblokować — brak wolnych licencji (Z87). */
+    public const JOB_AUTO_UNBLOCK_ALERT = 'integration.auto_unblock_alert';
+    /** Domyślny odstęp między alertami o nieodblokowanych kontach (godziny). */
+    private const AUTO_UNBLOCK_ALERT_HOURS = 24;
 
     public const ZBIORY = ['firma', 'pracownik', 'zatrudnienie', 'limit', 'nieobecnosc', 'slownik', 'kalendarz'];
     public const MAX_RECORDS = 500;
@@ -501,6 +505,7 @@ final class SyncService
             $stats['oczekujace'] = $this->sync->countPending($company['id']);
             $this->sync->saveRunStats($run['id'], 'koniec', $stats);
             $this->sync->closeRun($run['id'], $summary);
+            $this->alertNieodblokowanych($stats);
             // ⚠ Domknięty przebieg na nowym kluczu = przesiadka się udała, więc przejęcie następuje TU,
             // a nie po upływie czasu. Czas jest tylko bezpiecznikiem, gdyby przesiadka utknęła.
             $this->keyService->przejmij($key['id']);
@@ -741,6 +746,67 @@ final class SyncService
         $hour = (int) (new DateTimeImmutable('now', new DateTimeZone('Europe/Warsaw')))->format('G');
 
         return $hour >= 22 || $hour < 6 ? 300 : 60;
+    }
+
+    /**
+     * **Jeden alert na przebieg o kontach, których automat nie odblokował** (zlecenie Z87).
+     *
+     * ⚠ Liczbę bierzemy ze STATYSTYK PRZEBIEGU, nie z pamięci: przebieg to wiele żądań HTTP
+     * (`start` → paczki → `koniec`), każde w osobnym procesie PHP, więc licznik w obiekcie
+     * ginie razem z żądaniem. `sync_run.stats` jest jedynym miejscem, które widzi cały przebieg.
+     *
+     * ⚠ **Zbiorczo, nie na osobę**: przy dwudziestu powrotach do pracy dwadzieścia listów
+     * nauczyłoby czytelnika kasować je bez czytania. Nazwisk w alercie nie ma — to dane kadrowe,
+     * a wiadomość i tak nie mówi nic, czego nie widać na liście kont (CLAUDE.md §14).
+     *
+     * ⚠ **Odstęp**, choć zlecenie mówi „jeden na przebieg": przebieg zdarza się co kilka minut,
+     * a brak licencji sam nie znika — bez odstępu ta sama wiadomość szłaby kilkanaście razy
+     * na godzinę. `claimAlertSlot()` jest atomowym `UPDATE`, więc dwa przebiegi równoległe
+     * nie wyślą dwóch listów.
+     *
+     * ⚠ Gdy connector nie dojdzie do `koniec()` (padnie w połowie, przebieg wygaśnie po TTL),
+     * alert nie wychodzi — zostają wpisy w dzienniku. Rozstrzygnięcie z 24.10.2026: alert
+     * z wygaszania przebiegu byłby alertem bez liczby.
+     *
+     * ⚠ Pusta skrzynka alertowa nie wymaga tu warunku: `AccountMailService::alert()` zwraca
+     * wtedy `false`, a runner oznacza zadanie jako wykonane (status `skipped`) — żadnej poczty
+     * i żadnych ponowień.
+     *
+     * @param array<string, mixed> $stats
+     */
+    private function alertNieodblokowanych(array $stats): void
+    {
+        $ile = self::alertOsob($stats);
+        if ($ile < 1) {
+            return;
+        }
+        $godziny = max(1, (int) $this->settings->get('auto_unblock_alert_hours',
+            (string) self::AUTO_UNBLOCK_ALERT_HOURS));
+        if (!$this->settings->claimAlertSlot('auto_unblock_alert_last_at', $godziny * 3600)) {
+            return;
+        }
+        $this->jobs->enqueue(self::JOB_AUTO_UNBLOCK_ALERT, ['osob' => $ile]);
+    }
+
+    /**
+     * **Ile osób zgłasza alert o nieodblokowanych kontach** — zero znaczy „nie wysyłaj".
+     *
+     * ⚠ Funkcja czysta i publiczna, żeby dała się sprawdzić testem bez bazy, bez przebiegu
+     * i bez pliku licencji: to ona decyduje, czy wiadomość w ogóle powstanie. ⚠ Czyta licznik
+     * CAŁEGO przebiegu, więc dwadzieścia powrotów do pracy daje JEDEN alert z liczbą 20,
+     * a nie dwadzieścia listów.
+     *
+     * ⚠ Kształt `stats` jest odczytywany z kolumny JSON, czyli z danych — dlatego każde pole
+     * sprawdzamy typem, a nie zakładamy, że jest liczbą (CLAUDE.md §11).
+     *
+     * @param array<string, mixed> $stats
+     */
+    public static function alertOsob(array $stats): int
+    {
+        $zdarzenia = is_array($stats['zdarzenia'] ?? null) ? $stats['zdarzenia'] : [];
+        $ile = $zdarzenia['kontaBezLicencji'] ?? null;
+
+        return is_int($ile) && $ile > 0 ? $ile : 0;
     }
 
     /**

@@ -361,6 +361,7 @@ final class JobRunner
                 self::JOB_KEY_UNUSED_ALERT          => $this->accountMail->deliverUnusedKeyAlert($job['payload'], $this->transport($job)),
                 self::JOB_COMPANY_IDLE_ALERT        => $this->accountMail->deliverCompanyIdleAlert($job['payload'], $this->transport($job)),
                 Sync\SyncService::JOB_SPLIT_ALERT    => $this->accountMail->deliverIdentitySplitAlert($job['payload'], $this->transport($job)),
+                Sync\SyncService::JOB_AUTO_UNBLOCK_ALERT => $this->accountMail->deliverAutoUnblockAlert($job['payload'], $this->transport($job)),
                 default => throw new \DomainException('Nieznany typ zadania: ' . $job['type']),
             };
             $this->jobs->markDone($job['id']);

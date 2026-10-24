@@ -228,7 +228,7 @@ final class Services
         $sync = $this->syncRepository();
         $domain = new SyncDomainRepository($this->db);
         $tasks = new SyncTaskRepository($this->db);
-        $applier = new RecordApplier($sync, $domain, $tasks, new CompanyCalendarRepository($this->db), $this->events, $this->jobs, new SyncWindow());
+        $applier = new RecordApplier($sync, $domain, $tasks, new CompanyCalendarRepository($this->db), $this->events, $this->jobs, new SyncWindow(), $this->access);
 
         return new SyncService(
             $this->db, $sync, $domain, $tasks, $this->apiKeys, $this->settings,

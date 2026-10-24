@@ -39,6 +39,7 @@ use Wezurlop\Support\ZadaniaKolejki;
         TaskService::JOB_HR_ALERT,
         TaskService::JOB_HR_ALERT_URGENT,
         SyncService::JOB_SPLIT_ALERT,
+        SyncService::JOB_AUTO_UNBLOCK_ALERT,
         JobRunner::JOB_KEY_IDLE_ALERT,
         JobRunner::JOB_KEY_UNUSED_ALERT,
         JobRunner::JOB_COMPANY_IDLE_ALERT,

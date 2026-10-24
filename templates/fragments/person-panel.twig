@@ -33,7 +33,7 @@
                     własna kolumna. Przy obu prawdziwych wygrywa wiązanie: jest nowsze. -#}
                 {%- if o.z_kadr %} · z kadr{% elseif o.spoza_kadr %} · spoza kadr{% endif -%}
             </span>
-            {{ include('partials/stan-konta.twig', {'status': o.account_status}, with_context = false) }}
+            {{ include('partials/stan-konta.twig', {'status': o.account_status, 'brak_licencji': brak_licencji}, with_context = false) }}
         </div>
     </div>
     {% if w_szufladzie %}

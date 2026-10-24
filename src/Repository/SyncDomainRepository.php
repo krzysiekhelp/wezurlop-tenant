@@ -339,6 +339,27 @@ final class SyncDomainRepository
      *
      * @return int|null konto, które faktycznie odblokowano
      */
+    /**
+     * **Które konto tej osoby zdjęłaby blokada po powrocie do pracy** — pytanie zadane PRZED
+     * zapisem (zlecenie Z87).
+     *
+     * ⚠ Osobna metoda, bo od 24.10.2026 odblokowanie automatyczne podlega limitowi licencji,
+     * a limit liczy się DLA KONTA: trzeba znać identyfikator, zanim cokolwiek się zmieni.
+     * Warunek jest dokładnie ten sam, co w `unblockAccountAfterReturn()` — dwa różne warunki
+     * znaczyłyby, że pytamy o jedno konto, a odblokowujemy drugie.
+     */
+    public function syncBlockedAccountOf(int $personId): ?int
+    {
+        $stmt = $this->db->pdo()->prepare(
+            "SELECT id FROM account
+              WHERE person_id = :person AND status = 'blocked' AND blocked_reason = 'sync'"
+        );
+        $stmt->execute(['person' => $personId]);
+        $id = $stmt->fetchColumn();
+
+        return $id === false ? null : (int) $id;
+    }
+
     public function unblockAccountAfterReturn(int $personId): ?int
     {
         // ⚠ Wracamy do stanu SPRZED blokady, nie do `active`: konto `niezaproszone` albo

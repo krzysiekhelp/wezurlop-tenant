@@ -94,6 +94,12 @@ final class ZadaniaKolejki
             'nazwa' => 'Alert: klucz wydany i nieużyty', 'wiadomosc' => 'alert o nieużytym kluczu', 'wiadomosc_d' => 'alertu o nieużytym kluczu',
             'usuwalne' => false, 'powod' => self::POWOD_ALERT,
         ],
+        SyncService::JOB_AUTO_UNBLOCK_ALERT => [
+            'nazwa' => 'Alert: konta nieodblokowane po powrocie do pracy',
+            'wiadomosc' => 'alert o kontach nieodblokowanych z braku licencji',
+            'wiadomosc_d' => 'alertu o kontach nieodblokowanych z braku licencji',
+            'usuwalne' => false, 'powod' => self::POWOD_ALERT,
+        ],
         JobRunner::JOB_COMPANY_IDLE_ALERT => [
             'nazwa' => 'Alert: firma się nie synchronizuje', 'wiadomosc' => 'alert o ciszy firmy', 'wiadomosc_d' => 'alertu o ciszy firmy',
             'usuwalne' => false, 'powod' => self::POWOD_ALERT,

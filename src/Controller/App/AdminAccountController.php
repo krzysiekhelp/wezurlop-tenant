@@ -219,6 +219,10 @@ final class AdminAccountController
             // (ta sama zasada, co kafel 2FA z Z57 U3).
             'dwuetapowe_wymagane' => $this->config->adminTwoFactorRequired,
             'licencja'    => $this->access->licenceUsage(),
+            // ⚠ **Fakt całego tenanta, nie wiersza** (zlecenie Z87): licencja ma jedną pulę
+            // dostępów, więc „nie ma wolnego miejsca" dotyczy wszystkich naraz. Pytamy tą samą
+            // funkcją, którą serwer odmawia odblokowania — „czy zmieści się jeszcze jeden dostęp".
+            'brak_licencji' => $this->brakWolnejLicencji(),
             'spolka'      => $kontekst['spolka'],
             'z_adresu'    => $kontekst['z_adresu'],
             'fallback'    => $kontekst['fallback'],
@@ -358,6 +362,23 @@ final class AdminAccountController
             'panel'        => $this->skutekBlokady((int) $dane['o']['account_id'],
                 (string) $dane['o']['account_status'], $odblokowanie),
         ]);
+    }
+
+    /**
+     * **Czy w licencji zmieści się jeszcze jeden dostęp** — jedno pytanie na ekran (zlecenie Z87).
+     *
+     * ⚠ Pytamy tą samą funkcją, którą serwer odmawia odblokowania (`brakujeLicencji()`), tylko
+     * o jeden dostęp: wiersz listy ma mówić prawdę o tym, co się stanie po kliknięciu „Odblokuj".
+     *
+     * ⚠ Jedno zapytanie na EKRAN, nie na wiersz: licznik przechodzi po wszystkich przypisaniach
+     * tenanta, więc pytanie przy każdym z dwudziestu pięciu wierszy byłoby tą samą pracą
+     * wykonaną dwadzieścia pięć razy. Licencja ma jedną pulę, więc odpowiedź i tak jest wspólna.
+     */
+    private function brakWolnejLicencji(): bool
+    {
+        $licencja = $this->access->licenceUsage();
+
+        return AccessService::brakujeLicencji(1, $licencja['limit'], $licencja['uzyte']) > 0;
     }
 
     /** Nazwy stanów konta słowami — jedno miejsce, bo stoją w zdaniu, nie w plakietce. */
@@ -953,6 +974,7 @@ final class AdminAccountController
             'telefon_pole' => Telefon::doPola($osoba['phone']),
             'firmy'      => $this->people->companiesForAccess($personId),
             'licencja'   => $this->access->licenceUsage(),
+            'brak_licencji' => $this->brakWolnejLicencji(),
             // Karta „Widoczność kalendarza" — tylko podgląd, z funkcji egzekwującej dostęp.
             'widocznosc' => $widocznosc,
             // ⚠ **Kontrolka „Podgląd kalendarzy" ZNIKŁA stąd 19.10.2026** (zlecenie Z53 §3), bo
@@ -1454,6 +1476,7 @@ final class AdminAccountController
         return $this->view->render('fragments/person-row.twig', [
             'o'          => $row,
             'current_id' => $admin->accountId(),
+            'brak_licencji' => $this->brakWolnejLicencji(),
         ]);
     }
 

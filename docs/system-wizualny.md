@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.20.12, 24.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.20.13, 24.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,31 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.20.12 → 1.20.13: automat też odmawia odblokowania przy pełnej licencji, a lista
+> mówi dlaczego** (zlecenie Z87, decyzja Krzysztofa).
+> - Powrót do pracy zdejmował blokadę bez pytania o licencję. Od 24.10.2026 synchronizacja
+>   stosuje tę samą regułę co odblokowanie ręczne: przy pełnym limicie konto **zostaje**
+>   `blocked`/`sync`, dziennik dostaje `account.auto_unblock_refused`, a automat **nie ponawia** —
+>   po zwolnieniu licencji odblokowuje człowiek („wyłącza system, włącza człowiek").
+> - **Podpowiedź przy znaku „do odblokowania" jest warunkowa**: gdy w licencji nie ma wolnych
+>   miejsc, brzmi „Wróciła do pracy, ale brak wolnych licencji — zwolnij licencję i odblokuj
+>   konto."; w przeciwnym razie zostaje „Do odblokowania — ta osoba pracuje, a konto jest
+>   zablokowane.". Ten sam napis w `title` i w `aria-label`.
+>   ⚠ **`brak_licencji` jest faktem CAŁEGO TENANTA, nie wiersza** (rozstrzygnięcie z 24.10.2026,
+>   wariant a): licencja ma jedną wspólną pulę dostępów, więc brak wolnych miejsc dotyczy
+>   wszystkich naraz. Po odmowie stan w bazie jest **nie do odróżnienia** od zwykłej blokady
+>   synchronizacji (`blocked` + `sync` + aktywny etat), a ślad w bazie znaczyłby nową kolumnę
+>   albo nowy powód blokady — świadomie nie, ten sam wybór co w 1.20.11 („wygląd zamiast nowego
+>   stanu"). Jedno zapytanie na ekran, nie na wiersz.
+> - **Alert zbiorczy, jeden na przebieg**, na skrzynkę alertową tenanta: „N osób czekających na
+>   odblokowanie", bez nazwisk (dane kadrowe nie jadą pocztą). Przy pustej skrzynce zostaje sam
+>   dziennik. ⚠ Dodatkowo **odstęp doby** (`auto_unblock_alert_last_at`), bo przebieg zdarza się
+>   co kilka minut, a brak licencji nie znika sam — bez odstępu ta sama wiadomość szłaby
+>   kilkanaście razy na godzinę.
+> - Zmierzone w Chrome (1920, osoby próbne): przy licencji pełnej wiersz ma znak ostrzegawczy,
+>   plakietkę „zablokowane" i podpowiedź o braku licencji; po zwolnieniu jednego miejsca ten sam
+>   wiersz wraca do podpowiedzi dotychczasowej. Przewijanie w bok 0 px.
 
 > **Przy okazji 1.20.12 — dwa bloki panelu blokady dostały ramkę z paskiem nagłówka**
 > (porównanie z prototypem po odbiorze; dotyczy też ekranu odblokowania):

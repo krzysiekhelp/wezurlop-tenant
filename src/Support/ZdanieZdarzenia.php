@@ -78,6 +78,10 @@ final class ZdanieZdarzenia
         'account.unblocked_manually'    => ['odblokował(a) konto {podmiot}', 'klodka', self::BARWA_DODANIE],
         'account.unblocked_by_sync'     => ['odblokował konto {podmiot} po powrocie do pracy', 'klodka', self::BARWA_DODANIE],
         'account.block_refused'         => ['próbował(a) zablokować konto {podmiot} — odmowa', 'klodka', self::BARWA_USUNIECIE],
+        // ⚠ Bez „(a)" w drugim zdaniu: podmiotem jest synchronizacja, nie człowiek — tak samo
+        // jak w `account.blocked_by_sync` i `account.unblocked_by_sync` obok.
+        'account.unblock_refused'       => ['próbował(a) odblokować konto {podmiot} — brak wolnych licencji', 'klodka', self::BARWA_USUNIECIE],
+        'account.auto_unblock_refused'  => ['nie odblokował konta {podmiot} po powrocie do pracy — brak wolnych licencji', 'klodka', self::BARWA_USUNIECIE],
         'account.email_changed'         => ['zmienił(a) adres logowania konta {podmiot}', 'koperta', self::BARWA_USUNIECIE],
         'account.invitation_resent'     => ['wysłał(a) zaproszenie do {podmiot} jeszcze raz', 'koperta', self::BARWA_ZWYKLA],
         'account.invitation_revoked'    => ['unieważnił(a) zaproszenie dla {podmiot}', 'koperta', self::BARWA_USUNIECIE],

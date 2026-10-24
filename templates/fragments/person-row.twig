@@ -156,5 +156,5 @@
     {#- ⚠ Kolumna Konto: treść przy PRAWEJ krawędzi i plakietki równej szerokości (Z84 B2),
         a nagłówek nad lewą krawędzią plakietek (Z84 D1). Geometria stoi w arkuszu
         (`.cell--konto`), bo dotyczy też nagłówka — tu zostaje tylko klasa. -#}
-    <td class="cell--konto">{{ include('partials/stan-konta.twig', {'status': o.account_status}, with_context = false) }}</td>
+    <td class="cell--konto">{{ include('partials/stan-konta.twig', {'status': o.account_status, 'brak_licencji': brak_licencji}, with_context = false) }}</td>
 </tr>
