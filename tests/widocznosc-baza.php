@@ -37,6 +37,7 @@ use Wezurlop\Repository\PracownikRepository;
 use Wezurlop\Repository\SyncDomainRepository;
 use Wezurlop\Service\CalendarVisibility;
 use Wezurlop\Service\GrupyService;
+use Wezurlop\Service\Hierarchia;
 use Wezurlop\Service\WidocznoscService;
 use Wezurlop\Service\ZakresWidocznosci as Z;
 use Wezurlop\Service\ZasiegPodgladu;
@@ -671,6 +672,142 @@ use Wezurlop\Service\ZasiegPodgladu;
                                  WHERE car.company_id = c.id AND car.subject_kind = 'admins_all')")->fetchColumn();
         $check('i: każda firma zastana przez migrację ma wiersz reguły „Administratorzy"',
             $bezAdminow === 0, (string) $bezAdminow);
+
+        // ——— Z80 cz. C: PODGLĄD „ta zmiana wyłączy N reguł" ————————————————————————
+        // ⚠ **Sedno: podgląd i faktyczny zapis MUSZĄ dać tę samą liczbę** (wymóg zarządcy
+        // z 24.10.2026). Podgląd liczy się na stanie bazy PRZESUNIĘTYM o niezapisaną zmianę,
+        // a zapis — na bazie już zmienionej; to dwie różne drogi do jednej liczby i właśnie
+        // dlatego trzeba je porównać na kilku układach zmian, a nie na jednym.
+        $hierRepo = new HierarchyRepository($db);
+        $hier = new Hierarchia($db, $hierRepo, $events, $service);
+        $osoby['szefC'] = $wstaw(
+            'INSERT INTO person (first_name, last_name, outside_hr) VALUES (:i, :n, 0)',
+            ['i' => 'Szef C', 'n' => 'PRÓBNY SZEF C']
+        );
+        $osoby['szefD'] = $wstaw(
+            'INSERT INTO person (first_name, last_name, outside_hr) VALUES (:i, :n, 0)',
+            ['i' => 'Szef D', 'n' => 'PRÓBNY SZEF D']
+        );
+        $etaty['szefC'] = $wstaw(
+            'INSERT INTO employment (person_id, company_id, is_active) VALUES (:p, :c, 1)',
+            ['p' => $osoby['szefC'], 'c' => $firmy['ALFA']]
+        );
+        $etaty['szefD'] = $wstaw(
+            'INSERT INTO employment (person_id, company_id, is_active) VALUES (:p, :c, 1)',
+            ['p' => $osoby['szefD'], 'c' => $firmy['ALFA']]
+        );
+        foreach (['c1' => 'szefC', 'c2' => 'szefC', 'd1' => 'szefD'] as $klucz => $szef) {
+            $osoby[$klucz] = $wstaw(
+                'INSERT INTO person (first_name, last_name, outside_hr) VALUES (:i, :n, 0)',
+                ['i' => 'Podwładny ' . $klucz, 'n' => 'PRÓBNY PODWŁADNY ' . strtoupper($klucz)]
+            );
+            $etaty[$klucz] = $wstaw(
+                'INSERT INTO employment (person_id, company_id, supervisor_employment_id, is_active)
+                 VALUES (:p, :c, :s, 1)',
+                ['p' => $osoby[$klucz], 'c' => $firmy['ALFA'], 's' => $etaty[$szef]]
+            );
+        }
+        $regulaC = $service->zapisz(null, $firmy['ALFA'], Z::KTO_PRZELOZONY, $etaty['szefC'],
+            Z::CZYJE_PODWLADNI, [], Z::BEZ_SZCZEGOLOW, $konta['widz'], 'test');
+        $regulaD = $service->zapisz(null, $firmy['ALFA'], Z::KTO_PRZELOZONY, $etaty['szefD'],
+            Z::CZYJE_PODWLADNI, [], Z::BEZ_SZCZEGOLOW, $konta['widz'], 'test');
+        $check('C: dwie reguły „przełożony › jego podwładni" zapisane',
+            $regulaC === null && $regulaD === null, (string) $regulaC . '/' . (string) $regulaD);
+
+        $przenies = static fn (string $kto, string $doKogo): array => [
+            'employment' => $etaty[$kto], 'cel' => Hierarchia::CEL_PRZELOZONY, 'supervisor' => $etaty[$doKogo],
+        ];
+        // ⚠ Układ 1: **jedna z dwóch krawędzi** — przełożony zostaje z jednym podwładnym,
+        // więc reguła dalej daje wgląd i ostrzeżenia BYĆ NIE MOŻE. Bez tego przypadku pasek
+        // ostrzegałby przy każdym przeciągnięciu karty i nikt by go nie czytał.
+        $podglad1 = $hier->podgladZmian($firmy['ALFA'], [$przenies('c1', 'szefD')]);
+        $check('C: podgląd jednej zmiany, po której przełożonemu zostaje podwładny → 0 reguł',
+            $podglad1['powod'] === null && $podglad1['reguly'] === [],
+            (string) $podglad1['powod'] . '/' . count($podglad1['reguly']));
+        // ⚠ Układ 2: **dwie zmiany, które DOPIERO RAZEM zabierają ostatniego podwładnego.**
+        // Podgląd liczony per zmiana pokazałby tu zero — dlatego stan w pamięci idzie za całą
+        // partią, tak samo jak przy zapisie.
+        $partia = [$przenies('c1', 'szefD'), $przenies('c2', 'szefD')];
+        $podglad2 = $hier->podgladZmian($firmy['ALFA'], $partia);
+        $check('C: podgląd partii, która zabiera OSTATNIEGO podwładnego → 1 reguła',
+            $podglad2['powod'] === null && count($podglad2['reguly']) === 1,
+            (string) $podglad2['powod'] . '/' . count($podglad2['reguly']));
+        $check('C: podgląd mówi POWÓD i NAZWISKO osoby, która zostanie bez podwładnych',
+            ($podglad2['reguly'][0]['powod'] ?? '') === WidocznoscService::BEZ_SKUTKU_PODWLADNI
+            && str_contains($podglad2['reguly'][0]['osoba'] ?? '', 'Szef C'),
+            ($podglad2['reguly'][0]['powod'] ?? '—') . '/' . ($podglad2['reguly'][0]['osoba'] ?? '—'));
+        // ⚠ I TO JEST TEN TEST: ta sama partia puszczona do zapisu wyłącza dokładnie tyle reguł,
+        // ile obiecał podgląd. Gdyby podgląd liczył na bazie sprzed zmiany, dostałby zero.
+        $zapis2 = $hier->zapisz($firmy['ALFA'], $partia, $konta['widz'], 'test');
+        $check('C: faktyczny zapis wyłączył TYLE SAMO reguł, ile pokazał podgląd',
+            $zapis2['powod'] === null
+            && $zapis2['wylaczonych_regul'] === count($podglad2['reguly']),
+            (string) $zapis2['powod'] . '/' . $zapis2['wylaczonych_regul']);
+
+        // ⚠ Układ 3: **partia nie do zapisu** (pętla w hierarchii). Zapis odrzuci całość, więc
+        // nie wyłączy ani jednej reguły — a ostrzeżenie, które mówiłoby o liczbie, byłoby
+        // straszeniem czymś, co się nie stanie.
+        $petla = [[
+            'employment' => $etaty['szefD'], 'cel' => Hierarchia::CEL_PRZELOZONY,
+            'supervisor' => $etaty['d1'],
+        ]];
+        $podglad3 = $hier->podgladZmian($firmy['ALFA'], $petla);
+        $zapis3 = $hier->zapisz($firmy['ALFA'], $petla, $konta['widz'], 'test');
+        $check('C: partia układająca pętlę — podgląd niczego nie obiecuje, zapis odmawia tym samym powodem',
+            $podglad3['powod'] === Hierarchia::POWOD_CYKL && $podglad3['reguly'] === []
+            && $zapis3['powod'] === Hierarchia::POWOD_CYKL && $zapis3['wylaczonych_regul'] === 0,
+            (string) $podglad3['powod'] . '/' . (string) $zapis3['powod']);
+
+        // ⚠ Układ 4: reguła szefa C jest już WYŁĄCZONA, a teraz pustoszeje gałąź szefa D —
+        // po układzie 2 stoją pod nim TRZY etaty (`c1`, `c2`, `d1`), więc zdejmujemy wszystkie
+        // trzema zmianami w jednej partii. Podgląd ma policzyć JEDNĄ regułę, nie dwie: system
+        // nigdy nie wyłącza drugi raz tego, co już wyłączył (§B4) — a licznik, który by je
+        // doliczał, rósłby przy każdej kolejnej zmianie hierarchii.
+        // ⚠ Pierwsze podejście tego testu zdejmowało sam `d1` i wychodziło zero — bo pozostali
+        // dwaj podwładni przyszli pod szefa D w układzie 2. Liczba wzięta z nagłówka zlecenia,
+        // a nie ze stanu po poprzednim układzie, dawała test „czerwony z właściwego powodu".
+        $zdejmij = [
+            ['employment' => $etaty['c1'], 'cel' => Hierarchia::CEL_SZCZYT],
+            ['employment' => $etaty['c2'], 'cel' => Hierarchia::CEL_SZCZYT],
+            ['employment' => $etaty['d1'], 'cel' => Hierarchia::CEL_SZCZYT],
+        ];
+        $podglad4 = $hier->podgladZmian($firmy['ALFA'], $zdejmij);
+        $zapis4 = $hier->zapisz($firmy['ALFA'], $zdejmij, $konta['widz'], 'test');
+        $check('C: podgląd nie dolicza reguł już wyłączonych, a zapis zgadza się z podglądem',
+            count($podglad4['reguly']) === 1 && $zapis4['powod'] === null
+            && $zapis4['wylaczonych_regul'] === 1,
+            count($podglad4['reguly']) . '/' . (string) $zapis4['powod'] . '/' . $zapis4['wylaczonych_regul']);
+        // ⚠ Układ 5: po wyłączeniu obu reguł nie ma już czego wyłączać — podgląd i zapis
+        // zgadzają się także na zerze, a to jest ten przypadek, w którym pasek ma milczeć.
+        $wroc = [['employment' => $etaty['d1'], 'cel' => Hierarchia::CEL_PRZELOZONY,
+            'supervisor' => $etaty['szefD']]];
+        $podglad5 = $hier->podgladZmian($firmy['ALFA'], $wroc);
+        $zapis5 = $hier->zapisz($firmy['ALFA'], $wroc, $konta['widz'], 'test');
+        $check('C: gdy nie ma czego wyłączyć, podgląd i zapis mówią zero',
+            $podglad5['reguly'] === [] && $zapis5['wylaczonych_regul'] === 0,
+            count($podglad5['reguly']) . '/' . $zapis5['wylaczonych_regul']);
+        // ⚠ Przywrócenie krawędzi NIE włącza reguły z powrotem — włączyć może wyłącznie
+        // administrator (§B4). To jest druga strona układu 5 i gdyby system włączał sam,
+        // zero wyżej byłoby zerem z zupełnie innego powodu.
+        // ⚠ Liczymy **po identyfikatorach podmiotu z tego bloku**, a nie wszystkie reguły
+        // przełożonych w firmie: w bazie leży też reguła z bloku części B, wyłączona wcześniej
+        // z innego powodu. Pierwsza wersja tego sprawdzenia liczyła wszystkie i przeszła
+        // na zielono DOPÓKI nie policzyło się, skąd te dwie wzięte — czyli z właściwą liczbą
+        // i niewłaściwego powodu.
+        $stanRegul = [];
+        foreach ($reguly->reguly($firmy['ALFA']) as $r) {
+            if ((string) $r['subject_kind'] !== Z::KTO_PRZELOZONY) {
+                continue;
+            }
+            $podmiot = (int) $r['subject_employment_id'];
+            if ($podmiot === $etaty['szefC'] || $podmiot === $etaty['szefD']) {
+                $stanRegul[$podmiot] = (int) ($r['is_active'] ?? 1);
+            }
+        }
+        $check('C: obie reguły z tego bloku zostają wyłączone — system nie włącza ich sam',
+            $stanRegul === [$etaty['szefC'] => 0, $etaty['szefD'] => 0],
+            json_encode($stanRegul));
+
     } finally {
         // ——— SPRZĄTANIE ————————————————————————————————————————————————————————
         // ⚠ W `finally`, więc także po wyjątku w połowie przebiegu. Kolejność od najgłębszej

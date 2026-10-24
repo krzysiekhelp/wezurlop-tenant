@@ -12,7 +12,9 @@ use Wezurlop\Repository\HierarchyRepository;
 use Wezurlop\Repository\PermissionRepository;
 use Wezurlop\Service\Hierarchia;
 use Wezurlop\Service\KontekstSpolki;
+use Wezurlop\Service\WidocznoscService;
 use Wezurlop\Support\ErrorHandler;
+use Wezurlop\Support\Odmiana;
 use Wezurlop\Support\UrlGenerator;
 use Wezurlop\Support\View;
 
@@ -146,6 +148,42 @@ final class HierarchyController
     }
 
     /**
+     * **Podgląd skutku niezapisanych zmian: ile reguł widoczności wyłączy ten zapis**
+     * (zlecenie Z80 cz. C).
+     *
+     * ⚠ **Pełnoprawny endpoint, nie „wewnętrzny, bo używa go htmx"** (CLAUDE.md §5): to samo
+     * uprawnienie, ten sam zakres spółek i ta sama walidacja partii, co przy zapisie.
+     * ⚠ **`GET`, bo to odczyt** — niczego nie zapisuje i nie bierze blokad na wierszach.
+     * ⚠ Odpowiedź jest PUSTA, gdy nic nie zostanie wyłączone albo gdy partia jest nie do zapisu:
+     * ostrzeżenie ma mówić wyłącznie o tym, co zapis faktycznie zrobi.
+     *
+     * @param array<string, string> $params
+     */
+    public function podglad(Request $request, array $params): Response
+    {
+        $admin = $request->attribute(Authenticate::USER);
+        assert($admin instanceof CurrentUser);
+        $spolki = $this->dozwoloneSpolki($admin);
+        if ($spolki === []) {
+            return $this->errors->errorPage(403, null, $request->isHtmx());
+        }
+        $wybrana = $this->wybranaSpolka($admin, $request, $spolki)['spolka'];
+        $podglad = $this->hierarchia->podgladZmian($wybrana['id'], $this->zmiany($request));
+        $reguly = $podglad['powod'] === null ? $podglad['reguly'] : [];
+        $ile = count($reguly);
+
+        return $this->view->render('fragments/hierarchy-ostrzezenie.twig', [
+            'spolka' => $wybrana,
+            'regul' => $ile,
+            // ⚠ Zdania składa KONTROLER, a nie szablon: odmiana przez liczbę i wyliczenie
+            // nazwisk to rachunek, a szablon dostaje gotowy napis (CLAUDE.md §5).
+            'naglowek' => 'Ta zmiana wyłączy ' . $ile . ' ' . Odmiana::reguly($ile) . ' widoczności.',
+            'zdanie' => self::opisPodgladu($reguly),
+            'odnosnik' => $ile === 1 ? 'Pokaż regułę ›' : 'Pokaż reguły ›',
+        ]);
+    }
+
+    /**
      * Zapis partii zmian — **ta sama trasa dla przeciągania i dla menu `⋯`** (§8).
      *
      * ⚠ Bez JavaScriptu menu `⋯` wysyła jedną zmianę na raz, z JavaScriptem pasek zmian
@@ -201,6 +239,53 @@ final class HierarchyController
     }
 
     /**
+     * **Jedno zdanie, dlaczego ten zapis wyłączy reguły** (zlecenie Z80 cz. C).
+     *
+     * ⚠ Zdanie nazywa OSOBY, nie reguły: administrator przestawia w tym miejscu ludzi, więc
+     * „Kowalski zostanie bez podwładnych" mówi mu coś, czego „reguła #41 straci skutek" nie mówi.
+     * Numery i pełne opisy reguł stoją na `/admin/widocznosc`, do którego prowadzi odnośnik.
+     *
+     * ⚠ **„zostanie bez podwładnych", a nie „nie będzie miał podwładnych"**: formy osobowej
+     * czasownika nie da się odmienić bez znajomości rodzaju, a tej danej nie mamy i nie chcemy
+     * mieć. Zdanie bezrodzajowe jest poprawne dla każdego i nie wymaga zgadywania.
+     *
+     * ⚠ Reguły, które straciły skutek z INNEGO powodu (zablokowane konto, usunięta grupa,
+     * zwolnione osoby w celu), też policzy ten zapis — bo przeliczenie idzie po całej firmie.
+     * Przemilczenie ich znaczyłoby liczbę w nagłówku większą niż to, co wyjaśnia zdanie.
+     *
+     * @param list<array{powod: string, osoba: string}> $reguly
+     */
+    private static function opisPodgladu(array $reguly): string
+    {
+        $osoby = [];
+        $inne = 0;
+        foreach ($reguly as $r) {
+            if ($r['powod'] === WidocznoscService::BEZ_SKUTKU_PODWLADNI && $r['osoba'] !== '') {
+                $osoby[$r['osoba']] = true;
+                continue;
+            }
+            $inne++;
+        }
+        $osoby = array_keys($osoby);
+        $zdania = [];
+        if ($osoby !== []) {
+            // Dwa nazwiska wypisujemy, od trzech mówimy „i N innych osób" — trzy nazwiska
+            // w jednej linii paska zawijają się na telefonie i przesłaniają przyciski.
+            $lista = count($osoby) <= 2
+                ? implode(' i ', $osoby)
+                : $osoby[0] . ', ' . $osoby[1] . ' i ' . (count($osoby) - 2) . ' '
+                    . Odmiana::inne(count($osoby) - 2) . ' ' . Odmiana::osoby(count($osoby) - 2);
+            $zdania[] = $lista . (count($osoby) === 1 ? ' zostanie' : ' zostaną') . ' bez podwładnych.';
+        }
+        if ($inne > 0) {
+            $zdania[] = $inne . ' ' . Odmiana::reguly($inne)
+                . ' i tak nie dawało już wglądu z innego powodu — szczegóły na liście reguł.';
+        }
+
+        return implode(' ', $zdania);
+    }
+
+    /**
      * Zmiany z żądania — **białą listą** (`CLAUDE.md` §11).
      *
      * Kształt: `zmiany[N][employment]`, `zmiany[N][cel]`, `zmiany[N][supervisor]`.
@@ -211,7 +296,11 @@ final class HierarchyController
      */
     private function zmiany(Request $request): array
     {
-        $surowe = $request->post('zmiany');
+        // ⚠ **Ta sama biała lista dla zapisu (`POST`) i dla podglądu (`GET`)** — zlecenie Z80 cz. C.
+        // Podgląd niczego nie zmienia, więc jest `GET`-em (CLAUDE.md §3), ale musi rozumieć
+        // partię zmian DOKŁADNIE tak samo jak zapis: drugi parser znaczyłby podgląd liczony
+        // z innego zestawu zmian niż ten, który pójdzie do zapisu.
+        $surowe = $request->method() === 'POST' ? $request->post('zmiany') : $request->query('zmiany');
         if (!is_array($surowe)) {
             return [];
         }

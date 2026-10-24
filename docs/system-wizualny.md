@@ -1,6 +1,6 @@
 # System wizualny wezurlop — dokument obowiązujący
 
-**Wersja:** 1.20.4, 24.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
+**Wersja:** 1.20.5, 24.10.2026 · **Właściciel dokumentu:** nadzór · **Status:** zatwierdzony przez Krzysztofa
 
 ⚠ **Od 17.10.2026 ten dokument mieszka w repozytorium tenanta** (`tenant/docs/system-wizualny.md`),
 a nie w `wezurlop-talk`. Powód jest prosty: wszystkie cztery arkusze powołują się na ścieżkę
@@ -9,6 +9,40 @@ zasięgiem tego, co obowiązywał. **Każda zmiana wyglądu dopisuje się tutaj 
 co kod.** Kopia w `wezurlop-talk` jest od tej daty archiwalna i nie wolno jej już zmieniać.
 ⚠ Przykładowe nazwy firm i osób w tym dokumencie są **zastępcze** (`ALFA`, `BETA`, `KOWALSKI`,
 `JAN`) — prawdziwe dane klienta nie wchodzą do repozytorium w żadnej postaci, także w przykładzie.
+
+> **Zmiana 1.20.4 → 1.20.5: pasek niezapisanych zmian w Hierarchii ostrzega, że zapis odbierze
+> komuś wgląd** (zlecenie Z80 cz. C).
+> - **Ostrzeżenie jest DRUGĄ LINIĄ paska, nie elementem pod nim.** Pasek jest
+>   `position: sticky; bottom: 0`, więc cokolwiek postawione pod nim leży poza ekranem dokładnie
+>   wtedy, gdy pasek widać — czyli ostrzeżenia nie zobaczyłby nikt. Pełna szerokość drugiego
+>   wiersza przez `flex-wrap` na pasku i `flex: 1 0 100%` na pojemniku.
+> - **Barwy z tokenów ostrzeżenia**: tło `--c-warn-soft`, obwódka `--c-warn-line`, tekst
+>   `--c-warn-text`, trójkąt `--c-warn` (zmierzone: `rgb(253, 243, 226)`, `rgb(240, 216, 168)`,
+>   `rgb(138, 83, 0)`). Rozmiar `--t-small`, zaokrąglenie `--radius`.
+> - **Treść: liczba, jedno zdanie dlaczego, odnośnik.** „Ta zmiana wyłączy 1 regułę widoczności.
+>   X zostanie bez podwładnych. Pokaż regułę ›". ⚠ Zdanie mówi „zostanie bez podwładnych",
+>   a nie „nie będzie miał podwładnych": formy osobowej nie da się odmienić bez znajomości
+>   rodzaju, a tej danej nie mamy i nie chcemy mieć. Liczba odmienia się przez `Odmiana::reguly()`
+>   w **bierniku** („wyłączy 1 regułę", nie „1 reguła").
+> - **Pusty pojemnik znika przez `display: none`**, a nie samą zerową wysokością: `gap` paska
+>   liczy się między wszystkimi elementami, także pustymi, więc bez tego pod przyciskami stałaby
+>   przerwa 16 px na każdym ekranie bez ostrzeżenia.
+> - **Liczy SERWER, przy każdej zmianie partii** (`GET /admin/hierarchia/podglad`, fragment
+>   doczytywany przez htmx). ⚠ `hx-include` wymienia **pola**, nie formularz: `#hier-bar`
+>   wciągnęłoby token CSRF, a ten jedzie wtedy `GET`-em do paska adresu, historii i logów
+>   serwera (zmierzone: w żadnym z trzech żądań podglądu nie ma `_csrf`).
+> - **Ostrzeżenie pojawia się dokładnie wtedy, gdy zapis faktycznie coś wyłączy.** Zmierzone na
+>   gałęzi próbnej z trzema podwładnymi: po pierwszym i drugim przeciągnięciu karty paska nie ma
+>   żadnego ostrzeżenia, po trzecim (gałąź pustoszeje) pojawia się zdanie o jednej regule;
+>   „Odrzuć wszystkie" zabiera je razem z partią. Po zapisie lista reguł pokazuje tę regułę jako
+>   „wyłączona automatycznie · nie ma podwładnych od 24.10", a kafle schodzą na 0.
+> - **Zmierzone na 1920 / 1366 / 375**: ostrzeżenie widoczne na każdej szerokości (46 px wysokości
+>   na biurku, 141 px na telefonie, gdzie zdanie i odnośnik jadą w pionie), przewijanie poziome
+>   0 px na 1920 i 1366. ⚠ Na 375 px strona ma 73 px nadmiaru i **nie bierze się on z ostrzeżenia**
+>   (jego `scrollWidth` to 307 px przy pasku 343 px): to rząd trzech przycisków paska
+>   (`.hier__bar-actions`, `flex: none`, `scrollWidth` 415 px), czyli stan zastany — zgłoszony,
+>   nie poprawiany po cichu. Dołożone `flex-wrap` go zmniejsza, bo przyciski schodzą do swojego
+>   wiersza zamiast stać obok tekstu.
 
 > **Zmiana 1.20.3 → 1.20.4: okno „Dodaj dostęp" nie wybiera niczego za człowieka, a stopka ma
 > na każdym kroku dokładnie dwa przyciski** (zlecenie Z81; decyzja Krzysztofa z 24.10.2026:

@@ -3609,6 +3609,9 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  /* ⚠ `wrap` jest po to, żeby ostrzeżenie o regułach widoczności zeszło do drugiego wiersza
+     na pełną szerokość (Z80 cz. C) — a nie dla samych przycisków, które mieszczą się w jednym. */
+  flex-wrap: wrap;
   gap: var(--s-4);
   margin-top: var(--s-4);
   padding: var(--s-4);
@@ -3618,6 +3621,38 @@ body:has(dialog.modal[open]) { overflow: hidden; }
   box-shadow: var(--shadow-pop);
 }
 .hier__bar-text { display: grid; gap: var(--s-2); min-width: 0; }
+/* ══════════ Ostrzeżenie o regułach widoczności w pasku zmian (zlecenie Z80 cz. C) ══════════
+   ⚠ **Druga linia paska, pełna szerokość** — `flex-wrap` na pasku plus `flex-basis: 100%` tutaj.
+   Element postawiony POD paskiem byłby poza ekranem, bo pasek jest `position: sticky; bottom: 0`.
+   ⚠ **`:empty` musi znikać przez `display: none`**, a nie samą zerową wysokością: `gap`
+   na pasku liczy się między WSZYSTKIMI elementami, także pustymi, więc pusty pojemnik
+   dokładałby 16 px przerwy pod przyciskami na każdym ekranie bez ostrzeżenia. */
+.hier__ostrzezenie-pojemnik { flex: 1 0 100%; }
+.hier__ostrzezenie-pojemnik:empty { display: none; }
+.hier__ostrzezenie {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-2);
+  margin: 0;
+  padding: var(--s-3);
+  border: 1px solid var(--c-warn-line);
+  border-radius: var(--radius);
+  background: var(--c-warn-soft);
+  color: var(--c-warn-text);
+  font-size: var(--t-small);
+}
+/* Znak trójkąta w barwie ostrzeżenia, nie tekstu — ikona jest tu sygnałem, nie ozdobą. */
+.hier__ostrzezenie-znak { flex: none; display: flex; color: var(--c-warn); }
+.hier__ostrzezenie-tresc { min-width: 0; }
+/* ⚠ Odnośnik NIE zawija się razem ze zdaniem i stoi na końcu linii, nie pod spodem:
+   „Pokaż regułę ›" jest wyjściem z tego ostrzeżenia, a wyjście ma być widoczne bez szukania. */
+.hier__ostrzezenie-link { flex: none; margin-left: auto; color: var(--c-warn-text); white-space: nowrap; }
+@media (max-width: 700px) {
+  /* Na telefonie zdanie i odnośnik jadą w pionie — w jednej linii odnośnik zjadałby
+     połowę szerokości zdania. */
+  .hier__ostrzezenie { flex-wrap: wrap; }
+  .hier__ostrzezenie-link { margin-left: 28px; }
+}
 .hier__bar-list { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--s-1); }
 /* ⚠ `--t-small`, nie `--fs-sm`: tokena `--fs-sm` nie ma w zestawie, więc wiersze paska brały
    rozmiar odziedziczony (zmierzone: 14 px, czyli tyle, ile treść). `--t-small` (13 px) to w tym

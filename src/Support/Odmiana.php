@@ -169,6 +169,20 @@ final class Odmiana
     }
 
     /**
+     * „wyłączy 1 regułę", „wyłączy 2 reguły", „wyłączy 5 reguł" — ostrzeżenie paska zmian
+     * w Hierarchii (zlecenie Z80 cz. C).
+     *
+     * ⚠ **Biernik, nie mianownik**, bo to zdanie zawsze ma czasownik przechodni: „ta zmiana
+     * wyłączy…". Mianownik dałby „wyłączy 1 reguła"; forma po 2–4 jest w obu przypadkach ta
+     * sama („reguły"), więc błąd widać dopiero przy jednej regule — czyli w najczęstszym
+     * przypadku na ekranie.
+     */
+    public static function reguly(int $ile): string
+    {
+        return abs($ile) === 1 ? 'regułę' : (self::mnoga($ile) ? 'reguły' : 'reguł');
+    }
+
+    /**
      * Czy liczba bierze formę mnogą „lekką” (2, 3, 4), a nie dopełniacz (5 i więcej).
      *
      * ⚠ Wyjątek nastu (12, 13, 14) jest konieczny: bez niego wychodzi „13 dni robocze”

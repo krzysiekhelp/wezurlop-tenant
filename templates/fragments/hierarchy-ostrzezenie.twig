@@ -1,0 +1,30 @@
+{#- **Ostrzeżenie pod paskiem niezapisanych zmian: ten zapis wyłączy reguły widoczności**
+    (zlecenie Z80 cz. C).
+
+    ⚠ **Liczbę i oba zdania składa kontroler** (`HierarchyController::podglad()`), a liczy je
+    serwer TĄ SAMĄ drogą, którą pójdzie zapis — razem z walidacją partii. Szablon niczego nie
+    przelicza i niczego nie odmienia (CLAUDE.md §5).
+
+    ⚠ **Pusty fragment przy zerze, a nie zdanie „nic się nie wyłączy".** Ostrzeżenie ma być
+    wydarzeniem: pojawia się wtedy i tylko wtedy, gdy zapis komuś odbierze wgląd. Stała linia
+    „zmiana nie wyłączy żadnej reguły" przy każdym przeciągnięciu karty uczy ją pomijać wzrokiem
+    i wtedy nie zauważy się tej jednej, która mówi co innego.
+
+    ⚠ **Odnośnik prowadzi na listę reguł, a nie do okna konkretnej reguły.** Zapisu jeszcze nie
+    było, więc nie wiadomo, która reguła zostanie wyłączona jako pierwsza — a adres do okna
+    reguły, która nadal daje wgląd, pokazywałby stan sprzed zmiany i mylił.
+
+    Zmienne: `regul` (liczba), `naglowek`, `zdanie`, `odnosnik`, `spolka`. -#}
+{% if regul > 0 %}
+    {% import 'partials/ikony.twig' as ikony %}
+    {#- `role="status"` — treść podmienia htmx po przeciągnięciu karty, więc czytnik ekranu ma
+        ją przeczytać bez przenoszenia ogniska (to nie jest błąd formularza). -#}
+    <p class="hier__ostrzezenie" role="status">
+        <span class="hier__ostrzezenie-znak" aria-hidden="true">{{ ikony.uwaga() }}</span>
+        <span class="hier__ostrzezenie-tresc">
+            <strong>{{ naglowek }}</strong>
+            {{ zdanie }}
+        </span>
+        <a class="hier__ostrzezenie-link" href="{{ url('/admin/widocznosc') }}?spolka={{ spolka.id }}">{{ odnosnik }}</a>
+    </p>
+{% endif %}

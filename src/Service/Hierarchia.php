@@ -341,6 +341,66 @@ final class Hierarchia
     }
 
     /**
+     * **Podgląd: co ten zapis zrobi z regułami widoczności** (zlecenie Z80 cz. C) — liczony
+     * PRZED zapisem, po stronie serwera, bez zapisywania czegokolwiek.
+     *
+     * ⚠ **Ta sama walidacja i ta sama pętla, co w `zapisz()`** — stąd `sprawdz()` tutaj, a nie
+     * „optymistyczne" nałożenie zmian. Partia, której zapis odrzuci, nie wyłączy ani jednej
+     * reguły, więc podgląd takiej partii MUSI mówić „nic" zamiast liczby, której zapis nigdy
+     * nie osiągnie. Inaczej pasek straszyłby ostrzeżeniem, a zapis kończyłby się odmową.
+     *
+     * ⚠ **Bez blokad wierszy** (`$blokuj = false`): pasek odpytuje serwer przy każdym
+     * przeciągnięciu karty, a odczyt pokazujący ostrzeżenie nie ma prawa blokować wierszy
+     * załogi. Jedyna różnica wobec zapisu jest w tym jednym argumencie i w tym, że nic nie
+     * zapisujemy — reszta drogi jest wspólna.
+     *
+     * ⚠ Nazwiska bierzemy z TEJ SAMEJ mapy, co zdania paska (`zatrudnienia()`), a nie z listy
+     * przełożonych: osoba, która po zmianie nie będzie miała podwładnych, na liście przełożonych
+     * już się nie znajdzie — a to właśnie o niej jest całe ostrzeżenie (ta sama pułapka
+     * co w wierszu reguły wyłączonej automatycznie, Z80 cz. B).
+     *
+     * @param list<array{employment: int, cel: string, supervisor?: int|null}> $zmiany
+     * @return array{powod: ?string, reguly: list<array{powod: string, osoba: string}>}
+     */
+    public function podgladZmian(int $companyId, array $zmiany): array
+    {
+        if ($zmiany === []) {
+            return ['powod' => null, 'reguly' => []];
+        }
+        $krawedzie = $this->hierarchia->krawedzie($companyId);
+        foreach ($zmiany as $zmiana) {
+            $wynik = $this->sprawdz($companyId, $zmiana, $krawedzie, false);
+            if ($wynik['powod'] !== null) {
+                return ['powod' => $wynik['powod'], 'reguly' => []];
+            }
+            // Stan w pamięci idzie za zmianami — tak samo jak przy zapisie, bo dwie zmiany
+            // w jednej partii dopiero razem mogą zabrać komuś ostatniego podwładnego.
+            if ($wynik['supervisor'] === null) {
+                unset($krawedzie[$wynik['employment']]);
+            } else {
+                $krawedzie[$wynik['employment']] = $wynik['supervisor'];
+            }
+        }
+        $nazwy = [];
+        foreach ($this->hierarchia->zatrudnienia($companyId) as $z) {
+            $nazwy[$z['id']] = $z['osoba'];
+        }
+        $reguly = [];
+        foreach ($this->widocznosc->podgladPoZmianieHierarchii($companyId, $krawedzie) as $r) {
+            $osoba = '';
+            foreach ($r['etaty'] as $etat) {
+                if (isset($nazwy[$etat])) {
+                    $osoba = (string) $nazwy[$etat];
+                    break;
+                }
+            }
+            $reguly[] = ['powod' => $r['powod'], 'osoba' => $osoba];
+        }
+
+        return ['powod' => null, 'reguly' => $reguly];
+    }
+
+    /**
      * Zdanie dla paska zmian i dla dziennika — **jedno brzmienie w obu miejscach**.
      *
      * Format z makiety: „Nowak Anna → przełożony: Kowalski Jan (było: nie ustawiono)".
@@ -370,17 +430,21 @@ final class Hierarchia
      * Sprawdzenie jednej zmiany na stanie z bazy.
      *
      * @param array{employment: int, cel: string, supervisor?: int|null} $zmiana
+     * ⚠ `$blokuj = false` wyłącza blokadę wiersza i jest WYŁĄCZNIE dla podglądu
+     * (`podgladZmian()`): sama walidacja jest identyczna, bo inaczej podgląd uznawałby za
+     * dopuszczalną partię, którą zapis odrzuci.
+     *
      * @param array<int, int> $krawedzie
      * @return array{powod: ?string, employment: int, supervisor: ?int, szczyt: bool,
      *     poprzedni: ?int, poprzedni_szczyt: bool}
      */
-    private function sprawdz(int $companyId, array $zmiana, array $krawedzie): array
+    private function sprawdz(int $companyId, array $zmiana, array $krawedzie, bool $blokuj = true): array
     {
         $puste = [
             'employment' => $zmiana['employment'] ?? 0, 'supervisor' => null, 'szczyt' => false,
             'poprzedni' => null, 'poprzedni_szczyt' => false,
         ];
-        $wiersz = $this->hierarchia->doZapisu((int) ($zmiana['employment'] ?? 0));
+        $wiersz = $this->hierarchia->doZapisu((int) ($zmiana['employment'] ?? 0), $blokuj);
         // ⚠ Zgodność spółki sprawdzana po stronie serwera, nie „bo ekran pokazuje jedną
         // spółkę": inaczej dane kadrowe jednej spółki wychodzą ścieżką akceptacji drugiej.
         if ($wiersz === null || !$wiersz['aktywne'] || $wiersz['company_id'] !== $companyId) {
@@ -409,7 +473,7 @@ final class Hierarchia
         if ($supervisorId <= 0) {
             return ['powod' => self::POWOD_BRAK_CELU] + $puste;
         }
-        $szef = $this->hierarchia->doZapisu($supervisorId);
+        $szef = $this->hierarchia->doZapisu($supervisorId, $blokuj);
         if ($szef === null || !$szef['aktywne']) {
             return ['powod' => self::POWOD_BRAK_OSOBY] + $puste;
         }

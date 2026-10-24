@@ -176,7 +176,7 @@
             wtedy zapisuje się pojedynczo, menu „⋯" przy karcie. -#}
         <form class="hier__bar" id="hier-bar" method="post" action="{{ url('/admin/hierarchia/zapisz') }}" hidden>
             {% include 'partials/csrf.twig' %}
-            <input type="hidden" name="spolka" value="{{ spolka.id }}">
+            <input type="hidden" name="spolka" value="{{ spolka.id }}" id="hier-spolka">
             <div class="hier__bar-text">
                 <strong id="hier-bar-count">0 zmian</strong>
                 <ul class="hier__bar-list" id="hier-bar-list"></ul>
@@ -186,6 +186,23 @@
                 <button type="button" class="btn btn--ghost" id="hier-discard">Odrzuć wszystkie</button>
                 <button type="submit" class="btn btn--primary">Zapisz zmiany</button>
             </div>
+            {#- ⚠ **Ostrzeżenie o regułach widoczności stoi W PASKU, jako jego druga linia**
+                (zlecenie Z80 cz. C). Pasek jest `position: sticky; bottom: 0`, więc element
+                postawiony POD nim leżałby poza ekranem dokładnie wtedy, gdy pasek jest widoczny —
+                czyli ostrzeżenia nie zobaczyłby nikt. Pełna szerokość drugiego wiersza przez
+                `flex-wrap`, nie przez drugi pojemnik.
+                ⚠ **Treść dociąga serwer przy każdej zmianie partii** (`wezurlop:hier-zmiany`
+                z `modules/hierarchia.js`): „ile reguł wyłączy ten zapis" można policzyć wyłącznie
+                po stronie serwera, bo zależy od reguł widoczności, których ten ekran nie zna.
+                ⚠ **`hx-include` wymienia POLA, a nie formularz** — i to jest wymóg, nie styl:
+                `#hier-bar` wciągnęłoby też token CSRF, a ten jedzie `GET`-em do paska adresu,
+                historii przeglądarki i logów serwera (CLAUDE.md §13, ta sama pułapka co w Z55).
+                Pola partii buduje skrypt i znaczy je `data-hier-pole`. -#}
+            <div id="hier-ostrzezenie" class="hier__ostrzezenie-pojemnik"
+                 hx-get="{{ url('/admin/hierarchia/podglad') }}"
+                 hx-trigger="wezurlop:hier-zmiany"
+                 hx-include="[data-hier-pole], #hier-spolka"
+                 hx-target="this" hx-swap="innerHTML"></div>
         </form>
         {#- ⚠ Istniejący komponent `.modal` (ten sam co na `/admin/konta` i `/admin/integracja`),
             nie nowy: tło, `Escape`, ognisko i wspólna obsługa `data-modal-open` są już zrobione.

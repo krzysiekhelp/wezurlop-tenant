@@ -156,6 +156,11 @@ $webOnly = [
     // pilnuje tego samego uprawnienia — inaczej menu kłamie o dostępie.
     ['GET',  '/admin/hierarchia',                        [HierarchyController::class, 'index'],       'permission' => 'admin.hierarchy', 'zakres' => 'spolka'],
     ['GET',  '/admin/hierarchia/osoba/{id:\d+}',         [HierarchyController::class, 'person'],      'permission' => 'admin.hierarchy', 'zakres' => 'spolka'],
+    // ⚠ **Podgląd skutku niezapisanych zmian jest `GET`-em** (zlecenie Z80 cz. C): nie zapisuje
+    // nic i nie bierze blokad na wierszach, a pasek zmian odpytuje go przy każdym przeciągnięciu
+    // karty. To samo uprawnienie i ten sam zakres spółki co zapis — fragment htmx jest
+    // pełnoprawnym endpointem (CLAUDE.md §5).
+    ['GET',  '/admin/hierarchia/podglad',                [HierarchyController::class, 'podglad'],     'permission' => 'admin.hierarchy', 'zakres' => 'spolka'],
     ['POST', '/admin/hierarchia/zapisz',                 [HierarchyController::class, 'save'],        'permission' => 'admin.hierarchy', 'zakres' => 'spolka'],
     // ⚠ **Grupy pod TYM SAMYM uprawnieniem co hierarchia** — `admin.groups` świadomie
     // NIE powstało (zlecenie 08.10 §0): uprawnienie bez roli, której można by je nadać, jest

@@ -252,31 +252,35 @@ final class WidocznoscService
      * jest przyjęta świadomie: po powrocie podwładnych regułę włącza CZŁOWIEK, nie system,
      * a przed przypadkową utratą dostępu ostrzega pasek w Hierarchii (część C).
      *
+     * ⚠ **`$zPodwladnymi` to NAKŁADKA dla podglądu** (zlecenie Z80 cz. C): zbiór zatrudnień,
+     * które **po niezapisanej jeszcze zmianie** będą miały choć jednego czynnego podwładnego.
+     * Podany — odpowiada na pytanie „ma podwładnych" zamiast bazy; `null` (zwykła droga) znaczy
+     * „pytaj bazy". Innej różnicy między podglądem a zapisem NIE MA i mieć nie może: pasek
+     * w Hierarchii ma ostrzegać dokładnie o tym, co zrobi zapis.
+     *
      * @param array<string, mixed> $regula wiersz z `CalendarAccessRepository`
+     * @param array<int, true>|null $zPodwladnymi nakładka „te etaty będą miały podwładnych"
      */
-    public function skutek(array $regula, int $companyId): ?string
+    public function skutek(array $regula, int $companyId, ?array $zPodwladnymi = null): ?string
     {
         $kto = (string) $regula['subject_kind'];
         // Reguły stałe firmy są aktywne zawsze i nie mają przełącznika (§B1).
         if (CalendarAccessRepository::stala($kto)) {
             return null;
         }
-        $etatyPodmiotu = [];
+        $etatyPodmiotu = $this->etatyPodmiotu($companyId, $regula);
         if ($kto === ZakresWidocznosci::KTO_KONTO) {
             if (!$this->kandydatem($companyId, (int) $regula['subject_account_id'])) {
                 return self::BEZ_SKUTKU_KONTO;
             }
-            $etatyPodmiotu = $this->reguly->etatyKonta($companyId, (int) $regula['subject_account_id']);
         } elseif ($kto === ZakresWidocznosci::KTO_PRZELOZONY) {
-            $etatyPodmiotu = [(int) $regula['subject_employment_id']];
-            if ($this->reguly->zEtatowZPodwladnymi($companyId, $etatyPodmiotu) === []) {
+            if (!$this->majaPodwladnych($companyId, $etatyPodmiotu, $zPodwladnymi)) {
                 return self::BEZ_SKUTKU_PODWLADNI;
             }
         } elseif ($kto === ZakresWidocznosci::KTO_GRUPA) {
             if ($this->grupy->find((int) $regula['subject_group_id'], $companyId) === null) {
                 return self::BEZ_SKUTKU_GRUPA;
             }
-            $etatyPodmiotu = $this->reguly->zatrudnieniaGrup($companyId, [(int) $regula['subject_group_id']]);
         }
 
         $czyje = (string) $regula['target_kind'];
@@ -296,9 +300,9 @@ final class WidocznoscService
                 return null;
             }
 
-            return $this->reguly->zEtatowZPodwladnymi($companyId, $etatyPodmiotu) === []
-                ? self::BEZ_SKUTKU_PODWLADNI
-                : null;
+            return $this->majaPodwladnych($companyId, $etatyPodmiotu, $zPodwladnymi)
+                ? null
+                : self::BEZ_SKUTKU_PODWLADNI;
         }
         if ($czyje === ZakresWidocznosci::CZYJE_OSOBY) {
             return $this->reguly->czynneZatrudnienia($companyId, $cel) === []
@@ -320,16 +324,141 @@ final class WidocznoscService
     }
 
     /**
+     * Zatrudnienia PODMIOTU reguły — jedno miejsce, bo pytają o nie `skutek()` i podgląd z części C.
+     *
+     * ⚠ Podmiotem bywa konto bez etatu w tej firmie (rola nadana na firmę albo na tenant) —
+     * wtedy lista jest pusta i to jest poprawna odpowiedź, nie błąd: taka reguła nie może mieć
+     * celu „podwładni", bo nie ma czyjej gałęzi liczyć.
+     *
+     * @param array<string, mixed> $regula
+     * @return list<int>
+     */
+    private function etatyPodmiotu(int $companyId, array $regula): array
+    {
+        return match ((string) $regula['subject_kind']) {
+            ZakresWidocznosci::KTO_KONTO => $this->reguly->etatyKonta($companyId, (int) $regula['subject_account_id']),
+            ZakresWidocznosci::KTO_PRZELOZONY => [(int) $regula['subject_employment_id']],
+            ZakresWidocznosci::KTO_GRUPA => $this->reguly->zatrudnieniaGrup($companyId, [(int) $regula['subject_group_id']]),
+            default => [],
+        };
+    }
+
+    /**
+     * **Czy któreś z tych zatrudnień ma dziś podwładnych** — albo, przy nakładce, będzie je miało
+     * po niezapisanej zmianie (zlecenie Z80 cz. C).
+     *
+     * ⚠ Jedno miejsce na to pytanie, bo `skutek()` zadaje je dwa razy (podmiot „przełożony"
+     * i cel „podwładni"), a podgląd w Hierarchii zadaje je o stan, którego w bazie jeszcze
+     * nie ma. Dwie definicje znaczyłyby pasek ostrzegający o czymś innym, niż zrobi zapis.
+     *
+     * @param list<int> $etaty
+     * @param array<int, true>|null $nakladka
+     */
+    private function majaPodwladnych(int $companyId, array $etaty, ?array $nakladka): bool
+    {
+        if ($nakladka === null) {
+            return $this->reguly->zEtatowZPodwladnymi($companyId, $etaty) !== [];
+        }
+        foreach ($etaty as $etat) {
+            if (isset($nakladka[(int) $etat])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * **Reguły firmy, które nie dają już nic** — jedna pętla na przeliczenie i na podgląd.
+     *
+     * ⚠ **System NIGDY nie włącza reguły sam** (§B4), dlatego pętla pomija reguły już wyłączone
+     * i nie pyta ich o skutek. Włączyć może wyłącznie administrator i tylko regułę ze skutkiem.
+     *
+     * @param array<int, true>|null $zPodwladnymi nakładka podglądu — patrz `skutek()`
+     * @return list<array{regula: array<string, mixed>, powod: string}>
+     */
+    private function bezSkutku(int $companyId, ?array $zPodwladnymi): array
+    {
+        $bez = [];
+        foreach ($this->reguly->reguly($companyId) as $regula) {
+            if (CalendarAccessRepository::stala((string) $regula['subject_kind'])) {
+                continue;
+            }
+            if ((int) ($regula['is_active'] ?? 1) !== 1) {
+                continue;
+            }
+            $powod = $this->skutek($regula, $companyId, $zPodwladnymi);
+            if ($powod === null) {
+                continue;
+            }
+            $bez[] = ['regula' => $regula, 'powod' => $powod];
+        }
+
+        return $bez;
+    }
+
+    /**
+     * **Podgląd: co wyłączy zapis TEJ zmiany hierarchii** (zlecenie Z80 cz. C) — bez zapisu
+     * i bez blokad na wierszach.
+     *
+     * ⚠ **Liczone z bazy przesuniętej o zmianę, a nie z bazy po zapisie.** `przelicz()` pyta
+     * bazy, więc przed zapisem odpowiedziałby o stanie SPRZED zmiany — czyli pasek milczałby
+     * dokładnie wtedy, gdy ma ostrzegać. Dlatego podgląd składa nakładkę „kto będzie miał
+     * podwładnych" z krawędzi PO zmianie i podaje ją tej samej pętli, która zapis wykonuje.
+     * ⚠ Rozważany wariant „policz w transakcji i wycofaj ją" odpada: pasek odpytuje serwer przy
+     * każdym przeciągnięciu karty, a to brałoby blokady wierszy całej gałęzi przy zwykłym
+     * wyświetleniu ostrzeżenia (rozstrzygnięcie zarządcy z 24.10.2026).
+     *
+     * ⚠ Czynność zatrudnienia bierzemy z `czynneZatrudnienia()` — TEJ SAMEJ metody, którą
+     * mierzy się cel „wskazane osoby" — bo „czynny podwładny" i „czynna osoba w celu" to jedno
+     * pojęcie. Zmiana hierarchii nie zmienia niczyjej czynności, więc nakładce wystarczą
+     * krawędzie: przesunięcie etatu zabiera podwładnego staremu przełożonemu i daje nowemu.
+     *
+     * @param array<int, int> $krawedziePo `zatrudnienie => przełożony` PO zmianie
+     * @return list<array{id: int, powod: string, podmiot_rodzaj: string, podmiot_id: int, etaty: list<int>}>
+     */
+    public function podgladPoZmianieHierarchii(int $companyId, array $krawedziePo): array
+    {
+        $wszystkie = array_values(array_unique(array_merge(
+            array_map('intval', array_keys($krawedziePo)),
+            array_map('intval', array_values($krawedziePo)),
+        )));
+        $czynne = array_fill_keys($this->reguly->czynneZatrudnienia($companyId, $wszystkie), true);
+        $zPodwladnymi = [];
+        foreach ($krawedziePo as $etat => $szef) {
+            // ⚠ Oba końce krawędzi muszą być czynne — tak samo jak w zapytaniu, które mierzy
+            // „przełożony z podwładnymi" (`SQL_PRZELOZENI`: `e.is_active` i `e3.is_active`).
+            if (isset($czynne[(int) $etat], $czynne[(int) $szef])) {
+                $zPodwladnymi[(int) $szef] = true;
+            }
+        }
+
+        $wynik = [];
+        foreach ($this->bezSkutku($companyId, $zPodwladnymi) as $wpis) {
+            $regula = $wpis['regula'];
+            $wynik[] = [
+                'id' => (int) $regula['id'],
+                'powod' => $wpis['powod'],
+                'podmiot_rodzaj' => (string) $regula['subject_kind'],
+                'podmiot_id' => self::podmiotId($regula),
+                'etaty' => $this->etatyPodmiotu($companyId, $regula),
+            ];
+        }
+
+        return $wynik;
+    }
+
+    /**
      * **Przeliczenie reguł firmy: wyłącz te, które straciły skutek** (zlecenie Z80 B3).
      *
-     * ⚠ **System NIGDY nie włącza reguły sam** (§B4) — dlatego pętla pomija reguły już
-     * wyłączone i nie pyta ich o skutek. Włączyć może wyłącznie administrator, świadomie,
-     * i tylko regułę, która skutek ma.
+     * ⚠ **System NIGDY nie włącza reguły sam** (§B4) — pilnuje tego wspólna pętla `bezSkutku()`,
+     * która pomija reguły już wyłączone i nie pyta ich o skutek. Włączyć może wyłącznie
+     * administrator, świadomie, i tylko regułę, która skutek ma.
      *
-     * ⚠ `$zapisz = false` daje PODGLĄD tej samej listy, bez tykania bazy — tego potrzebuje
-     * ostrzeżenie w Hierarchii (część C). Jedna funkcja na podgląd i na zapis, bo dwie
-     * rozjechałyby się przy pierwszym nowym wyzwalaczu i pasek ostrzegałby o czymś innym,
-     * niż zrobi zapis.
+     * ⚠ `$zapisz = false` daje PODGLĄD tej samej listy, bez tykania bazy — ale liczony na stanie
+     * bazy, czyli PO ewentualnej zmianie. Podglądu „co wyłączy zmiana, której jeszcze nie ma"
+     * nie da się z tego zrobić i do tego jest `podgladPoZmianieHierarchii()` wyżej — tamto
+     * dokłada nakładkę i puszcza TĘ SAMĄ pętlę.
      *
      * ⚠ **Lista dróg wołających tę metodę jest ZAMKNIĘTA** (stan na 23.10.2026): zapis
      * hierarchii, wygaszenie etatu z synchronizacji, blokada konta, usunięcie grupy i sam zapis
@@ -343,17 +472,9 @@ final class WidocznoscService
     public function przelicz(int $companyId, bool $zapisz, ?int $accountId, ?string $aktor): array
     {
         $wylaczone = [];
-        foreach ($this->reguly->reguly($companyId) as $regula) {
-            if (CalendarAccessRepository::stala((string) $regula['subject_kind'])) {
-                continue;
-            }
-            if ((int) ($regula['is_active'] ?? 1) !== 1) {
-                continue;
-            }
-            $powod = $this->skutek($regula, $companyId);
-            if ($powod === null) {
-                continue;
-            }
+        foreach ($this->bezSkutku($companyId, null) as $wpis) {
+            $regula = $wpis['regula'];
+            $powod = $wpis['powod'];
             $ruleId = (int) $regula['id'];
             $wylaczone[$ruleId] = $powod;
             if (!$zapisz) {

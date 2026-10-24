@@ -39,6 +39,14 @@ use Wezurlop\Support\Odmiana;
         $check("osoby({$ile})", Odmiana::osoby($ile), $oczekiwane);
     }
 
+    // ⚠ `reguly()` jest w BIERNIKU, bo zdanie paska zmian w Hierarchii zawsze ma czasownik
+    // przechodni („ta zmiana wyłączy…"). Mianownik różni się tylko w liczbie pojedynczej
+    // („1 reguła" wobec „1 regułę"), więc błąd wyszedłby w najczęstszym przypadku na ekranie.
+    foreach ([1 => 'regułę', 2 => 'reguły', 4 => 'reguły', 5 => 'reguł', 12 => 'reguł',
+              22 => 'reguły', 25 => 'reguł'] as $ile => $oczekiwane) {
+        $check("reguly({$ile})", Odmiana::reguly($ile), $oczekiwane);
+    }
+
     // Kafel kolejki na `/ustawienia/poczta` (Z43): prototyp miał „N zadania", czyli formę
     // poprawną wyłącznie dla 2–4, a kafel pokazuje liczbę prosto z bazy.
     foreach ([0 => 'zadań', 1 => 'zadanie', 2 => 'zadania', 5 => 'zadań', 13 => 'zadań',

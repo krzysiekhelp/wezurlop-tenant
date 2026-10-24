@@ -18,6 +18,9 @@
   var bar = document.getElementById('hier-bar');
   var lista = document.getElementById('hier-bar-list');
   var licznik = document.getElementById('hier-bar-count');
+  /* Pojemnik ostrzeżenia o regułach widoczności (Z80 cz. C) — treść dociąga htmx z serwera,
+     bo „ile reguł wyłączy ten zapis" zależy od reguł, których ten ekran nie zna. */
+  var ostrzezenie = document.getElementById('hier-ostrzezenie');
   if (!bar || !lista || !licznik) { return; }
 
   var zmiany = [];          // {employment, cel, supervisor, opis, wezel, poprzedniRodzic, poprzedniSasiad}
@@ -82,6 +85,22 @@
     }
     licznik.textContent = zmiany.length === 1 ? '1 zmiana' : zmiany.length + ' zmian';
     bar.hidden = zmiany.length === 0;
+    odswiezOstrzezenie();
+  }
+
+  /* ⚠ **Ostrzeżenie liczy SERWER, przy każdej zmianie partii.** Zdarzenie wysyłamy na sam
+     pojemnik (`hx-trigger` na nim nasłuchuje), a pola partii zbiera `hx-include` — te same,
+     które pójdą do zapisu. Przy pustej partii nie pytamy: nie ma czego policzyć, a stare
+     ostrzeżenie musi zniknąć od razu, bo po „Odrzuć wszystkie" mówiłoby o zmianach,
+     których już nie ma.
+     ⚠ Czyścimy przez `removeChild`, nie `innerHTML` (CLAUDE.md §6). */
+  function odswiezOstrzezenie() {
+    if (!ostrzezenie) { return; }
+    if (zmiany.length === 0) {
+      while (ostrzezenie.firstChild) { ostrzezenie.removeChild(ostrzezenie.firstChild); }
+      return;
+    }
+    ostrzezenie.dispatchEvent(new CustomEvent('wezurlop:hier-zmiany'));
   }
 
   function dodajPole(nazwaPola, wartosc) {

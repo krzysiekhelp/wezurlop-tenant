@@ -179,19 +179,26 @@ final class HierarchyRepository
     }
 
     /**
-     * Zatrudnienie do zapisu — z blokadą wiersza.
+     * Zatrudnienie do decyzji o krawędzi — domyślnie **z blokadą wiersza**.
      *
      * ⚠ `FOR UPDATE`: dwóch administratorów przestawiających tę samą gałąź w tej samej sekundzie
      * mogłoby ułożyć cykl, którego żaden z nich osobno nie widział (każdy sprawdzał łańcuch
      * sprzed zmiany drugiego).
      *
+     * ⚠ **`$blokuj = false` jest dla PODGLĄDU** (zlecenie Z80 cz. C): pasek niezapisanych zmian
+     * w Hierarchii pyta o skutek zmiany **przy każdym przeciągnięciu karty**, a to jest odczyt —
+     * nie ma prawa zakładać blokad na wierszach załogi tylko po to, żeby pokazać ostrzeżenie.
+     * ⚠ Zapytanie zostaje JEDNO, a różnica jest dopiskiem z wartości logicznej, nie drugą
+     * metodą: dwa zapytania o ten sam wiersz rozjechałyby się przy pierwszej nowej kolumnie,
+     * a wtedy podgląd mówiłby co innego niż zapis — czyli dokładnie to, czemu część C ma zapobiec.
+     *
      * @return array{id: int, company_id: int, supervisor_id: ?int, szczyt: bool, aktywne: bool}|null
      */
-    public function doZapisu(int $employmentId): ?array
+    public function doZapisu(int $employmentId, bool $blokuj = true): ?array
     {
         $stmt = $this->db->pdo()->prepare(
             'SELECT id, company_id, supervisor_employment_id, is_hierarchy_root, is_active
-             FROM employment WHERE id = :id FOR UPDATE'
+             FROM employment WHERE id = :id' . ($blokuj ? ' FOR UPDATE' : '')
         );
         $stmt->execute(['id' => $employmentId]);
         $row = $stmt->fetch();
